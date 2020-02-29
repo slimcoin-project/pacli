@@ -1,4 +1,5 @@
 from typing import Optional, Union
+from decimal import Decimal ### NEW 
 import operator
 import functools
 import fire
@@ -17,7 +18,7 @@ from pypeerassets.__main__ import get_card_transfer
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.keystore import init_keystore
+from pacli.keystore import init_keystore, set_new_key, delete_key, get_key, load_key ### MODIFIED ###
 from pacli.tui import print_deck_info, print_deck_list
 from pacli.tui import print_card_list
 from pacli.export import export_to_csv
@@ -95,6 +96,62 @@ class Address:
         except KeyError:
             pprint({'error': 'No UTXOs ;('})
 
+    def new_privkey(self, key: str=None, backup: str=None, keyid: str=None, wif: bool=False, force: bool=False) -> str: ### NEW FEATURE ###
+        '''import new private key, taking hex or wif format, or generate new key.
+           You can assign a key name, otherwise it will become the main key.'''
+
+        if wif:
+            new_key = pa.Kutil(network=Settings.network, from_wif=key)
+            key = new_key.privkey
+        elif (not keyid) and key:
+            new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key))
+
+        set_new_key(new_key=key, backup_id=backup, key_id=keyid, force=force)
+
+        if not keyid:
+            if not new_key:
+                new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
+            Settings.key = new_key
+
+        return Settings.key.address # this still doesn't work properly
+
+    def set_main(self, keyid: str, backup: str=None, force: bool=False) -> str: ### NEW FEATURE ###
+        '''restores old key from backup and sets as personal address'''
+
+        set_new_key(old_key_backup=keyid, backup_id=backup, force=force)
+        Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
+
+        return Settings.key.address
+
+    def show_stored(self, keyid: str, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str: ### NEW FEATURE ###
+        '''shows stored alternative keys'''
+
+        raw_key = bytearray.fromhex(get_key(keyid))
+        key = pa.Kutil(network=Settings.network, privkey=raw_key)
+
+        if privkey:
+             return key.privkey
+        elif pubkey:
+             return key.pubkey
+        elif wif:
+             return key.wif
+        else:
+             return key.address
+
+    def delete_key_from_keyring(self, keyid: str) -> None: ### NEW FEATURE ###
+        '''deletes a key with an id. Cannot be used to delete main key.'''
+        delete_key(keyid)
+
+    def import_to_wallet(self, accountname: str, keyid: str=None) -> None: ### NEW FEATURE ###
+        '''imports main key or any stored key to wallet managed by RPC node.
+           TODO: should accountname be mandatory or not?'''
+        if keyid:
+            pkey = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(get_key(keyid)))
+            wif = pkey.wif
+        else:
+            wif = Settings.wif
+        provider.importprivkey(wif, account_name=accountname)
+        
 
 class Deck:
 
@@ -215,6 +272,16 @@ class Deck:
         pprint(
             {'combo': functools.reduce(operator.or_, *args)
              })
+
+    @classmethod
+    def at_spawn(self, name, tracked_address, verify: bool=False, sign: bool=False,
+              send: bool=False, locktime: int=0, multiplier=1, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
+        '''Wrapper to facilitate addresstrack spawns without having to deal with asset_specific_data.'''
+
+        asset_specific_data = b"trk:" + tracked_address.encode("utf-8") + b":" + str(multiplier).encode("utf-8")
+
+        return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
+                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
 
 class Card:
@@ -403,6 +470,58 @@ class Card:
         for i in cards:
             pprint(i.to_json())
 
+    @classmethod
+    def __find_deck_data(self, deckid: str) -> tuple: ### NEW FEATURE - ADDRESSTRACK ###
+        '''returns addresstrack-specific data'''
+
+        deck = self.__find_deck(deckid)
+
+        try:
+            tracked_address, multiplier = deck.asset_specific_data.split(b":")[1:3]
+        except IndexError:
+            raise Exception("Deck has not the correct format for address tracking.")
+
+        return tracked_address.decode("utf-8"), int(multiplier)
+
+    @classmethod ### NEW FEATURE - ADDRESSTRACK ###
+    def at_issue(self, deckid: str, txid: str, receiver: list=None, amount: list=None,
+              locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False) -> str:
+        '''To simplify self.issue, all data is taken from the transaction.'''
+
+        tracked_address, multiplier = self.__find_deck_data(deckid)
+        spending_tx = provider.getrawtransaction(txid, 1)
+
+        for output in spending_tx["vout"]:
+            if tracked_address in output["scriptPubKey"]["addresses"]:
+                vout = str(output["n"]).encode("utf-8")
+                spent_amount = output["value"] * multiplier
+                break
+        else:
+            raise Exception("No vout of this transaction spends to the tracked address")
+
+        if not receiver: # if there is no receiver, spends to himself.
+            receiver = [Settings.key.address]
+
+        if not amount:
+            amount = [spent_amount]
+
+        if (sum(amount) != spent_amount) and (not force):
+            raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
+
+        # TODO: for now, hardcoded asset data; should be a ppa function call
+        asset_specific_data = b"tx:" + txid.encode("utf-8") + b":" + vout 
+
+
+        return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
+                             verify=verify, locktime=locktime, sign=sign, send=send)
+
+    def at_issue_all(self, deckid: str) -> str:
+        '''this function checks all transactions from own address to tracked address and then issues tx.'''
+
+        deck = self.__find_deck(deckid)
+        tracked_address = deck.asset_specific_data.split(b":")[1].decode("utf-8")
+         # UNFINISHED #
+
 
 class Transaction:
 
@@ -419,6 +538,55 @@ class Transaction:
         txid = provider.sendrawtransaction(rawtx)
 
         pprint({'txid': txid})
+
+    def at_send_to_tracked_address(self, deckid: str, raw_amount: float, change_address: str=None, sign: bool=False, send: bool=False) -> None: ### ADDRESSTRACK: SEND TO ###
+        '''this creates a compliant transaction to the donation address.'''
+        # TODO: Should be pretty printed at the end like with other pacli transactions.
+
+        amount = str(raw_amount)
+        min_fee = Decimal("0.01")
+        minconf = None
+        selected_utxo = None
+
+        deck = pa.find_deck(provider, deckid,
+                            Settings.deck_version,
+                            Settings.production)
+        tracked_address = deck.asset_specific_data.split(b":")[1].decode("utf-8")
+        print("Sending {} coins to tracked address {}".format(amount, tracked_address))
+
+        # select utxos
+        utxos = provider.listunspent(address=Settings.key.address)
+        possible_inputs = []
+        for utxo in utxos:
+            utxo_amount = Decimal(str(utxo["amount"]))
+            if utxo_amount >= (Decimal(amount) + min_fee): # amount + minimal tx fee
+                 # selects the utxo with less confirmations, so not too much coinage is wasted
+                 if (minconf is None) or (utxo["confirmations"] < minconf):
+                     minconf = utxo["confirmations"]
+                     selected_utxo = utxo
+
+        if not selected_utxo:
+            raise Exception("No utxos with suitable amount found. Please fund address or consolidate UTXOs.")
+
+        if not change_address:
+            change_address = Settings.key.address
+
+        change_amount = Decimal(str(selected_utxo["amount"])) - Decimal(amount) - min_fee
+        tx_inputs = [{"txid": selected_utxo["txid"], "vout": selected_utxo["vout"]}]
+        if change_amount < Decimal("0.000001"): # minimal value in PPC and SLM
+            tx_outputs = { tracked_address : amount }
+        else:
+            tx_outputs = { tracked_address : amount, change_address : str(change_amount) }
+
+        rawtx = provider.createrawtransaction(tx_inputs, tx_outputs)
+        print(rawtx)
+
+        if sign:
+            signedtx = provider.signrawtransaction(rawtx)
+            print(signedtx)
+
+        if send:
+            self.sendraw(signedtx["hex"])
 
 
 def main():
