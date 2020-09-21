@@ -284,6 +284,44 @@ class Deck:
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
 
+    @classmethod
+    def dt_spawn(self, name, dp_length, dp_quantity, min_vote, sdp_periods=None, sdp_deck=None,
+              verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0,
+              multiplier=1, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
+        '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
+
+        """DECK_ISSUE_DT_FORMAT = { "identifier" : 0,
+                  "multiplier" : 2,
+                  "dp_length" : 4,
+                  "dp_quantity" : 7,
+                  "min_vote" : 9,
+                  "sdp_periods" : 10,
+                  "sdp_deck" : 11
+                 }"""
+        b_identifier = b'DT' #
+
+        try:
+
+            b_multiplier = multiplier.to_bytes(2, "big")
+            b_dp_length = dp_length.to_bytes(3, "big")
+            b_dp_quantity = dp_quantity.to_bytes(2, "big")
+            b_min_vote = min_vote.to_bytes(1, "big")
+
+            if sdp_periods:
+                b_sdp_periods = sdp_periods.to_bytes(1, "big")
+                b_sdp_deck = sdp_deck.to_bytes(32, "big")
+            else:
+                b_sdp_periods, b_sdp_deck = b'', b''
+
+        except OverflowError:
+            raise ValueError("Deck spawn: at least one parameter overflowed.")
+
+        asset_specific_data = b_identifier + b_multiplier + b_dp_length + b_dp_quantity + b_min_vote + b_sdp_periods + b_sdp_deck
+
+        return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
+                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
+
+
 class Card:
 
     '''card information and manipulation'''
