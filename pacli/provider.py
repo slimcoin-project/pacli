@@ -2,7 +2,6 @@ from pypeerassets.provider import RpcNode, Cryptoid, Explorer
 from pypeerassets import pautils
 from pacli.config import Settings
 
-
 def set_up(provider):
     '''setup'''
 
@@ -11,10 +10,10 @@ def set_up(provider):
     if Settings.provider == "rpcnode":
         if Settings.production:
             if not provider.listtransactions("PAPROD"):
-                pautils.load_p2th_privkey_into_local_node(provider) # was "privkeys"
+                pautils.load_p2th_privkey_into_local_node(provider)
         if not Settings.production:
             if not provider.listtransactions("PATEST"):
-                pautils.load_p2th_privkey_into_local_node(provider, prod=False) # was "privkeys"
+                pautils.load_p2th_privkey_into_local_node(provider, prod=False)
 
 
 def configured_provider(Settings):
@@ -42,6 +41,5 @@ def configured_provider(Settings):
     ### END modified part ###
 
     return provider
-
 
 provider = configured_provider(Settings)
