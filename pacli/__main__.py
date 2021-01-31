@@ -1,5 +1,5 @@
 from typing import Optional, Union
-from decimal import Decimal ### NEW 
+from decimal import Decimal ### ADDED ### 
 import operator
 import functools
 import fire
@@ -34,7 +34,12 @@ from pacli.config import (write_default_config,
                           conf_file,
                           default_conf,
                           write_settings)
-from pacli.dt_utils import p2th_id_by_type, check_current_period, get_proposal_tx_from_txid, init_dt_deck
+from pacli.dt_utils import (p2th_id_by_type,
+                            check_current_period,
+                            get_proposal_tx_from_txid,
+                            init_dt_deck,
+                            get_period,
+                            printout_period)
 
 class Config:
 
@@ -328,7 +333,7 @@ class Deck:
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
-    def dt_init(self, deckid:str):
+    def dt_init(self, deckid: str):
         '''Intializes deck and imports all P2TH addresses into node.'''
 
         init_dt_deck(provider, Settings.network, deckid)
@@ -467,7 +472,7 @@ class Card:
               locktime: int=0, verify: bool=False,
               sign: bool=False,
               send: bool=False) -> str:
-        '''Wrapper around self.tranfer'''
+        '''Wrapper around self.transfer'''
 
         return self.transfer(deckid, receiver, amount, asset_specific_data,
                              locktime, verify, sign, send)
@@ -523,7 +528,7 @@ class Card:
             pprint(i.to_json())
 
     @classmethod
-    def __find_deck_data(self, deckid: str) -> tuple: ### NEW FEATURE - ADDRESSTRACK ###
+    def __find_deck_data(self, deckid: str) -> tuple: ### NEW FEATURE - AT ###
         '''returns addresstrack-specific data'''
 
         deck = self.__find_deck(deckid)
@@ -535,7 +540,7 @@ class Card:
 
         return tracked_address.decode("utf-8"), int(multiplier)
 
-    @classmethod ### NEW FEATURE - ADDRESSTRACK ###
+    @classmethod ### NEW FEATURE - AT ###
     def at_issue(self, deckid: str, txid: str, receiver: list=None, amount: list=None,
               locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False) -> str:
         '''To simplify self.issue, all data is taken from the transaction.'''
@@ -560,22 +565,22 @@ class Card:
         if (sum(amount) != spent_amount) and (not force):
             raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
 
-        # TODO: for now, hardcoded asset data; should be a ppa function call
+        # TODO: for now, hardcoded asset data; should be a pa function call
         asset_specific_data = b"tx:" + txid.encode("utf-8") + b":" + vout 
 
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)
 
-    @classmethod ### NEW FEATURE - ADDRESSTRACK ###
+    @classmethod ### NEW FEATURE - DT ###
     def dt_issue(self, deckid: str, donation_txid: str, amount: list, donation_vout: int=2, move_txid: str=None, receiver: list=None, locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False) -> str:
         '''To simplify self.issue, all data is taken from the transaction.'''
         # TODO: Multiplier must be replaced by the max epoch amount!
 
         deck = self.__find_deck(deckid)
-        multiplier = int.from_bytes(deck.asset_specific_data[2:4], "big") # TODO: hardcoded for now! Take into account that the id bytes (now 2) are considered to be changed to 1.
+        # multiplier = int.from_bytes(deck.asset_specific_data[2:4], "big") # TODO: hardcoded for now! Take into account that the id bytes (now 2) are considered to be changed to 1.
         spending_tx = provider.getrawtransaction(donation_txid, 1)
-        print(multiplier)
+        # print(multiplier)
 
         try:
             spent_amount = spending_tx["vout"][donation_vout]["value"]
@@ -635,7 +640,7 @@ class Transaction:
 
     def _select_utxo(self, amount: Decimal=Decimal("0"), tx_fee: Decimal=Decimal("0.01"), p2th_fee: Decimal=Decimal("0.01")):
         ### AT: selects an utxo with suitable amount and lowest possible confirmation number (to not waste coinage)
-        ### TODO: This probably should go into another file.
+        ### TODO: This probably should go into into the dt_utils file.
         ### TODO: Should provide an option to select the specific utxo of the previous transaction in the chain (signalling -> locking -> donation).
         utxos = provider.listunspent(address=Settings.key.address)
         selected_utxo = None
@@ -668,8 +673,6 @@ class Transaction:
         if change_address == dest_address:
             raise Exception("Change address is the same than destination. Please provide a different one.")
 
-        print(dest_address, amount)
-
         MINVAL = Decimal("0.000001") # minimal value in PPC and SLM 
 
         change_amount = Decimal(str(selected_utxo["amount"])) - amount - tx_fee - p2th_fee
@@ -691,7 +694,7 @@ class Transaction:
             tx_outputs.update({ change_address : str(change_amount) })
 
         #print(tx_inputs)
-        print(tx_outputs)
+        #print(tx_outputs)
 
         return provider.createrawtransaction(tx_inputs, tx_outputs)
  
@@ -873,7 +876,7 @@ class Transaction:
 
     def dt_lock_funds(self, deckid: str, proposal_txid: str, raw_amount: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, check_round: int=None, wait: bool=False) -> None: ### ADDRESSTRACK ###
         '''this creates a compliant locking transaction.'''
-        # TODO: WIP
+        # TODO: WIP (LockingTransaction creation still does not work properly)
         # TODO: Does not check if it was correctly signalled.
         # TODO: Still does not handle ReserveAmounts. This has to be done via "change address".
         # Ideally it should check to use only a SignallingTransaction's funds.
@@ -885,9 +888,7 @@ class Transaction:
         amount = Decimal(str(raw_amount))
         tx_fee = Decimal(str(tx_fee))
         p2th_fee = Decimal(str(p2th_fee))
-        minconf = None
-
-        
+        minconf = None        
        
         # dest_address: needs proposal data.
         # donates automatically to the Proposal address.
@@ -898,14 +899,6 @@ class Transaction:
         #dest_address = ptxprev_json["vout"][ptxprev_vout]["scriptPubKey"]["addresses"][0]
         # TODO: still not decided if we change the format for the donation address and add an item to OP_RETURN.
         # However we always will have to check if it's correct.
-        # Following lines allow to take data from ProposalTransaction
-        """PROPOSAL_FORMAT = { "id" : (0, ID_LEN), # identification of proposal txes, 2 bytes
-                    "dck" : (ID_LEN, TX_LEN), # deck, 32 bytes
-                    "eps" : (ID_LEN + TX_LEN, EPOCH_LEN), # epochs the "worker" needs, 2 bytes
-                    "sla" : (ID_LEN + TX_LEN + EPOCH_LEN, SLOTAC_LEN), # slot allocation period, 2 bytes
-                    "amt" : (ID_LEN + TX_LEN + EPOCH_LEN + SLOTAC_LEN, AMOUNT_LEN), # amount, 6 bytes
-                    "ptx" : (TX_LEN + EPOCH_LEN + SLOTAC_LEN + AMOUNT_LEN, TX_LEN) # previous proposal (optional), 32 bytes
-                  }"""
         #p_opreturn = read_tx_opreturn(ptx_json["vout"][1])
         #proposal_end = ptx_jsongetfmt(p_opreturn, PROPOSAL_FORMAT, "eps")
         first_proposal_tx = get_proposal_tx_from_txid(provider, proposal_txid)
@@ -928,8 +921,6 @@ class Transaction:
 
         ltx = LockingTransaction(proposal_txid=proposal_txid, timelock=timelock, d_address=d_address, d_amount=amount, reserved_amount=None, reserve_address=None, signalling_tx=None, previous_dtx=None, network="tppc", timestamp=None, provider=provider, datastr=op_return_bytes, p2th_address=p2th_address, p2th_fee=p2th_fee, ins=[selected_utxo])
 
-
-
         # rawtx = self._create_rawtx(selected_utxo=selected_utxo, dest_address=dest_address, amount=amount, p2th_address=p2th_address, tx_fee=tx_fee, p2th_fee=p2th_fee, change_address=change_address, op_return_data=op_return_bytes.hex())
 
         # what is still needed:
@@ -949,14 +940,20 @@ class Transaction:
             self.sendraw(signedtx["hex"])
 
 
+    def dt_vote(self, proposal_tx: str, vote: str, deckid: str=None, p2th_fee: Decimal=Decimal("0.01"), tx_fee: Decimal=Decimal("0.01"), change_address: str=None, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False):
 
-    def dt_vote(self, deckid: str, proposal_tx: str, vote: str, p2th_fee: Decimal=Decimal("0.01"), tx_fee: Decimal=Decimal("0.01"), change_address: str=None, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False):
-        # MODIFIED: there was a deck parameter which was obsolete because of P2TH.
+        # TODO: deckid could be trashed, as we have the proposal_tx parameter.
 
         if check_phase is not None:
             print("Checking blockheights of phase", check_phase, "...")
             if not check_current_period(provider, proposal_tx, "voting", phase=check_phase, wait=wait):
                 return
+
+        if not deckid:
+            opreturn_out = provider.getrawtransaction(proposal_tx, 1)["vout"][1]
+            opreturn = read_tx_opreturn(opreturn_out)
+            deck_bytes = getfmt(opreturn, PROPOSAL_FORMAT, "dck")
+            deckid = str(deck_bytes.hex())
 
         p2th_id = p2th_id_by_type(deckid, "voting")
         p2th_address = pa.Kutil(network=Settings.network,
@@ -964,12 +961,15 @@ class Transaction:
         b_id = b'DV'
         b_ptx = bytes.fromhex(proposal_tx)
 
-        if vote in ("+", "positive", "p", "1", "True"):
+        if vote in ("+", "positive", "p", "1", "yes", "y", "true"):
             b_vot = b'+'
-        elif vote in ("-", "negative", "n", "0", "False"):
+        elif vote in ("-", "negative", "n", "0", "no", "n", "false"):
             b_vot = b'-'
         else:
-            raise Exception("Incorrect vote. Vote with + or -.")
+            raise ValueError("Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
+
+        vote_readable = "Positive" if b_vot == b'+' else "Negative" 
+        print("Vote:", vote_readable ,"\nProposal:", proposal_tx,"\nDeck:", deckid)
 
         op_return_bytes = b_id + b_ptx + b_vot
 
@@ -985,11 +985,22 @@ class Transaction:
         if send:
             self.sendraw(signedtx["hex"])
 
-    def dt_get_votes(self, proposal_txid: str, phase: int=0):
+class Proposal: ### DT ###
 
-        votes = get_votestate(provider, proposal_txid, phase)
+    def dt_get_votes(self, proposal_txid: str, phase: int=0, debug: bool=False):
 
-        print(votes)
+        votes = get_votestate(provider, proposal_txid, phase, debug)
+
+        pprint("Positive votes (weighted): " + str(votes["positive"]))
+        pprint("Negative votes (weighted): " + str(votes["negative"]))
+
+        approval_state = "approved." if votes["positive"] > votes["negative"] else "not approved."
+        pprint("In this round, the proposal was " + approval_state)
+
+    def current_period(self, proposal_txid: str, blockheight: int=None):
+
+        period = get_period(provider, proposal_txid, blockheight)
+        pprint(printout_period(period))
 
 
 def main():
@@ -1002,7 +1013,8 @@ def main():
         'card': Card(),
         'address': Address(),
         'transaction': Transaction(),
-        'coin': Coin()
+        'coin': Coin(),
+        'proposal' : Proposal()
         })
 
 

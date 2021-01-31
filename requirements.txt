@@ -1,4 +1,4 @@
-pypeerassets>=0.4.4
+pypeerassets>=0.4.8
 terminaltables>=3.1.0
 appdirs
 keyring
