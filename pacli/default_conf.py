@@ -6,7 +6,7 @@ default_conf = {
     "deck_version": 1,  # deck version
     "change": "default",
     "provider": "rpcnode", # explorer, cryptoid
-    "rpcuser" : "USER",
-    "rpcpassword" : "PASSWORD",
+    "rpcuser" : "sdfjkl",
+    "rpcpassword" : "uiofdkfdsfsdf",
     "rpcport" : 9904  
     }

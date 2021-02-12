@@ -2,9 +2,10 @@ from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransacti
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER
 from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address
-from pypeerassets.at.dt_parser_utils import deck_from_tx
+from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states
 from pypeerassets.kutil import Kutil
 from time import sleep
+import itertools, sys
 
 def p2th_id_by_type(deck_id, tx_type):
     # THIS IS PRELIMINARY
@@ -141,7 +142,7 @@ def get_period(provider, proposal_txid, blockheight=None):
         if blockheight < rdend:
             return ("C", rd * 10 + 1)
     # Intermediate phase (working)
-    startphase2 = proposal_state.end_epoch
+    startphase2 = proposal_state.end_epoch * deck.epoch_length ### ? last one missed
     if blockheight < startphase2:
         return ("D", 0)
     # Phase 2
@@ -198,3 +199,28 @@ def printout_period(period):
         return "Period G0. Proposer Issuance Period"
     elif period == ("G", 1):
         return "Period G1. All distribution phases concluded."
+
+
+def get_proposal_state_periods(provider, deckid, block):
+    result = {}
+    pstates = get_proposal_states(provider, deck_from_tx(deckid, provider))
+    #print(pstates)
+    for proposal_txid in pstates:
+        ps = pstates[proposal_txid]
+         
+        period = get_period(provider, proposal_txid, blockheight=block)
+        try:
+            result[period].append(proposal_txid)
+        except KeyError:
+            result.update({period : [proposal_txid] })
+    return result
+
+def spinner(duration):
+    '''Prints a "spinner" for a defined duration in seconds.'''
+
+    spinner = itertools.cycle(['-', '/', '|', '\\'])
+    for i in range(duration):
+        sys.stdout.write(next(spinner))   # write the next character
+        sys.stdout.flush()                # flush stdout buffer (actual character display)
+        sys.stdout.write('\b')            # erase the last written char
+        sleep(1)

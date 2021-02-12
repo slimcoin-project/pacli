@@ -39,7 +39,9 @@ from pacli.dt_utils import (p2th_id_by_type,
                             get_proposal_tx_from_txid,
                             init_dt_deck,
                             get_period,
-                            printout_period)
+                            printout_period,
+                            get_proposal_state_periods,
+                            spinner)
 
 class Config:
 
@@ -336,7 +338,30 @@ class Deck:
     def dt_init(self, deckid: str):
         '''Intializes deck and imports all P2TH addresses into node.'''
 
-        init_dt_deck(provider, Settings.network, deckid)
+        init_dt_deck(provider, Settings.network, deckid)    
+
+    @classmethod
+    def dt_list(self):
+        '''
+        List all DT decks.
+        '''
+        # TODO: This does not catch some errors with invalid decks which are displayed:
+        # InvalidDeckSpawn ("InvalidDeck P2TH.") -> not catched in deck_parser in pautils.py
+        # 'error': 'OP_RETURN not found.' -> InvalidNulldataOutput , in pautils.py
+        # 'error': 'Deck () metainfo incomplete, deck must have a name.' -> also in pautils.py, defined in exceptions.py.
+
+        decks = pa.find_all_valid_decks(provider,
+                                        Settings.deck_version,
+                                        Settings.production)
+        dt_decklist = []
+        for d in decks:
+            try:
+                if d.at_type == "DT":
+                    dt_decklist.append(d)
+            except AttributeError:
+                continue
+
+        print_deck_list(dt_decklist)
 
 
 class Card:
@@ -613,14 +638,14 @@ class Card:
                              verify=verify, locktime=locktime, sign=sign, send=send)
 
 
-
-    def at_issue_all(self, deckid: str) -> str:
-        '''this function checks all transactions from own address to tracked address and then issues tx.'''
-
-        deck = self.__find_deck(deckid)
-        tracked_address = deck.asset_specific_data.split(b":")[1].decode("utf-8")
-         # UNFINISHED #
-
+    #@classmethod
+    #def at_issue_all(self, deckid: str) -> str:
+    #    '''this function checks all transactions from own address to tracked address and then issues tx.'''
+    #    # TODO: Not possible easily, would have to check all blocks ...
+    #
+    #    deck = self.__find_deck(deckid)
+    #    tracked_address = deck.asset_specific_data.split(b":")[1].decode("utf-8")
+    #     # UNFINISHED #
 
 class Transaction:
 
@@ -750,14 +775,8 @@ class Transaction:
             self.sendraw(signedtx["hex"])
 
     def dt_create_proposal(self, deckid: str, req_amount: int, periods: int, p2th_fee: Decimal=Decimal("0.01"), tx_fee: Decimal=Decimal("0.01"), slot_allocation_duration: int=1000, first_ptx: str=None, change_address: str=None, sign: bool=False, send: bool=False):
-        ### PRELIMINARY VERSION with hardcoded positions ###
-        """PROPOSAL_FORMAT = { "id" : (0, ID_LEN), # identification of proposal txes, 2 bytes
-                    "dck" : (ID_LEN, TX_LEN), # deck, 32 bytes
-                    "eps" : (ID_LEN + TX_LEN, EPOCH_LEN), # epochs the "worker" needs, 2 bytes
-                    "sla" : (ID_LEN + TX_LEN + EPOCH_LEN, SLOTAC_LEN), # slot allocation period, 2 bytes
-                    "amt" : (ID_LEN + TX_LEN + EPOCH_LEN + SLOTAC_LEN, AMOUNT_LEN), # amount, 6 bytes
-                    "ptx" : (TX_LEN + EPOCH_LEN + SLOTAC_LEN + AMOUNT_LEN, TX_LEN) # previous proposal (optional), 32 bytes
-                  }"""
+        ### PRELIMINARY VERSION with hardcoded positions: id, dck, eps, sla, amt, ptx ###
+
         p2th_id = p2th_id_by_type(deckid, "proposal")
         p2th_address = pa.Kutil(network=Settings.network,
                          privkey=bytearray.fromhex(p2th_id)).address
@@ -940,20 +959,18 @@ class Transaction:
             self.sendraw(signedtx["hex"])
 
 
-    def dt_vote(self, proposal_tx: str, vote: str, deckid: str=None, p2th_fee: Decimal=Decimal("0.01"), tx_fee: Decimal=Decimal("0.01"), change_address: str=None, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False):
-
-        # TODO: deckid could be trashed, as we have the proposal_tx parameter.
+    def dt_vote(self, proposal_tx: str, vote: str, p2th_fee: Decimal=Decimal("0.01"), tx_fee: Decimal=Decimal("0.01"), change_address: str=None, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
 
         if check_phase is not None:
             print("Checking blockheights of phase", check_phase, "...")
             if not check_current_period(provider, proposal_tx, "voting", phase=check_phase, wait=wait):
                 return
 
-        if not deckid:
-            opreturn_out = provider.getrawtransaction(proposal_tx, 1)["vout"][1]
-            opreturn = read_tx_opreturn(opreturn_out)
-            deck_bytes = getfmt(opreturn, PROPOSAL_FORMAT, "dck")
-            deckid = str(deck_bytes.hex())
+
+        opreturn_out = provider.getrawtransaction(proposal_tx, 1)["vout"][1]
+        opreturn = read_tx_opreturn(opreturn_out)
+        deck_bytes = getfmt(opreturn, PROPOSAL_FORMAT, "dck")
+        deckid = str(deck_bytes.hex())
 
         p2th_id = p2th_id_by_type(deckid, "voting")
         p2th_address = pa.Kutil(network=Settings.network,
@@ -983,11 +1000,25 @@ class Transaction:
             print(signedtx)
 
         if send:
-            self.sendraw(signedtx["hex"])
+            txid = provider.sendrawtransaction(signedtx["hex"])
+            pprint({'txid': txid})
 
+        if confirm and sign and send:
+            print("Waiting for confirmation (this can take several minutes) ...", end='')
+            confirmations = 0
+            while confirmations == 0:
+                tx = provider.getrawtransaction(txid, 1)
+                try:
+                    confirmations = tx["confirmations"]
+                    break
+                except KeyError:
+                    spinner(15)
+
+            print("\nVote confirmed.")
+               
 class Proposal: ### DT ###
 
-    def dt_get_votes(self, proposal_txid: str, phase: int=0, debug: bool=False):
+    def get_votes(self, proposal_txid: str, phase: int=0, debug: bool=False):
 
         votes = get_votestate(provider, proposal_txid, phase, debug)
 
@@ -1001,6 +1032,37 @@ class Proposal: ### DT ###
 
         period = get_period(provider, proposal_txid, blockheight)
         pprint(printout_period(period))
+
+    def list(self, deckid: str, block: int=None, show_completed: bool=False) -> None:
+        '''Shows all proposals and the period they are currently in, optionally at a specific blockheight.'''
+
+        # TODO: Abandoned and completed proposals cannot be separated this way, this needs a more complex
+        #       method involving the parser.
+        # TODO: deck e9742552e3607754b1c17b28421061211317428c83c299f3cbe2d2cc62e49fa4 raises an error, it seems
+        # the deck tx is not well formatted, but should be catched in some way.
+        # TODO: Non-DT decks like e282a8d4db32e302496ae222172ff6cce12150338686ec00b75c967e44a833d3 simply show "No proposals found." They should be differetiated.
+        try:
+            pstate_periods = get_proposal_state_periods(provider, deckid, block)
+        except KeyError:
+            pprint("Error, unconfirmed proposals in mempool. Wait until they are confirmed.")
+            return
+
+        excluded_list = []
+        #if show_completed:
+        #    statelist.append("completed")
+        #if show_abandoned:
+        #    statelist.append("abandoned")
+
+        if len([p for l in pstate_periods.values() for p in l]) == 0:
+            print("No proposals found for deck: " + deckid)
+        else:
+            print("Proposals in the following periods are available for this deck:")
+
+        for state in pstate_periods:
+            if state not in excluded_list and (len(pstate_periods[state]) > 0):
+                print("* " + printout_period(state))
+                print("** ", end='')
+                print("\n** ".join(pstate_periods[state]))
 
 
 def main():
