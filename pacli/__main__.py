@@ -18,7 +18,7 @@ from pypeerassets.transactions import NulldataScript, TxIn ### ADDED ###
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction
 from pypeerassets.at.transaction_formats import getfmt, PROPOSAL_FORMAT, SIGNALLING_FORMAT, LOCKING_FORMAT, DONATION_FORMAT, VOTING_FORMAT
-from pypeerassets.at.dt_misc_utils import get_votestate
+from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -34,14 +34,7 @@ from pacli.config import (write_default_config,
                           conf_file,
                           default_conf,
                           write_settings)
-from pacli.dt_utils import (p2th_id_by_type,
-                            check_current_period,
-                            get_proposal_tx_from_txid,
-                            init_dt_deck,
-                            get_period,
-                            printout_period,
-                            get_proposal_state_periods,
-                            spinner)
+import pacli.dt_utils as du
 
 class Config:
 
@@ -153,6 +146,23 @@ class Address:
         else:
              return key.address
 
+    def show_all(self):
+        keyids = du.get_all_keyids()
+        print("Address".ljust(35), "Balance".ljust(15), "Keyid".ljust(15))
+        print("---------------------------------------------------------")
+        for raw_keyid in keyids:
+            try:
+                keyid = raw_keyid.replace("key_bak_", "")
+                raw_key = bytearray.fromhex(get_key(keyid))
+                key = pa.Kutil(network=Settings.network, privkey=raw_key)
+                addr = key.address
+                balance = str(provider.getbalance(addr))
+                print(addr.ljust(35), balance.ljust(15), keyid.ljust(15))
+                
+                      
+            except:
+                continue
+
     def delete_key_from_keyring(self, keyid: str) -> None: ### NEW FEATURE ###
         '''deletes a key with an id. Cannot be used to delete main key.'''
         delete_key(keyid)
@@ -166,6 +176,14 @@ class Address:
         else:
             wif = Settings.wif
         provider.importprivkey(wif, account_name=accountname)
+
+    def my_votes(self, deckid, address=Settings.key.address):
+        '''shows votes cast from this address.'''
+        return du.show_votes_by_address(provider, deckid, address)
+
+    def my_donations(self, deckid, address=Settings.key.address):
+        '''shows donation states involving this address.'''
+        return du.show_donations_by_address(provider, deckid, address)
         
 
 class Deck:
@@ -338,7 +356,7 @@ class Deck:
     def dt_init(self, deckid: str):
         '''Intializes deck and imports all P2TH addresses into node.'''
 
-        init_dt_deck(provider, Settings.network, deckid)    
+        du.init_dt_deck(provider, Settings.network, deckid) 
 
     @classmethod
     def dt_list(self):
@@ -641,7 +659,6 @@ class Card:
     #@classmethod
     #def at_issue_all(self, deckid: str) -> str:
     #    '''this function checks all transactions from own address to tracked address and then issues tx.'''
-    #    # TODO: Not possible easily, would have to check all blocks ...
     #
     #    deck = self.__find_deck(deckid)
     #    tracked_address = deck.asset_specific_data.split(b":")[1].decode("utf-8")
@@ -663,358 +680,97 @@ class Transaction:
 
         pprint({'txid': txid})
 
-    def _select_utxo(self, amount: Decimal=Decimal("0"), tx_fee: Decimal=Decimal("0.01"), p2th_fee: Decimal=Decimal("0.01")):
-        ### AT: selects an utxo with suitable amount and lowest possible confirmation number (to not waste coinage)
-        ### TODO: This probably should go into into the dt_utils file.
-        ### TODO: Should provide an option to select the specific utxo of the previous transaction in the chain (signalling -> locking -> donation).
-        utxos = provider.listunspent(address=Settings.key.address)
-        selected_utxo = None
-        minconf = None
+    def dt_create_proposal(self, deckid: str, req_amount: str, periods: int, slot_allocation_duration: int, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False):
 
-        for utxo in utxos:
+        #if input_address is None:
+        #    input_address = Settings.address
 
-            utxo_amount = Decimal(str(utxo["amount"]))
-            required_amount = amount + tx_fee + p2th_fee
+        params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
 
-            if utxo_amount >= required_amount: # amount + minimal tx fee + p2th fee if needed
-                 # selects the utxo with less confirmations, so not too much coinage is wasted
-                 if (minconf is None) or (utxo["confirmations"] < minconf) and (utxo["confirmations"] > 1):
-                     minconf = utxo["confirmations"]
-                     selected_utxo = utxo
+        rawtx = du.create_unsigned_trackedtx(provider, "proposal", params, deckid=deckid, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
 
-        if not selected_utxo:
-            raise Exception("No utxos with suitable amount found. Please fund address or consolidate UTXOs.")
+        return du.finalize_tx(rawtx, verify, sign, send)
 
-        return selected_utxo
 
-    def _create_rawtx(self, selected_utxo: dict, dest_address: str=None, p2th_address: str=None, amount: Decimal=Decimal("0"), tx_fee: Decimal=Decimal("0.01"), p2th_fee: Decimal=Decimal("0"), change_address: str=None, op_return_data: bytes=None):
-        ### AT: creates inputs and outputs of a donation/signalling/proposal tx
-        ### TODO: for now it uses only 1 UTXO.
-        ### Can also create txes only with P2TH (without value transfer) like Proposals.
-        ### TODO: this has difficulties to create OP_RETURN exactly in the second output.
-
-        if not change_address:
-            change_address = Settings.key.address
-        if change_address == dest_address:
-            raise Exception("Change address is the same than destination. Please provide a different one.")
-
-        MINVAL = Decimal("0.000001") # minimal value in PPC and SLM 
-
-        change_amount = Decimal(str(selected_utxo["amount"])) - amount - tx_fee - p2th_fee
-        tx_inputs = [{"txid": selected_utxo["txid"], "vout": selected_utxo["vout"]}]
-
-        tx_outputs = {}
-
-        if p2th_address: # this always is present for TrackedTransactions, but leaving "if" in the case of needing it for other kinds of txs.
-            tx_outputs.update({ p2th_address : str(p2th_fee) })
-
-        if op_return_data:
-            tx_outputs.update({ "data" : str(op_return_data) })
-
-        # Note: dest_address and change_address cannot be the same one!
-        if dest_address and (amount >= MINVAL):
-            tx_outputs.update({ dest_address : str(amount) })
-
-        if change_amount >= MINVAL: 
-            tx_outputs.update({ change_address : str(change_amount) })
-
-        #print(tx_inputs)
-        #print(tx_outputs)
-
-        return provider.createrawtransaction(tx_inputs, tx_outputs)
- 
-
-    def at_send_to_tracked_address(self, deckid: str, raw_amount: float, change_address: str=None, sign: bool=False, send: bool=False) -> None: ### ADDRESSTRACK: SEND TO ### ### OLD ADDRESSTRACK ###
-        '''this creates a compliant transaction to the donation address.'''
-        # TODO: Should be pretty printed at the end like with other pacli transactions.
-        ### PRELIMINARY version with hardcoded positions. ###
-
-        amount = str(raw_amount)
-        min_fee = Decimal("0.01")
-        minconf = None
-        selected_utxo = None
-
-        deck = pa.find_deck(provider, deckid,
-                            Settings.deck_version,
-                            Settings.production)
-        tracked_address = deck.asset_specific_data.split(b":")[1].decode("utf-8")
-        print("Sending {} coins to tracked address {}".format(amount, tracked_address))
-
-        # select utxos
-        utxos = provider.listunspent(address=Settings.key.address)
-        possible_inputs = []
-        for utxo in utxos: ## This should become a function. TODO ##
-            utxo_amount = Decimal(str(utxo["amount"]))
-            if utxo_amount >= (Decimal(amount) + min_fee): # amount + minimal tx fee
-                 # selects the utxo with less confirmations, so not too much coinage is wasted
-                 if (minconf is None) or (utxo["confirmations"] < minconf):
-                     minconf = utxo["confirmations"]
-                     selected_utxo = utxo
-
-        if not selected_utxo:
-            raise Exception("No utxos with suitable amount found. Please fund address or consolidate UTXOs.")
-
-        if not change_address:
-            change_address = Settings.key.address
-
-        change_amount = Decimal(str(selected_utxo["amount"])) - Decimal(amount) - min_fee
-        tx_inputs = [{"txid": selected_utxo["txid"], "vout": selected_utxo["vout"]}]
-        if change_amount < Decimal("0.000001"): # minimal value in PPC and SLM
-            tx_outputs = { tracked_address : amount }
-        else:
-            tx_outputs = { tracked_address : amount, change_address : str(change_amount) }
-
-        rawtx = provider.createrawtransaction(tx_inputs, tx_outputs)
-        print(rawtx)
-
-        if sign:
-            signedtx = provider.signrawtransaction(rawtx)
-            print(signedtx)
-
-        if send:
-            self.sendraw(signedtx["hex"])
-
-    def dt_create_proposal(self, deckid: str, req_amount: int, periods: int, p2th_fee: Decimal=Decimal("0.01"), tx_fee: Decimal=Decimal("0.01"), slot_allocation_duration: int=1000, first_ptx: str=None, change_address: str=None, sign: bool=False, send: bool=False):
-        ### PRELIMINARY VERSION with hardcoded positions: id, dck, eps, sla, amt, ptx ###
-
-        p2th_id = p2th_id_by_type(deckid, "proposal")
-        p2th_address = pa.Kutil(network=Settings.network,
-                         privkey=bytearray.fromhex(p2th_id)).address
-        b_id = b'DP'
-        b_dck = bytes.fromhex(deckid)
-        b_prd = periods.to_bytes(2, "big")
-        b_sla = slot_allocation_duration.to_bytes(2, "big")
-        b_amt = req_amount.to_bytes(6, "big")
-        b_ptx = bytes.fromhex(first_ptx) if first_ptx else b'' # workaround for simplicity
-        op_return_bytes = b_id + b_dck + b_prd + b_sla + b_amt + b_ptx
-        #print(op_return_bytes)
-
-        selected_utxo = self._select_utxo(p2th_fee=p2th_fee, tx_fee=tx_fee)
-
-        rawtx = self._create_rawtx(selected_utxo=selected_utxo, p2th_address=p2th_address, tx_fee=tx_fee, p2th_fee=p2th_fee, change_address=change_address, op_return_data=op_return_bytes.hex())
-
-        print(rawtx)
-        if sign:
-            signedtx = provider.signrawtransaction(rawtx)
-            print(signedtx)
-
-        if send:
-            self.sendraw(signedtx["hex"])
-        
-
-    def dt_signal_funds(self, deckid: str, proposal_txid: str, raw_amount: str, dest_address: str, change_address: str=None, tx_fee: Decimal=Decimal("0.01"), p2th_fee: Decimal=Decimal("0.01"), sign: bool=False, send: bool=False, check_round: int=None, wait: bool=False) -> None: ### ADDRESSTRACK: SEND TO ###
+    def dt_signal_funds(self, proposal_txid: str, amount: str, dest_address: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
         '''this creates a compliant signalling transaction.'''
 
         if check_round is not None:
-            if not check_current_period(provider, proposal_txid, "signalling", dist_round=check_round, wait=wait):
+            if not du.check_current_period(provider, proposal_txid, "signalling", dist_round=check_round, wait=wait):
                 return
-        
-        str_amount = str(raw_amount)
-        amount = Decimal(str_amount)
-        minconf = None
-        
-        p2th_id = p2th_id_by_type(deckid, "signalling")
-        p2th_address = pa.Kutil(network=Settings.network,
-                         privkey=bytearray.fromhex(p2th_id)).address
 
-        b_id = b'DS'
-        b_prp = bytes.fromhex(proposal_txid)
-        b_dck = bytes.fromhex(deckid)
-        op_return_bytes = b_id + b_prp + b_dck
+        params = { "id" : "DS" , "prp" : proposal_txid }
 
-        print("Signalling {} coins to address {}".format(amount, dest_address))
+        rawtx = du.create_unsigned_trackedtx(provider, "signalling", params, change_address=change_address, dest_address=dest_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount)
 
-        # select utxos
-        selected_utxo = self._select_utxo(amount=amount, p2th_fee=p2th_fee, tx_fee=tx_fee)
+        return du.finalize_tx(rawtx, verify, sign, send)
 
-        rawtx = self._create_rawtx(selected_utxo=selected_utxo, dest_address=dest_address, amount=amount, p2th_address=p2th_address, tx_fee=tx_fee, p2th_fee=p2th_fee, change_address=change_address, op_return_data=op_return_bytes.hex())
-
-        print(rawtx)
-
-        if sign:
-            signedtx = provider.signrawtransaction(rawtx)
-            print(signedtx)
-
-        if send:
-            self.sendraw(signedtx["hex"])
-
-
-    def dt_donate_funds(self, deckid: str, proposal_txid: str, raw_amount: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, check_round: int=None, wait: bool=False) -> None: ### ADDRESSTRACK ###
-        '''this creates a compliant donation transaction.'''
-        # TODO: Does not check if it was correctly signalled.
-        # Ideally it should check to use only a SignallingTransaction's funds.
-        # TODO: Still does not handle ReserveAmounts. This must be done via the "change address"
+    def dt_lock_funds(self, proposal_txid: str, raw_amount: str, dest_address: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, use_slot: bool=True, new_inputs: bool=False, dist_round: int=None, debug: bool=False) -> None: ### ADDRESSTRACK ###
 
         if check_round is not None:
-            if not check_current_period(provider, proposal_txid, "donation", dist_round=check_round, wait=wait):
+            dist_round=check_round
+            if not du.check_current_period(provider, proposal_txid, "locking", dist_round=check_round, wait=wait):
                 return
 
-        str_amount = str(raw_amount)
-        amount = Decimal(str_amount)
-        print(tx_fee, type(tx_fee))
-        tx_fee = Decimal(tx_fee)
-        p2th_fee = Decimal(p2th_fee)
-        minconf = None
-       
-        # dest_address: needs proposal data.
-        # donates automatically to the Proposal address.
-        ptx_json = provider.getrawtransaction(proposal_txid, 1)
-        ptxprev_json = provider.getrawtransaction(ptx_json["vin"][0]["txid"], 1)
-        # print(ptxprev_json)
-        ptxprev_vout = ptx_json["vin"][0]["vout"]
-        dest_address = ptxprev_json["vout"][ptxprev_vout]["scriptPubKey"]["addresses"][0]
-        # TODO: still not decided if we change the format for the donation address and add an item to OP_RETURN.
-        # However we always will have to check if it's correct.
-        #p_opreturn_hex = ptx_json["vout"][1]["scriptPubKey"]["asm"][10:] # second output has opreturn
-        #p_opreturn_bytes = bytes.fromhex(p_opreturn_hex)
+        params = { "id" : "DL" , "prp" : proposal_txid }
+
+        cltv_timelock = du.calculate_timelock(provider, proposal_txid)
+        print("Locking funds until block", cltv_timelock)
+
+        rawtx = du.create_unsigned_trackedtx(provider, "locking", params, dest_address=dest_address, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, cltv_timelock=cltv_timelock, use_slot=use_slot, new_inputs=new_inputs, dist_round=dist_round, debug=debug)
         
-        p2th_id = p2th_id_by_type(deckid, "donation")
-        p2th_address = pa.Kutil(network=Settings.network,
-                         privkey=bytearray.fromhex(p2th_id)).address
+        return du.finalize_tx(rawtx, verify, sign, send)
 
-        b_id = b'DD'
-        b_prp = bytes.fromhex(proposal_txid)
-        b_dck = bytes.fromhex(deckid)
-        op_return_bytes = b_id + b_prp + b_dck
 
-        print("Donating {} coins to address {}".format(amount, dest_address))
-
-        # select utxos
-        selected_utxo = self._select_utxo(amount=amount, p2th_fee=p2th_fee, tx_fee=tx_fee)
-
-        rawtx = self._create_rawtx(selected_utxo=selected_utxo, dest_address=dest_address, amount=amount, p2th_address=p2th_address, tx_fee=tx_fee, p2th_fee=p2th_fee, change_address=change_address, op_return_data=op_return_bytes.hex())
-
-        print(rawtx)
-
-        if sign:
-            signedtx = provider.signrawtransaction(rawtx)
-            print(signedtx)
-
-        if send:
-            self.sendraw(signedtx["hex"])
-
-    def dt_lock_funds(self, deckid: str, proposal_txid: str, raw_amount: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, check_round: int=None, wait: bool=False) -> None: ### ADDRESSTRACK ###
-        '''this creates a compliant locking transaction.'''
-        # TODO: WIP (LockingTransaction creation still does not work properly)
-        # TODO: Does not check if it was correctly signalled.
-        # TODO: Still does not handle ReserveAmounts. This has to be done via "change address".
-        # Ideally it should check to use only a SignallingTransaction's funds.
+    def dt_donate_funds(self, proposal_txid: str, raw_amount: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, input_address: str=Settings.key.address, send: bool=False, check_round: int=None, wait: bool=False, use_slot: bool=True, new_inputs: bool=False) -> None: ### ADDRESSTRACK ###
 
         if check_round is not None:
-            if not check_current_period(provider, proposal_txid, "donation", dist_round=check_round, wait=wait):
+            if not du.check_current_period(provider, proposal_txid, "donation", dist_round=check_round, wait=wait):
                 return
 
-        amount = Decimal(str(raw_amount))
-        tx_fee = Decimal(str(tx_fee))
-        p2th_fee = Decimal(str(p2th_fee))
-        minconf = None        
-       
-        # dest_address: needs proposal data.
-        # donates automatically to the Proposal address.
-        # ptx_json = provider.getrawtransaction(proposal_txid, 1)
-        #ptxprev_json = provider.getrawtransaction(ptx_json["vin"][0]["txid"], 1)
-        # print(ptxprev_json)
-        #ptxprev_vout = ptx_json["vin"][0]["vout"]
-        #dest_address = ptxprev_json["vout"][ptxprev_vout]["scriptPubKey"]["addresses"][0]
-        # TODO: still not decided if we change the format for the donation address and add an item to OP_RETURN.
-        # However we always will have to check if it's correct.
-        #p_opreturn = read_tx_opreturn(ptx_json["vout"][1])
-        #proposal_end = ptx_jsongetfmt(p_opreturn, PROPOSAL_FORMAT, "eps")
-        first_proposal_tx = get_proposal_tx_from_txid(provider, proposal_txid)
-        # TODO it would be even more elegant if we can set the timelock automatically in a LockingTransaction.__init__
-        timelock = first_proposal_tx.end_epoch * first_proposal_tx.deck.epoch_length
+        params = { "id" : "DD" , "prp" : proposal_txid }
 
-        p2th_id = p2th_id_by_type(deckid, "donation")
-        p2th_address = pa.Kutil(network=Settings.network,
-                         privkey=bytearray.fromhex(p2th_id)).address
+        rawtx = du.create_unsigned_trackedtx(provider, "donation", params, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, use_slot=use_slot, new_inputs=new_inputs)
+        
+        return du.finalize_tx(rawtx, verify, sign, send)
 
-        b_id = b'DD'
-        b_prp = bytes.fromhex(proposal_txid)
-        b_dck = bytes.fromhex(deckid)
-        op_return_bytes = b_id + b_prp + b_dck
-
-        print("Donating {} coins to address {}".format(amount, dest_address))
-
-        # select utxos
-        selected_utxo = TxIn.from_json(self._select_utxo(amount=amount, p2th_fee=p2th_fee, tx_fee=tx_fee))
-
-        ltx = LockingTransaction(proposal_txid=proposal_txid, timelock=timelock, d_address=d_address, d_amount=amount, reserved_amount=None, reserve_address=None, signalling_tx=None, previous_dtx=None, network="tppc", timestamp=None, provider=provider, datastr=op_return_bytes, p2th_address=p2th_address, p2th_fee=p2th_fee, ins=[selected_utxo])
-
-        # rawtx = self._create_rawtx(selected_utxo=selected_utxo, dest_address=dest_address, amount=amount, p2th_address=p2th_address, tx_fee=tx_fee, p2th_fee=p2th_fee, change_address=change_address, op_return_data=op_return_bytes.hex())
-
-        # what is still needed:
-        # - inputs (we can use _select_utxo for now?)
-        # locktime 
-        # check if outputs are correct.
-
-        rawtx = ltx.serialize()
-
-        print(rawtx)
-
-        if sign:
-            signedtx = provider.signrawtransaction(rawtx)
-            print(signedtx)
-
-        if send:
-            self.sendraw(signedtx["hex"])
-
-
-    def dt_vote(self, proposal_tx: str, vote: str, p2th_fee: Decimal=Decimal("0.01"), tx_fee: Decimal=Decimal("0.01"), change_address: str=None, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
+    def dt_vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
 
         if check_phase is not None:
             print("Checking blockheights of phase", check_phase, "...")
-            if not check_current_period(provider, proposal_tx, "voting", phase=check_phase, wait=wait):
+            if not du.check_current_period(provider, proposal_id, "voting", phase=check_phase, wait=wait):
                 return
 
-
-        opreturn_out = provider.getrawtransaction(proposal_tx, 1)["vout"][1]
-        opreturn = read_tx_opreturn(opreturn_out)
-        deck_bytes = getfmt(opreturn, PROPOSAL_FORMAT, "dck")
-        deckid = str(deck_bytes.hex())
-
-        p2th_id = p2th_id_by_type(deckid, "voting")
-        p2th_address = pa.Kutil(network=Settings.network,
-                         privkey=bytearray.fromhex(p2th_id)).address
-        b_id = b'DV'
-        b_ptx = bytes.fromhex(proposal_tx)
-
         if vote in ("+", "positive", "p", "1", "yes", "y", "true"):
-            b_vot = b'+'
+            votechar = "+"
         elif vote in ("-", "negative", "n", "0", "no", "n", "false"):
-            b_vot = b'-'
+            votechar = "-"
         else:
             raise ValueError("Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
 
-        vote_readable = "Positive" if b_vot == b'+' else "Negative" 
-        print("Vote:", vote_readable ,"\nProposal:", proposal_tx,"\nDeck:", deckid)
+        vote_readable = "Positive" if votechar == "+" else "Negative" 
+        print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
 
-        op_return_bytes = b_id + b_ptx + b_vot
+        params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
 
-        selected_utxo = self._select_utxo(p2th_fee=p2th_fee, tx_fee=tx_fee)
+        rawtx = du.create_unsigned_trackedtx(provider, "voting", params, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
 
-        rawtx = self._create_rawtx(selected_utxo=selected_utxo, p2th_address=p2th_address, tx_fee=tx_fee, p2th_fee=p2th_fee, change_address=change_address, op_return_data=op_return_bytes.hex())
-
-        print(rawtx)
-        if sign:
-            signedtx = provider.signrawtransaction(rawtx)
-            print(signedtx)
-
-        if send:
-            txid = provider.sendrawtransaction(signedtx["hex"])
-            pprint({'txid': txid})
+        console_output = du.finalize_tx(rawtx, verify, sign, send)
 
         if confirm and sign and send:
             print("Waiting for confirmation (this can take several minutes) ...", end='')
             confirmations = 0
             while confirmations == 0:
-                tx = provider.getrawtransaction(txid, 1)
+                tx = provider.getrawtransaction(rawtx.txid, 1)
                 try:
                     confirmations = tx["confirmations"]
                     break
                 except KeyError:
-                    spinner(15)
+                    du.spinner(10)
 
             print("\nVote confirmed.")
+
+        return console_output
                
 class Proposal: ### DT ###
 
@@ -1030,19 +786,20 @@ class Proposal: ### DT ###
 
     def current_period(self, proposal_txid: str, blockheight: int=None):
 
-        period = get_period(provider, proposal_txid, blockheight)
-        pprint(printout_period(period))
+        period = du.get_period(provider, proposal_txid, blockheight)
+        pprint(du.printout_period(period))
 
     def list(self, deckid: str, block: int=None, show_completed: bool=False) -> None:
         '''Shows all proposals and the period they are currently in, optionally at a specific blockheight.'''
 
         # TODO: Abandoned and completed proposals cannot be separated this way, this needs a more complex
-        #       method involving the parser.
+        #       method involving the parser. => Advanced mode could be a good idea.
         # TODO: deck e9742552e3607754b1c17b28421061211317428c83c299f3cbe2d2cc62e49fa4 raises an error, it seems
         # the deck tx is not well formatted, but should be catched in some way.
         # TODO: Non-DT decks like e282a8d4db32e302496ae222172ff6cce12150338686ec00b75c967e44a833d3 simply show "No proposals found." They should be differetiated.
+        # TODO: Printout should be reorganized, so two proposals which overlap by coincidence don't share erroneously the same block heights for start and end.
         try:
-            pstate_periods = get_proposal_state_periods(provider, deckid, block)
+            pstate_periods = du.get_proposal_state_periods(provider, deckid, block)
         except KeyError:
             pprint("Error, unconfirmed proposals in mempool. Wait until they are confirmed.")
             return
@@ -1060,9 +817,35 @@ class Proposal: ### DT ###
 
         for state in pstate_periods:
             if state not in excluded_list and (len(pstate_periods[state]) > 0):
-                print("* " + printout_period(state))
+                print("* " + du.printout_period(state, show_blockheights=True))
                 print("** ", end='')
                 print("\n** ".join(pstate_periods[state]))
+
+    def info(self, proposal_txid):
+        info = du.get_proposal_info(provider, proposal_txid)
+        pprint(info)
+
+    def show_state(self, proposal_txid, debug=False):
+        pstate = get_proposal_state(provider, proposal_txid, phase=0, debug=debug)
+        pprint(pstate.__dict__)
+
+    def show_donation_states(self, proposal_id: str, address: str=Settings.key.address, debug=False):
+        dstates = du.get_donation_states(provider, proposal_id, address=address, debug=debug)
+        for dstate in dstates:
+            pprint("Donation state ID: " + dstate.id)
+            #pprint(dstate.__dict__)
+            ds_dict = dstate.__dict__
+            for item in ds_dict:
+                print(item + ":", ds_dict[item])
+
+    def show_all_donation_states(self, proposal_id: str, debug=False):
+        dstates = du.get_donation_states(provider, proposal_id, debug=debug)
+        for dstate in dstates:
+            pprint("Donation state ID: " + dstate.id)
+
+            ds_dict = dstate.__dict__
+            for item in ds_dict:
+                print(item + ":", ds_dict[item])
 
 
 def main():
