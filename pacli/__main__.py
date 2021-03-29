@@ -705,7 +705,7 @@ class Transaction:
 
         return du.finalize_tx(rawtx, verify, sign, send)
 
-    def dt_lock_funds(self, proposal_txid: str, raw_amount: str, dest_address: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, use_slot: bool=True, new_inputs: bool=False, dist_round: int=None, debug: bool=False) -> None: ### ADDRESSTRACK ###
+    def dt_lock_funds(self, proposal_txid: str, raw_amount: str, dest_address: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, use_slot: bool=True, new_inputs: bool=False, dist_round: int=None, debug: bool=False, manual_timelock: int=None) -> None: ### ADDRESSTRACK ###
 
         if check_round is not None:
             dist_round=check_round
@@ -714,10 +714,13 @@ class Transaction:
 
         params = { "id" : "DL" , "prp" : proposal_txid }
 
-        cltv_timelock = du.calculate_timelock(provider, proposal_txid)
+        if manual_timelock:
+            cltv_timelock = manual_timelock
+        else:
+            cltv_timelock = du.calculate_timelock(provider, proposal_txid) # TODO: still not working correctly!
         print("Locking funds until block", cltv_timelock)
 
-        rawtx = du.create_unsigned_trackedtx(provider, "locking", params, dest_address=dest_address, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, cltv_timelock=cltv_timelock, use_slot=use_slot, new_inputs=new_inputs, dist_round=dist_round, debug=debug)
+        rawtx = du.create_unsigned_trackedtx(provider, "locking", params, dest_address=dest_address, change_address=change_address, input_address=Settings.key.address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, cltv_timelock=cltv_timelock, use_slot=use_slot, new_inputs=new_inputs, dist_round=dist_round, debug=debug)
         
         return du.finalize_tx(rawtx, verify, sign, send)
 

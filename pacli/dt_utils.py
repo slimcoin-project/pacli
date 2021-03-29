@@ -6,7 +6,7 @@ from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_addres
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_voting_txes
 from pypeerassets.pautils import read_tx_opreturn
 from pypeerassets.kutil import Kutil
-from pypeerassets.networks import net_query
+from pypeerassets.networks import net_query, PeercoinMainnet, PeercoinTestnet
 from pacli.utils import (cointoolkit_verify,
                          signtx,
                          sendtx)
@@ -270,10 +270,10 @@ def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, pro
 def get_donation_states(provider, proposal_id, address=None, debug=False):
     return get_donation_state(provider, proposal_id, address=address, debug=debug) # this returns a list of multiple results
 
-def create_unsigned_trackedtx(provider: Provider, tx_type: str, params: dict, raw_amount=None, dest_address=None, change_address=None, input_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network="tppc", version=1, deckid=None, use_slot=False, new_inputs: bool=False, dist_round: int=None, debug: bool=False):
+def create_unsigned_trackedtx(provider: Provider, tx_type: str, params: dict, raw_amount=None, dest_address=None, change_address=None, input_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network=PeercoinTestnet, version=1, deckid=None, use_slot=False, new_inputs: bool=False, dist_round: int=None, debug: bool=False):
     # Creates datastring and (in the case of locking/donations) input data in unified way.
        
-    network_params = net_query(network)
+    network_params = net_query(network.shortname) # revise this!
     coin = int(1 / network_params.from_unit)
 
     if raw_amount is not None:
