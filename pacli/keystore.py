@@ -35,10 +35,10 @@ def set_new_key(new_key: str=None, backup_id: str=None, key_id: str=None, old_ke
        It MAY be better to replace key_bak by other identifier, but that has to be discussed.'''
 
     try:
-        # to prevent malfunction if "--wif" is forgot or format is wrong
+        # to prevent malfunction if "--wif" is forgot or format is wrong, this checks if the key is a hex number
         # may be even better to do that with kutil, to catch all format errors.
         if new_key:
-            print(new_key, type(new_key))
+            # print(new_key, type(new_key))
             checkkey = int(new_key, 16) 
     except ValueError:
         raise ValueError("Key in wrong format.")
@@ -69,3 +69,7 @@ def get_key(key_id: str) -> str: ### NEW FEATURE ###
 def delete_key(key_id: str) -> None: ### NEW FEATURE ###
     '''delete key from keyring.'''
     keyring.delete_password("pacli", "key_bak_" + key_id)
+
+def set_key(key_id: str, key: str) -> None: ### NEW FEATURE ###
+    '''set new key, simple way'''
+    keyring.set_password("pacli", key_id, key)

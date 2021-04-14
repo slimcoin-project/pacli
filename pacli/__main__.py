@@ -16,13 +16,13 @@ from pypeerassets.pautils import (amount_to_exponent,
                                   )
 from pypeerassets.transactions import NulldataScript, TxIn ### ADDED ###
 from pypeerassets.__main__ import get_card_transfer
-from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction
+from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction
 from pypeerassets.at.transaction_formats import getfmt, PROPOSAL_FORMAT, SIGNALLING_FORMAT, LOCKING_FORMAT, DONATION_FORMAT, VOTING_FORMAT
 from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.keystore import init_keystore, set_new_key, delete_key, get_key, load_key ### MODIFIED ###
+from pacli.keystore import init_keystore, set_new_key, set_key, delete_key, get_key, load_key ### MODIFIED ###
 from pacli.tui import print_deck_info, print_deck_list
 from pacli.tui import print_card_list
 from pacli.export import export_to_csv
@@ -118,6 +118,23 @@ class Address:
 
         return Settings.key.address # this still doesn't work properly
 
+    def fresh(self, keyid: str, show: bool=False, set_main: bool=False, force: bool=False, backup: str=None): ### NEW ###
+        '''This function uses the standard client commands to create an address/key and assign it a key id.'''
+        addr = provider.getnewaddress()
+        privkey_wif = provider.dumpprivkey(addr)
+        privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
+        privkey = privk_kutil.privkey
+        fullkeyid = "key_bak_" + keyid
+        set_key(keyid, privkey)
+
+        if show:
+            print("New address created:", privk_kutil.address, "with key id (name):", keyid)
+            print("Address already is saved in your wallet and in your keyring, ready to use.")
+        if set_main:
+            set_new_key(new_key=privkey, backup_id=backup, key_id=keyid, force=force)
+            Settings.key = privk_kutil
+            return Settings.key.address
+
     def set_main(self, keyid: str, backup: str=None, force: bool=False) -> str: ### NEW FEATURE ###
         '''restores old key from backup and sets as personal address'''
 
@@ -128,23 +145,8 @@ class Address:
 
     def show_stored(self, keyid: str, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str: ### NEW FEATURE ###
         '''shows stored alternative keys'''
-
-        try:
-            raw_key = bytearray.fromhex(get_key(keyid))
-        except TypeError:
-            exc_text = "No key data for key {}".format(keyid)
-            raise Exception(exc_text)
-
-        key = pa.Kutil(network=Settings.network, privkey=raw_key)
-
-        if privkey:
-             return key.privkey
-        elif pubkey:
-             return key.pubkey
-        elif wif:
-             return key.wif
-        else:
-             return key.address
+        # WARNING: Can expose private keys. Try to use it only on testnet.
+        return du.show_stored_key(keyid, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif)
 
     def show_all(self):
         keyids = du.get_all_keyids()
@@ -177,11 +179,12 @@ class Address:
             wif = Settings.wif
         provider.importprivkey(wif, account_name=accountname)
 
-    def my_votes(self, deckid, address=Settings.key.address):
+    def my_votes(self, deckid: str, address: str=Settings.key.address):
         '''shows votes cast from this address.'''
+        # TODO: optional weight parameter
         return du.show_votes_by_address(provider, deckid, address)
 
-    def my_donations(self, deckid, address=Settings.key.address):
+    def my_donations(self, deckid: str, address: str=Settings.key.address):
         '''shows donation states involving this address.'''
         return du.show_donations_by_address(provider, deckid, address)
         
@@ -356,7 +359,11 @@ class Deck:
     def dt_init(self, deckid: str):
         '''Intializes deck and imports all P2TH addresses into node.'''
 
-        du.init_dt_deck(provider, Settings.network, deckid) 
+        du.init_dt_deck(provider, Settings.network, deckid)
+
+    def dt_info(self, deckid: str):
+        deckinfo = du.get_deckinfo(deckid, provider)
+        pprint(deckinfo)
 
     @classmethod
     def dt_list(self):
@@ -679,101 +686,6 @@ class Transaction:
         txid = provider.sendrawtransaction(rawtx)
 
         pprint({'txid': txid})
-
-    def dt_create_proposal(self, deckid: str, req_amount: str, periods: int, slot_allocation_duration: int, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False):
-
-        #if input_address is None:
-        #    input_address = Settings.address
-
-        params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
-
-        rawtx = du.create_unsigned_trackedtx(provider, "proposal", params, deckid=deckid, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
-
-        return du.finalize_tx(rawtx, verify, sign, send)
-
-
-    def dt_signal_funds(self, proposal_txid: str, amount: str, dest_address: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
-        '''this creates a compliant signalling transaction.'''
-
-        if check_round is not None:
-            if not du.check_current_period(provider, proposal_txid, "signalling", dist_round=check_round, wait=wait):
-                return
-
-        params = { "id" : "DS" , "prp" : proposal_txid }
-
-        rawtx = du.create_unsigned_trackedtx(provider, "signalling", params, change_address=change_address, dest_address=dest_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount)
-
-        return du.finalize_tx(rawtx, verify, sign, send)
-
-    def dt_lock_funds(self, proposal_txid: str, raw_amount: str, dest_address: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, use_slot: bool=True, new_inputs: bool=False, dist_round: int=None, debug: bool=False, manual_timelock: int=None) -> None: ### ADDRESSTRACK ###
-
-        if check_round is not None:
-            dist_round=check_round
-            if not du.check_current_period(provider, proposal_txid, "locking", dist_round=check_round, wait=wait):
-                return
-
-        params = { "id" : "DL" , "prp" : proposal_txid }
-
-        if manual_timelock:
-            cltv_timelock = manual_timelock
-        else:
-            cltv_timelock = du.calculate_timelock(provider, proposal_txid) # TODO: still not working correctly!
-        print("Locking funds until block", cltv_timelock)
-
-        rawtx = du.create_unsigned_trackedtx(provider, "locking", params, dest_address=dest_address, change_address=change_address, input_address=Settings.key.address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, cltv_timelock=cltv_timelock, use_slot=use_slot, new_inputs=new_inputs, dist_round=dist_round, debug=debug)
-        
-        return du.finalize_tx(rawtx, verify, sign, send)
-
-
-    def dt_donate_funds(self, proposal_txid: str, raw_amount: str, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, input_address: str=Settings.key.address, send: bool=False, check_round: int=None, wait: bool=False, use_slot: bool=True, new_inputs: bool=False) -> None: ### ADDRESSTRACK ###
-
-        if check_round is not None:
-            if not du.check_current_period(provider, proposal_txid, "donation", dist_round=check_round, wait=wait):
-                return
-
-        params = { "id" : "DD" , "prp" : proposal_txid }
-
-        rawtx = du.create_unsigned_trackedtx(provider, "donation", params, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, use_slot=use_slot, new_inputs=new_inputs)
-        
-        return du.finalize_tx(rawtx, verify, sign, send)
-
-    def dt_vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
-
-        if check_phase is not None:
-            print("Checking blockheights of phase", check_phase, "...")
-            if not du.check_current_period(provider, proposal_id, "voting", phase=check_phase, wait=wait):
-                return
-
-        if vote in ("+", "positive", "p", "1", "yes", "y", "true"):
-            votechar = "+"
-        elif vote in ("-", "negative", "n", "0", "no", "n", "false"):
-            votechar = "-"
-        else:
-            raise ValueError("Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
-
-        vote_readable = "Positive" if votechar == "+" else "Negative" 
-        print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
-
-        params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
-
-        rawtx = du.create_unsigned_trackedtx(provider, "voting", params, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
-
-        console_output = du.finalize_tx(rawtx, verify, sign, send)
-
-        if confirm and sign and send:
-            print("Waiting for confirmation (this can take several minutes) ...", end='')
-            confirmations = 0
-            while confirmations == 0:
-                tx = provider.getrawtransaction(rawtx.txid, 1)
-                try:
-                    confirmations = tx["confirmations"]
-                    break
-                except KeyError:
-                    du.spinner(10)
-
-            print("\nVote confirmed.")
-
-        return console_output
                
 class Proposal: ### DT ###
 
@@ -797,14 +709,20 @@ class Proposal: ### DT ###
 
         # TODO: Abandoned and completed proposals cannot be separated this way, this needs a more complex
         #       method involving the parser. => Advanced mode could be a good idea.
-        # TODO: deck e9742552e3607754b1c17b28421061211317428c83c299f3cbe2d2cc62e49fa4 raises an error, it seems
-        # the deck tx is not well formatted, but should be catched in some way.
-        # TODO: Non-DT decks like e282a8d4db32e302496ae222172ff6cce12150338686ec00b75c967e44a833d3 simply show "No proposals found." They should be differetiated.
         # TODO: Printout should be reorganized, so two proposals which overlap by coincidence don't share erroneously the same block heights for start and end.
+        if not block:
+            block = provider.getblockcount()
+            pprint("Current block: " + str(block))
+
         try:
             pstate_periods = du.get_proposal_state_periods(provider, deckid, block)
         except KeyError:
             pprint("Error, unconfirmed proposals in mempool. Wait until they are confirmed.")
+            return
+        except ValueError as ve:
+            if len(ve.args) > 0:
+                pprint(ve.args[0])
+            pprint("Deck in wrong format, proposals could not be retrieved.")
             return
 
         excluded_list = []
@@ -828,11 +746,20 @@ class Proposal: ### DT ###
         info = du.get_proposal_info(provider, proposal_txid)
         pprint(info)
 
-    def show_state(self, proposal_txid, debug=False):
-        pstate = get_proposal_state(provider, proposal_txid, phase=0, debug=debug)
-        pprint(pstate.__dict__)
+    def state(self, proposal_txid, debug=False, simple=False, phase=1):
+        '''Shows a single proposal state.'''
+        pstate = get_proposal_state(provider, proposal_txid, phase=phase, debug=debug)
+        if simple:
+            pprint(pstate.__dict__)
+            print("locking txes:", pstate.all_locking_txes, [ t.txid for t in pstate.all_locking_txes ])
+            return
+        pdict = pstate.__dict__
+        pprint("Proposal State " + proposal_txid + ":")
+        du.update_2levels(pdict)
+        pprint(pdict)
 
-    def show_donation_states(self, proposal_id: str, address: str=Settings.key.address, debug=False):
+    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, debug=False):
+        '''Shows the donation states involving a certain address (default: current active address).'''
         dstates = du.get_donation_states(provider, proposal_id, address=address, debug=debug)
         for dstate in dstates:
             pprint("Donation state ID: " + dstate.id)
@@ -841,15 +768,166 @@ class Proposal: ### DT ###
             for item in ds_dict:
                 print(item + ":", ds_dict[item])
 
-    def show_all_donation_states(self, proposal_id: str, debug=False):
+    def all_donation_states(self, proposal_id: str, debug=False):
         dstates = du.get_donation_states(provider, proposal_id, debug=debug)
+        print(dstates)
         for dstate in dstates:
             pprint("Donation state ID: " + dstate.id)
 
             ds_dict = dstate.__dict__
-            for item in ds_dict:
-                print(item + ":", ds_dict[item])
 
+            for item in ds_dict:
+
+                if issubclass(type(ds_dict[item]), TrackedTransaction):
+                    value = ds_dict[item].txid
+                else:
+                    value = ds_dict[item]
+
+                print(item + ":", value)
+
+    def create(self, deckid: str, req_amount: str, periods: int, slot_allocation_duration: int, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False):
+
+        params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
+
+        rawtx = du.create_unsigned_trackedtx(provider, "proposal", params, deckid=deckid, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
+
+        return du.finalize_tx(rawtx, verify, sign, send)
+
+    def vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
+
+        if (check_phase is not None) or (wait == True):
+            print("Checking blockheights ...")
+            if not du.check_current_period(provider, proposal_id, "voting", phase=check_phase, wait=wait):
+                return
+
+        if vote in ("+", "positive", "p", "1", "yes", "y", "true"):
+            votechar = "+"
+        elif vote in ("-", "negative", "n", "0", "no", "n", "false"):
+            votechar = "-"
+        else:
+            raise ValueError("Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
+
+        vote_readable = "Positive" if votechar == "+" else "Negative" 
+        # print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
+
+        params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
+
+        rawtx = du.create_unsigned_trackedtx(provider, "voting", params, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
+
+        console_output = du.finalize_tx(rawtx, verify, sign, send)
+
+        if confirm and sign and send:
+            print("Waiting for confirmation (this can take several minutes) ...", end='')
+            confirmations = 0
+            while confirmations == 0:
+                tx = provider.getrawtransaction(rawtx.txid, 1)
+                try:
+                    confirmations = tx["confirmations"]
+                    break
+                except KeyError:
+                    du.spinner(10)
+
+            print("\nVote confirmed.")
+
+        return console_output
+
+class Donation:
+
+    def signal(self, proposal_txid: str, amount: str, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", dest_keyid: str=None, change_keyid: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
+        '''this creates a compliant signalling transaction.'''
+
+        [dest_address, change_address] = du.show_addresses([dest_address, change_address], [dest_keyid, change_keyid], Settings.network)
+
+        if (check_round is not None) or (wait == True):
+            if not du.check_current_period(provider, proposal_txid, "signalling", dist_round=check_round, wait=wait):
+                return
+
+            print("You are signalling {} coins.".format(amount))
+            print("Take into account that releasing the donation requires 0.02 coins for fees.")
+            if check_round < 4:
+                print("Additionally, locking the transaction requires 0.02 coins, so total fees sum up to 0.04.")
+
+        params = { "id" : "DS" , "prp" : proposal_txid }
+
+        rawtx = du.create_unsigned_trackedtx(provider, "signalling", params, change_address=change_address, dest_address=dest_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount)
+
+        return du.finalize_tx(rawtx, verify, sign, send)
+
+    def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_keyid: str=None, reserve_keyid: str=None, change_keyid: str=None, debug: bool=False) -> None:
+
+        """Locking Transaction locks funds to the origin address (default)."""
+        # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
+        [dest_address, reserve_address, change_address] = du.show_addresses([dest_address, reserve_address, change_address], [dest_keyid, reserve_keyid, change_keyid], Settings.network)
+
+        if (check_round is not None) or (wait == True):
+            dist_round=check_round
+            if not du.check_current_period(provider, proposal_txid, "locking", dist_round=check_round, wait=wait):
+                return
+
+        if manual_timelock:
+            cltv_timelock = int(manual_timelock)
+        else:
+            cltv_timelock = du.calculate_timelock(provider, proposal_txid)
+        print("Locking funds until block", cltv_timelock)
+
+        if amount:
+            print("Not using slot, instead locking amount:", amount)
+            use_slot = False
+        else:
+            use_slot = True
+
+        # MODIFIED: added timelock and dest_address to be able to reconstruct redeem script
+        params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
+
+        rawtx = du.create_unsigned_trackedtx(provider, "locking", params, dest_address=dest_address, change_address=change_address, input_address=Settings.key.address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, use_slot=use_slot, new_inputs=new_inputs, dist_round=dist_round, debug=debug, reserve=reserve, reserve_address=reserve_address)
+        
+        return du.finalize_tx(rawtx, verify, sign, send)
+
+
+    def release(self, proposal_txid: str, amount: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, force: bool=False, sign: bool=False, send: bool=False, verify: bool=False) -> None: ### ADDRESSTRACK ###
+
+        if (check_round is not None) or (wait == True):
+            if not du.check_current_period(provider, proposal_txid, "donation", dist_round=check_round, wait=wait):
+                return
+
+        if check_release:
+            if not du.check_current_period(provider, proposal_txid, "donation", release=True, wait=wait):
+                return
+
+        use_slot = False if (amount is not None) else True
+
+        params = { "id" : "DD" , "prp" : proposal_txid }
+
+        rawtx = du.create_unsigned_trackedtx(provider, "donation", params, change_address=change_address, input_address=input_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, use_slot=use_slot, new_inputs=new_inputs, force=force)
+        
+        return du.finalize_tx(rawtx, verify, sign, send)
+
+    def check_tx(self, txid=None, txhex=None):
+        '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.'''
+        tx = du.create_trackedtx(provider, txid=txid, txhex=txhex)
+        pprint("Type: " + str(type(tx)))
+        pprint(tx.__dict__)
+
+    def check_all_tx(self, proposal_id: str, include_badtx: bool=False, light: bool=False):
+        '''Lists all TrackedTransactions for a proposal, even invalid ones.
+           include_badtx also detects wrongly formatted tranactions, but only displays the txid.'''
+        du.get_all_trackedtxes(provider, proposal_id, include_badtx=include_badtx, light=light)
+
+    def show_slot(self, proposal_id: str, satoshi: bool=False):
+        '''Simplified variant of my_donation_states, only shows slot.'''
+        dstates = du.get_donation_states(provider, proposal_id, address=Settings.key.address)
+        # There must be only 1 state per proposal, so the
+        try:
+            if not satoshi:
+                network_params = du.net_query(Settings.network)
+                coin = int(1 / network_params.from_unit)
+                slot = Decimal(dstates[0].slot) / coin 
+            else:
+                slot = dstates[0].slot
+            print("Slot:", slot)
+
+        except IndexError:
+            print("No valid donation process found.")        
 
 def main():
 
@@ -862,7 +940,8 @@ def main():
         'address': Address(),
         'transaction': Transaction(),
         'coin': Coin(),
-        'proposal' : Proposal()
+        'proposal' : Proposal(),
+        'donation' : Donation()
         })
 
 
