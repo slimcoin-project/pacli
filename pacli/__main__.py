@@ -99,81 +99,84 @@ class Address:
         except KeyError:
             pprint({'error': 'No UTXOs ;('})
 
-    def new_privkey(self, key: str=None, backup: str=None, keyid: str=None, wif: bool=False, force: bool=False) -> str: ### NEW FEATURE ###
+    def new_privkey(self, key: str=None, backup: str=None, label: str=None, wif: bool=False, force: bool=False) -> str: ### NEW FEATURE ###
         '''import new private key, taking hex or wif format, or generate new key.
            You can assign a key name, otherwise it will become the main key.'''
 
         if wif:
             new_key = pa.Kutil(network=Settings.network, from_wif=key)
             key = new_key.privkey
-        elif (not keyid) and key:
+        elif (not label) and key:
             new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key))
 
-        set_new_key(new_key=key, backup_id=backup, key_id=keyid, force=force)
+        set_new_key(new_key=key, backup_id=backup, label=label, force=force)
 
-        if not keyid:
+        if not label:
             if not new_key:
                 new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
             Settings.key = new_key
 
         return Settings.key.address # this still doesn't work properly
 
-    def fresh(self, keyid: str, show: bool=False, set_main: bool=False, force: bool=False, backup: str=None): ### NEW ###
+    def fresh(self, label: str, show: bool=False, set_main: bool=False, force: bool=False, backup: str=None): ### NEW ###
         '''This function uses the standard client commands to create an address/key and assign it a key id.'''
         addr = provider.getnewaddress()
         privkey_wif = provider.dumpprivkey(addr)
         privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
         privkey = privk_kutil.privkey
-        fullkeyid = "key_bak_" + keyid
-        set_key(keyid, privkey)
+        fulllabel = "key_bak_" + label
+        if fulllabel in du.get_all_labels():
+            return "ERROR: Label already used. Please choose another one."
+
+        set_key(fulllabel, privkey)
 
         if show:
-            print("New address created:", privk_kutil.address, "with key id (name):", keyid)
+            print("New address created:", privk_kutil.address, "with label (name):", label)
             print("Address already is saved in your wallet and in your keyring, ready to use.")
         if set_main:
-            set_new_key(new_key=privkey, backup_id=backup, key_id=keyid, force=force)
+            set_new_key(new_key=privkey, backup_id=backup, label=label, force=force)
             Settings.key = privk_kutil
             return Settings.key.address
 
-    def set_main(self, keyid: str, backup: str=None, force: bool=False) -> str: ### NEW FEATURE ###
+    def set_main(self, label: str, backup: str=None, force: bool=False) -> str: ### NEW FEATURE ###
         '''restores old key from backup and sets as personal address'''
 
-        set_new_key(old_key_backup=keyid, backup_id=backup, force=force)
+        set_new_key(old_key_backup=label, backup_id=backup, force=force)
         Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
 
         return Settings.key.address
 
-    def show_stored(self, keyid: str, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str: ### NEW FEATURE ###
+    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str: ### NEW FEATURE ###
         '''shows stored alternative keys'''
         # WARNING: Can expose private keys. Try to use it only on testnet.
-        return du.show_stored_key(keyid, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif)
+        return du.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif)
 
     def show_all(self):
-        keyids = du.get_all_keyids()
-        print("Address".ljust(35), "Balance".ljust(15), "Keyid".ljust(15))
+        labels = du.get_all_labels()
+        print("Address".ljust(35), "Balance".ljust(15), "Label".ljust(15))
         print("---------------------------------------------------------")
-        for raw_keyid in keyids:
+        for raw_label in labels:
             try:
-                keyid = raw_keyid.replace("key_bak_", "")
-                raw_key = bytearray.fromhex(get_key(keyid))
+                label = raw_label.replace("key_bak_", "")
+                raw_key = bytearray.fromhex(get_key(label))
                 key = pa.Kutil(network=Settings.network, privkey=raw_key)
                 addr = key.address
                 balance = str(provider.getbalance(addr))
-                print(addr.ljust(35), balance.ljust(15), keyid.ljust(15))
+                print(addr.ljust(35), balance.ljust(15), label.ljust(15))
                 
                       
-            except:
+            except Exception as e:
                 continue
 
-    def delete_key_from_keyring(self, keyid: str) -> None: ### NEW FEATURE ###
+    def delete_key_from_keyring(self, label: str) -> None: ### NEW FEATURE ###
         '''deletes a key with an id. Cannot be used to delete main key.'''
-        delete_key(keyid)
+        delete_key(label)
 
-    def import_to_wallet(self, accountname: str, keyid: str=None) -> None: ### NEW FEATURE ###
+    def import_to_wallet(self, accountname: str, label: str=None) -> None: ### NEW FEATURE ###
         '''imports main key or any stored key to wallet managed by RPC node.
            TODO: should accountname be mandatory or not?'''
-        if keyid:
-            pkey = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(get_key(keyid)))
+        if label:
+            pkey = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(get_key(label)))
             wif = pkey.wif
         else:
             wif = Settings.wif
@@ -833,10 +836,10 @@ class Proposal: ### DT ###
 
 class Donation:
 
-    def signal(self, proposal_txid: str, amount: str, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", dest_keyid: str=None, change_keyid: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
+    def signal(self, proposal_txid: str, amount: str, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", dest_label: str=None, change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
         '''this creates a compliant signalling transaction.'''
 
-        [dest_address, change_address] = du.show_addresses([dest_address, change_address], [dest_keyid, change_keyid], Settings.network)
+        [dest_address, change_address] = du.show_addresses([dest_address, change_address], [dest_label, change_label], Settings.network)
 
         if (check_round is not None) or (wait == True):
             if not du.check_current_period(provider, proposal_txid, "signalling", dist_round=check_round, wait=wait):
@@ -853,11 +856,11 @@ class Donation:
 
         return du.finalize_tx(rawtx, verify, sign, send)
 
-    def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_keyid: str=None, reserve_keyid: str=None, change_keyid: str=None, debug: bool=False) -> None:
+    def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, debug: bool=False) -> None:
 
         """Locking Transaction locks funds to the origin address (default)."""
         # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
-        [dest_address, reserve_address, change_address] = du.show_addresses([dest_address, reserve_address, change_address], [dest_keyid, reserve_keyid, change_keyid], Settings.network)
+        [dest_address, reserve_address, change_address] = du.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
 
         if (check_round is not None) or (wait == True):
             dist_round=check_round

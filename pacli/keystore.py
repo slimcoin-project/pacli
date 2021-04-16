@@ -29,7 +29,7 @@ def load_key() -> PrivateKey:
 
     return key
 
-def set_new_key(new_key: str=None, backup_id: str=None, key_id: str=None, old_key_backup: str=None, force: bool=False) -> None: ### NEW FEATURE ###
+def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, old_key_backup: str=None, force: bool=False) -> None: ### NEW FEATURE ###
     '''save/import new key, can be as main address or with an id, old key can be backed up
        this feature allows to import keys and generate new addresses
        It MAY be better to replace key_bak by other identifier, but that has to be discussed.'''
@@ -43,7 +43,7 @@ def set_new_key(new_key: str=None, backup_id: str=None, key_id: str=None, old_ke
     except ValueError:
         raise ValueError("Key in wrong format.")
 
-    if not key_id:
+    if not label:
         old_key = keyring.get_password("pacli", "key")
         if backup_id:
             keyring.set_password("pacli", "key_bak_" + backup_id, old_key)
@@ -57,19 +57,19 @@ def set_new_key(new_key: str=None, backup_id: str=None, key_id: str=None, old_ke
     else:
         key = generate_key()
 
-    if key_id:
-        keyring.set_password("pacli", "key_bak_" + key_id, key)
+    if label:
+        keyring.set_password("pacli", "key_bak_" + label, key)
     else:
         keyring.set_password("pacli", 'key', key)
     
 
-def get_key(key_id: str) -> str: ### NEW FEATURE ###
-    return keyring.get_password("pacli", "key_bak_" + key_id)
+def get_key(label: str) -> str: ### NEW FEATURE ###
+    return keyring.get_password("pacli", "key_bak_" + label)
 
-def delete_key(key_id: str) -> None: ### NEW FEATURE ###
+def delete_key(label: str) -> None: ### NEW FEATURE ###
     '''delete key from keyring.'''
-    keyring.delete_password("pacli", "key_bak_" + key_id)
+    keyring.delete_password("pacli", "key_bak_" + label)
 
-def set_key(key_id: str, key: str) -> None: ### NEW FEATURE ###
+def set_key(label: str, key: str) -> None: ### NEW FEATURE ###
     '''set new key, simple way'''
-    keyring.set_password("pacli", key_id, key)
+    keyring.set_password("pacli", label, key)

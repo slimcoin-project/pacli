@@ -408,15 +408,18 @@ def finalize_tx(rawtx, verify, sign, send):
 
     return rawtx.hexlify()
 
-def get_all_keyids():
+def get_all_labels():
     bus = secretstorage.dbus_init()
     collection = secretstorage.get_default_collection(bus)
-    keys = []
+    labels = []
     for item in collection.search_items({'application': 'Python keyring library', "service" : "pacli"}):
         # print(item.get_label())
-        keys.append(item.get_attributes()["username"])
+        labels.append(item.get_attributes()["username"])
 
-    return keys
+    return labels
+
+def get_all_keyids():
+    return get_all_labels()
 
 def show_votes_by_address(provider, deckid, address):
     # shows all valid voting transactions from a specific address.
@@ -479,12 +482,12 @@ def itemprint(lst):
     except (IndexError, AttributeError):
         print(lst)
 
-def signtx_by_key(provider, rawtx, key_id=None, key=None):
+def signtx_by_key(provider, rawtx, label=None, key=None):
     # Allows to sign a transaction with a different than the main key.
 
     if not key:
         try:
-           key = get_key(key_id)
+           key = get_key(label)
         except ValueError:
            raise ValueError("No key nor key id provided.")
 
