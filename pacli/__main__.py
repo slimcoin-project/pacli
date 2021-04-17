@@ -629,20 +629,15 @@ class Card:
     @classmethod ### NEW FEATURE - DT ###
     def dt_issue(self, deckid: str, donation_txid: str, amount: list, donation_vout: int=2, move_txid: str=None, receiver: list=None, locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False) -> str:
         '''To simplify self.issue, all data is taken from the transaction.'''
-        # TODO: Multiplier must be replaced by the max epoch amount!
+        # TODO: INCOMPLETE: Multiplier must be replaced by the max epoch amount! Move_txid must be thrown out.
 
         deck = self.__find_deck(deckid)
-        # multiplier = int.from_bytes(deck.asset_specific_data[2:4], "big") # TODO: hardcoded for now! Take into account that the id bytes (now 2) are considered to be changed to 1.
         spending_tx = provider.getrawtransaction(donation_txid, 1)
-        # print(multiplier)
 
         try:
             spent_amount = spending_tx["vout"][donation_vout]["value"]
         except (IndexError, KeyError):
             raise Exception("No vout of this transaction spends to the tracked address")
-
-        # TODO: this must be changed completely. Multiplier is irrelevant, but we would need the slot data to calculate the amount automatically. Maybe make amount mandatory and throw out the whole part until we have an interface for slots.
-        # max_amount = spent_amount * multiplier
 
         if not receiver: # if there is no receiver, spends to himself.
             receiver = [Settings.key.address]
@@ -837,7 +832,7 @@ class Proposal: ### DT ###
 
 class Donation:
 
-    def signal(self, proposal_txid: str, amount: str, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", dest_label: str=None, change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
+    def signal(self, proposal_txid: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
         '''this creates a compliant signalling transaction.'''
 
         [dest_address, change_address] = du.show_addresses([dest_address, change_address], [dest_label, change_label], Settings.network)
