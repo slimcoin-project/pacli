@@ -29,7 +29,7 @@ def load_key() -> PrivateKey:
 
     return key
 
-def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, old_key_backup: str=None, force: bool=False) -> None: ### NEW FEATURE ###
+def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existing_label: str=None, force: bool=False) -> None: ### NEW FEATURE ###
     '''save/import new key, can be as main address or with an id, old key can be backed up
        this feature allows to import keys and generate new addresses
        It MAY be better to replace key_bak by other identifier, but that has to be discussed.'''
@@ -39,7 +39,7 @@ def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, old_key
         # may be even better to do that with kutil, to catch all format errors.
         if new_key:
             # print(new_key, type(new_key))
-            checkkey = int(new_key, 16) 
+            checkkey = int(new_key, 16)
     except ValueError:
         raise ValueError("Key in wrong format.")
 
@@ -52,8 +52,8 @@ def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, old_key
 
     if new_key:
         key = new_key
-    elif old_key_backup:
-        key = keyring.get_password("pacli", "key_bak_" + old_key_backup)
+    elif existing_label:
+        key = keyring.get_password("pacli", "key_bak_" + existing_label)
     else:
         key = generate_key()
 

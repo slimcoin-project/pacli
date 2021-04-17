@@ -141,7 +141,7 @@ class Address:
     def set_main(self, label: str, backup: str=None, force: bool=False) -> str: ### NEW FEATURE ###
         '''restores old key from backup and sets as personal address'''
 
-        set_new_key(old_key_backup=label, backup_id=backup, force=force)
+        set_new_key(existing_label=label, backup_id=backup, force=force)
         Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
 
         return Settings.key.address
@@ -151,7 +151,7 @@ class Address:
         # WARNING: Can expose private keys. Try to use it only on testnet.
         return du.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif)
 
-    def show_all(self):
+    def show_all(self, debug: bool=False):
         labels = du.get_all_labels()
         print("Address".ljust(35), "Balance".ljust(15), "Label".ljust(15))
         print("---------------------------------------------------------")
@@ -166,6 +166,7 @@ class Address:
                 
                       
             except Exception as e:
+                if debug: print("ERROR:", label, e)
                 continue
 
     def delete_key_from_keyring(self, label: str) -> None: ### NEW FEATURE ###
