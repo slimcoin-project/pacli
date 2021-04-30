@@ -836,7 +836,7 @@ class Proposal: ### DT ###
 
 class Donation:
 
-    def signal(self, proposal_txid: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address) -> None:
+    def signal(self, proposal_txid: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address, debug: bool=False) -> None:
         '''this creates a compliant signalling transaction.'''
 
         [dest_address, change_address] = du.show_addresses([dest_address, change_address], [dest_label, change_label], Settings.network)
@@ -851,9 +851,9 @@ class Donation:
                 print("Additionally, locking the transaction requires 0.02 coins, so total fees sum up to 0.04.")
 
         params = { "id" : "DS" , "prp" : proposal_txid }
-        basic_tx_data = du.get_basic_tx_data(provider, "signalling", proposal_id)
+        basic_tx_data = du.get_basic_tx_data(provider, "signalling", proposal_txid, input_address=Settings.key.address)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, debug=debug)
 
         return du.finalize_tx(rawtx, verify, sign, send)
 

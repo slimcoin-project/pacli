@@ -30,7 +30,7 @@ def check_current_period(provider, proposal_txid, tx_type, dist_round=None, phas
              if (period[0] == "B") and (10 <= period[1] < 40):
                  dist_round = period[1] // 10 # period[1] is a multiple of the round
              elif (period[0] == "D") and (10 <= period[1] < 40):
-                 dist_round = 4 + (period[1] // 10) # adding the 4 rounds of initial phase
+                 dist_round = 3 + (period[1] // 10) # adding the 4 rounds of initial phase (0-3)
              # if no exact match look for next possible rounds
              elif period[:2] in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
                  dist_round = 0
@@ -182,10 +182,10 @@ def get_period(provider, proposal_txid, blockheight=None):
         rdstart = proposal_state.round_starts[rd]
         rdhalfway = proposal_state.round_halfway[rd]
         if blockheight < rdhalfway:
-            return ("D", rd * 10, rdstart, rdhalfway - 1)
+            return ("D", (rd - 3) * 10, rdstart, rdhalfway - 1)
         rdend = rdstart + proposal_state.round_lengths[1]
         if blockheight < rdend:
-            return ("D", rd * 10 + 1, rdhalfway, rdend - 1)
+            return ("D", (rd - 3) * 10 + 1, rdhalfway, rdend - 1)
     dist_end = (proposal_state.end_epoch + 1) * deck.epoch_length
     if blockheight < dist_end: # after end of round 7
         return ("E", 0, rdend, dist_end - 1)
@@ -306,7 +306,6 @@ def get_basic_tx_data(provider, tx_type, proposal_id, input_address: str=None, d
     return tx_data
 
 def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network=PeercoinTestnet, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
-    # TODO: do we need use_slot and new_inputs?
     # Creates datastring and (in the case of locking/donations) input data in unified way.
        
     network_params = net_query(network.shortname) # TODO: revise this! The net_query should not be necessary.
