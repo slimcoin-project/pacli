@@ -16,7 +16,7 @@ from pypeerassets.pautils import (amount_to_exponent,
                                   )
 from pypeerassets.transactions import NulldataScript, TxIn ### ADDED ###
 from pypeerassets.__main__ import get_card_transfer
-from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction
+from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 from pypeerassets.at.transaction_formats import getfmt, PROPOSAL_FORMAT, SIGNALLING_FORMAT, LOCKING_FORMAT, DONATION_FORMAT, VOTING_FORMAT
 from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state
 
@@ -138,10 +138,10 @@ class Address:
             Settings.key = privk_kutil
             return Settings.key.address
 
-    def set_main(self, label: str, backup: str=None, force: bool=False) -> str: ### NEW FEATURE ###
-        '''restores old key from backup and sets as personal address'''
+    def set_main(self, label: str, backup: str=None) -> str: ### NEW FEATURE ###
+        '''Declares a key identified by a label as the main one.'''
 
-        set_new_key(existing_label=label, backup_id=backup, force=force)
+        set_new_key(existing_label=label, backup_id=backup)
         Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
 
         return Settings.key.address
@@ -698,10 +698,10 @@ class Proposal: ### DT ###
         approval_state = "approved." if votes["positive"] > votes["negative"] else "not approved."
         pprint("In this round, the proposal was " + approval_state)
 
-    def current_period(self, proposal_txid: str, blockheight: int=None):
+    def current_period(self, proposal_txid: str, blockheight: int=None, show_blockheights: bool=True):
 
         period = du.get_period(provider, proposal_txid, blockheight)
-        pprint(du.printout_period(period))
+        pprint(du.printout_period(period, show_blockheights))
 
     def list(self, deckid: str, block: int=None, show_completed: bool=False) -> None:
         '''Shows all proposals and the period they are currently in, optionally at a specific blockheight.'''
@@ -765,11 +765,14 @@ class Proposal: ### DT ###
             #pprint(dstate.__dict__)
             ds_dict = dstate.__dict__
             for item in ds_dict:
-                print(item + ":", ds_dict[item])
+                try:
+                    value = ds_dict[item].txid
+                except AttributeError:
+                    value = ds_dict[item]
+                print(item + ":", value)
 
     def all_donation_states(self, proposal_id: str, debug=False):
         dstates = du.get_donation_states(provider, proposal_id, debug=debug)
-        print(dstates)
         for dstate in dstates:
             pprint("Donation state ID: " + dstate.id)
 
@@ -811,7 +814,8 @@ class Proposal: ### DT ###
 
         params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
 
-        rawtx = du.create_unsigned_trackedtx(provider, "voting", params, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
+        basic_tx_data = du.get_basic_tx_data(provider, "voting", proposal_id, input_address=input_address)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
 
         console_output = du.finalize_tx(rawtx, verify, sign, send)
 
@@ -843,12 +847,13 @@ class Donation:
 
             print("You are signalling {} coins.".format(amount))
             print("Take into account that releasing the donation requires 0.02 coins for fees.")
-            if check_round < 4:
+            if (check_round is not None) and (check_round < 4):
                 print("Additionally, locking the transaction requires 0.02 coins, so total fees sum up to 0.04.")
 
         params = { "id" : "DS" , "prp" : proposal_txid }
+        basic_tx_data = du.get_basic_tx_data(provider, "signalling", proposal_id)
 
-        rawtx = du.create_unsigned_trackedtx(provider, "signalling", params, change_address=change_address, dest_address=dest_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount)
 
         return du.finalize_tx(rawtx, verify, sign, send)
 
@@ -863,43 +868,52 @@ class Donation:
             if not du.check_current_period(provider, proposal_txid, "locking", dist_round=check_round, wait=wait):
                 return
 
-        if manual_timelock:
-            cltv_timelock = int(manual_timelock)
-        else:
-            cltv_timelock = du.calculate_timelock(provider, proposal_txid)
+        cltv_timelock = int(manual_timelock) if manual_timelock else du.calculate_timelock(provider, proposal_txid)
         print("Locking funds until block", cltv_timelock)
 
         if amount:
-            print("Not using slot, instead locking amount:", amount)
+            print("Not using slot, instead locking custom amount:", amount)
             use_slot = False
         else:
             use_slot = True
 
         # MODIFIED: added timelock and dest_address to be able to reconstruct redeem script
         params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
+        basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
-        rawtx = du.create_unsigned_trackedtx(provider, "locking", params, dest_address=dest_address, change_address=change_address, input_address=Settings.key.address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, use_slot=use_slot, new_inputs=new_inputs, dist_round=dist_round, debug=debug, reserve=reserve, reserve_address=reserve_address)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address)
         
         return du.finalize_tx(rawtx, verify, sign, send)
 
 
-    def release(self, proposal_txid: str, amount: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, force: bool=False, sign: bool=False, send: bool=False, verify: bool=False) -> None: ### ADDRESSTRACK ###
+    def release(self, proposal_txid: str, amount: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, origin_label: str=None, origin_key: str=None, force: bool=False, sign: bool=False, send: bool=False, verify: bool=False) -> None: ### ADDRESSTRACK ###
 
         if (check_round is not None) or (wait == True):
-            if not du.check_current_period(provider, proposal_txid, "donation", dist_round=check_round, wait=wait):
+            if not du.check_current_period(provider, proposal_txid, "donation", dist_round=check_round, wait=wait, release=True):
                 return
 
-        if check_release:
-            if not du.check_current_period(provider, proposal_txid, "donation", release=True, wait=wait):
-                return
+        #if check_release:
+        #    if not du.check_current_period(provider, proposal_txid, "donation", release=True, wait=wait):
+        #        return
 
         use_slot = False if (amount is not None) else True
 
         params = { "id" : "DD" , "prp" : proposal_txid }
 
-        rawtx = du.create_unsigned_trackedtx(provider, "donation", params, change_address=change_address, input_address=input_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, use_slot=use_slot, new_inputs=new_inputs, force=force)
+        basic_tx_data = du.get_basic_tx_data(provider, "donation", proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
+
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force)
         
-        return du.finalize_tx(rawtx, verify, sign, send)
+        # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
+        if new_inputs:
+            p2sh, prv, key, rscript = None, None, None, None
+        else:
+            p2sh = True
+            key = Settings.key
+            prv = provider
+            rscript = basic_tx_data["redeem_script"]
+
+        return du.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, provider=prv, redeem_script=rscript)
 
     def check_tx(self, txid=None, txhex=None):
         '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.'''
@@ -926,7 +940,7 @@ class Donation:
             print("Slot:", slot)
 
         except IndexError:
-            print("No valid donation process found.")        
+            print("No valid donation process found.")
 
 def main():
 

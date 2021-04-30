@@ -29,7 +29,7 @@ def load_key() -> PrivateKey:
 
     return key
 
-def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existing_label: str=None, force: bool=False) -> None: ### NEW FEATURE ###
+def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existing_label: str=None) -> None: ### NEW FEATURE ###
     '''save/import new key, can be as main address or with an id, old key can be backed up
        this feature allows to import keys and generate new addresses
        It MAY be better to replace key_bak by other identifier, but that has to be discussed.'''
@@ -47,7 +47,7 @@ def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existin
         old_key = keyring.get_password("pacli", "key")
         if backup_id:
             keyring.set_password("pacli", "key_bak_" + backup_id, old_key)
-        elif not force:
+        elif existing_label == "key":
             raise Exception("Trying to replace main key without providing backup ID. Use --force if you really want to do that.")
 
     if new_key:
