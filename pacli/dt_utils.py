@@ -422,7 +422,7 @@ def previous_input_unspent(basic_tx_data):
         print("Getting data from P2SH locking transaction.")
         return True
     # checks if previous input in listunspent.
-    print(basic_tx_data)
+    # print(basic_tx_data)
     provider = basic_tx_data["provider"]
     for input in provider.listunspent():
         if input["txid"] == basic_tx_data["txid"]:
