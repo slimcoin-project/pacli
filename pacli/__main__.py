@@ -911,7 +911,7 @@ class Donation:
             p2sh = True
             key = Settings.key
             prv = provider
-            rscript = basic_tx_data["redeem_script"]
+            rscript = basic_tx_data.get("redeem_script")
 
         return du.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, provider=prv, redeem_script=rscript)
 
