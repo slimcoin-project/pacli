@@ -2,7 +2,7 @@ from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransacti
 from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
-from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address, create_unsigned_tx, get_donation_state, get_proposal_state, sign_p2sh_transaction
+from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address, create_unsigned_tx, get_donation_state, get_proposal_state, sign_p2sh_transaction, proposal_from_tx
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_voting_txes, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn
 from pypeerassets.kutil import Kutil
@@ -17,6 +17,10 @@ from time import sleep
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
 import itertools, sys, secretstorage, keyring
+
+def coin_value(network_name):
+    network_params = net_query(network_name)
+    return int(1 / network_params.from_unit)
 
 def check_current_period(provider, proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
     # CLI to check the period (phase/round) of a transaction.
@@ -188,9 +192,9 @@ def get_period(provider, proposal_txid, blockheight=None):
             return ("D", (rd - 3) * 10 + 1, rdhalfway, rdend - 1)
     dist_end = (proposal_state.end_epoch + 1) * deck.epoch_length
     if blockheight < dist_end: # after end of round 7
-        return ("E", 0, rdend, dist_end - 1)
+        return ("D", 50, rdend, dist_end - 1)
     else:
-        return ("E", 1, dist_end, None)
+        return ("E", 0, dist_end, None)
 
 def get_periods(provider, proposal_txid):
     # this one gets ALL periods from the current proposal, according to the last modification.
@@ -229,11 +233,12 @@ def printout_period(period_tuple, show_blockheights=False):
              return "Period D{}: Final Slot Distribution, round {} Signalling Phase.".format(period[1], period[1]//10) + bhs
         else:
              return "Period D{}: Final Slot Distribution, round {} Donation Phase.".format(period[1], period[1]//10) + bhs
+    elif period == ("D", 50):
+        return "Period E0. Remaining period of Final Phase." + bhs
     elif period == ("E", 0):
-        return "Period E0. Proposer Issuance Period" + bhs
-    elif period == ("E", 1):
         return "Period E1. All distribution phases concluded." + bhs
 
+# Proposal and donation states
 
 def get_proposal_state_periods(provider, deckid, block):
     result = {}
@@ -271,6 +276,8 @@ def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, pro
     if (tx_type == "donation") and (dstate.dist_round < 4):
         
         prev_tx = dstate.locking_tx
+        # TODO: this seems to raise an error sometimes when donating in later rounds ...
+        # This can in reality only happen if there is an incorrect donation state found.
         inputdata.update({"redeem_script" : prev_tx.redeem_script})
     else:
         # reserve tx has always priority in the case a signalling tx also exists in the same donation state.
@@ -284,8 +291,74 @@ def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, pro
         inputdata.update({"slot" : dstate.slot}) 
     return inputdata
 
-def get_donation_states(provider, proposal_id, address=None, debug=False):
-    return get_donation_state(provider, proposal_id, address=address, debug=debug) # this returns a list of multiple results
+def get_donation_states(provider, proposal_id, address=None, debug=False, phase=1):
+    return get_donation_state(provider, proposal_id, address=address, debug=debug, phase=phase) # this returns a list of multiple results. phase=1 means it considers the whole process.
+
+def get_pod_reward_data_old(provider, donation_txid, donation_vout, network_name="tppc"):
+    "Returns a dict with the amount of the reward and the deckid."
+    # TODO: Should it better use the get_donation_state function and requiere the PROPOSAL instead of the donation txid?
+    try:
+        dtx = DonationTransaction.from_txid(donation_txid, provider)
+    except:
+        raise ValueError("No valid donation transaction provided.")
+    deckid = dtx.deck.id
+    proposal_state = get_proposal_state(provider, dtx.proposal_txid, phase=1)
+    coin = coin_value(network_name)
+    try:
+        # TODO: maybe we need a local precision context
+        # re-check if dist_factor is correct!
+        print("Your donation:", Decimal(dtx.amount) / coin) # TODO this is wrong, it must be the effective slot!
+        print("Distribution factor:", proposal_state.dist_factor)
+        print("Token reward by distribution period:", dtx.deck.epoch_quantity)
+        reward = dtx.amount * proposal_state.dist_factor * dtx.deck.epoch_quantity
+        print("Your reward:", Decimal(reward) / coin)
+    except TypeError as e: # should be raised if dist_factor was still not set
+        print("ERROR: Proposal still not processed completely. Wait for the distribution period to end.")
+        raise TypeError(e)
+    return {"deckid" : deckid, "reward" : reward}
+
+def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, debug=False, network_name="tppc"):
+    # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
+    """Returns a dict with the amount of the reward and the deckid."""
+    coin = coin_value(network_name)
+    ptx = proposal_from_tx(proposal_id, provider) # TODO maybe the ptx can be given directly to get_donation_state
+    deckid = ptx.deck.id
+    decimals = ptx.deck.number_of_decimals
+    if proposer:
+        if donor_address == ptx.donation_address:
+            print("Claiming tokens for the Proposer for missing donations ...")
+            # TODO: this should go into a new attribute of ProposalState: ps.proposer_reward
+            pstate = get_proposal_state(provider, proposal_id, phase=1)
+            reward = pstate.proposer_reward
+            result = {"donation_txid" : proposal_id}
+        else:
+            raise Exception("ERROR: Your donor address isn't the Proposer address, so you can't claim their tokens.")
+        
+    else:
+
+        try:
+            ds = get_donation_state(provider, proposal_id, address=donor_address, phase=1, debug=debug)[0]
+        except IndexError:
+            raise Exception("ERROR: No valid donation state found.")
+
+        print("Your donation:", Decimal(ds.donated_amount) / coin, "coins")
+        if ds.donated_amount != ds.effective_slot:
+            print("Your effective slot value is different:", Decimal(ds.effective_slot) / coin)
+            print("The effective slot is taken into account for the token distribution.")
+        if (ds.donated_amount > 0) and (ds.effective_slot == 0):
+            print("Your slot is 0, there was a problem with your donation.")
+        reward = ds.reward
+        result = {"donation_txid" : ds.donation_tx.txid}
+
+    print("Token reward by distribution period:", ptx.deck.epoch_quantity)
+    
+    if (proposer and pstate.dist_factor) or (ds.reward is not None):
+        formatted_reward = Decimal(reward) / 10 ** decimals
+        print("Your reward:", formatted_reward, "PoD tokens")
+    else:
+        raise Exception("ERROR: Proposal still not processed completely. Wait for the distribution period to end.")
+    result.update({"deckid" : deckid, "reward" : formatted_reward})
+    return result
 
 ## Inputs, outputs and Transactions
 

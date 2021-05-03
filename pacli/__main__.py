@@ -17,7 +17,7 @@ from pypeerassets.pautils import (amount_to_exponent,
 from pypeerassets.transactions import NulldataScript, TxIn ### ADDED ###
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
-from pypeerassets.at.transaction_formats import getfmt, PROPOSAL_FORMAT, SIGNALLING_FORMAT, LOCKING_FORMAT, DONATION_FORMAT, VOTING_FORMAT
+from pypeerassets.at.transaction_formats import getfmt, setfmt, PROPOSAL_FORMAT, SIGNALLING_FORMAT, LOCKING_FORMAT, DONATION_FORMAT, VOTING_FORMAT
 from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state
 
 from pacli.provider import provider
@@ -627,39 +627,45 @@ class Card:
                              verify=verify, locktime=locktime, sign=sign, send=send)
 
     @classmethod ### NEW FEATURE - DT ###
-    def dt_issue(self, deckid: str, donation_txid: str, amount: list, donation_vout: int=2, move_txid: str=None, receiver: list=None, locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False) -> str:
-        '''To simplify self.issue, all data is taken from the transaction.'''
-        # TODO: INCOMPLETE: Multiplier must be replaced by the max epoch amount! Move_txid must be thrown out.
+    def claim_pod_tokens(self, proposal_id: str, donor_address=Settings.key.address, payment: list=None, receiver: list=None, locktime: int=0, deckid: str=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
+        '''Simplified variant of dt_issue, deckid not needed.'''
 
-        deck = self.__find_deck(deckid)
-        spending_tx = provider.getrawtransaction(donation_txid, 1)
-
-        try:
-            spent_amount = spending_tx["vout"][donation_vout]["value"]
-        except (IndexError, KeyError):
-            raise Exception("No vout of this transaction spends to the tracked address")
-
-        if not receiver: # if there is no receiver, spends to himself.
+        if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
             receiver = [Settings.key.address]
 
-        #if not amount:
-        #    amount = [max_amount]
+        if not force:
+            print("Calculating reward ...")
+            reward_data = du.get_pod_reward_data(provider, proposal_id, donor_address, proposer=proposer, debug=debug)
+            deckid = reward_data.get("deckid")
+            max_payment = reward_data.get("reward")
+            donation_txid = reward_data.get("donation_txid")
+        elif not deckid:
+            print("ERROR: No deckid provided, if you use --force you need to provide it.")
+            return None
+        elif payment is not None:
+            max_payment = sum(payment)
+            print("WARNING: Overriding reward calculation. If you calculated your payment incorrectly, the transaction will be invalid.")
+        else:
+            print("ERROR: No payment data provided.")
+            return None 
 
-        #elif (sum(amount) != max_amount) and (not force):
-        #    raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
-
-        # TODO: for now, hardcoded asset data; should be a ppa function call
-        b_id = b'DT'
-        b_donation_txid = bytes.fromhex(donation_txid)
-        b_vout = int.to_bytes(donation_vout, 1, "big")
-        b_move_txid = bytes.fromhex(move_txid) if move_txid else b''
-        asset_specific_data = b_id + b_donation_txid + b_vout + b_move_txid
-
-        print("ASD", asset_specific_data)
+        if payment is None:
+            payment = [max_payment]
+        else:
+            if sum(payment) > max_payment:
+                raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
+            rest_amount = max_payment - sum(payment)
+            if rest_amount > 0:
+                receiver.append(donor_address)
+                payment.append(rest_amount)
 
 
-        return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
+        params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout} 
+        asset_specific_data = setfmt(params, tx_type="cardissue_dt")
+
+        return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)
+
 
 
     #@classmethod
