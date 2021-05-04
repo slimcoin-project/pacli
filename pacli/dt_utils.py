@@ -134,7 +134,7 @@ def get_period(provider, proposal_txid, blockheight=None):
         blockheight = provider.getblockcount()
 
     try:
-        proposal_tx = ProposalTransaction.from_txid(proposal_txid, provider)
+        proposal_tx = proposal_from_tx(proposal_txid, provider)
         deck = proposal_tx.deck
         subm_epoch_height = proposal_tx.epoch * deck.epoch_length
 
@@ -262,7 +262,7 @@ def get_proposal_state_periods(provider, deckid, block):
 
 def get_proposal_info(provider, proposal_txid):
     # MODIFIED: state removed, get_proposal_state should be used.
-    proposal_tx = ProposalTransaction.from_txid(proposal_txid, provider)
+    proposal_tx = proposal_from_tx(proposal_txid, provider)
     return proposal_tx.__dict__
 
 def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_slot=True):
@@ -350,6 +350,9 @@ def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, de
         reward = ds.reward
         result = {"donation_txid" : ds.donation_tx.txid}
 
+    if reward < 1:
+       raise Exception("ERROR: Reward is zero or lower than one token unit.")
+
     print("Token reward by distribution period:", ptx.deck.epoch_quantity)
     
     if (proposer and pstate.dist_factor) or (ds.reward is not None):
@@ -366,7 +369,7 @@ def get_basic_tx_data(provider, tx_type, proposal_id, input_address: str=None, d
     """Gets basic data for a new TrackedTransaction"""
     # TODO: maybe change "txid" and "vout" to "input_txid" and "input_vout"
 
-    proposal = ProposalTransaction.from_txid(proposal_id, provider)
+    proposal = proposal_from_tx(proposal_id, provider)
     deck = proposal.deck
     tx_data = ({"deck" : deck, "proposal_tx" : proposal, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })
     if tx_type in ("donation", "locking"):
@@ -435,7 +438,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
 def calculate_timelock(provider, proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
 
-    first_proposal_tx = ProposalTransaction.from_txid(proposal_id, provider)
+    first_proposal_tx = proposal_from_tx(proposal_id, provider)
     # print("first tx info", first_proposal_tx.blockheight, first_proposal_tx.epoch, first_proposal_tx.deck.epoch_length, first_proposal_tx.epoch_number)
     cltv_timelock = (first_proposal_tx.epoch + first_proposal_tx.epoch_number + 1) * first_proposal_tx.deck.epoch_length
     return cltv_timelock
@@ -623,7 +626,7 @@ def get_all_trackedtxes(provider, proposal_id, include_badtx=False, light=False)
     # An advanced mode could even detect those with wrong format.
 
     for tx_type in ("voting", "signalling", "locking", "donation"):
-        ptx = ProposalTransaction.from_txid(proposal_id, provider)
+        ptx = proposal_from_tx(proposal_id, provider)
         p2th = ptx.deck.derived_p2th_address(tx_type)
         txes = get_marked_txes(provider, p2th)
         print(tx_type, ":")

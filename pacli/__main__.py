@@ -635,7 +635,11 @@ class Card:
 
         if not force:
             print("Calculating reward ...")
-            reward_data = du.get_pod_reward_data(provider, proposal_id, donor_address, proposer=proposer, debug=debug)
+            try:
+                reward_data = du.get_pod_reward_data(provider, proposal_id, donor_address, proposer=proposer, debug=debug)
+            except Exception as e:
+                print(e)
+                return None
             deckid = reward_data.get("deckid")
             max_payment = reward_data.get("reward")
             donation_txid = reward_data.get("donation_txid")
