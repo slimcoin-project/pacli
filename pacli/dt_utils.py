@@ -2,7 +2,7 @@ from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransacti
 from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
-from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address, create_unsigned_tx, get_donation_state, get_proposal_state, sign_p2sh_transaction, proposal_from_tx
+from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address, create_unsigned_tx, get_donation_state, get_proposal_state, sign_p2sh_transaction, proposal_from_tx, get_parser_state
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_voting_txes, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn
 from pypeerassets.kutil import Kutil
@@ -240,24 +240,33 @@ def printout_period(period_tuple, show_blockheights=False):
 
 # Proposal and donation states
 
-def get_proposal_state_periods(provider, deckid, block):
+def get_proposal_state_periods(provider, deckid, block, advanced=False):
+    # MODIFIED: whole state is returned, not only id.
+    # Advanced mode calls the parser, thus much slower, and shows other parts of the state.
+
     result = {}
     deck = deck_from_tx(deckid, provider)
     try:
        assert deck.at_type == "DT"
     except (AssertionError, AttributeError):
        raise ValueError("Not a DT Proof of Donation deck.")
-    
-    pstates = get_proposal_states(provider, deck)
-    #print(pstates)
+
+    if advanced:
+        pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True) # really necessary?
+        pstates = pst.proposal_states
+    else:
+        pstates = get_proposal_states(provider, deck)
+
     for proposal_txid in pstates:
         ps = pstates[proposal_txid]
-        period = get_period(provider, proposal_txid, blockheight=block)
+        period_data = get_period(provider, proposal_txid, blockheight=block)
+        period = period_data[:2] # MODIFIED: this orders the list only by the letter code, not by start/end block!
+        state_data = {"state": ps, "startblock" : period_data[2], "endblock" : period_data[3]}
 
         try:
-            result[period].append(proposal_txid)
+            result[period].append(state_data)
         except KeyError:
-            result.update({period : [proposal_txid] })
+            result.update({period : [state_data]})
     return result
 
 def get_proposal_info(provider, proposal_txid):
@@ -365,13 +374,19 @@ def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, de
 
 ## Inputs, outputs and Transactions
 
-def get_basic_tx_data(provider, tx_type, proposal_id, input_address: str=None, dist_round: int=None, new_inputs: bool=False, use_slot: bool=False, debug: bool=False):
+def get_basic_tx_data(provider, tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, debug: bool=False):
     """Gets basic data for a new TrackedTransaction"""
     # TODO: maybe change "txid" and "vout" to "input_txid" and "input_vout"
 
-    proposal = proposal_from_tx(proposal_id, provider)
-    deck = proposal.deck
-    tx_data = ({"deck" : deck, "proposal_tx" : proposal, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })
+    if proposal_id is not None:
+        proposal = proposal_from_tx(proposal_id, provider)
+        deck = proposal.deck
+        tx_data = { "proposal_tx" : proposal }
+    else:
+        deck = deck_from_tx(deckid, provider)
+        tx_data = {}
+        
+    tx_data.update({"deck" : deck, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })
     if tx_type in ("donation", "locking"):
         try:
             if (not new_inputs) or use_slot:

@@ -713,18 +713,16 @@ class Proposal: ### DT ###
         period = du.get_period(provider, proposal_txid, blockheight)
         pprint(du.printout_period(period, show_blockheights))
 
-    def list(self, deckid: str, block: int=None, show_completed: bool=False) -> None:
+    def list(self, deckid: str, block: int=None, only_active: bool=False, show_abandoned: bool=False, advanced: bool=False) -> None:
         '''Shows all proposals and the period they are currently in, optionally at a specific blockheight.'''
+        # TODO re-check: it seems that if we use Decimal for values like req_amount scientific notation is used.
+        # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
 
-        # TODO: Abandoned and completed proposals cannot be separated this way, this needs a more complex
-        #       method involving the parser. => Advanced mode could be a good idea.
-        # TODO: Printout should be reorganized, so two proposals which overlap by coincidence don't share erroneously the same block heights for start and end.
         if not block:
             block = provider.getblockcount()
             pprint("Current block: " + str(block))
-
         try:
-            pstate_periods = du.get_proposal_state_periods(provider, deckid, block)
+            pstate_periods = du.get_proposal_state_periods(provider, deckid, block, advanced=advanced)
         except KeyError:
             pprint("Error, unconfirmed proposals in mempool. Wait until they are confirmed.")
             return
@@ -734,22 +732,43 @@ class Proposal: ### DT ###
             pprint("Deck in wrong format, proposals could not be retrieved.")
             return
 
-        excluded_list = []
-        #if show_completed:
-        #    statelist.append("completed")
-        #if show_abandoned:
-        #    statelist.append("abandoned")
+        coin = du.coin_value(Settings.network)
+        statelist = ["active"]
+        if not only_active:
+            statelist.append("completed")
+        if show_abandoned:
+            statelist.append("abandoned")
 
         if len([p for l in pstate_periods.values() for p in l]) == 0:
             print("No proposals found for deck: " + deckid)
         else:
             print("Proposals in the following periods are available for this deck:")
 
-        for state in pstate_periods:
-            if state not in excluded_list and (len(pstate_periods[state]) > 0):
-                print("* " + du.printout_period(state, show_blockheights=True))
-                print("** ", end='')
-                print("\n** ".join(pstate_periods[state]))
+        for period in pstate_periods:
+            pstates = pstate_periods[period]
+            first = True
+            for pstate_data in pstates:
+
+                pstate = pstate_data["state"]
+                startblock = pstate_data["startblock"]
+                endblock = pstate_data["endblock"]
+
+                if pstate.state in statelist:
+                    if first:
+                        print("\n")
+                        pprint(du.printout_period(period, show_blockheights=False))
+                        first = False
+                    requested_amount = pstate.req_amount / coin
+                    result = ["ID: " + pstate.id,
+                              "Startblock of this period: {} Endblock: {}".format(str(startblock), str(endblock)),
+                              "Requested amount: " + str(requested_amount),
+                              "Donation address: " + pstate.donation_address]
+                    if advanced:
+                        donated_amount = str(sum(pstate.donated_amounts) / coin)
+                        result.append("State: " + pstate.state)
+                        result.append("Donated amount: " + donated_amount)
+                        result.append("Donation transactions: " + str(len([d for rd in pstate.donation_txes for d in rd])))
+                    print("\n*", "\n    ".join(result))
 
     def info(self, proposal_txid):
         info = du.get_proposal_info(provider, proposal_txid)
@@ -801,7 +820,9 @@ class Proposal: ### DT ###
 
         params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
 
-        rawtx = du.create_unsigned_trackedtx(provider, "proposal", params, deckid=deckid, change_address=change_address, input_address=input_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
+        basic_tx_data = du.get_basic_tx_data(provider, "proposal", deckid=deckid, input_address=Settings.key.address)
+
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
 
         return du.finalize_tx(rawtx, verify, sign, send)
 
@@ -824,7 +845,7 @@ class Proposal: ### DT ###
 
         params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
 
-        basic_tx_data = du.get_basic_tx_data(provider, "voting", proposal_id, input_address=input_address)
+        basic_tx_data = du.get_basic_tx_data(provider, "voting", proposal_id=proposal_id, input_address=input_address)
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
 
         console_output = du.finalize_tx(rawtx, verify, sign, send)
@@ -861,7 +882,7 @@ class Donation:
                 print("Additionally, locking the transaction requires 0.02 coins, so total fees sum up to 0.04.")
 
         params = { "id" : "DS" , "prp" : proposal_txid }
-        basic_tx_data = du.get_basic_tx_data(provider, "signalling", proposal_txid, input_address=Settings.key.address)
+        basic_tx_data = du.get_basic_tx_data(provider, "signalling", proposal_id=proposal_txid, input_address=Settings.key.address)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, debug=debug)
 
@@ -889,7 +910,7 @@ class Donation:
 
         # MODIFIED: added timelock and dest_address to be able to reconstruct redeem script
         params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
-        basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
+        basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address)
         
@@ -910,7 +931,7 @@ class Donation:
 
         params = { "id" : "DD" , "prp" : proposal_txid }
 
-        basic_tx_data = du.get_basic_tx_data(provider, "donation", proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
+        basic_tx_data = du.get_basic_tx_data(provider, "donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force)
         
