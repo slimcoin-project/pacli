@@ -125,8 +125,11 @@ class Address:
         privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
         privkey = privk_kutil.privkey
         fulllabel = "key_bak_" + label
-        if fulllabel in du.get_all_labels():
-            return "ERROR: Label already used. Please choose another one."
+        try:
+            if fulllabel in du.get_all_labels():
+                return "ERROR: Label already used. Please choose another one."
+        except ImportError:
+            print("On Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
 
         set_key(fulllabel, privkey)
 

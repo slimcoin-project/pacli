@@ -16,7 +16,7 @@ from pacli.keystore import get_key
 from time import sleep
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
-import itertools, sys, secretstorage, keyring
+import itertools, sys, keyring
 
 def coin_value(network_name):
     network_params = net_query(network_name)
@@ -541,6 +541,7 @@ def signtx_p2sh(provider, raw_tx, redeem_script, key):
 ## Keys and Addresses
 
 def get_all_labels():
+    import secretstorage
     bus = secretstorage.dbus_init()
     collection = secretstorage.get_default_collection(bus)
     labels = []
