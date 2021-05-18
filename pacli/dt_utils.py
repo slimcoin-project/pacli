@@ -240,7 +240,7 @@ def printout_period(period_tuple, show_blockheights=False):
 
 # Proposal and donation states
 
-def get_proposal_state_periods(provider, deckid, block, advanced=False):
+def get_proposal_state_periods(provider, deckid, block, advanced=False, debug=False):
     # MODIFIED: whole state is returned, not only id.
     # Advanced mode calls the parser, thus much slower, and shows other parts of the state.
 
@@ -252,7 +252,7 @@ def get_proposal_state_periods(provider, deckid, block, advanced=False):
        raise ValueError("Not a DT Proof of Donation deck.")
 
     if advanced:
-        pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True) # really necessary?
+        pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True, debug=debug) # really necessary?
         pstates = pst.proposal_states
     else:
         pstates = get_proposal_states(provider, deck)

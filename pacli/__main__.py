@@ -716,7 +716,7 @@ class Proposal: ### DT ###
         period = du.get_period(provider, proposal_txid, blockheight)
         pprint(du.printout_period(period, show_blockheights))
 
-    def list(self, deckid: str, block: int=None, only_active: bool=False, show_abandoned: bool=False, advanced: bool=False) -> None:
+    def list(self, deckid: str, block: int=None, only_active: bool=False, show_abandoned: bool=False, advanced: bool=False, debug: bool=False) -> None:
         '''Shows all proposals and the period they are currently in, optionally at a specific blockheight.'''
         # TODO re-check: it seems that if we use Decimal for values like req_amount scientific notation is used.
         # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
@@ -725,7 +725,7 @@ class Proposal: ### DT ###
             block = provider.getblockcount()
             pprint("Current block: " + str(block))
         try:
-            pstate_periods = du.get_proposal_state_periods(provider, deckid, block, advanced=advanced)
+            pstate_periods = du.get_proposal_state_periods(provider, deckid, block, advanced=advanced, debug=debug)
         except KeyError:
             pprint("Error, unconfirmed proposals in mempool. Wait until they are confirmed.")
             return
