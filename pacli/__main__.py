@@ -1,5 +1,4 @@
 from typing import Optional, Union
-from decimal import Decimal ### ADDED ### 
 import operator
 import functools
 import fire
@@ -35,6 +34,7 @@ from pacli.config import (write_default_config,
                           default_conf,
                           write_settings)
 import pacli.dt_utils as du
+import pacli.dt_interface as di
 
 class Config:
 
@@ -713,8 +713,14 @@ class Proposal: ### DT ###
 
     def current_period(self, proposal_txid: str, blockheight: int=None, show_blockheights: bool=True):
 
-        period = du.get_period(provider, proposal_txid, blockheight)
-        pprint(du.printout_period(period, show_blockheights))
+        period, blockheights = du.get_period(provider, proposal_txid, blockheight)
+        pprint(di.printout_period(period, blockheights, show_blockheights))
+
+    def all_periods(self, proposal_txid: str):
+
+        periods = du.get_all_periods(provider, proposal_txid)
+        for period, blockheights in periods.items():
+            print(di.printout_period(period, blockheights, blockheights_first=True))
 
     def list(self, deckid: str, block: int=None, only_active: bool=False, show_abandoned: bool=False, advanced: bool=False, debug: bool=False) -> None:
         '''Shows all proposals and the period they are currently in, optionally at a specific blockheight.'''
@@ -759,7 +765,7 @@ class Proposal: ### DT ###
                 if pstate.state in statelist:
                     if first:
                         print("\n")
-                        pprint(du.printout_period(period, show_blockheights=False))
+                        pprint(di.printout_period(period, [startblock, endblock], show_blockheights=False))
                         first = False
                     requested_amount = pstate.req_amount / coin
                     result = ["ID: " + pstate.id,
@@ -862,7 +868,7 @@ class Proposal: ### DT ###
                     confirmations = tx["confirmations"]
                     break
                 except KeyError:
-                    du.spinner(10)
+                    di.spinner(10)
 
             print("\nVote confirmed.")
 
@@ -887,7 +893,7 @@ class Donation:
         params = { "id" : "DS" , "prp" : proposal_txid }
         basic_tx_data = du.get_basic_tx_data(provider, "signalling", proposal_id=proposal_txid, input_address=Settings.key.address)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, debug=debug)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, debug=debug, network_name=Settings.network)
 
         return du.finalize_tx(rawtx, verify, sign, send)
 
@@ -911,11 +917,11 @@ class Donation:
         else:
             use_slot = True
 
-        # MODIFIED: added timelock and dest_address to be able to reconstruct redeem script
+        # timelock and dest_address are saved in the transaction, to be able to reconstruct redeem script
         params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
         basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
         
         return du.finalize_tx(rawtx, verify, sign, send)
 
@@ -936,7 +942,7 @@ class Donation:
 
         basic_tx_data = du.get_basic_tx_data(provider, "donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force, network_name=Settings.network)
         
         # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
         if new_inputs:
@@ -966,9 +972,7 @@ class Donation:
         # There must be only 1 state per proposal, so the
         try:
             if not satoshi:
-                network_params = du.net_query(Settings.network)
-                coin = int(1 / network_params.from_unit)
-                slot = Decimal(dstates[0].slot) / coin 
+                slot = du.sats_to_coins(dstates[0].slot, Settings.network)
             else:
                 slot = dstates[0].slot
             print("Slot:", slot)

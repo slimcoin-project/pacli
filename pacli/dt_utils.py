@@ -1,12 +1,12 @@
-from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, InvalidTrackedTransactionError
+from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, InvalidTrackedTransactionError
 from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
+from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
-from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address, create_unsigned_tx, get_donation_state, get_proposal_state, sign_p2sh_transaction, proposal_from_tx, get_parser_state
-from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_voting_txes, get_marked_txes
+from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address, create_unsigned_tx, get_donation_state, get_proposal_state, sign_p2sh_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats
+from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
-from pypeerassets.protocol import Deck
 from pypeerassets.transactions import sign_transaction, MutableTransaction
 from pypeerassets.networks import net_query, PeercoinMainnet, PeercoinTestnet
 from pacli.utils import (cointoolkit_verify,
@@ -16,94 +16,77 @@ from pacli.keystore import get_key
 from time import sleep
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
-import itertools, sys, keyring
+import sys, keyring
+import pypeerassets.at.dt_periods as dp
+import pacli.dt_interface as di
 
-def coin_value(network_name):
-    network_params = net_query(network_name)
-    return int(1 / network_params.from_unit)
 
 def check_current_period(provider, proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
-    # CLI to check the period (phase/round) of a transaction.
-    # Only issues the transaction if it is in the correct period (voting / signalling / locking / donation).
+    # TODO should be reorganized so the ProposalState isn't created 2x!
+    current_period, blocks = get_period(provider, proposal_txid)
+    print("Current period:", di.printout_period(current_period, blocks))
+    try:
+        target_period = get_next_suitable_period(tx_type, current_period)
+    except ValueError as e:
+        print(e)
+        return False
 
-    if (dist_round, phase) == (None, None):
-         # this allows to get the current phase/round from the transaction data.
-         period = get_period(provider, proposal_txid)
-         print("Current period:", printout_period(period))
-         if tx_type in ("donation", "signalling", "locking"):
-             if (period[0] == "B") and (10 <= period[1] < 40):
-                 dist_round = period[1] // 10 # period[1] is a multiple of the round
-             elif (period[0] == "D") and (10 <= period[1] < 40):
-                 dist_round = 3 + (period[1] // 10) # adding the 4 rounds of initial phase (0-3)
-             # if no exact match look for next possible rounds
-             elif period[:2] in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
-                 dist_round = 0
-             elif (period[:2] in (("C", 0), ("D", 0), ("D", 1), ("D", 2))) and (tx_type == "signalling"):
-                 dist_round = 4
-             if dist_round:
-                 print("Waiting for slot allocation round", dist_round)
-                  
-         elif tx_type == "voting":
-             if period[:2] in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
-                 phase = 0
-             elif (period[:2] in (("C", 0), ("D", 0), ("D", 1))) or (period[0] == "B" and period[1] > 1):
-                 phase = 1
-             print("Waiting for voting phase", phase)
+    proposal_tx = proposal_from_tx(proposal_txid, provider)
+    ps = ProposalState(first_ptx=proposal_tx, valid_ptx=proposal_tx, provider=provider)
+    startblock, endblock = dp.get_startendvalues(target_period, ps)
 
+    return di.wait_for_block(startblock, endblock, wait)
+
+def get_next_suitable_period(tx_type, period):
     if tx_type in ("donation", "signalling", "locking"):
-        if dist_round is None:
-            if not release:
-                print("No round provided.")
-                return False
-            else:
-                print("Waiting for release period.")
-                period = ("release", 0)
-        elif tx_type in ("donation", "locking"):
-            period = ("donation" , dist_round)
-        elif tx_type == "signalling":
-            period = ("signalling", dist_round)
+        offset = 0 if tx_type == "signalling" else 1
 
+        if period[0] in ("B", "D") and (10 <= period[1] < 40):
+            # TODO: this gives always the next period, but how to know if we want the current period?
+            target_period = (period[0], (period[1] // 10 + 1) * 10 + offset)
+
+        elif period in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
+            target_period = ("B", 10 + offset)
+        elif (period in (("C", 0), ("D", 0), ("D", 1), ("D", 2))): # and (tx_type == "signalling"): # ????
+            target_period = ("D", 10 + offset) 
+                  
     elif tx_type == "voting":
-        if phase is None:
-            print("No phase provided.")
-            return False
-        period = ("voting", phase)
+        if period in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
+            target_period = ("B", 1)
+        elif (period[0] in ("B", "C")) or (period == ("D", 0)): 
+            target_period = ("D", 1)
 
-    
-    # current_period = get_current_period(provider, deck, current_block) # perhaps not needed
-    periodvalues = get_startendvalues(provider, proposal_txid, period) # needs to use TrackedTransaction.from_txid.
-    startblock = periodvalues["start"]
-    endblock = periodvalues["end"]
-    startendvalues = "(start: {}, end: {}).".format(startblock, endblock)
+    try:
+        return target_period
+    except UnboundLocalError:
+        raise ValueError("No suitable period left for this transaction type.")
 
-    # This loop enables the "wait" option, where the program loops each 15 sec until the period is correctly reached.
-    # It will terminate when the block has passed.
-    oldblock = 0
-    while True:
-        current_block = provider.getblockcount()
-        if current_block == oldblock:
-            sleep(15)
-            continue
+def dummy_pstate(provider, proposal_txid):
+    """Creates a dummy ProposalState from a ProposalTransaction ID without any parser information."""
+    try:
+        proposal_tx = proposal_from_tx(proposal_txid, provider)
+        ps = ProposalState(proposal_tx, proposal_tx)
 
-        # We need always to trigger the transaction one block before the begin of the period.
-        if (startblock - 1) <= current_block <= (endblock - 1):
-            print("Period has been reached", startendvalues)
-            print("Transaction will probably be included in block:", current_block + 1, "- current block:", current_block)
-            return True
-        else:
+    except: # catches mainly AttributeError and DecodeError
+        raise ValueError("Proposal or deck spawn transaction in wrong format.")
+
+    return ps
+
+def get_period(provider, proposal_txid, blockheight=None):
+    """Provides an user-friendly description of the current period."""
+
+    if not blockheight:
+        blockheight = provider.getblockcount()
+    pdict = get_all_periods(provider, proposal_txid)
+
+    return dp.period_query(pdict, blockheight)
 
 
-            if current_block < startblock:
-                print("Period still not reached", startendvalues)
-                print("Transaction would probably be included in block:", current_block + 1, "- current block:", current_block)
-                if not wait:
-                    return False
-                sleep(15)
-                oldblock = current_block
-            else:
-                print("Period deadline has already passed", startendvalues)
-                print("Current block:", current_block)
-                return False
+def get_all_periods(provider, proposal_txid):
+    # this one gets ALL periods from the current proposal, according to the last modification.
+    ps = dummy_pstate(provider, proposal_txid)
+    return dp.get_period_dict(ps)
+
 
 def init_dt_deck(provider, network, deckid, rescan=True):
     deck = deck_from_tx(deckid, provider)
@@ -129,119 +112,6 @@ def init_dt_deck(provider, network, deckid, rescan=True):
         provider.rescanblockchain()
     print("Done.")
 
-def get_period(provider, proposal_txid, blockheight=None):
-    """Provides an user-friendly description of the current period."""
-    # MODIFIED to new code scheme A-E
-    # tuple: Epoch, Period, Begin_blockheight, End_blockheight 
-
-    if not blockheight:
-        blockheight = provider.getblockcount()
-
-    try:
-        proposal_tx = proposal_from_tx(proposal_txid, provider)
-        deck = proposal_tx.deck
-        subm_epoch_height = proposal_tx.epoch * deck.epoch_length
-
-    except: # catches mainly AttributeError and DecodeError
-        raise ValueError("Proposal or deck spawn transaction in wrong format.")
-
-    if blockheight < subm_epoch_height:
-        return ("A", 0, 0, subm_epoch_height - 1)
-
-    # TODO: Does not take into account ProposalModifications.
-    proposal_state = ProposalState(provider=provider, first_ptx=proposal_tx, valid_ptx=proposal_tx)
-    if blockheight < proposal_state.dist_start:
-        return ("A", 1, subm_epoch_height, proposal_state.dist_start - 1)
-    secp_1_end = proposal_state.dist_start + proposal_state.security_periods[0]
-    if blockheight < secp_1_end:
-        return ("B", 0, proposal_state.dist_start, secp_1_end - 1)
-    voting_1_end = secp_1_end + proposal_state.voting_periods[0]
-    if blockheight < voting_1_end:
-        return ("B", 1, secp_1_end, voting_1_end - 1)
-
-    # Slot distribution rounds (Initial phase)
-    for rd in range(4):
-        rdstart = proposal_state.round_starts[rd]
-        rdhalfway = proposal_state.round_halfway[rd]
-        if blockheight < rdhalfway:
-            return ("B", rd * 10, rdstart, rdhalfway - 1)
-        rdend = rdstart + proposal_state.round_lengths[0]
-        if blockheight < rdend:
-            return ("B", rd * 10 + 1, rdhalfway, rdend - 1)
-
-    # Intermediate phase (working)
-    startphase2 = proposal_state.end_epoch * deck.epoch_length ### ? last one missed
-    if blockheight < startphase2:
-        return ("C", 0, rdend, startphase2 - 1)
-
-    # Phase 2
-    secp_2_end = startphase2 + proposal_state.security_periods[1]
-    if blockheight < secp_2_end:
-        return ("D", 0, startphase2, secp_2_end - 1)
-    voting_2_end = secp_2_end + proposal_state.voting_periods[1]
-    if blockheight < voting_2_end:
-        return ("D", 1, secp_2_end, voting_2_end - 1)
-    release_end = voting_2_end + proposal_state.release_period
-    if blockheight < release_end:
-        return ("D", 2, voting_2_end, release_end - 1)
-
-    # Slot distribution rounds (Final phase)
-    for rd in range(4, 8):
-        rdstart = proposal_state.round_starts[rd]
-        rdhalfway = proposal_state.round_halfway[rd]
-        if blockheight < rdhalfway:
-            return ("D", (rd - 3) * 10, rdstart, rdhalfway - 1)
-        rdend = rdstart + proposal_state.round_lengths[1]
-        if blockheight < rdend:
-            return ("D", (rd - 3) * 10 + 1, rdhalfway, rdend - 1)
-    dist_end = (proposal_state.end_epoch + 1) * deck.epoch_length
-    if blockheight < dist_end: # after end of round 7
-        return ("D", 50, rdend, dist_end - 1)
-    else:
-        return ("E", 0, dist_end, None)
-
-def get_periods(provider, proposal_txid):
-    # this one gets ALL periods from the current proposal, according to the last modification.
-    pass
-
-
-def printout_period(period_tuple, show_blockheights=False):
-    period = period_tuple[:2]
-    if show_blockheights:
-       bhs = " (start: {}, end: {})".format(period_tuple[2], period_tuple[3])
-    else:
-       bhs = ""
-    if period == ("A", 0):
-        return "Period A0: Before the proposal submission (blockchain is probably not completely synced)." + bhs
-    elif period == ("A", 1):
-        return "Period A1: Before the distribution start of the Initial Phase." + bhs
-    elif period == ("B", 0):
-        return "Period B0: Before the distribution start of the Initial Phase (security period)." + bhs
-    elif period == ("B", 1):
-        return "Period B1: Voting Round 1." + bhs
-    elif period[0] == "B":
-        if period[1] % 10 == 0:
-             return "Period B{}: Initial Slot Distribution, round {} Signalling Phase.".format(period[1], period[1]//10)  + bhs
-        else:
-             return "Period B{}: Initial Slot Distribution, round {} Locking Phase.".format(period[1], period[1]//10)  + bhs
-    elif period == ("C", 0):
-        return "Period C0: Working phase (no voting nor slot distribution ongoing)."  + bhs
-    elif period == ("D", 0):
-        return "Period D0: Before the distribution start of the Final Phase (security period)."  + bhs
-    elif period == ("D", 1):
-        return "Period D1: Voting Round 2." + bhs
-    elif period == ("D", 2):
-        return "Period D2: Donation Release Period." + bhs
-    elif period[0] == "D":
-        if period[1] % 10 == 0:
-             return "Period D{}: Final Slot Distribution, round {} Signalling Phase.".format(period[1], period[1]//10) + bhs
-        else:
-             return "Period D{}: Final Slot Distribution, round {} Donation Phase.".format(period[1], period[1]//10) + bhs
-    elif period == ("D", 50):
-        return "Period E0. Remaining period of Final Phase." + bhs
-    elif period == ("E", 0):
-        return "Period E1. All distribution phases concluded." + bhs
-
 # Proposal and donation states
 
 def get_proposal_state_periods(provider, deckid, block, advanced=False, debug=False):
@@ -263,9 +133,11 @@ def get_proposal_state_periods(provider, deckid, block, advanced=False, debug=Fa
 
     for proposal_txid in pstates:
         ps = pstates[proposal_txid]
-        period_data = get_period(provider, proposal_txid, blockheight=block)
-        period = period_data[:2] # MODIFIED: this orders the list only by the letter code, not by start/end block!
-        state_data = {"state": ps, "startblock" : period_data[2], "endblock" : period_data[3]}
+        period, blockheights = get_period(provider, proposal_txid, blockheight=block)
+        state_data = {"state": ps, "startblock" : blockheights[0], "endblock" : blockheights[1]}
+        #period_data = get_period(provider, proposal_txid, blockheight=block)
+        #period = period_data[:2] # MODIFIED: this orders the list only by the letter code, not by start/end block!
+        #state_data = {"state": ps, "startblock" : period_data[2], "endblock" : period_data[3]}
 
         try:
             result[period].append(state_data)
@@ -307,33 +179,10 @@ def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, pro
 def get_donation_states(provider, proposal_id, address=None, debug=False, phase=1):
     return get_donation_state(provider, proposal_id, address=address, debug=debug, phase=phase) # this returns a list of multiple results. phase=1 means it considers the whole process.
 
-def get_pod_reward_data_old(provider, donation_txid, donation_vout, network_name="tppc"):
-    "Returns a dict with the amount of the reward and the deckid."
-    # TODO: Should it better use the get_donation_state function and requiere the PROPOSAL instead of the donation txid?
-    try:
-        dtx = DonationTransaction.from_txid(donation_txid, provider)
-    except:
-        raise ValueError("No valid donation transaction provided.")
-    deckid = dtx.deck.id
-    proposal_state = get_proposal_state(provider, dtx.proposal_txid, phase=1)
-    coin = coin_value(network_name)
-    try:
-        # TODO: maybe we need a local precision context
-        # re-check if dist_factor is correct!
-        print("Your donation:", Decimal(dtx.amount) / coin) # TODO this is wrong, it must be the effective slot!
-        print("Distribution factor:", proposal_state.dist_factor)
-        print("Token reward by distribution period:", dtx.deck.epoch_quantity)
-        reward = dtx.amount * proposal_state.dist_factor * dtx.deck.epoch_quantity
-        print("Your reward:", Decimal(reward) / coin)
-    except TypeError as e: # should be raised if dist_factor was still not set
-        print("ERROR: Proposal still not processed completely. Wait for the distribution period to end.")
-        raise TypeError(e)
-    return {"deckid" : deckid, "reward" : reward}
-
 def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, debug=False, network_name="tppc"):
     # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
     """Returns a dict with the amount of the reward and the deckid."""
-    coin = coin_value(network_name)
+    # coin = coin_value(network_name=network_name)
     ptx = proposal_from_tx(proposal_id, provider) # TODO maybe the ptx can be given directly to get_donation_state
     deckid = ptx.deck.id
     decimals = ptx.deck.number_of_decimals
@@ -354,9 +203,10 @@ def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, de
         except IndexError:
             raise Exception("ERROR: No valid donation state found.")
 
-        print("Your donation:", Decimal(ds.donated_amount) / coin, "coins")
+        # print("Your donation:", Decimal(ds.donated_amount) / coin, "coins")
+        print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")
         if ds.donated_amount != ds.effective_slot:
-            print("Your effective slot value is different:", Decimal(ds.effective_slot) / coin)
+            print("Your effective slot value is different:", sats_to_coins(Decimal(ds.effective_slot), network_name=network_name))
             print("The effective slot is taken into account for the token distribution.")
         if (ds.donated_amount > 0) and (ds.effective_slot == 0):
             print("Your slot is 0, there was a problem with your donation.")
@@ -400,23 +250,28 @@ def get_basic_tx_data(provider, tx_type, proposal_id=None, input_address: str=No
 
     return tx_data
 
-def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network=PeercoinTestnet, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
+def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
     # Creates datastring and (in the case of locking/donations) input data in unified way.
        
-    network_params = net_query(network.shortname) # TODO: revise this! The net_query should not be necessary.
-    coin = int(1 / network_params.from_unit)
+    # network = net_query(network_name)
+    # coin = int(1 / network.from_unit)
 
     if raw_amount is not None:
-        amount = int(Decimal(raw_amount) * coin)
+        # amount = int(Decimal(raw_amount) * coin)
+        print("raw", raw_amount, type(raw_amount))
+        amount = coins_to_sats(Decimal(raw_amount), network_name=network_name)
     else:
         amount = None
     if reserve is not None:
-        reserved_amount = int(Decimal(reserve) * coin)
+        # reserved_amount = int(Decimal(reserve) * coin)
+        reserved_amount = coins_to_sats(Decimal(reserve), network_name=network_name)
     else:
         reserved_amount = None
 
-    tx_fee = int(Decimal(raw_tx_fee) * coin)
-    p2th_fee = int(Decimal(raw_p2th_fee) * coin)
+    # tx_fee = int(Decimal(raw_tx_fee) * coin)
+    tx_fee = coins_to_sats(Decimal(raw_tx_fee), network_name=network_name)
+    # p2th_fee = int(Decimal(raw_p2th_fee) * coin)
+    p2th_fee = coins_to_sats(Decimal(raw_p2th_fee), network_name=network_name)
 
     deck = basic_tx_data["deck"]
     input_txid, input_vout, input_value = None, None, None
@@ -447,12 +302,12 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
                 amount = min(available_amount, slot)
             else:
                 amount = slot
-            print("Using assigned slot:", Decimal(slot) / coin)
+            print("Using assigned slot:", sats_to_coins(Decimal(slot), network_name=network_name))
     # print("Amount:", amount)
 
     data = setfmt(params, tx_type=basic_tx_data["tx_type"])
 
-    return create_unsigned_tx(basic_tx_data["deck"], basic_tx_data["provider"], basic_tx_data["tx_type"], input_address=basic_tx_data["input_address"], amount=amount, data=data, address=dest_address, network=network, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address)
+    return create_unsigned_tx(basic_tx_data["deck"], basic_tx_data["provider"], basic_tx_data["tx_type"], input_address=basic_tx_data["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address)
 
 def calculate_timelock(provider, proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
@@ -555,9 +410,6 @@ def get_all_labels():
 
     return labels
 
-def get_all_keyids():
-    return get_all_labels()
-
 def show_stored_key(keyid: str, network: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode=False):
     # TODO: json_mode (only for addresses)        
     try:
@@ -596,47 +448,6 @@ def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
         result.append(adr)
     return result
 
-## Display info about decks, transactions, proposals etc.
-
-def itemprint(lst):
-    try:        
-        if issubclass(type(lst[0]), TrackedTransaction):
-            print([t.txid for t in lst])
-        else:
-            print(lst)
-    except (IndexError, AttributeError):
-        print(lst)
-
-def update_2levels(d):
-    # prepares a dict with 2 levels like ProposalState for prettyprinting.
-    for item in d:
-        if type(d[item]) in (list, tuple) and len(d[item]) > 0:
-            for i in range(len(d[item])):
-                if type(d[item][i]) in (list, tuple) and len(d[item][i]) > 0:
-                    if issubclass(type(d[item][i][0]), TrackedTransaction):
-                        d[item][i] = [txdisplay(t) for t in d[item][i]]
-                    elif type(d[item][i][0]) == DonationState:
-                        d[item][i] = [s.__dict__ for s in d[item][i]]
-                elif type(d[item][i]) == dict:
-                    if len(d[item][i]) > 0 and type(list(d[item][i].values())[0]) == DonationState:
-                        d[item][i] = [s.__dict__ for s in d[item][i].values()]
-                elif issubclass(type(d[item][0]), TrackedTransaction):
-                    d[item] = [txdisplay(t) for t in d[item]]
-
-        elif issubclass(type(d[item]), TrackedTransaction):
-            d[item] = d[item].txid
-        elif issubclass(type(d[item]), Deck):
-            d[item] = d[item].id
-
-def txdisplay(tx, show_items: list=["amount", "address", "reserve_address", "reserved_amount", "proposal_txid"]):
-    # displays transactions in a meaningful way without showing the whole dict
-    displaydict = { "txid" : tx.txid }
-    txdict = tx.__dict__
-    for item in txdict:
-        if item in show_items:
-            displaydict.update({item : txdict[item]})
-    return displaydict
-
 def get_deckinfo(deckid, provider):
     d = deck_from_tx(deckid, provider)
     return d.__dict__
@@ -658,7 +469,7 @@ def get_all_trackedtxes(provider, proposal_id, include_badtx=False, light=False)
                 elif tx_type == "donation": tx = DonationTransaction.from_json(txjson, provider, deck=ptx.deck)
                 if tx.proposal_txid == proposal_id:
                     if light:
-                        pprint(txdisplay(tx))
+                        pprint(di.txdisplay(tx))
                     else:
                         pprint(tx.__dict__)
             except InvalidTrackedTransactionError:
@@ -675,7 +486,11 @@ def show_votes_by_address(provider, deckid, address):
     pprint("Votes cast from address: " + address)
     vote_readable = { b'+' : 'Positive', b'-' : 'Negative' }
     deck = deck_from_tx(deckid, provider)
-    vtxes = get_voting_txes(provider, deck)
+    # TODO: incompatible with new ParserState.get_voting_txes solution.
+    # we create a dummy ParserState object without cards.
+    ps = ParserState(deck, [], provider)
+    vtxes = ps.get_voting_txes()
+    # vtxes = get_voting_txes(provider, deck)
     for proposal in vtxes:
         for outcome in ("positive", "negative"):
             if outcome not in vtxes[proposal]:
@@ -692,35 +507,4 @@ def show_votes_by_address(provider, deckid, address):
                     pprint("Proposal: " + proposal)
                     pprint("Vote txid: " + vtx.txid)
 
-def spinner(duration):
-    '''Prints a "spinner" for a defined duration in seconds.'''
 
-    animation = [
-    "‐          ",
-    " ‑         ",
-    "  ‒        ",
-    "   –       ",
-    "    —      ",
-    "     ―     ",
-    "      —    ",
-    "       –   ",
-    "        ‒  ",
-    "         ‑ ",
-    "          ‐",
-    "         ‑ ",
-    "        ‒  ",
-    "       –   ",
-    "      —    ",
-    "     ―     ",
-    "   –       ",
-    "  ‒        ",
-    " ‑         ",
-    "‐          ",
-    ]
-
-    spinner = itertools.cycle(animation)
-    for i in range(duration * 20):
-        sys.stdout.write(next(spinner))   # write the next character
-        sys.stdout.flush()                # flush stdout buffer (actual character display)
-        sys.stdout.write('\b\b\b\b\b\b\b\b\b\b\b') # erase the last written chars
-        sleep(0.1)
