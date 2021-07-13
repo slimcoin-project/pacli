@@ -116,7 +116,7 @@ class Address:
                 new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
             Settings.key = new_key
 
-        return Settings.key.address # this still doesn't work properly
+        return Settings.key.address # this still doesn't work properly - TODO: was this solved?
 
     def fresh(self, label: str, show: bool=False, set_main: bool=False, force: bool=False, backup: str=None): ### NEW ###
         '''This function uses the standard client commands to create an address/key and assign it a key id.'''
@@ -701,15 +701,20 @@ class Transaction:
                
 class Proposal: ### DT ###
 
-    def get_votes(self, proposal_txid: str, phase: int=0, debug: bool=False):
+    def get_votes(self, proposal_txid: str, debug: bool=False):
+        """Displays the result of both voting rounds."""
+        # TODO: ideally there may be a variable indicating the second round has not started yet.
 
-        votes = get_votestate(provider, proposal_txid, phase, debug)
+        all_votes = get_votestate(provider, proposal_txid, debug)
 
-        pprint("Positive votes (weighted): " + str(votes["positive"]))
-        pprint("Negative votes (weighted): " + str(votes["negative"]))
+        for phase in (0, 1): 
+            votes = all_votes[phase]
 
-        approval_state = "approved." if votes["positive"] > votes["negative"] else "not approved."
-        pprint("In this round, the proposal was " + approval_state)
+            pprint("Voting round {}:".format(str(phase + 1)))
+            pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
+            pprint("Negative votes (weighted): {}".format(str(votes["negative"])))
+            approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
+            pprint("In this round, the proposal was {}.".format(approval_state))
 
     def current_period(self, proposal_txid: str, blockheight: int=None, show_blockheights: bool=True):
 
@@ -788,11 +793,11 @@ class Proposal: ### DT ###
         pstate = get_proposal_state(provider, proposal_txid, phase=phase, debug=debug)
         if simple:
             pprint(pstate.__dict__)
-            print("locking txes:", pstate.all_locking_txes, [ t.txid for t in pstate.all_locking_txes ])
             return
         pdict = pstate.__dict__
         pprint("Proposal State " + proposal_txid + ":")
-        du.update_2levels(pdict)
+
+        di.prepare_dict(pdict)
         pprint(pdict)
 
     def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, debug=False):

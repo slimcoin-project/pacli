@@ -54,7 +54,54 @@ def itemprint(lst):
     except (IndexError, AttributeError):
         print(lst)
 
-def update_2levels(d):
+def dictmod_recursive(item): # recursive function for test.
+    if type(item) == list: # tuples will be returned as they are.
+        for index, value in enumerate(item):
+            item[index] = dictmod_recursive(value)
+    elif type(item) == dict:
+        for key, value in item.items():
+            item[key] = dictmod_recursive(value)
+
+    elif issubclass(type(item), TrackedTransaction):
+        # txid must be done apart as it's private
+        item = { "txid" : item.txid, **simpledict(item.__dict__, TrackedTransaction) }
+        # item = { "txid" : item.txid } | simpledict(item.__dict__, TrackedTransaction) # once python3.9 is standard this can be used
+    elif issubclass(type(item), Deck):
+        item = item.id
+    elif type(item) == DonationState:
+        item = simpledict(item.__dict__, type(item))
+    return item
+           
+
+def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_donation_txes", "all_voting_txes"]): 
+    # successor to update2levels
+    # prepares a dict with 2 levels like ProposalState for prettyprinting.
+    for key, value in d.items():
+        # first, rule out special cases where we want a simplified display (only the txid)
+        if key in only_txids:
+           d[key] = [ t.txid for t in value ]
+        else:
+           d[key] = dictmod_recursive(value)
+
+def simpledict(orig_dict: dict, object_type, show_items: list=None):
+    if not show_items:
+        if object_type == TrackedTransaction:
+            show_items = ["amount", "vote", "address", "reserve_address", "reserved_amount"]
+        elif object_type == DonationState:
+            show_items = ["donor_address", "donated_amount", "state" ]
+    return { k : orig_dict[k] for k in show_items if k in orig_dict }
+
+def txdisplay(tx, show_items: list=["amount", "address", "reserve_address", "reserved_amount", "proposal_txid"]):
+    # displays transactions in a meaningful way without showing the whole dict
+    # simpledict => dict comprehension version.
+    displaydict = { "txid" : tx.txid }
+    txdict = tx.__dict__
+    for item in txdict:
+        if item in show_items:
+            displaydict.update({item : txdict[item]})
+    return displaydict
+
+def update_2levels(d): # obsolete, will be replaced by the recursive function.
     # prepares a dict with 2 levels like ProposalState for prettyprinting.
     for item in d:
         if type(d[item]) in (list, tuple) and len(d[item]) > 0:
@@ -75,23 +122,7 @@ def update_2levels(d):
         elif issubclass(type(d[item]), Deck):
             d[item] = d[item].id
 
-def txdisplay(tx, show_items: list=["amount", "address", "reserve_address", "reserved_amount", "proposal_txid"]):
-    # displays transactions in a meaningful way without showing the whole dict
-    # TODO: should be replaced by a dictionary comprehension
-    displaydict = { "txid" : tx.txid }
-    txdict = tx.__dict__
-    for item in txdict:
-        if item in show_items:
-            displaydict.update({item : txdict[item]})
-    return displaydict
 
-def simpledict(orig_dict: dict, object_type, show_items: list=None):
-    if not show_items:
-        if object_type == TrackedTransaction:
-            show_items = ["txid", "amount", "address", "reserve_address", "reserved_amount", "proposal_txid"]
-        elif object_type == DonationState:
-            show_items = []
-    return { d : orig_dict[k] for k in show_items }
     
 
 def spinner(duration):
@@ -129,8 +160,10 @@ def spinner(duration):
 
 
 def wait_for_block(startblock, endblock, wait=False):
-    # This loop enables the "wait" option, where the program loops each 15 sec until the period is correctly reached.
-    # It will terminate when the block has passed.
+    # This function enables the "wait" option. It loops each 15 sec until the targe period is correctly reached.
+    # It will terminate and launch the transaction creator when the start block has been reached,
+    # or exit without launching if the end block has passed.
+    # If "wait" is set to False, then if the blockheight is outside the target period, the function exits after one loop.
     startendvalues = "(start: {}, end: {}).".format(startblock, endblock)
     oldblock = 0
     while True:
