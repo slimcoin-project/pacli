@@ -46,7 +46,7 @@ def printout_period(period: tuple, blockheights: list, show_blockheights: bool=F
 ## Display info about decks, transactions, proposals etc.
 
 def itemprint(lst):
-    try:        
+    try:
         if issubclass(type(lst[0]), TrackedTransaction):
             print([t.txid for t in lst])
         else:
@@ -71,9 +71,9 @@ def dictmod_recursive(item): # recursive function for test.
     elif type(item) == DonationState:
         item = simpledict(item.__dict__, type(item))
     return item
-           
 
-def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_donation_txes", "all_voting_txes"]): 
+
+def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_donation_txes", "all_voting_txes"]):
     # successor to update2levels
     # prepares a dict with 2 levels like ProposalState for prettyprinting.
     for key, value in d.items():
@@ -86,7 +86,7 @@ def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_
 def simpledict(orig_dict: dict, object_type, show_items: list=None):
     if not show_items:
         if object_type == TrackedTransaction:
-            show_items = ["amount", "vote", "address", "reserve_address", "reserved_amount"]
+            show_items = ["amount", "vote", "vote_weight", "address", "reserve_address", "reserved_amount"]
         elif object_type == DonationState:
             show_items = ["donor_address", "donated_amount", "state" ]
     return { k : orig_dict[k] for k in show_items if k in orig_dict }
@@ -123,7 +123,7 @@ def update_2levels(d): # obsolete, will be replaced by the recursive function.
             d[item] = d[item].id
 
 
-    
+
 
 def spinner(duration):
     '''Prints a "spinner" for a defined duration in seconds.'''

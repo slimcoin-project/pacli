@@ -3,7 +3,7 @@ from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
-from pypeerassets.at.dt_misc_utils import get_startendvalues, import_p2th_address, create_unsigned_tx, get_donation_state, get_proposal_state, sign_p2sh_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats
+from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
@@ -13,12 +13,12 @@ from pacli.utils import (cointoolkit_verify,
                          signtx,
                          sendtx)
 from pacli.keystore import get_key
-from time import sleep
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
 import sys, keyring
 import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
+import pypeerassets.at.dt_misc_utils as dmu
 
 
 def check_current_period(provider, proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
@@ -48,12 +48,12 @@ def get_next_suitable_period(tx_type, period):
         elif period in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
             target_period = ("B", 10 + offset)
         elif (period in (("C", 0), ("D", 0), ("D", 1), ("D", 2))): # and (tx_type == "signalling"): # ????
-            target_period = ("D", 10 + offset) 
-                  
+            target_period = ("D", 10 + offset)
+
     elif tx_type == "voting":
         if period in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
             target_period = ("B", 1)
-        elif (period[0] in ("B", "C")) or (period == ("D", 0)): 
+        elif (period[0] in ("B", "C")) or (period == ("D", 0)):
             target_period = ("D", 1)
 
     try:
@@ -101,7 +101,7 @@ def init_dt_deck(provider, network, deckid, rescan=True):
         print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
         import_p2th_address(provider, p2th_addr)
 
-    # SDP    
+    # SDP
     if deck.sdp_deckid:
         p2th_sdp_addr = Kutil(network=network,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
@@ -151,15 +151,16 @@ def get_proposal_info(provider, proposal_txid):
     return proposal_tx.__dict__
 
 def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_slot=True):
+    # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
     # provides the following data: slot, txid and vout of signalling or locking tx, value of input.
     # starts the parser.
     inputdata = {}
     print("Searching for signalling or reserve transaction. Please wait.")
-    dstate = get_donation_state(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, address=address, dist_round=dist_round, debug=debug, pos=0)
+    dstate = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, address=address, dist_round=dist_round, debug=debug, pos=0) # MODIFIED: removed unused parameter only_signalling=True
     if not dstate:
         raise ValueError("No donation states found.")
     if (tx_type == "donation") and (dstate.dist_round < 4):
-        
+
         prev_tx = dstate.locking_tx
         # TODO: this seems to raise an error sometimes when donating in later rounds ...
         # This can in reality only happen if there is an incorrect donation state found.
@@ -170,36 +171,35 @@ def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, pro
             prev_tx = dstate.reserve_tx
         else:
             prev_tx = dstate.signalling_tx
-    
+
     inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount})
     if use_slot:
-        inputdata.update({"slot" : dstate.slot}) 
+        inputdata.update({"slot" : dstate.slot})
     return inputdata
 
-def get_donation_states(provider, proposal_id, address=None, debug=False, phase=1):
-    return get_donation_state(provider, proposal_id, address=address, debug=debug, phase=phase) # this returns a list of multiple results. phase=1 means it considers the whole process.
+#def get_donation_states(provider, proposal_id, address=None, debug=False, phase=1):
+#    return dmu.get_donation_states(provider, proposal_id, address=address, debug=debug, phase=phase) # this returns a list of multiple results. phase=1 means it considers the whole process.
 
 def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, debug=False, network_name="tppc"):
     # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
     """Returns a dict with the amount of the reward and the deckid."""
     # coin = coin_value(network_name=network_name)
-    ptx = proposal_from_tx(proposal_id, provider) # TODO maybe the ptx can be given directly to get_donation_state
+    ptx = proposal_from_tx(proposal_id, provider) # ptx is given directly to get_donation_state
     deckid = ptx.deck.id
     decimals = ptx.deck.number_of_decimals
     if proposer:
         if donor_address == ptx.donation_address:
             print("Claiming tokens for the Proposer for missing donations ...")
-            # TODO: this should go into a new attribute of ProposalState: ps.proposer_reward
-            pstate = get_proposal_state(provider, proposal_id, phase=1)
+            pstate = get_proposal_state(provider, proposal_id)
             reward = pstate.proposer_reward
             result = {"donation_txid" : proposal_id}
         else:
             raise Exception("ERROR: Your donor address isn't the Proposer address, so you can't claim their tokens.")
-        
+
     else:
 
         try:
-            ds = get_donation_state(provider, proposal_id, address=donor_address, phase=1, debug=debug)[0]
+            ds = dmu.get_donation_states(provider, proposal_tx=ptx, address=donor_address, phase=1, debug=debug)[0]
         except IndexError:
             raise Exception("ERROR: No valid donation state found.")
 
@@ -217,7 +217,7 @@ def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, de
        raise Exception("ERROR: Reward is zero or lower than one token unit.")
 
     print("Token reward by distribution period:", ptx.deck.epoch_quantity)
-    
+
     if (proposer and pstate.dist_factor) or (ds.reward is not None):
         formatted_reward = Decimal(reward) / 10 ** decimals
         print("Your reward:", formatted_reward, "PoD tokens")
@@ -239,7 +239,7 @@ def get_basic_tx_data(provider, tx_type, proposal_id=None, input_address: str=No
     else:
         deck = deck_from_tx(deckid, provider)
         tx_data = {}
-        
+
     tx_data.update({"deck" : deck, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })
     if tx_type in ("donation", "locking"):
         try:
@@ -252,13 +252,13 @@ def get_basic_tx_data(provider, tx_type, proposal_id=None, input_address: str=No
 
 def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
     # Creates datastring and (in the case of locking/donations) input data in unified way.
-       
+
     # network = net_query(network_name)
     # coin = int(1 / network.from_unit)
 
     if raw_amount is not None:
         # amount = int(Decimal(raw_amount) * coin)
-        print("raw", raw_amount, type(raw_amount))
+        # print("raw", raw_amount, type(raw_amount))
         amount = coins_to_sats(Decimal(raw_amount), network_name=network_name)
     else:
         amount = None
@@ -277,9 +277,9 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
     input_txid, input_vout, input_value = None, None, None
 
     if basic_tx_data["tx_type"] in ("donation", "locking"):
-        if (not force) and ("slot" in basic_tx_data.keys()):          
+        if (not force) and ("slot" in basic_tx_data.keys()):
             slot = basic_tx_data["slot"]
-        elif new_inputs and amount:
+        elif (new_inputs and amount) or force:
             slot = None
         else:
             raise ValueError("If you don't use the parent transaction, you must provide amount and new_inputs.")
@@ -303,7 +303,14 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
             else:
                 amount = slot
             print("Using assigned slot:", sats_to_coins(Decimal(slot), network_name=network_name))
-    # print("Amount:", amount)
+        elif force and (amount is None):
+            amount = available_amount
+            print("Using available amount of the parent transaction:", sats_to_coins(Decimal(available_amount), network_name=network_name))
+        else:
+            raise Exception("No slot available for this donation. Transaction will not be created.")
+
+
+    # print("Amount:", amount, "available", available_amount, "input value", input_value, "slot", slot)
 
     data = setfmt(params, tx_type=basic_tx_data["tx_type"])
 
@@ -411,7 +418,7 @@ def get_all_labels():
     return labels
 
 def show_stored_key(keyid: str, network: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode=False):
-    # TODO: json_mode (only for addresses)        
+    # TODO: json_mode (only for addresses)
     try:
         raw_key = bytearray.fromhex(get_key(keyid))
     except TypeError:
@@ -496,7 +503,7 @@ def show_votes_by_address(provider, deckid, address):
             if outcome not in vtxes[proposal]:
                 continue
             for vtx in vtxes[proposal][outcome]:
-                
+
                 inp_txid = vtx.ins[0].txid
                 inp_vout = vtx.ins[0].txout
                 inp_tx = provider.getrawtransaction(inp_txid, 1)

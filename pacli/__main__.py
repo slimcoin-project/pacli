@@ -17,7 +17,7 @@ from pypeerassets.transactions import NulldataScript, TxIn ### ADDED ###
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 from pypeerassets.at.transaction_formats import getfmt, setfmt, PROPOSAL_FORMAT, SIGNALLING_FORMAT, LOCKING_FORMAT, DONATION_FORMAT, VOTING_FORMAT
-from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state
+from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state, get_donation_states
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -166,8 +166,8 @@ class Address:
                 addr = key.address
                 balance = str(provider.getbalance(addr))
                 print(addr.ljust(35), balance.ljust(15), label.ljust(15))
-                
-                      
+
+
             except Exception as e:
                 if debug: print("ERROR:", label, e)
                 continue
@@ -194,7 +194,7 @@ class Address:
     def my_donations(self, deckid: str, address: str=Settings.key.address):
         '''shows donation states involving this address.'''
         return du.show_donations_by_address(provider, deckid, address)
-        
+
 
 class Deck:
 
@@ -337,7 +337,7 @@ class Deck:
     def dt_spawn(self, name: str, dp_length: int, dp_quantity: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
         '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
 
-        b_identifier = b'DT' #
+        b_identifier = b'DT'
 
         try:
 
@@ -623,7 +623,7 @@ class Card:
             raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
 
         # TODO: for now, hardcoded asset data; should be a pa function call
-        asset_specific_data = b"tx:" + txid.encode("utf-8") + b":" + vout 
+        asset_specific_data = b"tx:" + txid.encode("utf-8") + b":" + vout
 
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
@@ -654,7 +654,7 @@ class Card:
             print("WARNING: Overriding reward calculation. If you calculated your payment incorrectly, the transaction will be invalid.")
         else:
             print("ERROR: No payment data provided.")
-            return None 
+            return None
 
         if payment is None:
             payment = [max_payment]
@@ -667,7 +667,7 @@ class Card:
                 payment.append(rest_amount)
 
 
-        params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout} 
+        params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout}
         asset_specific_data = setfmt(params, tx_type="cardissue_dt")
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
@@ -698,7 +698,7 @@ class Transaction:
         txid = provider.sendrawtransaction(rawtx)
 
         pprint({'txid': txid})
-               
+
 class Proposal: ### DT ###
 
     def get_votes(self, proposal_txid: str, debug: bool=False):
@@ -707,7 +707,7 @@ class Proposal: ### DT ###
 
         all_votes = get_votestate(provider, proposal_txid, debug)
 
-        for phase in (0, 1): 
+        for phase in (0, 1):
             votes = all_votes[phase]
 
             pprint("Voting round {}:".format(str(phase + 1)))
@@ -788,9 +788,9 @@ class Proposal: ### DT ###
         info = du.get_proposal_info(provider, proposal_txid)
         pprint(info)
 
-    def state(self, proposal_txid, debug=False, simple=False, phase=1):
+    def state(self, proposal_txid, debug=False, simple=False):
         '''Shows a single proposal state.'''
-        pstate = get_proposal_state(provider, proposal_txid, phase=phase, debug=debug)
+        pstate = get_proposal_state(provider, proposal_txid, debug=debug)
         if simple:
             pprint(pstate.__dict__)
             return
@@ -802,7 +802,7 @@ class Proposal: ### DT ###
 
     def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, debug=False):
         '''Shows the donation states involving a certain address (default: current active address).'''
-        dstates = du.get_donation_states(provider, proposal_id, address=address, debug=debug)
+        dstates = get_donation_states(provider, proposal_id, address=address, debug=debug)
         for dstate in dstates:
             pprint("Donation state ID: " + dstate.id)
             #pprint(dstate.__dict__)
@@ -815,7 +815,7 @@ class Proposal: ### DT ###
                 print(item + ":", value)
 
     def all_donation_states(self, proposal_id: str, debug=False):
-        dstates = du.get_donation_states(provider, proposal_id, debug=debug)
+        dstates = get_donation_states(provider, proposal_id, debug=debug)
         for dstate in dstates:
             pprint("Donation state ID: " + dstate.id)
 
@@ -836,7 +836,7 @@ class Proposal: ### DT ###
 
         basic_tx_data = du.get_basic_tx_data(provider, "proposal", deckid=deckid, input_address=Settings.key.address)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
         return du.finalize_tx(rawtx, verify, sign, send)
 
@@ -854,13 +854,13 @@ class Proposal: ### DT ###
         else:
             raise ValueError("Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
 
-        vote_readable = "Positive" if votechar == "+" else "Negative" 
+        vote_readable = "Positive" if votechar == "+" else "Negative"
         # print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
 
         params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
 
         basic_tx_data = du.get_basic_tx_data(provider, "voting", proposal_id=proposal_id, input_address=input_address)
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
         console_output = du.finalize_tx(rawtx, verify, sign, send)
 
@@ -902,7 +902,7 @@ class Donation:
 
         return du.finalize_tx(rawtx, verify, sign, send)
 
-    def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, debug: bool=False) -> None:
+    def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False) -> None:
 
         """Locking Transaction locks funds to the origin address (default)."""
         # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
@@ -926,8 +926,8 @@ class Donation:
         params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
         basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
-        
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
+
         return du.finalize_tx(rawtx, verify, sign, send)
 
 
@@ -948,7 +948,7 @@ class Donation:
         basic_tx_data = du.get_basic_tx_data(provider, "donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force, network_name=Settings.network)
-        
+
         # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
         if new_inputs:
             p2sh, prv, key, rscript = None, None, None, None
@@ -973,7 +973,7 @@ class Donation:
 
     def show_slot(self, proposal_id: str, satoshi: bool=False):
         '''Simplified variant of my_donation_states, only shows slot.'''
-        dstates = du.get_donation_states(provider, proposal_id, address=Settings.key.address)
+        dstates = get_donation_states(provider, proposal_id, address=Settings.key.address)
         # There must be only 1 state per proposal, so the
         try:
             if not satoshi:
