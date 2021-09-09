@@ -83,6 +83,24 @@ def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_
         else:
            d[key] = dictmod_recursive(value)
 
+
+def prepare_complete_dict(d):
+    # version which shows always all items.
+    for key, value in d.items():
+        d[key] = show_recursive(value)
+
+def show_recursive(item):
+    if type(item) == dict:
+        return { key : show_recursive(val) for (key, val) in item.items() } # {key:value for (key,value) in dictonary.items()}
+    elif type(item) in (list, tuple, set):
+        return [ show_recursive(i) for i in item ]
+    elif type(item) in (int, float, str):
+        return item
+    elif issubclass(type(item), TrackedTransaction):
+        return { key : show_recursive(val) for (key, val) in item.__dict__.items() }
+    else:
+        return str(item)
+
 def simpledict(orig_dict: dict, object_type, show_items: list=None):
     if not show_items:
         if object_type == TrackedTransaction:

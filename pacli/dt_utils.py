@@ -88,28 +88,51 @@ def get_all_periods(provider, proposal_txid):
     return dp.get_period_dict(ps)
 
 
-def init_dt_deck(provider, network, deckid, rescan=True):
+def init_deck(provider, network, deckid, rescan=True):
     deck = deck_from_tx(deckid, provider)
+    if deckid not in provider.listaccounts():
+        provider.importprivkey(deck.p2th_wif, deck.id, rescan)
+        print("Importing P2TH address from deck.")
+    check_addr = provider.validateaddress(deck.p2th_address)
+    print(check_addr)
+        # load_deck_p2th_into_local_node(provider, deck) # we don't use this here because it doesn't provide the rescan option
+
+
+
+def init_dt_deck(provider, network, deckid, rescan=True):
+    # MODIFIED: added support for legacy blockchains
+    deck = deck_from_tx(deckid, provider)
+    print(network)
+    legacy = is_legacy_blockchain(network.shortname)
     if deck.id not in provider.listaccounts():
         print("Importing main key from deck.")
         load_deck_p2th_into_local_node(provider, deck)
 
     for tx_type in ("proposal", "signalling", "locking", "donation", "voting"):
-        p2th_addr= deck.derived_p2th_address(tx_type)
-        #p2th_addr = Kutil(network=network,
-        #                 privkey=bytearray.fromhex(p2th_id)).address
+        p2th_addr = deck.derived_p2th_address(tx_type)
         print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
-        import_p2th_address(provider, p2th_addr)
+        if legacy:
+            p2th_wif = deck.derived_p2th_wif(tx_type)
+            legacy_import(provider, p2th_addr, p2th_wif, rescan)
+        else:
+            import_p2th_address(provider, p2th_addr)
 
     # SDP
     if deck.sdp_deckid:
         p2th_sdp_addr = Kutil(network=network,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
         print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
-        import_p2th_address(provider, p2th_sdp_addr)
+
+        if legacy:
+            p2th_sdp_wif = Kutil(network=network,
+                             privkey=bytearray.fromhex(deck.sdp_deckid)).wif
+            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan)
+        else:
+            import_p2th_address(provider, p2th_sdp_addr)
     if rescan:
-        print("Rescanning ...")
-        provider.rescanblockchain()
+        if not legacy:
+            print("Rescanning ...")
+            provider.rescanblockchain()
     print("Done.")
 
 # Proposal and donation states

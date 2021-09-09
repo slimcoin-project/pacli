@@ -6,6 +6,7 @@ import random
 import pypeerassets as pa
 import json
 from prettyprinter import cpprint as pprint
+from pprint import pprint as alt_pprint
 
 from pypeerassets.pautils import (amount_to_exponent,
                                   exponent_to_amount,
@@ -363,8 +364,12 @@ class Deck:
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
+    def init(self, deckid: str):
+        '''Initializes deck and imports its P2TH address into node.'''
+        du.init_deck(provider, Settings.network, deckid)
+
     def dt_init(self, deckid: str):
-        '''Intializes deck and imports all P2TH addresses into node.'''
+        '''Initializes DT deck and imports all P2TH addresses into node.'''
 
         du.init_dt_deck(provider, Settings.network, deckid)
 
@@ -788,17 +793,20 @@ class Proposal: ### DT ###
         info = du.get_proposal_info(provider, proposal_txid)
         pprint(info)
 
-    def state(self, proposal_txid, debug=False, simple=False):
+    def state(self, proposal_txid, debug=False, simple=False, complete=False):
         '''Shows a single proposal state.'''
         pstate = get_proposal_state(provider, proposal_txid, debug=debug)
-        if simple:
-            pprint(pstate.__dict__)
-            return
         pdict = pstate.__dict__
-        pprint("Proposal State " + proposal_txid + ":")
-
-        di.prepare_dict(pdict)
-        pprint(pdict)
+        if simple:
+            pprint(pdict)
+        elif complete:
+            di.prepare_complete_dict(pdict)
+            pprint(pdict)
+        else:
+            pprint("Proposal State " + proposal_txid + ":")
+            # in the standard mode, some objects are shown in a simplified way.
+            di.prepare_dict(pdict)
+            pprint(pdict)
 
     def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, debug=False):
         '''Shows the donation states involving a certain address (default: current active address).'''

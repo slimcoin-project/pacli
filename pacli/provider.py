@@ -1,13 +1,16 @@
-from pypeerassets.provider import RpcNode, Cryptoid, Explorer
+from pypeerassets.provider import RpcNode, SlmRpcNode, Cryptoid, Explorer
 from pypeerassets import pautils
 from pacli.config import Settings
+
+# MODIFIED: Added Slimcoin support (SlmRpcNode)
 
 def set_up(provider):
     '''setup'''
 
     # if provider is local node, check if PA P2TH is loaded in local node
     # this handles indexing of transaction
-    if Settings.provider == "rpcnode":
+    # MODIFIED: added Slimcoin support
+    if Settings.provider in ("rpcnode", "slm_rpcnode"):
         if Settings.production:
             if not provider.listtransactions("PAPROD"):
                 pautils.load_p2th_privkey_into_local_node(provider)
@@ -22,6 +25,9 @@ def configured_provider(Settings):
     if Settings.provider.lower() == "rpcnode":
         _provider = RpcNode
 
+    elif Settings.provider.lower() == "slm_rpcnode":
+        _provider = SlmRpcNode
+
     elif Settings.provider.lower() == "cryptoid":
         _provider = Cryptoid
 
@@ -32,7 +38,7 @@ def configured_provider(Settings):
         raise Exception('invalid provider.')
 
     ### MODIFIED - otherwise throws error because of network keyword ###
-    if Settings.provider.lower() != "rpcnode":
+    if Settings.provider.lower() not in ("rpcnode", "slm_rpcnode"):
         provider = _provider(network=Settings.network)
     else:
         provider = _provider(testnet=Settings.testnet, username=Settings.rpcuser, password=Settings.rpcpassword, ip=None, port=Settings.rpcport, directory=None)
