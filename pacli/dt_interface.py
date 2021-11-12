@@ -1,4 +1,5 @@
-import itertools
+import itertools, sys
+from time import sleep
 from pypeerassets.at.dt_entities import TrackedTransaction
 from pypeerassets.at.dt_states import DonationState
 from pypeerassets.protocol import Deck
@@ -177,7 +178,7 @@ def spinner(duration):
         sleep(0.1)
 
 
-def wait_for_block(startblock, endblock, wait=False):
+def wait_for_block(startblock, endblock, provider, wait=False):
     # This function enables the "wait" option. It loops each 15 sec until the targe period is correctly reached.
     # It will terminate and launch the transaction creator when the start block has been reached,
     # or exit without launching if the end block has passed.
@@ -189,17 +190,19 @@ def wait_for_block(startblock, endblock, wait=False):
         if current_block == oldblock:
             sleep(15)
             continue
-
         # We need always to trigger the transaction one block before the begin of the period.
-        if (startblock - 1) <= current_block <= (endblock - 1):
+        next_block = current_block + 1
+
+
+        if startblock <= next_block <= endblock:
             print("Period has been reached", startendvalues)
             print("Transaction will probably be included in block:", current_block + 1, "- current block:", current_block)
             return True
         else:
 
-            if current_block < startblock:
+            if next_block < startblock:
                 print("Period still not reached", startendvalues)
-                print("Transaction would probably be included in block:", current_block + 1, "- current block:", current_block)
+                print("Transaction would probably be included in block:", next_block, "- current block:", current_block)
                 if not wait:
                     return False
                 sleep(15)

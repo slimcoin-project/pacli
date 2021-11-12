@@ -22,7 +22,7 @@ from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.keystore import init_keystore, set_new_key, set_key, delete_key, get_key, load_key ### MODIFIED ###
+from pacli.keystore import init_keystore, set_new_key, set_key, delete_key, get_key, load_key, get_key_prefix ### MODIFIED ###
 from pacli.tui import print_deck_info, print_deck_list
 from pacli.tui import print_card_list
 from pacli.export import export_to_csv
@@ -100,7 +100,7 @@ class Address:
         except KeyError:
             pprint({'error': 'No UTXOs ;('})
 
-    def new_privkey(self, key: str=None, backup: str=None, label: str=None, wif: bool=False, force: bool=False) -> str: ### NEW FEATURE ###
+    def new_privkey(self, key: str=None, backup: str=None, label: str=None, wif: bool=False, legacy: bool=False) -> str: ### NEW FEATURE ###
         '''import new private key, taking hex or wif format, or generate new key.
            You can assign a key name, otherwise it will become the main key.'''
 
@@ -110,27 +110,31 @@ class Address:
         elif (not label) and key:
             new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key))
 
-        set_new_key(new_key=key, backup_id=backup, label=label, force=force)
+        set_new_key(new_key=key, backup_id=backup, label=label, network_name=Settings.network, legacy=legacy)
+        fulllabel = get_key_prefix(Settings.network, legacy) + label
+        key = get_key(fulllabel)
 
         if not label:
             if not new_key:
                 new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
             Settings.key = new_key
 
-        return Settings.key.address # this still doesn't work properly - TODO: was this solved?
+        return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address
 
-    def fresh(self, label: str, show: bool=False, set_main: bool=False, force: bool=False, backup: str=None): ### NEW ###
+    def fresh(self, label: str, show: bool=False, set_main: bool=False, backup: str=None, legacy: bool=False): ### NEW ###
         '''This function uses the standard client commands to create an address/key and assign it a key id.'''
         addr = provider.getnewaddress()
         privkey_wif = provider.dumpprivkey(addr)
         privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
         privkey = privk_kutil.privkey
-        fulllabel = "key_bak_" + label
+
+        fulllabel = get_key_prefix(Settings.network, legacy) + label
+
         try:
-            if fulllabel in du.get_all_labels():
+            if fulllabel in du.get_all_labels(Settings.network):
                 return "ERROR: Label already used. Please choose another one."
         except ImportError:
-            print("NOTE: On Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
+            print("NOTE: If you do not use SecretStorage, which is likely if you use Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
 
         set_key(fulllabel, privkey)
 
@@ -138,50 +142,62 @@ class Address:
             print("New address created:", privk_kutil.address, "with label (name):", label)
             print("Address already is saved in your wallet and in your keyring, ready to use.")
         if set_main:
-            set_new_key(new_key=privkey, backup_id=backup, label=label, force=force)
+            set_new_key(new_key=privkey, backup_id=backup, label=label, network_name=Settings.network, legacy=legacy)
             Settings.key = privk_kutil
             return Settings.key.address
 
-    def set_main(self, label: str, backup: str=None) -> str: ### NEW FEATURE ###
+    def set_main(self, label: str, backup: str=None, legacy: bool=False) -> str: ### NEW FEATURE ###
         '''Declares a key identified by a label as the main one.'''
 
-        set_new_key(existing_label=label, backup_id=backup)
+        set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
         Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
 
         return Settings.key.address
 
-    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str: ### NEW FEATURE ###
+    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str: ### NEW FEATURE ###
         '''shows stored alternative keys'''
         # WARNING: Can expose private keys. Try to use it only on testnet.
-        return du.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif)
+        prefix = get_key_prefix(Settings.network, legacy)
+        return du.show_stored_key(prefix + label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif)
 
-    def show_all(self, debug: bool=False):
-        labels = du.get_all_labels()
+    def show_all(self, debug: bool=False, legacy: bool=False):
+
+        net_prefix = "bak" if legacy else Settings.network
+
+        labels = du.get_all_labels(net_prefix)
+
+        prefix = "key_" + net_prefix + "_"
         print("Address".ljust(35), "Balance".ljust(15), "Label".ljust(15))
         print("---------------------------------------------------------")
         for raw_label in labels:
             try:
-                label = raw_label.replace("key_bak_", "")
-                raw_key = bytearray.fromhex(get_key(label))
+                label = raw_label.replace(prefix, "")
+                raw_key = bytearray.fromhex(get_key(raw_label))
                 key = pa.Kutil(network=Settings.network, privkey=raw_key)
                 addr = key.address
                 balance = str(provider.getbalance(addr))
                 print(addr.ljust(35), balance.ljust(15), label.ljust(15))
 
-
             except Exception as e:
                 if debug: print("ERROR:", label, e)
                 continue
 
-    def delete_key_from_keyring(self, label: str) -> None: ### NEW FEATURE ###
+    def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None: ### NEW FEATURE ###
         '''deletes a key with an id. Cannot be used to delete main key.'''
-        delete_key(label)
+        prefix = get_key_prefix(Settings.network, legacy)
+        try:
+           delete_key(prefix + label)
+           print("Key", label, "successfully deleted.")
+        except keyring.errors.PasswordDeleteError:
+           print("Key", label, "does not exist. Nothing deleted.")
 
     def import_to_wallet(self, accountname: str, label: str=None) -> None: ### NEW FEATURE ###
         '''imports main key or any stored key to wallet managed by RPC node.
            TODO: should accountname be mandatory or not?'''
+
+        prefix = get_key_prefix(Settings.network, legacy)
         if label:
-            pkey = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(get_key(label)))
+            pkey = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(get_key(prefix + label)))
             wif = pkey.wif
         else:
             wif = Settings.wif
@@ -713,7 +729,11 @@ class Proposal: ### DT ###
         all_votes = get_votestate(provider, proposal_txid, debug)
 
         for phase in (0, 1):
-            votes = all_votes[phase]
+            try:
+                votes = all_votes[phase]
+            except IndexError:
+                pprint("Votes of round {} not available.".format(str(phase + 1)))
+                continue
 
             pprint("Voting round {}:".format(str(phase + 1)))
             pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
@@ -723,6 +743,9 @@ class Proposal: ### DT ###
 
     def current_period(self, proposal_txid: str, blockheight: int=None, show_blockheights: bool=True):
 
+        if blockheight is None:
+            blockheight = provider.getblockcount() + 1
+            pprint("Next block: {}".format(blockheight))
         period, blockheights = du.get_period(provider, proposal_txid, blockheight)
         pprint(di.printout_period(period, blockheights, show_blockheights))
 
@@ -738,8 +761,8 @@ class Proposal: ### DT ###
         # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
 
         if not block:
-            block = provider.getblockcount()
-            pprint("Current block: " + str(block))
+            block = provider.getblockcount() + 1 # modified, next block is the reference, not last block
+            pprint("Next block to be added to blockchain: " + str(block))
         try:
             pstate_periods = du.get_proposal_state_periods(provider, deckid, block, advanced=advanced, debug=debug)
         except KeyError:
@@ -877,6 +900,7 @@ class Proposal: ### DT ###
             confirmations = 0
             while confirmations == 0:
                 tx = provider.getrawtransaction(rawtx.txid, 1)
+                print(tx)
                 try:
                     confirmations = tx["confirmations"]
                     break
@@ -899,6 +923,9 @@ class Donation:
                 return
 
             print("You are signalling {} coins.".format(amount))
+            print("Your donation address: {}".format(dest_address))
+            if dest_label is not None:
+                print("Label: {}".format(dest_label))
             print("Take into account that releasing the donation requires 0.02 coins for fees.")
             if (check_round is not None) and (check_round < 4):
                 print("Additionally, locking the transaction requires 0.02 coins, so total fees sum up to 0.04.")
@@ -916,23 +943,24 @@ class Donation:
         # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
         [dest_address, reserve_address, change_address] = du.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
 
+        dist_round = du.get_dist_round(provider, proposal_txid)
         if (check_round is not None) or (wait == True):
-            dist_round=check_round
             if not du.check_current_period(provider, proposal_txid, "locking", dist_round=check_round, wait=wait):
                 return
 
         cltv_timelock = int(manual_timelock) if manual_timelock else du.calculate_timelock(provider, proposal_txid)
         print("Locking funds until block", cltv_timelock)
 
-        if amount:
+        if amount is not None:
             print("Not using slot, instead locking custom amount:", amount)
+        if force: # modified: before, False was also assigned if amount is given.
             use_slot = False
         else:
             use_slot = True
 
         # timelock and dest_address are saved in the transaction, to be able to reconstruct redeem script
         params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
-        basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
+        basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, dist_round=dist_round)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
 
@@ -976,22 +1004,36 @@ class Donation:
 
     def check_all_tx(self, proposal_id: str, include_badtx: bool=False, light: bool=False):
         '''Lists all TrackedTransactions for a proposal, even invalid ones.
-           include_badtx also detects wrongly formatted tranactions, but only displays the txid.'''
+           include_badtx also detects wrongly formatted transactions, but only displays the txid.'''
         du.get_all_trackedtxes(provider, proposal_id, include_badtx=include_badtx, light=light)
 
-    def show_slot(self, proposal_id: str, satoshi: bool=False):
-        '''Simplified variant of my_donation_states, only shows slot.'''
-        dstates = get_donation_states(provider, proposal_id, address=Settings.key.address)
-        # There must be only 1 state per proposal, so the
-        try:
-            if not satoshi:
-                slot = du.sats_to_coins(dstates[0].slot, Settings.network)
-            else:
-                slot = dstates[0].slot
-            print("Slot:", slot)
+    def show_slot(self, proposal_id: str, dist_round: int=None, satoshi: bool=False):
+        '''Simplified variant of my_donation_states, only shows slot.
+           If an address participated in several rounds, the round can be given.'''
 
-        except IndexError:
-            print("No valid donation process found.")
+        dstates = get_donation_states(provider, proposal_id, address=Settings.key.address)
+        if dist_round:
+            for state in dstates:
+                if state.dist_round == dist_round:
+                    raw_slot = state.slot
+                    break
+            else:
+                print("No slot found in round", dist_round)
+                return None
+
+        else:
+            print("Showing first slot where this address participated.")
+            try:
+                raw_slot = dstates[0].slot
+            except IndexError:
+                print("No valid donation process found.")
+
+        if not satoshi:
+            slot = du.sats_to_coins(raw_slot, Settings.network)
+        else:
+            slot = raw_slot
+
+        print("Slot:", slot)
 
 def main():
 

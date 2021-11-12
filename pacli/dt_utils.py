@@ -9,13 +9,14 @@ from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_nod
 from pypeerassets.kutil import Kutil
 from pypeerassets.transactions import sign_transaction, MutableTransaction
 from pypeerassets.networks import net_query, PeercoinMainnet, PeercoinTestnet
+from pypeerassets.legacy import is_legacy_blockchain, legacy_import
 from pacli.utils import (cointoolkit_verify,
                          signtx,
                          sendtx)
 from pacli.keystore import get_key
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
-import sys, keyring
+# import keyring
 import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
 import pypeerassets.at.dt_misc_utils as dmu
@@ -23,6 +24,8 @@ import pypeerassets.at.dt_misc_utils as dmu
 
 def check_current_period(provider, proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
     # TODO should be reorganized so the ProposalState isn't created 2x!
+    # Re-check side effects of get_period change. => Seems OK, but take the change into account.
+
     current_period, blocks = get_period(provider, proposal_txid)
     print("Current period:", di.printout_period(current_period, blocks))
     try:
@@ -35,20 +38,29 @@ def check_current_period(provider, proposal_txid, tx_type, dist_round=None, phas
     ps = ProposalState(first_ptx=proposal_tx, valid_ptx=proposal_tx, provider=provider)
     startblock, endblock = dp.get_startendvalues(target_period, ps)
 
-    return di.wait_for_block(startblock, endblock, wait)
+    return di.wait_for_block(startblock, endblock, provider, wait)
 
 def get_next_suitable_period(tx_type, period):
+    # TODO: maybe it would be simpler to assign all suitable periods to all tx types,
+    # and then iterate over the index.
+    print("Period", period, tx_type)
     if tx_type in ("donation", "signalling", "locking"):
         offset = 0 if tx_type == "signalling" else 1
 
-        if period[0] in ("B", "D") and (10 <= period[1] < 40):
-            # TODO: this gives always the next period, but how to know if we want the current period?
-            target_period = (period[0], (period[1] // 10 + 1) * 10 + offset)
+        if period[0] in ("B", "D") and (10 <= period[1] <= 49):
+            # the original code gives always the next period
+            # target_period = (period[0], (period[1] // 10 + 1) * 10 + offset)
+            # new code: gives current period if current one is suitable, otherwise the next one.
+            # with the modulo we know if we are in a signalling (0) or donation/locking period.
+            if period[1] % 10 == offset:
+               target_period = period
+            else:
+               target_period = (period[0], (period[1] // 10 + 1) * 10 + offset)
 
         elif period in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
             target_period = ("B", 10 + offset)
-        elif (period in (("C", 0), ("D", 0), ("D", 1), ("D", 2))): # and (tx_type == "signalling"): # ????
-            target_period = ("D", 10 + offset)
+        elif period in (("C", 0), ("D", 0), ("D", 1), ("D", 2)):
+            target_period = ("D", 10) if tx_type == "signalling" else ("D", 2)
 
     elif tx_type == "voting":
         if period in (("A", 0), ("A", 1), ("B", 0), ("B", 1)):
@@ -74,12 +86,24 @@ def dummy_pstate(provider, proposal_txid):
 
 def get_period(provider, proposal_txid, blockheight=None):
     """Provides an user-friendly description of the current period."""
-
+    # MODIFIED. if blockheight not given, query the period corresponding to the next block, not the last recorded block.
     if not blockheight:
-        blockheight = provider.getblockcount()
+        blockheight = provider.getblockcount() + 1
     pdict = get_all_periods(provider, proposal_txid)
+    result = dp.period_query(pdict, blockheight)
+    return result
 
-    return dp.period_query(pdict, blockheight)
+def get_dist_round(provider, proposal_id, blockheight=None):
+    """Provides the current dist round if blockheight is inside one."""
+    period = get_period(provider, proposal_id, blockheight)
+    try:
+        assert (period[0] in ("B", "D")) and (period[1] > 10)
+        if period[0] == "B":
+            return (period[1] // 10) - 1
+        elif period[0] == "D":
+            return (period[1] // 10) + 4 - 1
+    except AssertionError:
+        return None
 
 
 def get_all_periods(provider, proposal_txid):
@@ -99,11 +123,10 @@ def init_deck(provider, network, deckid, rescan=True):
 
 
 
-def init_dt_deck(provider, network, deckid, rescan=True):
+def init_dt_deck(provider, network_name, deckid, rescan=True):
     # MODIFIED: added support for legacy blockchains
     deck = deck_from_tx(deckid, provider)
-    print(network)
-    legacy = is_legacy_blockchain(network.shortname)
+    legacy = is_legacy_blockchain(network_name)
     if deck.id not in provider.listaccounts():
         print("Importing main key from deck.")
         load_deck_p2th_into_local_node(provider, deck)
@@ -119,12 +142,12 @@ def init_dt_deck(provider, network, deckid, rescan=True):
 
     # SDP
     if deck.sdp_deckid:
-        p2th_sdp_addr = Kutil(network=network,
+        p2th_sdp_addr = Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
         print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
 
         if legacy:
-            p2th_sdp_wif = Kutil(network=network,
+            p2th_sdp_wif = Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).wif
             legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan)
         else:
@@ -155,6 +178,7 @@ def get_proposal_state_periods(provider, deckid, block, advanced=False, debug=Fa
         pstates = get_proposal_states(provider, deck)
 
     for proposal_txid in pstates:
+        print("proposal:", proposal_txid)
         ps = pstates[proposal_txid]
         period, blockheights = get_period(provider, proposal_txid, blockheight=block)
         state_data = {"state": ps, "startblock" : blockheights[0], "endblock" : blockheights[1]}
@@ -276,9 +300,6 @@ def get_basic_tx_data(provider, tx_type, proposal_id=None, input_address: str=No
 def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
     # Creates datastring and (in the case of locking/donations) input data in unified way.
 
-    # network = net_query(network_name)
-    # coin = int(1 / network.from_unit)
-
     if raw_amount is not None:
         # amount = int(Decimal(raw_amount) * coin)
         # print("raw", raw_amount, type(raw_amount))
@@ -295,15 +316,20 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
     tx_fee = coins_to_sats(Decimal(raw_tx_fee), network_name=network_name)
     # p2th_fee = int(Decimal(raw_p2th_fee) * coin)
     p2th_fee = coins_to_sats(Decimal(raw_p2th_fee), network_name=network_name)
+    # legacy chains need a minimum transaction value even at OP_RETURN transactions
+    if is_legacy_blockchain(network_name, "nulldata"):
+        op_return_fee = p2th_fee
+    else:
+        op_return_fee = 0
 
     deck = basic_tx_data["deck"]
     input_txid, input_vout, input_value = None, None, None
 
     if basic_tx_data["tx_type"] in ("donation", "locking"):
         if (not force) and ("slot" in basic_tx_data.keys()):
-            slot = basic_tx_data["slot"]
+            slot = basic_tx_data["slot"] if amount is None else amount
         elif (new_inputs and amount) or force:
-            slot = None
+            slot = None # TODO: this leads to a "No slot available" error. Should not happen.
         else:
             raise ValueError("If you don't use the parent transaction, you must provide amount and new_inputs.")
 
@@ -316,7 +342,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
             input_txid = basic_tx_data["txid"]
             input_vout = basic_tx_data["vout"]
             input_value = basic_tx_data["value"]
-            available_amount = input_value - tx_fee - p2th_fee
+            available_amount = input_value - tx_fee - p2th_fee - op_return_fee
         else:
             available_amount = None
 
@@ -337,7 +363,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
 
     data = setfmt(params, tx_type=basic_tx_data["tx_type"])
 
-    return create_unsigned_tx(basic_tx_data["deck"], basic_tx_data["provider"], basic_tx_data["tx_type"], input_address=basic_tx_data["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address)
+    return create_unsigned_tx(basic_tx_data["deck"], basic_tx_data["provider"], basic_tx_data["tx_type"], input_address=basic_tx_data["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=basic_tx_data["redeem_script"])
 
 def calculate_timelock(provider, proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
@@ -429,26 +455,35 @@ def signtx_p2sh(provider, raw_tx, redeem_script, key):
 
 ## Keys and Addresses
 
-def get_all_labels():
+def get_all_labels(prefix):
+    # returns all labels corresponding to a network shortname (the prefix)
+    # does currently NOT support Windows Credential Locker nor KDE.
+    # Should work with Gnome Keyring, KeepassXC, and KSecretsService.
     import secretstorage
     bus = secretstorage.dbus_init()
     collection = secretstorage.get_default_collection(bus)
     labels = []
     for item in collection.search_items({'application': 'Python keyring library', "service" : "pacli"}):
         # print(item.get_label())
-        labels.append(item.get_attributes()["username"])
+        label = item.get_attributes()["username"]
+        if prefix in label:
+            labels.append(label)
 
     return labels
 
-def show_stored_key(keyid: str, network: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode=False):
+def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode=False, legacy=False):
     # TODO: json_mode (only for addresses)
+    if legacy:
+       fulllabel = "key_bak_" + label
+    else:
+       fulllabel = "key_" + network_name + "_" + label
     try:
-        raw_key = bytearray.fromhex(get_key(keyid))
+        raw_key = bytearray.fromhex(get_key(fulllabel))
     except TypeError:
-        exc_text = "No key data for key {}".format(keyid)
+        exc_text = "No key data for key {}".format(fulllabel)
         raise Exception(exc_text)
 
-    key = Kutil(network=network, privkey=raw_key)
+    key = Kutil(network=network_name, privkey=raw_key)
 
     if privkey:
         return key.privkey
@@ -459,19 +494,19 @@ def show_stored_key(keyid: str, network: str, pubkey: bool=False, privkey: bool=
     else:
         return key.address
 
-def show_stored_address(keyid: str, network: str, json_mode=False):
+def show_stored_address(keyid: str, network_name: str, json_mode=False):
     # Safer mode for show_stored_key.
     # TODO: json mode still unfinished.
-    return show_stored_key(keyid, network=network, json_mode=json_mode)
+    return show_stored_key(keyid, network_name=network_name, json_mode=json_mode)
 
 def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
-    if len(addrlist) != len(addrlist):
+    if len(addrlist) != len(keylist):
         raise ValueError("Both lists must have the same length.")
     result = []
     for kpos in range(len(keylist)):
         if (addrlist[kpos] == None) and (keylist[kpos] is not None):
 
-            adr = show_stored_address(keylist[kpos], network=network)
+            adr = show_stored_address(keylist[kpos], network_name=network)
             if debug: print("Address", adr, "got from key", keylist[kpos])
         else:
             adr = addrlist[kpos]
