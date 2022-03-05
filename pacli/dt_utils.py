@@ -141,9 +141,10 @@ def init_dt_deck(provider, network_name, deckid, rescan=True):
             import_p2th_address(provider, p2th_addr)
 
     # SDP
-    if deck.sdp_deckid:
+    if deck.sdp_deckid is not None:
         p2th_sdp_addr = Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
+        print(deck.sdp_deckid)
         print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
 
         if legacy:
@@ -363,7 +364,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
 
     data = setfmt(params, tx_type=basic_tx_data["tx_type"])
 
-    return create_unsigned_tx(basic_tx_data["deck"], basic_tx_data["provider"], basic_tx_data["tx_type"], input_address=basic_tx_data["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=basic_tx_data["redeem_script"])
+    return create_unsigned_tx(basic_tx_data["deck"], basic_tx_data["provider"], basic_tx_data["tx_type"], input_address=basic_tx_data["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=basic_tx_data.get("redeem_script"))
 
 def calculate_timelock(provider, proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
@@ -387,9 +388,10 @@ def finalize_tx(rawtx, verify, sign, send, provider=None, redeem_script=None, la
             # TODO: in theory we need to solve inputs from --new_inputs separately from the p2sh inputs.
             # For now we can only use new_inputs OR spend the P2sh.
             try:
-                tx = signtx_p2sh(provider, rawtx, redeem_script, key)
+                # tx = signtx_p2sh(provider, rawtx, redeem_script, key)
+                tx = sign_p2sh_transaction(provider, rawtx, redeem_script, key)
             except NameError as e:
-                print(e)
+                print("Exception:", e)
                 #    return None
 
         elif ((key is not None) or (label is not None)) and (provider is not None): # sign with a different key
@@ -449,9 +451,9 @@ def signtx_by_key(provider, rawtx, label=None, key=None):
 
     return sign_transaction(provider, rawtx, key)
 
-def signtx_p2sh(provider, raw_tx, redeem_script, key):
-    return sign_p2sh_transaction(provider, raw_tx, redeem_script, key)
-
+#def signtx_p2sh(provider, raw_tx, redeem_script, key):
+#    return sign_p2sh_transaction(provider, raw_tx, redeem_script, key)
+# ### unnecessary as it's not called from __main__ anymore ###
 
 ## Keys and Addresses
 

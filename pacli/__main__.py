@@ -1012,6 +1012,7 @@ class Donation:
            If an address participated in several rounds, the round can be given.'''
 
         dstates = get_donation_states(provider, proposal_id, address=Settings.key.address)
+        print("DSTATES", dstates, Settings.key.address)
         if dist_round:
             for state in dstates:
                 if state.dist_round == dist_round:
