@@ -21,12 +21,15 @@ import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
 import pypeerassets.at.dt_misc_utils as dmu
 
+from pacli.provider import provider
+from pacli.config import Settings
 
-def check_current_period(provider, proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
+
+def check_current_period(proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
     # TODO should be reorganized so the ProposalState isn't created 2x!
     # Re-check side effects of get_period change. => Seems OK, but take the change into account.
 
-    current_period, blocks = get_period(provider, proposal_txid)
+    current_period, blocks = get_period(proposal_txid)
     print("Current period:", di.printout_period(current_period, blocks))
     try:
         target_period = get_next_suitable_period(tx_type, current_period)
@@ -73,7 +76,7 @@ def get_next_suitable_period(tx_type, period):
     except UnboundLocalError:
         raise ValueError("No suitable period left for this transaction type.")
 
-def dummy_pstate(provider, proposal_txid):
+def dummy_pstate(proposal_txid):
     """Creates a dummy ProposalState from a ProposalTransaction ID without any parser information."""
     try:
         proposal_tx = proposal_from_tx(proposal_txid, provider)
@@ -84,18 +87,18 @@ def dummy_pstate(provider, proposal_txid):
 
     return ps
 
-def get_period(provider, proposal_txid, blockheight=None):
+def get_period(proposal_txid, blockheight=None):
     """Provides an user-friendly description of the current period."""
     # MODIFIED. if blockheight not given, query the period corresponding to the next block, not the last recorded block.
     if not blockheight:
         blockheight = provider.getblockcount() + 1
-    pdict = get_all_periods(provider, proposal_txid)
+    pdict = get_all_periods(proposal_txid)
     result = dp.period_query(pdict, blockheight)
     return result
 
-def get_dist_round(provider, proposal_id, blockheight=None):
+def get_dist_round(proposal_id, blockheight=None):
     """Provides the current dist round if blockheight is inside one."""
-    period = get_period(provider, proposal_id, blockheight)
+    period = get_period(proposal_id, blockheight)
     try:
         assert (period[0] in ("B", "D")) and (period[1] > 10)
         if period[0] == "B":
@@ -106,13 +109,13 @@ def get_dist_round(provider, proposal_id, blockheight=None):
         return None
 
 
-def get_all_periods(provider, proposal_txid):
+def get_all_periods(proposal_txid):
     # this one gets ALL periods from the current proposal, according to the last modification.
-    ps = dummy_pstate(provider, proposal_txid)
+    ps = dummy_pstate(proposal_txid)
     return dp.get_period_dict(ps)
 
 
-def init_deck(provider, network, deckid, rescan=True):
+def init_deck(network, deckid, rescan=True):
     deck = deck_from_tx(deckid, provider)
     if deckid not in provider.listaccounts():
         provider.importprivkey(deck.p2th_wif, deck.id, rescan)
@@ -123,7 +126,7 @@ def init_deck(provider, network, deckid, rescan=True):
 
 
 
-def init_dt_deck(provider, network_name, deckid, rescan=True):
+def init_dt_deck(network_name, deckid, rescan=True):
     # MODIFIED: added support for legacy blockchains
     deck = deck_from_tx(deckid, provider)
     legacy = is_legacy_blockchain(network_name)
@@ -161,7 +164,7 @@ def init_dt_deck(provider, network_name, deckid, rescan=True):
 
 # Proposal and donation states
 
-def get_proposal_state_periods(provider, deckid, block, advanced=False, debug=False):
+def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
     # MODIFIED: whole state is returned, not only id.
     # Advanced mode calls the parser, thus much slower, and shows other parts of the state.
 
@@ -181,9 +184,9 @@ def get_proposal_state_periods(provider, deckid, block, advanced=False, debug=Fa
     for proposal_txid in pstates:
         print("proposal:", proposal_txid)
         ps = pstates[proposal_txid]
-        period, blockheights = get_period(provider, proposal_txid, blockheight=block)
+        period, blockheights = get_period(proposal_txid, blockheight=block)
         state_data = {"state": ps, "startblock" : blockheights[0], "endblock" : blockheights[1]}
-        #period_data = get_period(provider, proposal_txid, blockheight=block)
+        #period_data = get_period(proposal_txid, blockheight=block)
         #period = period_data[:2] # MODIFIED: this orders the list only by the letter code, not by start/end block!
         #state_data = {"state": ps, "startblock" : period_data[2], "endblock" : period_data[3]}
 
@@ -193,12 +196,12 @@ def get_proposal_state_periods(provider, deckid, block, advanced=False, debug=Fa
             result.update({period : [state_data]})
     return result
 
-def get_proposal_info(provider, proposal_txid):
+def get_proposal_info(proposal_txid):
     # MODIFIED: state removed, get_proposal_state should be used.
     proposal_tx = proposal_from_tx(proposal_txid, provider)
     return proposal_tx.__dict__
 
-def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_slot=True):
+def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_slot=True):
     # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
     # provides the following data: slot, txid and vout of signalling or locking tx, value of input.
     # starts the parser.
@@ -220,15 +223,16 @@ def get_previous_tx_input_data(provider, address, tx_type, proposal_id=None, pro
         else:
             prev_tx = dstate.signalling_tx
 
-    inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount})
-    if use_slot:
-        inputdata.update({"slot" : dstate.slot})
+    inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount, "slot" : dstate.slot})
+
+    # Output type. This should be always P2PKH or P2SH.
+    if prev_tx:
+        inputdata.update({ "inp_type" : [prev_tx.outs[2].script_pubkey.type] })
+    #if use_slot:
+    #    inputdata.update({"slot" : dstate.slot}) # added slot mandatorily, TODO: re-check if this change does not have side effects!
     return inputdata
 
-#def get_donation_states(provider, proposal_id, address=None, debug=False, phase=1):
-#    return dmu.get_donation_states(provider, proposal_id, address=address, debug=debug, phase=phase) # this returns a list of multiple results. phase=1 means it considers the whole process.
-
-def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, debug=False, network_name="tppc"):
+def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False, network_name="tppc"):
     # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
     """Returns a dict with the amount of the reward and the deckid."""
     # coin = coin_value(network_name=network_name)
@@ -276,7 +280,7 @@ def get_pod_reward_data(provider, proposal_id, donor_address, proposer=False, de
 
 ## Inputs, outputs and Transactions
 
-def get_basic_tx_data(provider, tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, debug: bool=False):
+def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, debug: bool=False):
     """Gets basic data for a new TrackedTransaction"""
     # TODO: maybe change "txid" and "vout" to "input_txid" and "input_vout"
 
@@ -292,81 +296,90 @@ def get_basic_tx_data(provider, tx_type, proposal_id=None, input_address: str=No
     if tx_type in ("donation", "locking"):
         try:
             if (not new_inputs) or use_slot:
-                tx_data.update(get_previous_tx_input_data(provider, input_address, tx_type, proposal_tx=proposal, dist_round=dist_round, debug=debug, use_slot=use_slot))
+                tx_data.update(get_previous_tx_input_data(input_address, tx_type, proposal_tx=proposal, dist_round=dist_round, debug=debug, use_slot=use_slot))
         except ValueError:
             raise ValueError("No suitable signalling/reserve transactions found.")
 
     return tx_data
 
-def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
-    # Creates datastring and (in the case of locking/donations) input data in unified way.
 
-    if raw_amount is not None:
-        # amount = int(Decimal(raw_amount) * coin)
-        # print("raw", raw_amount, type(raw_amount))
-        amount = coins_to_sats(Decimal(raw_amount), network_name=network_name)
-    else:
-        amount = None
-    if reserve is not None:
-        # reserved_amount = int(Decimal(reserve) * coin)
-        reserved_amount = coins_to_sats(Decimal(reserve), network_name=network_name)
-    else:
-        reserved_amount = None
+def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: int, network_name: str, new_inputs: bool=False, force: bool=False):
 
-    # tx_fee = int(Decimal(raw_tx_fee) * coin)
-    tx_fee = coins_to_sats(Decimal(raw_tx_fee), network_name=network_name)
-    # p2th_fee = int(Decimal(raw_p2th_fee) * coin)
-    p2th_fee = coins_to_sats(Decimal(raw_p2th_fee), network_name=network_name)
-    # legacy chains need a minimum transaction value even at OP_RETURN transactions
-    if is_legacy_blockchain(network_name, "nulldata"):
-        op_return_fee = p2th_fee
-    else:
-        op_return_fee = 0
+    raw_slot = sats_to_coins(Decimal(slot), network_name=network_name)
+    raw_amount = sats_to_coins(Decimal(chosen_amount), network_name=network_name) if chosen_amount is not None else None
 
-    deck = basic_tx_data["deck"]
-    input_txid, input_vout, input_value = None, None, None
+    print("Assigned slot:", raw_slot)
+    print("slot", slot, "raw_slot", raw_slot, "chosen_amount", chosen_amount, "raw_amount", raw_amount)
 
-    if basic_tx_data["tx_type"] in ("donation", "locking"):
-        if (not force) and ("slot" in basic_tx_data.keys()):
-            slot = basic_tx_data["slot"] if amount is None else amount
-        elif (new_inputs and amount) or force:
-            slot = None # TODO: this leads to a "No slot available" error. Should not happen.
-        else:
-            raise ValueError("If you don't use the parent transaction, you must provide amount and new_inputs.")
-
-        # new_inputs enables the automatic selection of new inputs for locking and donation transactions.
-        # this can be useful if the previous input is too small for the transaction/p2th fees, or in the case of a
-        # ProposalModification.
-
-        # MODIFIED: we need to test if the signalling input was still unspent. If not, fallback to the "input address mode".
-        if (not new_inputs) and previous_input_unspent(basic_tx_data):
-            input_txid = basic_tx_data["txid"]
-            input_vout = basic_tx_data["vout"]
-            input_value = basic_tx_data["value"]
-            available_amount = input_value - tx_fee - p2th_fee - op_return_fee
-        else:
-            available_amount = None
-
-        if slot:
-            if available_amount:
-                amount = min(available_amount, slot)
-            else:
-                amount = slot
-            print("Using assigned slot:", sats_to_coins(Decimal(slot), network_name=network_name))
-        elif force and (amount is None):
-            amount = available_amount
-            print("Using available amount of the parent transaction:", sats_to_coins(Decimal(available_amount), network_name=network_name))
-        else:
+    # You should only be able to use an amount greater than your slot if you use --force.
+    if not force:
+        effective_slot = min(slot, chosen_amount) if chosen_amount is not None else slot
+        amount = min(available_amount, effective_slot) if available_amount else effective_slot
+        if amount == 0:
             raise Exception("No slot available for this donation. Transaction will not be created.")
+    elif new_inputs and (chosen_amount is not None):
+        # effective_slot = None # TODO: Re-check if this solved the "No slot available" error.
+        amount = chosen_amount
+    elif available_amount is not None:
+        amount = available_amount
+    else:
+        raise ValueError("If you don't use the parent transaction, you must provide an amount and new_inputs.")
 
+    # Interface
+    if amount == slot:
+        print("Using assigned slot.")
+    elif amount < slot:
+        if chosen_amount is not None:
+            print("Using custom amount {} smaller than the assigned slot of {}".format(raw_amount, raw_slot))
+        else:
+            print("Using available amount {}, smaller than the assigned slot of {}".format(sats_to_coins(Decimal(available_amount), network_name=network_name), raw_slot))
+    elif (slot > amount) and not force:
+        print("Chosen custom amount {} is higher than the slot {}, so we use the slot.".format(raw_amount, raw_slot))
+    elif amount == available_amount:
+        print("FORCING to use full available amount {}, higher than the assigned slot.".format(sats_to_coins(Decimal(available_amount), network_name=network_name)))
+    else:
+        print("FORCING custom amount {} higher than the assigned slot.".format(raw_amount))
+
+    return amount
+
+def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
+    # This function first prepares a transaction, creating the datastring and calculating fees in an unified way,
+    # then creates transaction with pypeerassets method.
+
+    b = basic_tx_data
+    chosen_amount = None if raw_amount is None else coins_to_sats(Decimal(raw_amount), network_name=network_name)
+    reserved_amount = None if reserve is None else coins_to_sats(Decimal(reserve), network_name=network_name)
+
+    tx_fee = coins_to_sats(Decimal(raw_tx_fee), network_name=network_name)
+    p2th_fee = coins_to_sats(Decimal(raw_p2th_fee), network_name=network_name)
+    input_txid, input_vout, input_value, available_amount = None, None, None, None
+
+    # legacy chains need a minimum transaction value even at OP_RETURN transactions
+    op_return_fee = p2th_fee if is_legacy_blockchain(network_name, "nulldata") else 0
+    all_fees = tx_fee + p2th_fee + op_return_fee
+
+    if b["tx_type"] in ("donation", "locking"):
+
+        if (not new_inputs) and previous_input_unspent(basic_tx_data):
+            # new_inputs enables the automatic selection of new inputs for locking and donation transactions.
+            # this can be useful if the previous input is too small for the transaction/p2th fees, or in the case of a
+            # ProposalModification
+            # If new_inputs is chosen or the previous input was spent, then all the following values stay in None.
+            input_txid, input_vout, input_value = b["txid"], b["vout"], b["value"]
+            available_amount = input_value - all_fees
+
+        amount = calculate_donation_amount(b["slot"], chosen_amount, available_amount, network_name, new_inputs, force)
+
+    else:
+        amount = chosen_amount
 
     # print("Amount:", amount, "available", available_amount, "input value", input_value, "slot", slot)
 
-    data = setfmt(params, tx_type=basic_tx_data["tx_type"])
+    data = setfmt(params, tx_type=b["tx_type"])
 
-    return create_unsigned_tx(basic_tx_data["deck"], basic_tx_data["provider"], basic_tx_data["tx_type"], input_address=basic_tx_data["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=basic_tx_data.get("redeem_script"))
+    return create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=b.get("redeem_script"))
 
-def calculate_timelock(provider, proposal_id):
+def calculate_timelock(proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
 
     first_proposal_tx = proposal_from_tx(proposal_id, provider)
@@ -374,9 +387,8 @@ def calculate_timelock(provider, proposal_id):
     cltv_timelock = (first_proposal_tx.epoch + first_proposal_tx.epoch_number + 1) * first_proposal_tx.deck.epoch_length
     return cltv_timelock
 
-def finalize_tx(rawtx, verify, sign, send, provider=None, redeem_script=None, label=None, key=None):
+def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=None, input_types=None):
     # groups the last steps together
-    # last are only needed if p2sh, or if another key should be used
 
     if verify:
         print(
@@ -389,22 +401,34 @@ def finalize_tx(rawtx, verify, sign, send, provider=None, redeem_script=None, la
             # For now we can only use new_inputs OR spend the P2sh.
             try:
                 # tx = signtx_p2sh(provider, rawtx, redeem_script, key)
-                tx = sign_p2sh_transaction(provider, rawtx, redeem_script, key)
+                tx = sign_p2sh_transaction(provider, rawtx, redeem_script, Settings.key)
             except NameError as e:
                 print("Exception:", e)
                 #    return None
 
         elif ((key is not None) or (label is not None)) and (provider is not None): # sign with a different key
-            tx = signtx_by_key(provider, rawtx, label=label, key=key)
+            tx = signtx_by_key(rawtx, label=label, key=key)
+            # we need to check the type of the input, as the Kutil method cannot sign P2PK
+        elif input_types is not None:
+            print("Input types", input_types)
+            if "p2pk" not in input_types:
+                tx = sign_transaction(provider, rawtx, Settings.key)
+            else:
+                tx = sign_mixed_transaction(provider, rawtx, Settings.key, input_types)
         else:
-            tx = signtx(rawtx)
+            # fallback, will not always work, try to avoid!
+            tx = sign_transaction(provider, rawtx, Settings.key)
+            # tx = signtx(rawtx)
+
+
+
         if send:
             pprint({'txid': sendtx(tx)})
         return {'hex': tx.hexlify()}
 
     return rawtx.hexlify()
 
-def create_trackedtx(provider, txid=None, txhex=None):
+def create_trackedtx(txid=None, txhex=None):
     """Creates a TrackedTransaction object from a raw transaction or txid."""
     if txid:
         raw_tx = provider.getrawtransaction(txid, 1)
@@ -440,7 +464,7 @@ def previous_input_unspent(basic_tx_data):
     print("Selected input spent, searching for another one.")
     return False
 
-def signtx_by_key(provider, rawtx, label=None, key=None):
+def signtx_by_key(rawtx, label=None, key=None):
     # Allows to sign a transaction with a different than the main key.
 
     if not key:
@@ -515,11 +539,11 @@ def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
         result.append(adr)
     return result
 
-def get_deckinfo(deckid, provider):
+def get_deckinfo(deckid):
     d = deck_from_tx(deckid, provider)
     return d.__dict__
 
-def get_all_trackedtxes(provider, proposal_id, include_badtx=False, light=False):
+def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
     # This gets all tracked transactions and displays them, without checking validity.
     # An advanced mode could even detect those with wrong format.
 
@@ -547,7 +571,7 @@ def get_all_trackedtxes(provider, proposal_id, include_badtx=False, light=False)
                     except (KeyError, IndexError, AssertionError):
                         continue
 
-def show_votes_by_address(provider, deckid, address):
+def show_votes_by_address(deckid, address):
     # shows all valid voting transactions from a specific address.
     # Does not show the weight (this would require the parser).
     pprint("Votes cast from address: " + address)
