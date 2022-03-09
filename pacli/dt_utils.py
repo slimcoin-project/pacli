@@ -3,7 +3,7 @@ from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
-from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats
+from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
@@ -400,25 +400,26 @@ def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=N
             # TODO: in theory we need to solve inputs from --new_inputs separately from the p2sh inputs.
             # For now we can only use new_inputs OR spend the P2sh.
             try:
-                # tx = signtx_p2sh(provider, rawtx, redeem_script, key)
                 tx = sign_p2sh_transaction(provider, rawtx, redeem_script, Settings.key)
             except NameError as e:
                 print("Exception:", e)
                 #    return None
 
-        elif ((key is not None) or (label is not None)) and (provider is not None): # sign with a different key
+        elif (key is not None) or (label is not None): # sign with a different key
             tx = signtx_by_key(rawtx, label=label, key=key)
             # we need to check the type of the input, as the Kutil method cannot sign P2PK
-        elif input_types is not None:
+        else:
+            if input_types is None:
+                input_types = get_input_types(rawtx)
             print("Input types", input_types)
-            if "p2pk" not in input_types:
+            if "pubkey" not in input_types:
                 tx = sign_transaction(provider, rawtx, Settings.key)
             else:
                 tx = sign_mixed_transaction(provider, rawtx, Settings.key, input_types)
-        else:
-            # fallback, will not always work, try to avoid!
-            tx = sign_transaction(provider, rawtx, Settings.key)
-            # tx = signtx(rawtx)
+            #else:
+            #    # fallback, will not always work, try to avoid!
+            #    tx = sign_transaction(provider, rawtx, Settings.key)
+            #    # tx = signtx(rawtx)
 
 
 
@@ -475,9 +476,25 @@ def signtx_by_key(rawtx, label=None, key=None):
 
     return sign_transaction(provider, rawtx, key)
 
-#def signtx_p2sh(provider, raw_tx, redeem_script, key):
-#    return sign_p2sh_transaction(provider, raw_tx, redeem_script, key)
-# ### unnecessary as it's not called from __main__ anymore ###
+def get_input_types(rawtx):
+    # gets the types of ScriptPubKey inputs of a transaction.
+    # Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,
+    # because it manages input selection (RpcNode.select_inputs)
+    input_types = []
+    #print("RAWTX", rawtx)
+    try:
+        for inp in rawtx.ins:
+            #print("INP", inp)
+            prev_tx = provider.getrawtransaction(inp.txid, 1)
+            prev_out = prev_tx["vout"][inp.txout]
+            #print("PREV_OUT", prev_out)
+            input_types.append(prev_out["scriptPubKey"]["type"])
+
+        return input_types
+
+    except KeyError:
+        raise ValueError("Transaction data not correctly given.")
+
 
 ## Keys and Addresses
 
