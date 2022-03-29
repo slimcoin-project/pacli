@@ -3,7 +3,7 @@ from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
-from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats
+from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats, get_donation_states
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
@@ -200,6 +200,22 @@ def get_proposal_info(proposal_txid):
     # MODIFIED: state removed, get_proposal_state should be used.
     proposal_tx = proposal_from_tx(proposal_txid, provider)
     return proposal_tx.__dict__
+
+def get_slot(proposal_id, donor_address, dist_round=None):
+    dstates = get_donation_states(provider, proposal_id, donor_address)
+    if dist_round:
+        for state in dstates:
+            if state.dist_round == dist_round:
+                raw_slot = state.slot
+                break
+        else:
+            raise ValueError("No slot found in round", dist_round)
+
+    else:
+        try:
+            return dstates[0].slot
+        except IndexError:
+            raise ValueError("No valid donation process found.")
 
 def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_slot=True):
     # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
@@ -420,8 +436,6 @@ def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=N
             #    # fallback, will not always work, try to avoid!
             #    tx = sign_transaction(provider, rawtx, Settings.key)
             #    # tx = signtx(rawtx)
-
-
 
         if send:
             pprint({'txid': sendtx(tx)})

@@ -867,7 +867,7 @@ class Proposal: ### DT ###
 
         params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
 
-        basic_tx_data = du.get_basic_tx_data(provider, "proposal", deckid=deckid, input_address=Settings.key.address)
+        basic_tx_data = du.get_basic_tx_data("proposal", deckid=deckid, input_address=Settings.key.address)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
@@ -892,7 +892,7 @@ class Proposal: ### DT ###
 
         params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
 
-        basic_tx_data = du.get_basic_tx_data(provider, "voting", proposal_id=proposal_id, input_address=input_address)
+        basic_tx_data = du.get_basic_tx_data("voting", proposal_id=proposal_id, input_address=input_address)
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
         console_output = du.finalize_tx(rawtx, verify, sign, send)
@@ -962,7 +962,7 @@ class Donation:
 
         # timelock and dest_address are saved in the transaction, to be able to reconstruct redeem script
         params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
-        basic_tx_data = du.get_basic_tx_data(provider, "locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, dist_round=dist_round)
+        basic_tx_data = du.get_basic_tx_data("locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, dist_round=dist_round)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
 
@@ -979,7 +979,7 @@ class Donation:
 
         params = { "id" : "DD" , "prp" : proposal_txid }
 
-        basic_tx_data = du.get_basic_tx_data(provider, "donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
+        basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force, network_name=Settings.network)
 
@@ -1008,8 +1008,7 @@ class Donation:
         '''Simplified variant of my_donation_states, only shows slot.
            If an address participated in several rounds, the round can be given.'''
 
-        dstates = get_donation_states(provider, proposal_id, address=Settings.key.address)
-        print("DSTATES", dstates, Settings.key.address)
+        """dstates = get_donation_states(provider, proposal_id, address=Settings.key.address)
         if dist_round:
             for state in dstates:
                 if state.dist_round == dist_round:
@@ -1024,12 +1023,17 @@ class Donation:
             try:
                 raw_slot = dstates[0].slot
             except IndexError:
-                print("No valid donation process found.")
+                print("No valid donation process found.")"""
+
+        sat_slot = du.get_slot(proposal_id, Settings.key.address, dist_round=dist_round)
+
+        if dist_round is None:
+            print("Showing first slot where this address participated.")
 
         if not satoshi:
-            slot = du.sats_to_coins(raw_slot, Settings.network)
+            slot = du.sats_to_coins(sat_slot, Settings.network)
         else:
-            slot = raw_slot
+            slot = sat_slot
 
         print("Slot:", slot)
 
