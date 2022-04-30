@@ -3,7 +3,7 @@ from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
-from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, coin_value, sats_to_coins, coins_to_sats, get_donation_states
+from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
@@ -182,7 +182,6 @@ def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
         pstates = get_proposal_states(provider, deck)
 
     for proposal_txid in pstates:
-        print("proposal:", proposal_txid)
         ps = pstates[proposal_txid]
         period, blockheights = get_period(proposal_txid, blockheight=block)
         state_data = {"state": ps, "startblock" : blockheights[0], "endblock" : blockheights[1]}
@@ -202,7 +201,7 @@ def get_proposal_info(proposal_txid):
     return proposal_tx.__dict__
 
 def get_slot(proposal_id, donor_address, dist_round=None):
-    dstates = get_donation_states(provider, proposal_id, donor_address)
+    dstates = dmu.get_donation_states(provider=provider, proposal_id=proposal_id, address=donor_address)
     if dist_round:
         for state in dstates:
             if state.dist_round == dist_round:
@@ -603,30 +602,67 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
                         continue
 
 def show_votes_by_address(deckid, address):
-    # shows all valid voting transactions from a specific address.
-    # Does not show the weight (this would require the parser).
+    # shows all valid voting transactions from a specific address, for all proposals.
+
     pprint("Votes cast from address: " + address)
     vote_readable = { b'+' : 'Positive', b'-' : 'Negative' }
     deck = deck_from_tx(deckid, provider)
-    # TODO: incompatible with new ParserState.get_voting_txes solution.
-    # we create a dummy ParserState object without cards.
-    ps = ParserState(deck, [], provider)
-    vtxes = ps.get_voting_txes()
-    # vtxes = get_voting_txes(provider, deck)
-    for proposal in vtxes:
-        for outcome in ("positive", "negative"):
-            if outcome not in vtxes[proposal]:
-                continue
-            for vtx in vtxes[proposal][outcome]:
 
-                inp_txid = vtx.ins[0].txid
-                inp_vout = vtx.ins[0].txout
-                inp_tx = provider.getrawtransaction(inp_txid, 1)
-                addr = inp_tx["vout"][inp_vout]["scriptPubKey"]["addresses"][0]
-                if addr == address:
+    try:
+        pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True)
+        # pst = ParserState(deck, [], provider)
+    except AttributeError:
+        print("This seems not to be a proof-of-donation deck. No vote count possible.")
+        return
+
+    pstates = pst.proposal_states
+    # print(vtxes)
+
+    if not pstates:
+        print("No proposals recorded for this deck.")
+        return
+
+    for proposal in pstates:
+        for phase, phaselist in enumerate(pstates[proposal].voting_txes):
+            for vtx in phaselist:
+                if vtx.sender == address:
                     pprint("-----------------------------------------")
                     pprint("Vote: " + vote_readable[vtx.vote])
                     pprint("Proposal: " + proposal)
+                    pprint("Phase: " + str(phase))
                     pprint("Vote txid: " + vtx.txid)
+                    pprint("Weight: " + str(vtx.weight))
+
+
+def show_donations_by_address(deckid, address):
+    # shows all valid donation transactions from a specific address, for all proposals.
+
+    pprint("Donations realized from address: " + address)
+    deck = deck_from_tx(deckid, provider)
+
+    try:
+        pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True)
+        # pst = ParserState(deck, [], provider)
+    except AttributeError:
+        print("This seems not to be a proof-of-donation deck. No donation count possible.")
+        return
+
+    pstates = pst.proposal_states
+
+    if not pstates:
+        print("No proposals recorded for this deck.")
+        return
+
+    for proposal in pstates:
+        for rd, rdlist in enumerate(pstates[proposal].donation_states):
+            for dstate in rdlist.values():
+                # print(dstate.__dict__)
+                if (dstate.donor_address == address) and (dstate.donation_tx is not None):
+                    pprint("-----------------------------------------")
+                    pprint("Proposal: " + proposal)
+                    pprint("Round: " + str(rd))
+                    pprint("Amount: " + str(dstate.donated_amount))
+                    pprint("Donation txid: " + dstate.donation_tx.txid)
+
 
 

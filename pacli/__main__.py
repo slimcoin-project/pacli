@@ -102,9 +102,9 @@ class Address:
         except KeyError:
             pprint({'error': 'No UTXOs ;('})
 
-    def new_privkey(self, key: str=None, backup: str=None, label: str=None, wif: bool=False, legacy: bool=False) -> str: ### NEW FEATURE ###
+    def new_privkey(self, label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False) -> str: ### NEW FEATURE ###
         '''import new private key, taking hex or wif format, or generate new key.
-           You can assign a key name, otherwise it will become the main key.'''
+           You can assign a label, otherwise it will become the main key.'''
 
         if wif:
             new_key = pa.Kutil(network=Settings.network, from_wif=key)
@@ -124,7 +124,8 @@ class Address:
         return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address
 
     def fresh(self, label: str, show: bool=False, set_main: bool=False, backup: str=None, legacy: bool=False): ### NEW ###
-        '''This function uses the standard client commands to create an address/key and assign it a key id.'''
+        '''This function uses the standard client commands to create an address/key and assigns it a label.'''
+        # NOTE: This command does not assign the address an account name or label in the wallet!
         addr = provider.getnewaddress()
         privkey_wif = provider.dumpprivkey(addr)
         privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
@@ -158,9 +159,8 @@ class Address:
 
     def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str: ### NEW FEATURE ###
         '''shows stored alternative keys'''
-        # WARNING: Can expose private keys. Try to use it only on testnet.
-        prefix = get_key_prefix(Settings.network, legacy)
-        return du.show_stored_key(prefix + label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif)
+        # WARNING: Can expose private keys. Try to use 'privkey' and 'wif' options only on testnet.
+        return du.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy)
 
     def show_all(self, debug: bool=False, legacy: bool=False):
 
@@ -193,26 +193,27 @@ class Address:
         except keyring.errors.PasswordDeleteError:
            print("Key", label, "does not exist. Nothing deleted.")
 
-    def import_to_wallet(self, accountname: str, label: str=None) -> None: ### NEW FEATURE ###
-        '''imports main key or any stored key to wallet managed by RPC node.
-           TODO: should accountname be mandatory or not?'''
+    def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None: ### NEW FEATURE ###
+        '''imports main key or any stored key to wallet managed by RPC node.'''
 
         prefix = get_key_prefix(Settings.network, legacy)
         if label:
             pkey = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(get_key(prefix + label)))
             wif = pkey.wif
         else:
-            wif = Settings.wif
-        provider.importprivkey(wif, account_name=accountname)
+            wif = Settings.key.wif
+        if Settings.network in ("slm", "tslm"):
+            provider.importprivkey(wif, accountname, rescan=True)
+        else:
+            provider.importprivkey(wif, account_name=accountname)
 
     def my_votes(self, deckid: str, address: str=Settings.key.address):
-        '''shows votes cast from this address.'''
-        # TODO: optional weight parameter
+        '''shows votes cast from this address, for all proposals of a deck.'''
         return du.show_votes_by_address(deckid, address)
 
     def my_donations(self, deckid: str, address: str=Settings.key.address):
-        '''shows donation states involving this address.'''
-        return du.show_donations_by_address(provider, deckid, address)
+        '''shows donation states involving this address, for all proposals of a deck.'''
+        return du.show_donations_by_address(deckid, address)
 
 
 class Deck:
@@ -725,7 +726,7 @@ class Transaction:
 class Proposal: ### DT ###
 
     def get_votes(self, proposal_txid: str, debug: bool=False):
-        """Displays the result of both voting rounds."""
+        '''Displays the result of both voting rounds.'''
         # TODO: ideally there may be a variable indicating the second round has not started yet.
 
         all_votes = get_votestate(provider, proposal_txid, debug)
@@ -744,6 +745,7 @@ class Proposal: ### DT ###
             pprint("In this round, the proposal was {}.".format(approval_state))
 
     def current_period(self, proposal_txid: str, blockheight: int=None, show_blockheights: bool=True):
+        '''Shows the current period of the proposal lifecycle.'''
 
         if blockheight is None:
             blockheight = provider.getblockcount() + 1
@@ -752,13 +754,14 @@ class Proposal: ### DT ###
         pprint(di.printout_period(period, blockheights, show_blockheights))
 
     def all_periods(self, proposal_txid: str):
+        '''Shows all periods of the proposal lifecycle.'''
 
         periods = du.get_all_periods(proposal_txid)
         for period, blockheights in periods.items():
             print(di.printout_period(period, blockheights, blockheights_first=True))
 
     def list(self, deckid: str, block: int=None, only_active: bool=False, show_abandoned: bool=False, advanced: bool=False, debug: bool=False) -> None:
-        '''Shows all proposals and the period they are currently in, optionally at a specific blockheight.'''
+        '''Shows all proposals for a deck and the period they are currently in, optionally at a specific blockheight.'''
         # TODO re-check: it seems that if we use Decimal for values like req_amount scientific notation is used.
         # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
 
@@ -815,6 +818,7 @@ class Proposal: ### DT ###
                     print("\n*", "\n    ".join(result))
 
     def info(self, proposal_txid):
+        '''Get basic info of a proposal.'''
         info = du.get_proposal_info(proposal_txid)
         pprint(info)
 
@@ -848,6 +852,7 @@ class Proposal: ### DT ###
                 print(item + ":", value)
 
     def all_donation_states(self, proposal_id: str, debug=False):
+        '''Shows all donation states of this proposal.'''
         dstates = get_donation_states(provider, proposal_id, debug=debug)
         for dstate in dstates:
             pprint("Donation state ID: " + dstate.id)
@@ -864,6 +869,7 @@ class Proposal: ### DT ###
                 print(item + ":", value)
 
     def create(self, deckid: str, req_amount: str, periods: int, slot_allocation_duration: int, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False):
+        '''Creates a new proposal.'''
 
         params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
 
@@ -874,6 +880,7 @@ class Proposal: ### DT ###
         return du.finalize_tx(rawtx, verify, sign, send)
 
     def vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
+        '''Vote (with "yes" or "no") for a proposal'''
 
         if (check_phase is not None) or (wait == True):
             print("Checking blockheights ...")
@@ -916,7 +923,7 @@ class Proposal: ### DT ###
 class Donation:
 
     def signal(self, proposal_txid: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address, debug: bool=False) -> None:
-        '''this creates a compliant signalling transaction.'''
+        '''Creates a compliant signalling transaction for a proposal.'''
 
         [dest_address, change_address] = du.show_addresses([dest_address, change_address], [dest_label, change_label], Settings.network)
 
@@ -941,7 +948,7 @@ class Donation:
 
     def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False) -> None:
 
-        """Locking Transaction locks funds to the origin address (default)."""
+        '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.'''
         # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
         [dest_address, reserve_address, change_address] = du.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
 
@@ -970,6 +977,7 @@ class Donation:
 
 
     def release(self, proposal_txid: str, amount: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, origin_label: str=None, origin_key: str=None, force: bool=False, sign: bool=False, send: bool=False, verify: bool=False) -> None: ### ADDRESSTRACK ###
+        '''Releases a donation.'''
 
         if (check_round is not None) or (wait == True):
             if not du.check_current_period(proposal_txid, "donation", dist_round=check_round, wait=wait, release=True):
