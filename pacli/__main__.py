@@ -513,8 +513,6 @@ class Card:
                  sign: bool=False, send: bool=False) -> Optional[dict]:
         '''prepare CardTransfer transaction'''
 
-        print(deckid, receiver, amount)
-
         card = self.__new(deckid, receiver, amount, asset_specific_data)
 
         issue = pa.card_transfer(provider=provider,
