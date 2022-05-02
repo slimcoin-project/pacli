@@ -356,6 +356,7 @@ class Deck:
     @classmethod
     def dt_spawn(self, name: str, dp_length: int, dp_quantity: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
         '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
+        #TODO: transform into new format without the manual byte setting
 
         b_identifier = b'DT'
 
@@ -377,8 +378,6 @@ class Deck:
             raise ValueError("Deck spawn: at least one parameter overflowed.")
 
         asset_specific_data = b_identifier + b_dp_length + b_dp_quantity + b_min_vote + b_sdp_periods + b_sdp_deck
-
-        print("asset specific data:", asset_specific_data)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
@@ -695,7 +694,10 @@ class Card:
         return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)
 
-
+    @classmethod
+    def simple_transfer(self, deckid: str, receiver: str, amount: str, sign: bool=False, send: bool=False):
+        '''Simplified transfer with only one single payment.'''
+        return self.transfer(deckid, receiver=[receiver], amount=[amount], sign=sign, send=send)
 
     #@classmethod
     #def at_issue_all(self, deckid: str) -> str:
@@ -1013,23 +1015,6 @@ class Donation:
     def show_slot(self, proposal_id: str, dist_round: int=None, satoshi: bool=False):
         '''Simplified variant of my_donation_states, only shows slot.
            If an address participated in several rounds, the round can be given.'''
-
-        """dstates = get_donation_states(provider, proposal_id, address=Settings.key.address)
-        if dist_round:
-            for state in dstates:
-                if state.dist_round == dist_round:
-                    raw_slot = state.slot
-                    break
-            else:
-                print("No slot found in round", dist_round)
-                return None
-
-        else:
-            print("Showing first slot where this address participated.")
-            try:
-                raw_slot = dstates[0].slot
-            except IndexError:
-                print("No valid donation process found.")"""
 
         sat_slot = du.get_slot(proposal_id, Settings.key.address, dist_round=dist_round)
 

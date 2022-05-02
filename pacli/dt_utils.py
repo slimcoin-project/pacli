@@ -46,7 +46,6 @@ def check_current_period(proposal_txid, tx_type, dist_round=None, phase=None, re
 def get_next_suitable_period(tx_type, period):
     # TODO: maybe it would be simpler to assign all suitable periods to all tx types,
     # and then iterate over the index.
-    print("Period", period, tx_type)
     if tx_type in ("donation", "signalling", "locking"):
         offset = 0 if tx_type == "signalling" else 1
 
@@ -120,8 +119,10 @@ def init_deck(network, deckid, rescan=True):
     if deckid not in provider.listaccounts():
         provider.importprivkey(deck.p2th_wif, deck.id, rescan)
         print("Importing P2TH address from deck.")
+    else:
+        print("P2TH address was already imported.")
     check_addr = provider.validateaddress(deck.p2th_address)
-    print(check_addr)
+    print("Output of validation tool (if validate:\n", check_addr)
         # load_deck_p2th_into_local_node(provider, deck) # we don't use this here because it doesn't provide the rescan option
 
 
@@ -130,6 +131,11 @@ def init_dt_deck(network_name, deckid, rescan=True):
     # MODIFIED: added support for legacy blockchains
     deck = deck_from_tx(deckid, provider)
     legacy = is_legacy_blockchain(network_name)
+
+    if "sdp_deckid" not in deck.__dict__.keys():
+        print("No SDP (voting) token found for this deck. This is probably not a proof-of-donation deck!")
+        return
+
     if deck.id not in provider.listaccounts():
         print("Importing main key from deck.")
         load_deck_p2th_into_local_node(provider, deck)
@@ -144,10 +150,11 @@ def init_dt_deck(network_name, deckid, rescan=True):
             import_p2th_address(provider, p2th_addr)
 
     # SDP
+    # Note: there can be a None value for sdp_deckid even if this is a PoD token (e.g. in the case of a swap).
     if deck.sdp_deckid is not None:
         p2th_sdp_addr = Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
-        print(deck.sdp_deckid)
+
         print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
 
         if legacy:
@@ -165,7 +172,6 @@ def init_dt_deck(network_name, deckid, rescan=True):
 # Proposal and donation states
 
 def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
-    # MODIFIED: whole state is returned, not only id.
     # Advanced mode calls the parser, thus much slower, and shows other parts of the state.
 
     result = {}
@@ -185,9 +191,6 @@ def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
         ps = pstates[proposal_txid]
         period, blockheights = get_period(proposal_txid, blockheight=block)
         state_data = {"state": ps, "startblock" : blockheights[0], "endblock" : blockheights[1]}
-        #period_data = get_period(proposal_txid, blockheight=block)
-        #period = period_data[:2] # MODIFIED: this orders the list only by the letter code, not by start/end block!
-        #state_data = {"state": ps, "startblock" : period_data[2], "endblock" : period_data[3]}
 
         try:
             result[period].append(state_data)
@@ -218,11 +221,12 @@ def get_slot(proposal_id, donor_address, dist_round=None):
 
 def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_slot=True):
     # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
+    # TODO: "txid" and "vout" could be changed better into "input_txid" and "input_vout", because later it is mixed with data of the actual tx (not only the input tx).
     # provides the following data: slot, txid and vout of signalling or locking tx, value of input.
     # starts the parser.
     inputdata = {}
     print("Searching for signalling or reserve transaction. Please wait.")
-    dstate = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, address=address, dist_round=dist_round, debug=debug, pos=0) # MODIFIED: removed unused parameter only_signalling=True
+    dstate = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, address=address, dist_round=dist_round, debug=debug, pos=0)
     if not dstate:
         raise ValueError("No donation states found.")
     if (tx_type == "donation") and (dstate.dist_round < 4):
@@ -247,7 +251,7 @@ def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=N
     #    inputdata.update({"slot" : dstate.slot}) # added slot mandatorily, TODO: re-check if this change does not have side effects!
     return inputdata
 
-def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False, network_name="tppc"):
+def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False, network_name=Settings.network):
     # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
     """Returns a dict with the amount of the reward and the deckid."""
     # coin = coin_value(network_name=network_name)
@@ -297,7 +301,6 @@ def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False,
 
 def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, debug: bool=False):
     """Gets basic data for a new TrackedTransaction"""
-    # TODO: maybe change "txid" and "vout" to "input_txid" and "input_vout"
 
     if proposal_id is not None:
         proposal = proposal_from_tx(proposal_id, provider)
@@ -324,7 +327,6 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
     raw_amount = sats_to_coins(Decimal(chosen_amount), network_name=network_name) if chosen_amount is not None else None
 
     print("Assigned slot:", raw_slot)
-    print("slot", slot, "raw_slot", raw_slot, "chosen_amount", chosen_amount, "raw_amount", raw_amount)
 
     # You should only be able to use an amount greater than your slot if you use --force.
     if not force:
@@ -426,7 +428,7 @@ def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=N
         else:
             if input_types is None:
                 input_types = get_input_types(rawtx)
-            print("Input types", input_types)
+
             if "pubkey" not in input_types:
                 tx = sign_transaction(provider, rawtx, Settings.key)
             else:
@@ -494,13 +496,10 @@ def get_input_types(rawtx):
     # Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,
     # because it manages input selection (RpcNode.select_inputs)
     input_types = []
-    #print("RAWTX", rawtx)
     try:
         for inp in rawtx.ins:
-            #print("INP", inp)
             prev_tx = provider.getrawtransaction(inp.txid, 1)
             prev_out = prev_tx["vout"][inp.txout]
-            #print("PREV_OUT", prev_out)
             input_types.append(prev_out["scriptPubKey"]["type"])
 
         return input_types
@@ -642,7 +641,7 @@ def show_donations_by_address(deckid, address):
 
     try:
         pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True)
-        # pst = ParserState(deck, [], provider)
+
     except AttributeError:
         print("This seems not to be a proof-of-donation deck. No donation count possible.")
         return
