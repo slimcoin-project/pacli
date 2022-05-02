@@ -18,7 +18,7 @@ from pypeerassets.transactions import NulldataScript, TxIn ### ADDED ###
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 from pypeerassets.at.transaction_formats import getfmt, setfmt, PROPOSAL_FORMAT, SIGNALLING_FORMAT, LOCKING_FORMAT, DONATION_FORMAT, VOTING_FORMAT
-from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state, get_donation_states
+from pypeerassets.at.dt_misc_utils import get_votestate, create_unsigned_tx, get_proposal_state, get_donation_states, coin_value
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -779,7 +779,7 @@ class Proposal: ### DT ###
             pprint("Deck in wrong format, proposals could not be retrieved.")
             return
 
-        coin = du.coin_value(Settings.network)
+        coin = coin_value(Settings.network)
         statelist = ["active"]
         if not only_active:
             statelist.append("completed")
