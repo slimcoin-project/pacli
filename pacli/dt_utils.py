@@ -412,6 +412,9 @@ def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=N
             cointoolkit_verify(rawtx.hexlify())
              )  # link to cointoolkit - verify
 
+    if False in (sign, send):
+        print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
+
     if sign:
         if redeem_script is not None:
             # TODO: in theory we need to solve inputs from --new_inputs separately from the p2sh inputs.
@@ -601,6 +604,7 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
                         continue
 
 def show_votes_by_address(deckid, address):
+    # TODO: cleanup print statements!
     # shows all valid voting transactions from a specific address, for all proposals.
 
     pprint("Votes cast from address: " + address)
@@ -615,15 +619,19 @@ def show_votes_by_address(deckid, address):
         return
 
     pstates = pst.proposal_states
-    # print(vtxes)
 
     if not pstates:
         print("No proposals recorded for this deck.")
         return
 
     for proposal in pstates:
+        print("proposal", proposal)
+        print("pvtxes", pstates[proposal].voting_txes)
+        phase, phaselist = 0, []
         for phase, phaselist in enumerate(pstates[proposal].voting_txes):
+            print("phaselist", phaselist)
             for vtx in phaselist:
+                print("vtx", vtx.txid)
                 if vtx.sender == address:
                     pprint("-----------------------------------------")
                     pprint("Vote: " + vote_readable[vtx.vote])
