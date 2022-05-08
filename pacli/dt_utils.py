@@ -122,7 +122,7 @@ def init_deck(network, deckid, rescan=True):
     else:
         print("P2TH address was already imported.")
     check_addr = provider.validateaddress(deck.p2th_address)
-    print("Output of validation tool (if validate:\n", check_addr)
+    print("Output of validation tool:\n", check_addr)
         # load_deck_p2th_into_local_node(provider, deck) # we don't use this here because it doesn't provide the rescan option
 
 
@@ -490,7 +490,7 @@ def signtx_by_key(rawtx, label=None, key=None):
         try:
            key = get_key(label)
         except ValueError:
-           raise ValueError("No key nor key id provided.")
+           raise ValueError("No key nor key label provided.")
 
     return sign_transaction(provider, rawtx, key)
 
@@ -625,13 +625,9 @@ def show_votes_by_address(deckid, address):
         return
 
     for proposal in pstates:
-        print("proposal", proposal)
-        print("pvtxes", pstates[proposal].voting_txes)
         phase, phaselist = 0, []
         for phase, phaselist in enumerate(pstates[proposal].voting_txes):
-            print("phaselist", phaselist)
             for vtx in phaselist:
-                print("vtx", vtx.txid)
                 if vtx.sender == address:
                     pprint("-----------------------------------------")
                     pprint("Vote: " + vote_readable[vtx.vote])
