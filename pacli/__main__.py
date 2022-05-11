@@ -184,6 +184,10 @@ class Address:
                 if debug: print("ERROR:", label, e)
                 continue
 
+    def show_label(self, address=Settings.key.address):
+        '''Shows the label of the current main address, or of another address.'''
+        return du.show_label(address)
+
     def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None: ### NEW FEATURE ###
         '''deletes a key with an id. Cannot be used to delete main key.'''
         prefix = get_key_prefix(Settings.network, legacy)

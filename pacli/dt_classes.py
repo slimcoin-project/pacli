@@ -178,7 +178,7 @@ class Proposal: ### DT ###
         elif vote in ("-", "negative", "n", "0", "no", "n", "false"):
             votechar = "-"
         else:
-            raise ValueError("Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
+            print("ERROR: Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
 
         vote_readable = "Positive" if votechar == "+" else "Negative"
         # print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
@@ -221,9 +221,17 @@ class Donation:
             print("Your donation address: {}".format(dest_address))
             if dest_label is not None:
                 print("Label: {}".format(dest_label))
-            print("Take into account that releasing the donation requires 0.02 coins for fees.")
+            # WORKAROUND. This should be done with the "legacy" parameter and net_query.
+            if Settings.network in ("slm", "tslm"):
+                total_tx_fee = 0.03
+            elif Settings.network in ("tppc"):
+                total_tx_fee = 0.02
+            elif Settings.network in ("ppc"):
+                total_tx_fee = 0.002
+
+            print("Take into account that releasing the donation requires {} coins for fees.".format(total_tx_fee))
             if (check_round is not None) and (check_round < 4):
-                print("Additionally, locking the transaction requires 0.02 coins, so total fees sum up to 0.04.")
+                print("Additionally, locking the transaction requires {} coins, so total fees sum up to {}.".format(total_tx_fee, total_tx_fee * 2))
 
         params = { "id" : "DS" , "prp" : proposal_txid }
         basic_tx_data = du.get_basic_tx_data("signalling", proposal_id=proposal_txid, input_address=Settings.key.address)
@@ -313,3 +321,27 @@ class Donation:
             slot = sat_slot
 
         print("Slot:", slot)
+
+    def qualified(self, proposal_id: str, dist_round: int, address: str=Settings.key.address, debug: bool=False):
+        '''Shows if the address is entitled to participate in a slot distribution round.'''
+        # Note: the donor address must be used as the origin address for the new signalling transaction.
+        slot_fill_threshold = 0.95
+        if dist_round in (0, 3, 6, 7):
+            return True
+
+        dstates = dmu.get_donation_states(provider, proposal_id, debug=debug, address=address)
+        for ds in dstates:
+
+            if (dist_round == ds.dist_round + 1) and (ds.state == "incomplete"):
+                if dist_round in (1, 2):
+                    if ds.locking_tx.amount >= (ds.slot * slot_fill_threshold):
+                        return True
+                elif dist_round == 5:
+                    if ds.donated_amount >= (ds.slot * slot_fill_threshold):
+                        return True
+            elif (dist_round == 4) and (ds.state == "incomplete"):
+                if ds.donated_amount >= (ds.slot * slot_fill_threshold):
+                    return True
+        return False
+
+

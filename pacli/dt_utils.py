@@ -8,7 +8,6 @@ from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, g
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
 from pypeerassets.transactions import sign_transaction, MutableTransaction
-from pypeerassets.networks import net_query, PeercoinMainnet, PeercoinTestnet
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
 from pacli.utils import (cointoolkit_verify,
                          signtx,
@@ -26,24 +25,36 @@ from pacli.config import Settings
 
 
 def check_current_period(proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
-    # TODO should be reorganized so the ProposalState isn't created 2x!
+    # TODO should be reorganized so the ProposalState isn't created 2x! (one time here, the other one in get_period)
+    # Isn't the dummy state enough? Should be possible to call the same dummy state in get_period and here.
     # Re-check side effects of get_period change. => Seems OK, but take the change into account.
 
     current_period, blocks = get_period(proposal_txid)
     print("Current period:", di.printout_period(current_period, blocks))
     try:
-        target_period = get_next_suitable_period(tx_type, current_period)
+        if dist_round is None:
+            target_period = get_next_suitable_period(tx_type, current_period, dist_round=dist_round)
+        else:
+            # TODO: re-check the dist_round index in humanreadable_to_periodcode.
+            # Currently the index there seems to start at 1 instead of 0.
+            # This is more human-readable but it must be consistent system-wide.
+            # until then, we calculate the value manually here.
+            # target_period = dp.humanreadable_to_periodcode(tx_type, dist_round + 1)
+            (period_phase, rd) = ("D", dist_round - 4) if dist_round > 3 else ("B", dist_round)
+            offset = 1 if tx_type in ("donation", "locking") else 0
+            target_period = (period_phase, 10*(1 + rd) + offset)
     except ValueError as e:
         print(e)
         return False
 
+    print("Target period: {}{}".format(target_period[0],str(target_period[1])))
     proposal_tx = proposal_from_tx(proposal_txid, provider)
     ps = ProposalState(first_ptx=proposal_tx, valid_ptx=proposal_tx, provider=provider)
     startblock, endblock = dp.get_startendvalues(target_period, ps)
 
     return di.wait_for_block(startblock, endblock, provider, wait)
 
-def get_next_suitable_period(tx_type, period):
+def get_next_suitable_period(tx_type, period, dist_round=None):
     # TODO: maybe it would be simpler to assign all suitable periods to all tx types,
     # and then iterate over the index.
     if tx_type in ("donation", "signalling", "locking"):
@@ -570,6 +581,21 @@ def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
             adr = addrlist[kpos]
         result.append(adr)
     return result
+
+def show_label(address):
+    # Needs secretstorage!
+    labels = get_all_labels(Settings.network)
+    for fulllabel in labels:
+        try:
+            label = fulllabel.split("_")[-1]
+        except IndexError:
+            continue
+        addr2 = show_stored_key(label, Settings.network)
+        if address == addr2:
+            return {"label" : label, "address" : address}
+
+
+# Other
 
 def get_deckinfo(deckid):
     d = deck_from_tx(deckid, provider)
