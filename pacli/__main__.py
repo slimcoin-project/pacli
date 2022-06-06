@@ -21,7 +21,7 @@ from pypeerassets.at.transaction_formats import setfmt
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.keystore import init_keystore, set_new_key, set_key, delete_key, get_key, load_key, get_key_prefix ### MODIFIED ###
+from pacli.keystore import init_keystore, load_key ### MODIFIED ###
 from pacli.tui import print_deck_info, print_deck_list
 from pacli.tui import print_card_list
 from pacli.export import export_to_csv
@@ -33,8 +33,9 @@ from pacli.config import (write_default_config,
                           conf_file,
                           default_conf,
                           write_settings)
-import pacli.dt_utils as du
-import pacli.dt_interface as di
+
+import pacli.dt_commands as dc
+import pacli.keystore_extended as ke
 from pacli.dt_classes import Proposal, Donation
 
 # TODO: P2PK is now supported, but only for the TrackedTransaction class. Extend to deck spawns, card transfers etc.
@@ -102,122 +103,57 @@ class Address:
         except KeyError:
             pprint({'error': 'No UTXOs ;('})
 
-    def new_privkey(self, label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False) -> str: ### NEW FEATURE ###
+    ### Commands for the Extended Keystore (keystore_extended module)
+    ### Allows to use more than one address/key
+
+    def new_privkey(self, label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False) -> str:
         '''import new private key, taking hex or wif format, or generate new key.
            You can assign a label, otherwise it will become the main key.'''
 
-        if wif:
-            new_key = pa.Kutil(network=Settings.network, from_wif=key)
-            key = new_key.privkey
-        elif (not label) and key:
-            new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key))
+        return ke.new_privkey(label, key=key, backup=backup, wif=wif, legacy=legacy)
 
-        set_new_key(new_key=key, backup_id=backup, label=label, network_name=Settings.network, legacy=legacy)
-        fulllabel = get_key_prefix(Settings.network, legacy) + label
-        key = get_key(fulllabel)
-
-        if not label:
-            if not new_key:
-                new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
-            Settings.key = new_key
-
-        return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address
-
-    def fresh(self, label: str, show: bool=False, set_main: bool=False, backup: str=None, legacy: bool=False): ### NEW ###
+    def fresh(self, label: str, show: bool=True, set_main: bool=False, backup: str=None, legacy: bool=False):
         '''This function uses the standard client commands to create an address/key and assigns it a label.'''
-        # NOTE: This command does not assign the address an account name or label in the wallet!
-        addr = provider.getnewaddress()
-        privkey_wif = provider.dumpprivkey(addr)
-        privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
-        privkey = privk_kutil.privkey
 
-        fulllabel = get_key_prefix(Settings.network, legacy) + label
+        return ke.fresh_address(label, show=show, set_main=set_main, backup=backup, legacy=legacy)
 
-        try:
-            if fulllabel in du.get_all_labels(Settings.network):
-                return "ERROR: Label already used. Please choose another one."
-        except ImportError:
-            print("NOTE: If you do not use SecretStorage, which is likely if you use Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
-
-        set_key(fulllabel, privkey)
-
-        if show:
-            print("New address created:", privk_kutil.address, "with label (name):", label)
-            print("Address already is saved in your wallet and in your keyring, ready to use.")
-        if set_main:
-            set_new_key(new_key=privkey, backup_id=backup, label=label, network_name=Settings.network, legacy=legacy)
-            Settings.key = privk_kutil
-            return Settings.key.address
-
-    def set_main(self, label: str, backup: str=None, legacy: bool=False) -> str: ### NEW FEATURE ###
+    def set_main(self, label: str, backup: str=None, legacy: bool=False) -> str:
         '''Declares a key identified by a label as the main one.'''
 
-        set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
+        ke.set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
         Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
 
         return Settings.key.address
 
-    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str: ### NEW FEATURE ###
-        '''shows stored alternative keys'''
+    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str:
+        '''Shows a stored alternative address or key.'''
         # WARNING: Can expose private keys. Try to use 'privkey' and 'wif' options only on testnet.
-        return du.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy)
+        return ke.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy)
 
     def show_all(self, debug: bool=False, legacy: bool=False):
-
-        net_prefix = "bak" if legacy else Settings.network
-
-        labels = du.get_all_labels(net_prefix)
-
-        prefix = "key_" + net_prefix + "_"
-        print("Address".ljust(35), "Balance".ljust(15), "Label".ljust(15))
-        print("---------------------------------------------------------")
-        for raw_label in labels:
-            try:
-                label = raw_label.replace(prefix, "")
-                raw_key = bytearray.fromhex(get_key(raw_label))
-                key = pa.Kutil(network=Settings.network, privkey=raw_key)
-                addr = key.address
-                balance = str(provider.getbalance(addr))
-                print(addr.ljust(35), balance.ljust(15), label.ljust(15))
-
-            except Exception as e:
-                if debug: print("ERROR:", label, e)
-                continue
+        '''Shows all stored addresses and their balance (Unix only).'''
+        return ke.show_all_keys(debug, legacy)
 
     def show_label(self, address=Settings.key.address):
         '''Shows the label of the current main address, or of another address.'''
-        return du.show_label(address)
+        return ke.show_label(address)
 
     def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None: ### NEW FEATURE ###
-        '''deletes a key with an id. Cannot be used to delete main key.'''
-        prefix = get_key_prefix(Settings.network, legacy)
-        try:
-           delete_key(prefix + label)
-           print("Key", label, "successfully deleted.")
-        except keyring.errors.PasswordDeleteError:
-           print("Key", label, "does not exist. Nothing deleted.")
+        '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
+        return ke.delete_key_from_keyring(label, legacy=legacy)
 
     def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None: ### NEW FEATURE ###
         '''imports main key or any stored key to wallet managed by RPC node.'''
 
-        prefix = get_key_prefix(Settings.network, legacy)
-        if label:
-            pkey = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(get_key(prefix + label)))
-            wif = pkey.wif
-        else:
-            wif = Settings.key.wif
-        if Settings.network in ("slm", "tslm"):
-            provider.importprivkey(wif, accountname, rescan=True)
-        else:
-            provider.importprivkey(wif, account_name=accountname)
+        return ke.import_key_to_wallet(accountname, label, legacy)
 
     def my_votes(self, deckid: str, address: str=Settings.key.address):
         '''shows votes cast from this address, for all proposals of a deck.'''
-        return du.show_votes_by_address(deckid, address)
+        return dc.show_votes_by_address(deckid, address)
 
     def my_donations(self, deckid: str, address: str=Settings.key.address):
         '''shows donation states involving this address, for all proposals of a deck.'''
-        return du.show_donations_by_address(deckid, address)
+        return dc.show_donations_by_address(deckid, address)
 
 
 class Deck:
@@ -388,38 +324,23 @@ class Deck:
 
     def init(self, deckid: str):
         '''Initializes deck and imports its P2TH address into node.'''
-        du.init_deck(Settings.network, deckid)
+        dc.init_deck(Settings.network, deckid)
 
     def dt_init(self, deckid: str):
         '''Initializes DT deck and imports all P2TH addresses into node.'''
 
-        du.init_dt_deck(Settings.network, deckid)
+        dc.init_dt_deck(Settings.network, deckid)
 
     def dt_info(self, deckid: str):
-        deckinfo = du.get_deckinfo(deckid)
-        pprint(deckinfo)
+        '''Prints DT-specific deck info.'''
+
+        pprint(dc.get_deckinfo(deckid))
 
     @classmethod
     def dt_list(self):
-        '''
-        List all DT decks.
-        '''
-        # TODO: This does not catch some errors with invalid decks which are displayed:
-        # InvalidDeckSpawn ("InvalidDeck P2TH.") -> not catched in deck_parser in pautils.py
-        # 'error': 'OP_RETURN not found.' -> InvalidNulldataOutput , in pautils.py
-        # 'error': 'Deck () metainfo incomplete, deck must have a name.' -> also in pautils.py, defined in exceptions.py.
+        '''List all DT decks.'''
 
-        decks = pa.find_all_valid_decks(provider,
-                                        Settings.deck_version,
-                                        Settings.production)
-        dt_decklist = []
-        for d in decks:
-            try:
-                if d.at_type == "DT":
-                    dt_decklist.append(d)
-            except AttributeError:
-                continue
-
+        dt_decklist = dc.list_dt_decks()
         print_deck_list(dt_decklist)
 
 
@@ -658,42 +579,7 @@ class Card:
     def claim_pod_tokens(self, proposal_id: str, donor_address=Settings.key.address, payment: list=None, receiver: list=None, locktime: int=0, deckid: str=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
-        if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
-            receiver = [Settings.key.address]
-
-        if not force:
-            print("Calculating reward ...")
-            try:
-                reward_data = du.get_pod_reward_data(proposal_id, donor_address, proposer=proposer, debug=debug)
-            except Exception as e:
-                print(e)
-                return None
-            deckid = reward_data.get("deckid")
-            max_payment = reward_data.get("reward")
-            donation_txid = reward_data.get("donation_txid")
-        elif not deckid:
-            print("ERROR: No deckid provided, if you use --force you need to provide it.")
-            return None
-        elif payment is not None:
-            max_payment = sum(payment)
-            print("WARNING: Overriding reward calculation. If you calculated your payment incorrectly, the transaction will be invalid.")
-        else:
-            print("ERROR: No payment data provided.")
-            return None
-
-        if payment is None:
-            payment = [max_payment]
-        else:
-            if sum(payment) > max_payment:
-                raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
-            rest_amount = max_payment - sum(payment)
-            if rest_amount > 0:
-                receiver.append(donor_address)
-                payment.append(rest_amount)
-
-
-        params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout}
-        asset_specific_data = setfmt(params, tx_type="cardissue_dt")
+        asset_specific_data = dc.claim_pod_tokens()
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)

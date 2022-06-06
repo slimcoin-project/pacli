@@ -12,16 +12,16 @@ from pypeerassets.legacy import is_legacy_blockchain, legacy_import
 from pacli.utils import (cointoolkit_verify,
                          signtx,
                          sendtx)
-from pacli.keystore import get_key
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
-# import keyring
+
 import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
 import pypeerassets.at.dt_misc_utils as dmu
 
 from pacli.provider import provider
 from pacli.config import Settings
+from pacli.keystore_extended import get_key
 
 
 def check_current_period(proposal_txid, tx_type, dist_round=None, phase=None, release=False, wait=False):
@@ -49,7 +49,7 @@ def check_current_period(proposal_txid, tx_type, dist_round=None, phase=None, re
 
     print("Target period: {}{}".format(target_period[0],str(target_period[1])))
     proposal_tx = proposal_from_tx(proposal_txid, provider)
-    ps = ProposalState(first_ptx=proposal_tx, valid_ptx=proposal_tx, provider=provider)
+    ps = ProposalState(first_ptx=proposal_tx, valid_ptx=proposal_tx)
     startblock, endblock = dp.get_startendvalues(target_period, ps)
 
     return di.wait_for_block(startblock, endblock, provider, wait)
@@ -124,61 +124,6 @@ def get_all_periods(proposal_txid):
     ps = dummy_pstate(proposal_txid)
     return dp.get_period_dict(ps)
 
-
-def init_deck(network, deckid, rescan=True):
-    deck = deck_from_tx(deckid, provider)
-    if deckid not in provider.listaccounts():
-        provider.importprivkey(deck.p2th_wif, deck.id, rescan)
-        print("Importing P2TH address from deck.")
-    else:
-        print("P2TH address was already imported.")
-    check_addr = provider.validateaddress(deck.p2th_address)
-    print("Output of validation tool:\n", check_addr)
-        # load_deck_p2th_into_local_node(provider, deck) # we don't use this here because it doesn't provide the rescan option
-
-
-
-def init_dt_deck(network_name, deckid, rescan=True):
-    # MODIFIED: added support for legacy blockchains
-    deck = deck_from_tx(deckid, provider)
-    legacy = is_legacy_blockchain(network_name)
-
-    if "sdp_deckid" not in deck.__dict__.keys():
-        print("No SDP (voting) token found for this deck. This is probably not a proof-of-donation deck!")
-        return
-
-    if deck.id not in provider.listaccounts():
-        print("Importing main key from deck.")
-        load_deck_p2th_into_local_node(provider, deck)
-
-    for tx_type in ("proposal", "signalling", "locking", "donation", "voting"):
-        p2th_addr = deck.derived_p2th_address(tx_type)
-        print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
-        if legacy:
-            p2th_wif = deck.derived_p2th_wif(tx_type)
-            legacy_import(provider, p2th_addr, p2th_wif, rescan)
-        else:
-            import_p2th_address(provider, p2th_addr)
-
-    # SDP
-    # Note: there can be a None value for sdp_deckid even if this is a PoD token (e.g. in the case of a swap).
-    if deck.sdp_deckid is not None:
-        p2th_sdp_addr = Kutil(network=network_name,
-                             privkey=bytearray.fromhex(deck.sdp_deckid)).address
-
-        print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
-
-        if legacy:
-            p2th_sdp_wif = Kutil(network=network_name,
-                             privkey=bytearray.fromhex(deck.sdp_deckid)).wif
-            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan)
-        else:
-            import_p2th_address(provider, p2th_sdp_addr)
-    if rescan:
-        if not legacy:
-            print("Rescanning ...")
-            provider.rescanblockchain()
-    print("Done.")
 
 # Proposal and donation states
 
@@ -521,86 +466,6 @@ def get_input_types(rawtx):
     except KeyError:
         raise ValueError("Transaction data not correctly given.")
 
-
-## Keys and Addresses
-
-def get_all_labels(prefix):
-    # returns all labels corresponding to a network shortname (the prefix)
-    # does currently NOT support Windows Credential Locker nor KDE.
-    # Should work with Gnome Keyring, KeepassXC, and KSecretsService.
-    import secretstorage
-    bus = secretstorage.dbus_init()
-    collection = secretstorage.get_default_collection(bus)
-    labels = []
-    for item in collection.search_items({'application': 'Python keyring library', "service" : "pacli"}):
-        # print(item.get_label())
-        label = item.get_attributes()["username"]
-        if prefix in label:
-            labels.append(label)
-
-    return labels
-
-def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode=False, legacy=False):
-    # TODO: json_mode (only for addresses)
-    if legacy:
-       fulllabel = "key_bak_" + label
-    else:
-       fulllabel = "key_" + network_name + "_" + label
-    try:
-        raw_key = bytearray.fromhex(get_key(fulllabel))
-    except TypeError:
-        exc_text = "No key data for key {}".format(fulllabel)
-        raise Exception(exc_text)
-
-    key = Kutil(network=network_name, privkey=raw_key)
-
-    if privkey:
-        return key.privkey
-    elif pubkey:
-        return key.pubkey
-    elif wif:
-        return key.wif
-    else:
-        return key.address
-
-def show_stored_address(keyid: str, network_name: str, json_mode=False):
-    # Safer mode for show_stored_key.
-    # TODO: json mode still unfinished.
-    return show_stored_key(keyid, network_name=network_name, json_mode=json_mode)
-
-def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
-    if len(addrlist) != len(keylist):
-        raise ValueError("Both lists must have the same length.")
-    result = []
-    for kpos in range(len(keylist)):
-        if (addrlist[kpos] == None) and (keylist[kpos] is not None):
-
-            adr = show_stored_address(keylist[kpos], network_name=network)
-            if debug: print("Address", adr, "got from key", keylist[kpos])
-        else:
-            adr = addrlist[kpos]
-        result.append(adr)
-    return result
-
-def show_label(address):
-    # Needs secretstorage!
-    labels = get_all_labels(Settings.network)
-    for fulllabel in labels:
-        try:
-            label = fulllabel.split("_")[-1]
-        except IndexError:
-            continue
-        addr2 = show_stored_key(label, Settings.network)
-        if address == addr2:
-            return {"label" : label, "address" : address}
-
-
-# Other
-
-def get_deckinfo(deckid):
-    d = deck_from_tx(deckid, provider)
-    return d.__dict__
-
 def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
     # This gets all tracked transactions and displays them, without checking validity.
     # An advanced mode could even detect those with wrong format.
@@ -628,70 +493,4 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
                         print("Invalid Transaction:", txjson["txid"])
                     except (KeyError, IndexError, AssertionError):
                         continue
-
-def show_votes_by_address(deckid, address):
-    # TODO: cleanup print statements!
-    # shows all valid voting transactions from a specific address, for all proposals.
-
-    pprint("Votes cast from address: " + address)
-    vote_readable = { b'+' : 'Positive', b'-' : 'Negative' }
-    deck = deck_from_tx(deckid, provider)
-
-    try:
-        pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True)
-        # pst = ParserState(deck, [], provider)
-    except AttributeError:
-        print("This seems not to be a proof-of-donation deck. No vote count possible.")
-        return
-
-    pstates = pst.proposal_states
-
-    if not pstates:
-        print("No proposals recorded for this deck.")
-        return
-
-    for proposal in pstates:
-        phase, phaselist = 0, []
-        for phase, phaselist in enumerate(pstates[proposal].voting_txes):
-            for vtx in phaselist:
-                if vtx.sender == address:
-                    pprint("-----------------------------------------")
-                    pprint("Vote: " + vote_readable[vtx.vote])
-                    pprint("Proposal: " + proposal)
-                    pprint("Phase: " + str(phase))
-                    pprint("Vote txid: " + vtx.txid)
-                    pprint("Weight: " + str(vtx.weight))
-
-
-def show_donations_by_address(deckid, address):
-    # shows all valid donation transactions from a specific address, for all proposals.
-
-    pprint("Donations realized from address: " + address)
-    deck = deck_from_tx(deckid, provider)
-
-    try:
-        pst = get_parser_state(provider, deck, force_continue=True, force_dstates=True)
-
-    except AttributeError:
-        print("This seems not to be a proof-of-donation deck. No donation count possible.")
-        return
-
-    pstates = pst.proposal_states
-
-    if not pstates:
-        print("No proposals recorded for this deck.")
-        return
-
-    for proposal in pstates:
-        for rd, rdlist in enumerate(pstates[proposal].donation_states):
-            for dstate in rdlist.values():
-                # print(dstate.__dict__)
-                if (dstate.donor_address == address) and (dstate.donation_tx is not None):
-                    pprint("-----------------------------------------")
-                    pprint("Proposal: " + proposal)
-                    pprint("Round: " + str(rd))
-                    pprint("Amount: " + str(dstate.donated_amount))
-                    pprint("Donation txid: " + dstate.donation_tx.txid)
-
-
 

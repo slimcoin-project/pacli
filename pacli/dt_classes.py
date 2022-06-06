@@ -322,9 +322,18 @@ class Donation:
 
         print("Slot:", slot)
 
-    def qualified(self, proposal_id: str, dist_round: int, address: str=Settings.key.address, debug: bool=False):
+    def qualified(self, proposal_id: str, dist_round: int, address: str=Settings.key.address, label: str=None, debug: bool=False):
         '''Shows if the address is entitled to participate in a slot distribution round.'''
         # Note: the donor address must be used as the origin address for the new signalling transaction.
+        if label is not None:
+            address = du.show_stored_key(label, Settings.network)
+            address_label = "{} with label {}".format(address, label)
+        else:
+            # we don't use show_label here so it's also possible to use under Windows.
+            address_label = address
+
+        print("Qualification status for address {} for distribution round {} in proposal {}:".format(address_label, dist_round, proposal_id))
+
         slot_fill_threshold = 0.95
         if dist_round in (0, 3, 6, 7):
             return True
