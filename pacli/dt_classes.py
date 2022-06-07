@@ -206,6 +206,23 @@ class Proposal: ### DT ###
         return console_output
 
 
+    def voters(self, proposal_id: str, debug: bool=False):
+        '''Shows enabled voters at the start of the current epoch and their balance.'''
+        proposal_tx = dmu.proposal_from_tx(proposal_id, provider)
+        parser_state = dmu.get_parser_state(provider, deck=proposal_tx.deck, debug_voting=debug, force_continue=True)
+        epoch = parser_state.epoch
+        blockheight = parser_state.deck.epoch_length * epoch
+        pprint("Enabled voters and weights for proposal {}".format(proposal_id))
+
+        pprint(parser_state.enabled_voters)
+        # pprint(parser_state.__dict__)
+
+        pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch.")
+        pprint("Epoch: {}, started at blockheight: {}".format(epoch, blockheight))
+        pprint("Weights are shown in minimum token units.")
+        pprint("The tokens' numbers of decimals don't matter for this view.")
+
+
 class Donation:
 
     def signal(self, proposal_txid: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address, debug: bool=False) -> None:
