@@ -46,12 +46,19 @@ class Proposal: ### DT ###
         for period, blockheights in periods.items():
             print(di.printout_period(period, blockheights, blockheights_first=True))
 
-    def list(self, deckid: str, block: int=None, only_active: bool=False, show_abandoned: bool=False, advanced: bool=False, debug: bool=False) -> None:
+    def list(self, deckid: str, block: int=None, only_active: bool=False, all: bool=False, debug: bool=False) -> None:
         '''Shows all proposals for a deck and the period they are currently in, optionally at a specific blockheight.'''
         # TODO re-check: it seems that if we use Decimal for values like req_amount scientific notation is used.
         # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
 
-        if not block:
+        statelist, advanced = ["active"], True
+        if not only_active:
+            statelist.append("completed")
+        if all:
+            statelist.append("abandoned")
+            advanced = False
+
+        if block is None:
             block = provider.getblockcount() + 1 # modified, next block is the reference, not last block
             pprint("Next block to be added to blockchain: " + str(block))
         try:
@@ -66,11 +73,7 @@ class Proposal: ### DT ###
             return
 
         coin = dmu.coin_value(Settings.network)
-        statelist = ["active"]
-        if not only_active:
-            statelist.append("completed")
-        if show_abandoned:
-            statelist.append("abandoned")
+
 
         if len([p for l in pstate_periods.values() for p in l]) == 0:
             print("No proposals found for deck: " + deckid)
@@ -93,14 +96,14 @@ class Proposal: ### DT ###
                         first = False
                     requested_amount = pstate.req_amount / coin
                     result = ["ID: " + pstate.id,
-                              "Startblock of this period: {} Endblock: {}".format(str(startblock), str(endblock)),
-                              "Requested amount: " + str(requested_amount),
-                              "Donation address: " + pstate.donation_address]
+                              "Startblock of this period: {} Endblock: {}".format(startblock, endblock),
+                              "Requested amount: {}".format(requested_amount),
+                              "Donation address: {}".format(pstate.donation_address)]
                     if advanced:
                         donated_amount = str(sum(pstate.donated_amounts) / coin)
-                        result.append("State: " + pstate.state)
-                        result.append("Donated amount: " + donated_amount)
-                        result.append("Donation transactions: " + str(len([d for rd in pstate.donation_txes for d in rd])))
+                        result.append("State: {}".format(pstate.state))
+                        result.append("Donated amount: {}".format(donated_amount))
+                        result.append("Donation transactions: {}".format(len([d for rd in pstate.donation_txes for d in rd])))
                     print("\n*", "\n    ".join(result))
 
     def info(self, proposal_txid):
@@ -206,19 +209,30 @@ class Proposal: ### DT ###
         return console_output
 
 
-    def voters(self, proposal_id: str, debug: bool=False):
-        '''Shows enabled voters at the start of the current epoch and their balance.'''
+    def voters(self, proposal_id: str, debug: bool=False, blockheight: int=None):
+        '''Shows enabled voters and their balance at the start of the current epoch or at a defined blockheight.'''
+
         proposal_tx = dmu.proposal_from_tx(proposal_id, provider)
+
+        parser_state = dmu.get_parser_state(provider, deck=proposal_tx.deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
+
+        if blockheight is None:
+            epoch = parser_state.epoch
+            blockheight = parser_state.deck.epoch_length * epoch
+        else:
+            epoch = blockheight // parser_state.deck.epoch_length
+
         parser_state = dmu.get_parser_state(provider, deck=proposal_tx.deck, debug_voting=debug, force_continue=True)
-        epoch = parser_state.epoch
-        blockheight = parser_state.deck.epoch_length * epoch
         pprint("Enabled voters and weights for proposal {}".format(proposal_id))
 
         pprint(parser_state.enabled_voters)
         # pprint(parser_state.__dict__)
 
-        pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch.")
-        pprint("Epoch: {}, started at blockheight: {}".format(epoch, blockheight))
+        if blockheight is None:
+            pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch {} which started at block {}.".format(epoch, blockheight))
+        else:
+            pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
+
         pprint("Weights are shown in minimum token units.")
         pprint("The tokens' numbers of decimals don't matter for this view.")
 
