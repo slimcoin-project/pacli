@@ -140,22 +140,37 @@ class Proposal: ### DT ###
                     value = ds_dict[item]
                 print(item + ":", value)
 
-    def all_donation_states(self, proposal_id: str, debug=False):
-        '''Shows all donation states of this proposal.'''
+    def all_donation_states(self, proposal_id: str, all: bool=False, only_incomplete: bool=False, short: bool=False, debug: bool=False):
+        '''Shows currently active (default) or all (--all flag) donation states of this proposal.'''
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
-        for dstate in dstates:
-            pprint("Donation state ID: " + dstate.id)
 
+        if only_incomplete:
+           allowed_states = ["incomplete"]
+        else:
+           allowed_states = ["incomplete", "complete"]
+           if all:
+               allowed_states += ["abandoned"]
+
+
+        for dstate in dstates:
+
+            if dstate.state not in allowed_states:
+                continue
+
+            pprint("ID: {}".format(dstate.id))
             ds_dict = dstate.__dict__
 
-            for item in ds_dict:
+            if short:
+                pprint("Donor address: {}".format(dstate.donor_address))
+                pprint("-" * 16)
+            else:
+                for item in ds_dict:
+                    if issubclass(type(ds_dict[item]), TrackedTransaction):
+                        value = ds_dict[item].txid
+                    else:
+                        value = ds_dict[item]
 
-                if issubclass(type(ds_dict[item]), TrackedTransaction):
-                    value = ds_dict[item].txid
-                else:
-                    value = ds_dict[item]
-
-                print(item + ":", value)
+                    print("{}: {}".format(item, value))
 
     def create(self, deckid: str, req_amount: str, periods: int, slot_allocation_duration: int, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False):
         '''Creates a new proposal.'''
