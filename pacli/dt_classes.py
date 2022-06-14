@@ -1,13 +1,14 @@
 # this file bundles all dt-specific classes.
+from prettyprinter import cpprint as pprint
 from pacli.config import Settings
 from pacli.provider import provider
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import json
-from prettyprinter import cpprint as pprint
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 import pacli.dt_utils as du
 import pacli.dt_interface as di
+import pacli.keystore_extended as ke
 
 class Proposal: ### DT ###
 
@@ -126,11 +127,31 @@ class Proposal: ### DT ###
             di.prepare_dict(pdict)
             pprint(pdict)
 
-    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, debug=False):
+    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, also_origin: bool=False, debug: bool=False):
         '''Shows the donation states involving a certain address (default: current active address).'''
-        dstates = dmu.get_donation_states(provider, proposal_id, address=address, debug=debug)
-        for dstate in dstates:
-            pprint("Donation state ID: " + dstate.id)
+        # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
+        if all_addresses:
+
+            all_dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
+            labels = ke.get_all_labels(Settings.network)
+            my_addresses = [ke.show_stored_address(label, network_name=Settings.network, noprefix=True) for label in labels]
+            # print(my_addresses)
+            my_dstates = [d for d in all_dstates if d.donor_address in my_addresses]
+            # print(my_dstates)
+
+        elif also_origin:
+            # Default behavior MODIFIED. Origin addresses are also taken into account by get_donation_states.
+            my_dstates = dmu.get_donation_states(provider, proposal_id, address=address, debug=debug)
+        else:
+            dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
+            my_dstates = [ d for d in dstates if d.donor_address == address ]
+            my_addresses = [address]
+
+        for pos, dstate in enumerate(my_dstates):
+            pprint("Address: {}".format(dstate.donor_address))
+            pprint("Label: {}".format(ke.show_label(dstate.donor_address)["label"]))
+            pprint("Donation state ID: {}".format(dstate.id))
+
             #pprint(dstate.__dict__)
             ds_dict = dstate.__dict__
             for item in ds_dict:
@@ -181,7 +202,7 @@ class Proposal: ### DT ###
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
-        return du.finalize_tx(rawtx, verify, sign, send)
+        return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
     def vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
         '''Vote (with "yes" or "no") for a proposal'''
@@ -206,7 +227,7 @@ class Proposal: ### DT ###
         basic_tx_data = du.get_basic_tx_data("voting", proposal_id=proposal_id, input_address=input_address)
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
-        console_output = du.finalize_tx(rawtx, verify, sign, send)
+        console_output = du.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
         if confirm and sign and send:
             print("Waiting for confirmation (this can take several minutes) ...", end='')
@@ -284,7 +305,7 @@ class Donation:
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, debug=debug, network_name=Settings.network)
 
-        return du.finalize_tx(rawtx, verify, sign, send)
+        return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
     def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False) -> None:
 
@@ -313,23 +334,27 @@ class Donation:
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
 
-        return du.finalize_tx(rawtx, verify, sign, send)
+        return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
 
-    def release(self, proposal_txid: str, amount: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, origin_label: str=None, origin_key: str=None, force: bool=False, sign: bool=False, send: bool=False, verify: bool=False) -> None: ### ADDRESSTRACK ###
+    def release(self, proposal_txid: str, amount: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, origin_label: str=None, origin_key: str=None, force: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> None: ### ADDRESSTRACK ###
         '''Releases a donation.'''
 
         if (check_round is not None) or (wait == True):
             if not du.check_current_period(proposal_txid, "donation", dist_round=check_round, wait=wait, release=True):
                 return
 
+        # dist_round only gives a value if we're inside the block limits of a round.
+        # in the donation release phase, this gives None.
+        dist_round = du.get_dist_round(proposal_txid)
+
         use_slot = False if (amount is not None) else True
 
         params = { "id" : "DD" , "prp" : proposal_txid }
 
-        basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot)
+        basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, use_locking_slot=True, dist_round=dist_round, debug=debug)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force, network_name=Settings.network)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force, use_locking_slot=True, network_name=Settings.network, debug=debug)
 
         # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
         if new_inputs:
@@ -339,7 +364,7 @@ class Donation:
             key = Settings.key
             rscript = basic_tx_data.get("redeem_script")
 
-        return du.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, redeem_script=rscript)
+        return du.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, redeem_script=rscript, debug=debug)
 
     def check_tx(self, txid=None, txhex=None):
         '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.'''

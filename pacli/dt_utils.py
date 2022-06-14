@@ -175,16 +175,50 @@ def get_slot(proposal_id, donor_address, dist_round=None):
         except IndexError:
             raise ValueError("No valid donation process found.")
 
-def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_slot=True):
+def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
+    # this creates a robust hierarchy to select the correct donation state for a locking/donation transaction.
+    # first, sorted by blockheight and blockseq
+    # second, distinct assertions exclude certain transactions.
+    for dstate in sorted(dstates, key=lambda x: (x.origin_tx.blockheight, x.origin_tx.blockseq)):
+        if debug: print("Donation state found:", dstate.id)
+        if debug and (dstate.signalling_tx is not None): print("Signalling tx:", dstate.signalling_tx.txid)
+        if debug and (dstate.reserve_tx is not None): print("Reserve tx:", dstate.reserve_tx.txid)
+        if debug and (dstate.locking_tx is not None): print("Locking tx:", dstate.locking_tx.txid)
+        if debug: print("Slot distribution round:", dstate.dist_round)
+        if debug: print("Effective locking slot:", dstate.effective_locking_slot)
+
+        try:
+
+            assert dstate.state == "incomplete"
+            assert dstate.slot > 0
+            if tx_type == "locking":
+                assert dstate.locking_tx is None
+                # TODO: this check should be done elsewhere
+                # assert dstate.locking_tx.ins[0].txid == dstate.origin_tx.txid
+            if tx_type == "donation":
+                if dstate.dist_round <= 3:
+                    assert dstate.locking_tx is not None
+                if dstate.dist_round > 3:
+                    pass
+
+        except AssertionError:
+            continue
+
+
+    return dstate
+
+def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_locking_slot=False):
     # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
     # TODO: "txid" and "vout" could be changed better into "input_txid" and "input_vout", because later it is mixed with data of the actual tx (not only the input tx).
     # provides the following data: slot, txid and vout of signalling or locking tx, value of input.
     # starts the parser.
     inputdata = {}
-    print("Searching for signalling or reserve transaction. Please wait.")
-    dstate = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, address=address, dist_round=dist_round, debug=debug, pos=0)
-    if not dstate:
+    print("Searching for donation state for this transaction. Please wait.")
+    dstates = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, address=address, dist_round=dist_round, debug=debug)
+    if not dstates:
         raise ValueError("No donation states found.")
+    dstate = select_donation_state(dstates, tx_type, debug=debug)
+
     if (tx_type == "donation") and (dstate.dist_round < 4):
 
         prev_tx = dstate.locking_tx
@@ -198,13 +232,14 @@ def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=N
         else:
             prev_tx = dstate.signalling_tx
 
-    inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount, "slot" : dstate.slot})
+    inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount, "slot" : dstate.slot })
+    if use_locking_slot and dstate.dist_round < 4:
+        inputdata.update({ "locking_slot" : dstate.effective_locking_slot })
 
     # Output type. This should be always P2PKH or P2SH.
     if prev_tx:
         inputdata.update({ "inp_type" : [prev_tx.outs[2].script_pubkey.type] })
-    #if use_slot:
-    #    inputdata.update({"slot" : dstate.slot}) # added slot mandatorily, TODO: re-check if this change does not have side effects!
+
     return inputdata
 
 def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False, network_name=Settings.network):
@@ -255,7 +290,7 @@ def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False,
 
 ## Inputs, outputs and Transactions
 
-def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, debug: bool=False):
+def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, use_locking_slot: bool=False, debug: bool=False):
     """Gets basic data for a new TrackedTransaction"""
 
     if proposal_id is not None:
@@ -270,7 +305,7 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
     if tx_type in ("donation", "locking"):
         try:
             if (not new_inputs) or use_slot:
-                tx_data.update(get_previous_tx_input_data(input_address, tx_type, proposal_tx=proposal, dist_round=dist_round, debug=debug, use_slot=use_slot))
+                tx_data.update(get_previous_tx_input_data(input_address, tx_type, proposal_tx=proposal, dist_round=dist_round, use_locking_slot=use_locking_slot, debug=debug))
         except ValueError:
             raise ValueError("No suitable signalling/reserve transactions found.")
 
@@ -315,7 +350,7 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
 
     return amount
 
-def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False):
+def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None, dest_address=None, change_address=None, raw_tx_fee=None, raw_p2th_fee=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, use_locking_slot: bool=False, force: bool=False, debug: bool=False):
     # This function first prepares a transaction, creating the datastring and calculating fees in an unified way,
     # then creates transaction with pypeerassets method.
 
@@ -340,8 +375,12 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
             # If new_inputs is chosen or the previous input was spent, then all the following values stay in None.
             input_txid, input_vout, input_value = b["txid"], b["vout"], b["value"]
             available_amount = input_value - all_fees
+            if available_amount <= 0:
+                raise ValueError("Insufficient funds in this input to pay all fees. Use --new_inputs to lock or donate this amount.")
 
-        amount = calculate_donation_amount(b["slot"], chosen_amount, available_amount, network_name, new_inputs, force)
+
+        used_slot = b["slot"] if not use_locking_slot else b["locking_slot"]
+        amount = calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force)
 
     else:
         amount = chosen_amount
@@ -360,7 +399,7 @@ def calculate_timelock(proposal_id):
     cltv_timelock = (first_proposal_tx.epoch + first_proposal_tx.epoch_number + 1) * first_proposal_tx.deck.epoch_length
     return cltv_timelock
 
-def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=None, input_types=None):
+def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=None, input_types=None, debug=False):
     # groups the last steps together
 
     if verify:
@@ -372,9 +411,12 @@ def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=N
         print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
 
     if sign:
+
         if redeem_script is not None:
+            if debug: print("Signing with redeem script:", redeem_script)
             # TODO: in theory we need to solve inputs from --new_inputs separately from the p2sh inputs.
             # For now we can only use new_inputs OR spend the P2sh.
+            # TODO: here we use Settings.key, but give the option to provide different key in donation release command?
             try:
                 tx = sign_p2sh_transaction(provider, rawtx, redeem_script, Settings.key)
             except NameError as e:

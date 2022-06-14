@@ -69,7 +69,11 @@ def get_all_labels(prefix: str):
     # returns all labels corresponding to a network shortname (the prefix)
     # does currently NOT support Windows Credential Locker nor KDE.
     # Should work with Gnome Keyring, KeepassXC, and KSecretsService.
-    import secretstorage
+    try:
+        import secretstorage
+    except ImportError:
+        print("This feature needs secretstorage. It is probably currently not supported by your operating system or desktop environment.")
+
     bus = secretstorage.dbus_init()
     collection = secretstorage.get_default_collection(bus)
     labels = []
@@ -81,10 +85,12 @@ def get_all_labels(prefix: str):
 
     return labels
 
-def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode=False, legacy=False):
+def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode: bool=False, legacy: bool=False, noprefix: bool=False):
     # TODO: json_mode (only for addresses)
     if legacy:
        fulllabel = "key_bak_" + label
+    elif noprefix:
+       fulllabel = label
     else:
        fulllabel = "key_" + network_name + "_" + label
     try:
@@ -104,10 +110,10 @@ def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: 
     else:
         return key.address
 
-def show_stored_address(label: str, network_name: str, json_mode=False):
+def show_stored_address(label: str, network_name: str, json_mode: bool=False, noprefix: bool=False):
     # Safer mode for show_stored_key.
     # TODO: json mode still unfinished.
-    return show_stored_key(label, network_name=network_name, json_mode=json_mode)
+    return show_stored_key(label, network_name=network_name, json_mode=json_mode, noprefix=noprefix)
 
 def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
     if len(addrlist) != len(keylist):
