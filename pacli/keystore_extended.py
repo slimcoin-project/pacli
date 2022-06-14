@@ -134,7 +134,9 @@ def show_label(address):
     labels = get_all_labels(Settings.network)
     for fulllabel in labels:
         try:
-            label = fulllabel.split("_")[-1]
+            # label = fulllabel.split("_")[-1] # this behaves wrongly with addresses with _ in it.
+            prefix = "_".join(fulllabel.split("_")[:2]) + "_"
+            label = fulllabel.replace(prefix, "")
         except IndexError:
             continue
         addr2 = show_stored_key(label, Settings.network)
