@@ -278,7 +278,7 @@ class Donation:
     def signal(self, proposal_txid: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", change_label: str=None, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, input_address: str=Settings.key.address, debug: bool=False) -> None:
         '''Creates a compliant signalling transaction for a proposal.'''
 
-        [dest_address, change_address] = du.show_addresses([dest_address, change_address], [dest_label, change_label], Settings.network)
+        [dest_address, change_address] = ke.show_addresses([dest_address, change_address], [dest_label, change_label], Settings.network)
 
         if (check_round is not None) or (wait == True):
             if not du.check_current_period(proposal_txid, "signalling", dist_round=check_round, wait=wait):
@@ -311,7 +311,7 @@ class Donation:
 
         '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.'''
         # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
-        [dest_address, reserve_address, change_address] = du.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
+        [dest_address, reserve_address, change_address] = ke.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
 
         dist_round = du.get_dist_round(proposal_txid)
         if (check_round is not None) or (wait == True):
