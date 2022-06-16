@@ -411,17 +411,26 @@ class Donation:
 
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug, address=address)
         for ds in dstates:
-
-            if (dist_round == ds.dist_round + 1) and (ds.state == "incomplete"):
-                if dist_round in (1, 2):
-                    if ds.locking_tx.amount >= (ds.slot * slot_fill_threshold):
+            min_qualifying_amount = ds.slot * slot_fill_threshold
+            if debug: print("Donation state id:", ds.id)
+            if debug: print("Slot:", ds.slot)
+            if debug: print("Effective locking slot:", ds.effective_locking_slot)
+            if debug: print("Effective slot:", ds.effective_slot)
+            if debug: print("Minimal qualifying amount (based on slot):", min_qualifying_amount)
+            try:
+                if dist_round == ds.dist_round + 1:
+                    if dist_round in (1, 2) and (ds.state == "incomplete"):
+                        if ds.effective_locking_slot >= min_qualifying_amount:
+                            return True
+                    # rd 4 is also rd 3 + 1
+                    elif dist_round in (4, 5) and (ds.state == "complete"):
+                        if ds.effective_slot >= min_qualifying_amount:
+                            return True
+                elif (dist_round == 4) and (ds.state == "complete"):
+                    if ds.effective_slot >= min_qualifying_amount:
                         return True
-                elif dist_round == 5:
-                    if ds.donated_amount >= (ds.slot * slot_fill_threshold):
-                        return True
-            elif (dist_round == 4) and (ds.state == "incomplete"):
-                if ds.donated_amount >= (ds.slot * slot_fill_threshold):
-                    return True
+            except TypeError:
+                return False
         return False
 
 
