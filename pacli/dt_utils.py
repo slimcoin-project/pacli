@@ -110,7 +110,7 @@ def get_dist_round(proposal_id, blockheight=None):
     """Provides the current dist round if blockheight is inside one."""
     period = get_period(proposal_id, blockheight)
     try:
-        assert (period[0] in ("B", "D")) and (period[1] > 10)
+        assert (period[0] in ("B", "D")) and (period[1] >= 10)
         if period[0] == "B":
             return (period[1] // 10) - 1
         elif period[0] == "D":
@@ -377,7 +377,6 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
             available_amount = input_value - all_fees
             if available_amount <= 0:
                 raise ValueError("Insufficient funds in this input to pay all fees. Use --new_inputs to lock or donate this amount.")
-
 
         used_slot = b["slot"] if not use_locking_slot else b["locking_slot"]
         amount = calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force)

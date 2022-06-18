@@ -347,14 +347,16 @@ class Donation:
         # dist_round only gives a value if we're inside the block limits of a round.
         # in the donation release phase, this gives None.
         dist_round = du.get_dist_round(proposal_txid)
+        print(dist_round)
 
         use_slot = False if (amount is not None) else True
+        use_locking_slot = True if dist_round in range(4) else False
 
         params = { "id" : "DD" , "prp" : proposal_txid }
 
-        basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, use_locking_slot=True, dist_round=dist_round, debug=debug)
+        basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, use_locking_slot=use_locking_slot, dist_round=dist_round, debug=debug)
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force, use_locking_slot=True, network_name=Settings.network, debug=debug)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, new_inputs=new_inputs, force=force, use_locking_slot=use_locking_slot, network_name=Settings.network, debug=debug)
 
         # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
         if new_inputs:
