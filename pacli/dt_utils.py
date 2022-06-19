@@ -242,52 +242,6 @@ def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=N
 
     return inputdata
 
-def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False, network_name=Settings.network):
-    # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
-    """Returns a dict with the amount of the reward and the deckid."""
-    # coin = coin_value(network_name=network_name)
-    ptx = proposal_from_tx(proposal_id, provider) # ptx is given directly to get_donation_state
-    deckid = ptx.deck.id
-    decimals = ptx.deck.number_of_decimals
-    if proposer:
-        if donor_address == ptx.donation_address:
-            print("Claiming tokens for the Proposer for missing donations ...")
-            pstate = get_proposal_state(provider, proposal_id)
-            reward = pstate.proposer_reward
-            result = {"donation_txid" : proposal_id}
-        else:
-            raise Exception("ERROR: Your donor address isn't the Proposer address, so you can't claim their tokens.")
-
-    else:
-
-        try:
-            ds = dmu.get_donation_states(provider, proposal_tx=ptx, address=donor_address, phase=1, debug=debug)[0]
-        except IndexError:
-            raise Exception("ERROR: No valid donation state found.")
-
-        # print("Your donation:", Decimal(ds.donated_amount) / coin, "coins")
-        print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")
-        if ds.donated_amount != ds.effective_slot:
-            print("Your effective slot value is different:", sats_to_coins(Decimal(ds.effective_slot), network_name=network_name))
-            print("The effective slot is taken into account for the token distribution.")
-        if (ds.donated_amount > 0) and (ds.effective_slot == 0):
-            print("Your slot is 0, there was a problem with your donation.")
-        reward = ds.reward
-        result = {"donation_txid" : ds.donation_tx.txid}
-
-    if reward < 1:
-       raise Exception("ERROR: Reward is zero or lower than one token unit.")
-
-    print("Token reward by distribution period:", ptx.deck.epoch_quantity)
-
-    if (proposer and pstate.dist_factor) or (ds.reward is not None):
-        formatted_reward = Decimal(reward) / 10 ** decimals
-        print("Your reward:", formatted_reward, "PoD tokens")
-    else:
-        raise Exception("ERROR: Proposal still not processed completely. Wait for the distribution period to end.")
-    result.update({"deckid" : deckid, "reward" : formatted_reward})
-    return result
-
 ## Inputs, outputs and Transactions
 
 def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, use_locking_slot: bool=False, debug: bool=False):
@@ -378,9 +332,11 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
             if available_amount <= 0:
                 raise ValueError("Insufficient funds in this input to pay all fees. Use --new_inputs to lock or donate this amount.")
 
-        used_slot = b["slot"] if not use_locking_slot else b["locking_slot"]
-        amount = calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force)
-
+        try:
+            used_slot = b["slot"] if not use_locking_slot else b["locking_slot"]
+            amount = calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force)
+        except KeyError:
+            amount = chosen_amount
     else:
         amount = chosen_amount
 
@@ -534,4 +490,52 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
                         print("Invalid Transaction:", txjson["txid"])
                     except (KeyError, IndexError, AssertionError):
                         continue
+
+# Reward calculation
+
+def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False, network_name=Settings.network):
+    # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
+    """Returns a dict with the amount of the reward and the deckid."""
+    # coin = coin_value(network_name=network_name)
+    ptx = proposal_from_tx(proposal_id, provider) # ptx is given directly to get_donation_state
+    deckid = ptx.deck.id
+    decimals = ptx.deck.number_of_decimals
+    if proposer:
+        if donor_address == ptx.donation_address:
+            print("Claiming tokens for the Proposer for missing donations ...")
+            pstate = get_proposal_state(provider, proposal_id)
+            reward = pstate.proposer_reward
+            result = {"donation_txid" : proposal_id}
+        else:
+            raise Exception("ERROR: Your donor address isn't the Proposer address, so you can't claim their tokens.")
+
+    else:
+
+        try:
+            ds = dmu.get_donation_states(provider, proposal_tx=ptx, address=donor_address, phase=1, debug=debug)[0]
+        except IndexError:
+            raise Exception("ERROR: No valid donation state found.")
+
+        # print("Your donation:", Decimal(ds.donated_amount) / coin, "coins")
+        print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")
+        if ds.donated_amount != ds.effective_slot:
+            print("Your effective slot value is different:", sats_to_coins(Decimal(ds.effective_slot), network_name=network_name))
+            print("The effective slot is taken into account for the token distribution.")
+        if (ds.donated_amount > 0) and (ds.effective_slot == 0):
+            print("Your slot is 0, there was a problem with your donation.")
+        reward = ds.reward
+        result = {"donation_txid" : ds.donation_tx.txid}
+
+    if reward < 1:
+       raise Exception("ERROR: Reward is zero or lower than one token unit.")
+
+    print("Token reward by distribution period:", ptx.deck.epoch_quantity)
+
+    if (proposer and pstate.dist_factor) or (ds.reward is not None):
+        formatted_reward = Decimal(reward) / 10 ** decimals
+        print("Your reward:", formatted_reward, "PoD tokens")
+    else:
+        raise Exception("ERROR: Proposal still not processed completely. Wait for the distribution period to end.")
+    result.update({"deckid" : deckid, "reward" : formatted_reward})
+    return result
 
