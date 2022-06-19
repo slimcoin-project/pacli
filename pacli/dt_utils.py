@@ -110,11 +110,11 @@ def get_dist_round(proposal_id, blockheight=None):
     """Provides the current dist round if blockheight is inside one."""
     period = get_period(proposal_id, blockheight)
     try:
-        assert (period[0] in ("B", "D")) and (period[1] >= 10)
-        if period[0] == "B":
-            return (period[1] // 10) - 1
-        elif period[0] == "D":
-            return (period[1] // 10) + 4 - 1
+        assert (period[0][0] in ("B", "D")) and (period[0][1] >= 10)
+        if period[0][0] == "B":
+            return (period[0][1] // 10) - 1
+        elif period[0][0] == "D":
+            return (period[0][1] // 10) + 4 - 1
     except AssertionError:
         return None
 

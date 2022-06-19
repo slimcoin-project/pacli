@@ -5,6 +5,7 @@ from pacli.provider import provider
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import json
+from decimal import Decimal
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 import pacli.dt_utils as du
 import pacli.dt_interface as di
@@ -126,6 +127,24 @@ class Proposal: ### DT ###
             # in the standard mode, some objects are shown in a simplified way.
             di.prepare_dict(pdict)
             pprint(pdict)
+
+    def available_slot_amount(self, proposal_txid: str, dist_round: int=None, all: bool=False, debug: bool=False):
+        '''Shows the available slot amount in a slot distribution round, or show all of them. Default is the current round, if the current blockheight is inside one.'''
+        pstate = dmu.get_proposal_state(provider, proposal_txid, debug=debug)
+        if all:
+            for rd, round_slot in enumerate(pstate.available_slot_amount):
+                pprint("Round {}: {}".format(rd, str(dmu.sats_to_coins(Decimal(round_slot), Settings.network))))
+            return
+
+        elif dist_round is None:
+            dist_round = du.get_dist_round(proposal_txid)
+            if dist_round is None:
+                print("ERROR: Current block height isn't inside a distribution round. Please provide one, or use --all.")
+                return
+
+        pprint("Available slot amount for round {}:".format(dist_round))
+        pprint(str(dmu.sats_to_coins(Decimal(pstate.available_slot_amount[dist_round]), Settings.network)))
+
 
     def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, also_origin: bool=False, debug: bool=False):
         '''Shows the donation states involving a certain address (default: current active address).'''
@@ -347,7 +366,6 @@ class Donation:
         # dist_round only gives a value if we're inside the block limits of a round.
         # in the donation release phase, this gives None.
         dist_round = du.get_dist_round(proposal_txid)
-        print(dist_round)
 
         use_slot = False if (amount is not None) else True
         use_locking_slot = True if dist_round in range(4) else False
