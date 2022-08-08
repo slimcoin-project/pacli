@@ -74,13 +74,21 @@ def dictmod_recursive(item): # recursive function for test.
     return item
 
 
-def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_donation_txes", "all_voting_txes"]):
+def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_donation_txes", "all_voting_txes"], only_id=[], only_ids=[]):
     # successor to update2levels
     # prepares a dict with 2 levels like ProposalState for prettyprinting.
+    # does not return the dictionary, but modify an existing one.
     for key, value in d.items():
         # first, rule out special cases where we want a simplified display (only the txid)
         if key in only_txids:
-           d[key] = [ t.txid for t in value ]
+           try:
+               d[key] = [ t.txid for t in value ]
+           except AttributeError: # gets thrown if trying to apply this to a dict instead of an object
+               d[key] = [ v.txid for k, v in value.items() ]
+        elif key in only_ids: # use for dictionaries
+           d[key] = [ v.id for k, v in value.items() ]
+        elif key in only_id:
+           d[key] = value.id
         else:
            d[key] = dictmod_recursive(value)
 

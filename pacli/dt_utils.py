@@ -279,7 +279,8 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
         amount = min(available_amount, effective_slot) if available_amount else effective_slot
         if amount == 0:
             raise Exception("No slot available for this donation. Transaction will not be created.")
-    elif new_inputs and (chosen_amount is not None):
+    # elif new_inputs and (chosen_amount is not None):
+    elif chosen_amount is not None:
         # effective_slot = None # TODO: Re-check if this solved the "No slot available" error.
         amount = chosen_amount
     elif available_amount is not None:

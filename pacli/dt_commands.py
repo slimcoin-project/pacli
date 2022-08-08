@@ -1,11 +1,13 @@
 # Commands specific for DT tokens in standard pacli classes
 
 import pacli.dt_utils as du
+import pacli.dt_interface as di
 import pypeerassets as pa
+import pypeerassets.at.dt_misc_utils as dmu
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.dt_parser_utils import deck_from_tx
+from pypeerassets.at.transaction_formats import setfmt
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
-import pypeerassets.at.dt_misc_utils as dmu
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -160,6 +162,16 @@ def list_dt_decks():
 
     return dt_decklist
 
+def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donations: bool=False):
+    # prints the ParserState (DTDeckState).
+    deck = deck_from_tx(deckid, provider)
+    pst_dict = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True, debug=debug, debug_voting=debug_voting, debug_donations=debug_donations).__dict__
+    di.prepare_dict(pst_dict, only_txids=["initial_cards", "sdp_cards", "donation_txes"], only_id=["sdp_deck", "deck"], only_ids = ["proposal_states", "approved_proposals", "valid_proposals"])
+    # di.prepare_complete_dict(pst.__dict__)
+
+    pprint(pst_dict)
+
+
 # Card
 
 def claim_pod_tokens(proposal_id: str, donor_address: str, payment: list=None, receiver: list=None, deckid: str=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False):
@@ -201,4 +213,4 @@ def claim_pod_tokens(proposal_id: str, donor_address: str, payment: list=None, r
 
     params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout}
     asset_specific_data = setfmt(params, tx_type="cardissue_dt")
-    return asset_specific_data
+    return asset_specific_data, receiver, payment, deckid

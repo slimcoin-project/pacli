@@ -343,6 +343,10 @@ class Deck:
         dt_decklist = dc.list_dt_decks()
         print_deck_list(dt_decklist)
 
+    def dt_state(self, deckid: str, debug: bool=False):
+        '''Prints the DT deck state.'''
+        dc.dt_state(deckid, debug)
+
 
 class Card:
 
@@ -579,7 +583,7 @@ class Card:
     def claim_pod_tokens(self, proposal_id: str, donor_address=Settings.key.address, payment: list=None, receiver: list=None, locktime: int=0, deckid: str=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
-        asset_specific_data = dc.claim_pod_tokens()
+        asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address, payment, receiver, deckid, donation_vout, donation_txid, proposer, force, debug)
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)
