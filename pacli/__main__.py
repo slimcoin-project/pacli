@@ -1,5 +1,3 @@
-## TODO: this is already the refactored version with Proposal and Donation in an own file!
-# removed imports: TxIn, read_tx_opreturn (are probably only used in dt_utils), all dt_entities (only TrackedTransaction was used in the Proposal/Donation class), all transaction formats, getfmt, get_votestate, create_unsigned_tx, get_donation_states, get_proposal_state, coin_value
 from typing import Optional, Union
 import operator
 import functools
@@ -331,10 +329,10 @@ class Deck:
 
         dc.init_dt_deck(Settings.network, deckid)
 
-    def dt_info(self, deckid: str):
+    def dt_info(self, deckid: str, p2th: bool=False):
         '''Prints DT-specific deck info.'''
 
-        pprint(dc.get_deckinfo(deckid))
+        pprint(dc.get_deckinfo(deckid, p2th))
 
     @classmethod
     def dt_list(self):
@@ -583,7 +581,10 @@ class Card:
     def claim_pod_tokens(self, proposal_id: str, donor_address=Settings.key.address, payment: list=None, receiver: list=None, locktime: int=0, deckid: str=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
-        asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address, payment, receiver, deckid, donation_vout, donation_txid, proposer, force, debug)
+        try:
+            asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address, payment, receiver, deckid, donation_vout, donation_txid, proposer, force, debug)
+        except TypeError:
+            return None
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)

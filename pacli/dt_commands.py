@@ -138,9 +138,20 @@ def init_dt_deck(network_name, deckid, rescan=True):
             provider.rescanblockchain()
     print("Done.")
 
-def get_deckinfo(deckid):
+def get_deckinfo(deckid, p2th: bool=False):
     d = deck_from_tx(deckid, provider)
-    return d.__dict__
+    d_dict = d.__dict__
+    if p2th:
+        print("Showing P2TH addresses.")
+        # the following code generates the addresses, so it's not necessary to add them to the dict.
+        p2th_dict = {"p2th_main": d.p2th_address,
+                      "p2th_proposal" : d.derived_p2th_address("proposal"),
+                      "p2th_signalling" : d.derived_p2th_address("signalling"),
+                      "p2th_locking" : d.derived_p2th_address("locking"),
+                      "p2th_donation" : d.derived_p2th_address("donation"),
+                      "p2th_voting" : d.derived_p2th_address("voting")}
+        # d_dict.update(p2th_dict)
+    return d_dict
 
 
 def list_dt_decks():
@@ -171,6 +182,9 @@ def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donation
 
     pprint(pst_dict)
 
+def show_p2th(self, proposal_id: str):
+    # prints all P2TH addresses
+    pass
 
 # Card
 

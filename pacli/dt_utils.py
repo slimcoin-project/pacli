@@ -160,7 +160,7 @@ def get_proposal_info(proposal_txid):
     return proposal_tx.__dict__
 
 def get_slot(proposal_id, donor_address, dist_round=None):
-    dstates = dmu.get_donation_states(provider=provider, proposal_id=proposal_id, address=donor_address)
+    dstates = dmu.get_donation_states(provider=provider, proposal_id=proposal_id, donor_address=donor_address)
     if dist_round:
         for state in dstates:
             if state.dist_round == dist_round:
@@ -210,11 +210,12 @@ def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
 def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_locking_slot=False):
     # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
     # TODO: "txid" and "vout" could be changed better into "input_txid" and "input_vout", because later it is mixed with data of the actual tx (not only the input tx).
+    # TODO: re-check what we really want to achieve with the "address" parameter. could it replaced by the donor address?
     # provides the following data: slot, txid and vout of signalling or locking tx, value of input.
     # starts the parser.
     inputdata = {}
     print("Searching for donation state for this transaction. Please wait.")
-    dstates = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, address=address, dist_round=dist_round, debug=debug)
+    dstates = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, donor_address=address, dist_round=dist_round, debug=debug)
     if not dstates:
         raise ValueError("No donation states found.")
     dstate = select_donation_state(dstates, tx_type, debug=debug)
@@ -513,9 +514,11 @@ def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False,
     else:
 
         try:
-            ds = dmu.get_donation_states(provider, proposal_tx=ptx, address=donor_address, phase=1, debug=debug)[0]
+            ds = dmu.get_donation_states(provider, proposal_tx=ptx, donor_address=donor_address, phase=1, debug=debug)[0]
         except IndexError:
             raise Exception("ERROR: No valid donation state found.")
+        if ds.state == "abandoned":
+            raise Exception("ERROR: Donation state was abandoned.")
 
         # print("Your donation:", Decimal(ds.donated_amount) / coin, "coins")
         print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")

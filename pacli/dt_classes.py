@@ -146,7 +146,7 @@ class Proposal: ### DT ###
         pprint(str(dmu.sats_to_coins(Decimal(pstate.available_slot_amount[dist_round]), Settings.network)))
 
 
-    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, also_origin: bool=False, debug: bool=False):
+    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, debug: bool=False):
         '''Shows the donation states involving a certain address (default: current active address).'''
         # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
         if all_addresses:
@@ -158,13 +158,12 @@ class Proposal: ### DT ###
             my_dstates = [d for d in all_dstates if d.donor_address in my_addresses]
             # print(my_dstates)
 
-        elif also_origin:
-            # Default behavior MODIFIED. Origin addresses are also taken into account by get_donation_states.
+        elif all_matches:
+            # Includes states where the current address is used as origin or intermediate address.
             my_dstates = dmu.get_donation_states(provider, proposal_id, address=address, debug=debug)
         else:
-            dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
-            my_dstates = [ d for d in dstates if d.donor_address == address ]
-            my_addresses = [address]
+            # Default behavior: only shows the state where the address is used as donor address.
+            my_dstates = dmu.get_donation_states(provider, proposal_id, donor_address=address, debug=debug)
 
         for pos, dstate in enumerate(my_dstates):
             pprint("Address: {}".format(dstate.donor_address))
@@ -290,6 +289,7 @@ class Proposal: ### DT ###
 
         pprint("Weights are shown in minimum token units.")
         pprint("The tokens' numbers of decimals don't matter for this view.")
+
 
 
 class Donation:
@@ -429,7 +429,7 @@ class Donation:
         if dist_round in (0, 3, 6, 7):
             return True
 
-        dstates = dmu.get_donation_states(provider, proposal_id, debug=debug, address=address)
+        dstates = dmu.get_donation_states(provider, proposal_id, debug=debug, donor_address=address)
         for ds in dstates:
             min_qualifying_amount = ds.slot * slot_fill_threshold
             if debug: print("Donation state id:", ds.id)
