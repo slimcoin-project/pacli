@@ -149,6 +149,7 @@ class Proposal: ### DT ###
     def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, debug: bool=False):
         '''Shows the donation states involving a certain address (default: current active address).'''
         # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
+
         if all_addresses:
 
             all_dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
@@ -167,7 +168,12 @@ class Proposal: ### DT ###
 
         for pos, dstate in enumerate(my_dstates):
             pprint("Address: {}".format(dstate.donor_address))
-            pprint("Label: {}".format(ke.show_label(dstate.donor_address)["label"]))
+            try:
+                # this will only work if the key corresponding to the address is in the user's keystore.
+                # We catch the exception to allow using it for others' addresses (no security issues involved).
+                pprint("Label: {}".format(ke.show_label(dstate.donor_address)["label"]))
+            except:
+                pass
             pprint("Donation state ID: {}".format(dstate.id))
 
             #pprint(dstate.__dict__)
