@@ -175,29 +175,26 @@ def list_dt_decks():
 
 def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donations: bool=False):
     # prints the ParserState (DTDeckState).
+
     deck = deck_from_tx(deckid, provider)
     pst_dict = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True, debug=debug, debug_voting=debug_voting, debug_donations=debug_donations).__dict__
     di.prepare_dict(pst_dict, only_txids=["initial_cards", "sdp_cards", "donation_txes"], only_id=["sdp_deck", "deck"], only_ids = ["proposal_states", "approved_proposals", "valid_proposals"])
-    # di.prepare_complete_dict(pst.__dict__)
+    # di.prepare_complete_collection(pst.__dict__)
 
     pprint(pst_dict)
 
-def show_p2th(self, proposal_id: str):
-    # prints all P2TH addresses
-    pass
-
 # Card
 
-def claim_pod_tokens(proposal_id: str, donor_address: str, payment: list=None, receiver: list=None, deckid: str=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False):
-
+def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False):
 
     if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
-        receiver = [Settings.key.address]
+        receiver = [donor_address]
 
     if not force:
-        print("Calculating reward ...")
+        beneficiary = "proposer" if proposer else "donor"
+        print("Calculating reward for {} ...".format(beneficiary))
         try:
-            reward_data = du.get_pod_reward_data(proposal_id, donor_address, proposer=proposer, debug=debug)
+            reward_data = du.get_pod_reward_data(proposal_id, donor_address, donation_state=donation_state, proposer=proposer, debug=debug)
         except Exception as e:
             print(e)
             return None

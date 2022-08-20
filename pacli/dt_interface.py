@@ -73,7 +73,6 @@ def dictmod_recursive(item): # recursive function for test.
         item = simpledict(item.__dict__, type(item))
     return item
 
-
 def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_donation_txes", "all_voting_txes"], only_id=[], only_ids=[]):
     # successor to update2levels
     # prepares a dict with 2 levels like ProposalState for prettyprinting.
@@ -93,10 +92,14 @@ def prepare_dict(d, only_txids=["all_signalling_txes", "all_locking_txes", "all_
            d[key] = dictmod_recursive(value)
 
 
-def prepare_complete_dict(d):
-    # version which shows always all items.
-    for key, value in d.items():
-        d[key] = show_recursive(value)
+def prepare_complete_collection(d):
+    if type(d) == dict:
+        # version which shows always all items.
+        for key, value in d.items():
+            d[key] = show_recursive(value)
+    if type(d) in (list, tuple, set):
+        for i, value in enumerate(d):
+            d[i] = show_recursive(value)
 
 def show_recursive(item):
     if type(item) == dict:

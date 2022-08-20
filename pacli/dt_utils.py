@@ -495,8 +495,7 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
 
 # Reward calculation
 
-def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False, network_name=Settings.network):
-    # VERSION with donation states. better because simplicity (proposal has to be inserted), and the convenience to use directly the get_donation_state function.
+def get_pod_reward_data(proposal_id, donor_address, donation_state=None, proposer=False, debug=False, network_name=Settings.network):
     """Returns a dict with the amount of the reward and the deckid."""
     # coin = coin_value(network_name=network_name)
     ptx = proposal_from_tx(proposal_id, provider) # ptx is given directly to get_donation_state
@@ -512,15 +511,21 @@ def get_pod_reward_data(proposal_id, donor_address, proposer=False, debug=False,
             raise Exception("ERROR: Your donor address isn't the Proposer address, so you can't claim their tokens.")
 
     else:
+        dstates = dmu.get_donation_states(provider, proposal_tx=ptx, donor_address=donor_address, phase=1, debug=debug)
 
-        try:
-            ds = dmu.get_donation_states(provider, proposal_tx=ptx, donor_address=donor_address, phase=1, debug=debug)[0]
-        except IndexError:
+        for ds in dstates:
+            if ds.state != "complete":
+                if debug: print("Ignoring incomplete or abandoned donation state.")
+                continue
+            if donation_state is not None:
+                if donation_state == ds.id:
+                    break
+            else:
+                if ds.donor_address == donor_address:
+                    break # this selects always the first completed state. Otherwise you have to provide the id.
+        else:
             raise Exception("ERROR: No valid donation state found.")
-        if ds.state == "abandoned":
-            raise Exception("ERROR: Donation state was abandoned.")
 
-        # print("Your donation:", Decimal(ds.donated_amount) / coin, "coins")
         print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")
         if ds.donated_amount != ds.effective_slot:
             print("Your effective slot value is different:", sats_to_coins(Decimal(ds.effective_slot), network_name=network_name))

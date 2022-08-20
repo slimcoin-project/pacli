@@ -578,11 +578,15 @@ class Card:
                              verify=verify, locktime=locktime, sign=sign, send=send)
 
     @classmethod ### NEW FEATURE - DT ###
-    def claim_pod_tokens(self, proposal_id: str, donor_address=Settings.key.address, payment: list=None, receiver: list=None, locktime: int=0, deckid: str=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
+    def claim_pod_tokens(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_vout: int=2, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
+        if donor_address is not None:
+            print("You provided a custom address. You will only be able to do a dry run, not to actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
+            sign, send = False, False
+
         try:
-            asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address, payment, receiver, deckid, donation_vout, donation_txid, proposer, force, debug)
+            asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_vout=donation_vout, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug)
         except TypeError:
             return None
 

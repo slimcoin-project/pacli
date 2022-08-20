@@ -108,29 +108,41 @@ class Proposal: ### DT ###
                         result.append("Donation transactions: {}".format(len([d for rd in pstate.donation_txes for d in rd])))
                     print("\n*", "\n    ".join(result))
 
-    def info(self, proposal_txid):
+    def info(self, proposal_txid: str) -> None:
         '''Get basic info of a proposal.'''
         info = du.get_proposal_info(proposal_txid)
         pprint(info)
 
-    def state(self, proposal_txid, debug=False, simple=False, complete=False):
+    def state(self, proposal_id: str, param: str=None, debug: bool=False, simple: bool=False, complete: bool=False, raw: bool=False) -> None:
         '''Shows a single proposal state.'''
-        pstate = dmu.get_proposal_state(provider, proposal_txid, debug=debug)
+        pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
         pdict = pstate.__dict__
-        if simple:
+        if param is not None:
+            result = pdict.get(param)
+            if raw:
+                di.prepare_complete_collection(result)
+                print(result)
+            else:
+                di.prepare_dict({"result" : result})
+                pprint("Value of parameter {} for proposal {}:".format(param, proposal_id))
+                pprint(result)
+        elif raw:
+            di.prepare_complete_collection(pdict)
+            print(pdict)
+        elif simple:
             pprint(pdict)
         elif complete:
-            di.prepare_complete_dict(pdict)
+            di.prepare_complete_collection(pdict)
             pprint(pdict)
         else:
-            pprint("Proposal State " + proposal_txid + ":")
+            pprint("Proposal State " + proposal_id + ":")
             # in the standard mode, some objects are shown in a simplified way.
             di.prepare_dict(pdict)
             pprint(pdict)
 
-    def available_slot_amount(self, proposal_txid: str, dist_round: int=None, all: bool=False, debug: bool=False):
+    def available_slot_amount(self, proposal_id: str, dist_round: int=None, all: bool=False, debug: bool=False):
         '''Shows the available slot amount in a slot distribution round, or show all of them. Default is the current round, if the current blockheight is inside one.'''
-        pstate = dmu.get_proposal_state(provider, proposal_txid, debug=debug)
+        pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
         if all:
             for rd, round_slot in enumerate(pstate.available_slot_amount):
                 pprint("Round {}: {}".format(rd, str(dmu.sats_to_coins(Decimal(round_slot), Settings.network))))
