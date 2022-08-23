@@ -191,7 +191,7 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
         receiver = [donor_address]
 
     if not force:
-        beneficiary = "proposer" if proposer else "donor"
+        beneficiary = "proposer" if proposer else "donor {}".format(donor_address)
         print("Calculating reward for {} ...".format(beneficiary))
         try:
             reward_data = du.get_pod_reward_data(proposal_id, donor_address, donation_state=donation_state, proposer=proposer, debug=debug)

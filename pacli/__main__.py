@@ -581,7 +581,9 @@ class Card:
     def claim_pod_tokens(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_vout: int=2, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
-        if donor_address is not None:
+        if donor_address is None:
+            donor_address = Settings.key.address
+        else:
             print("You provided a custom address. You will only be able to do a dry run, not to actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
             sign, send = False, False
 
