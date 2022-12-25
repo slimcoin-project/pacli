@@ -35,6 +35,7 @@ from pacli.config import (write_default_config,
 import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
 from pacli.dt_classes import Proposal, Donation
+from pacli.dex_classes import Dex
 
 # TODO: P2PK is now supported, but only for the TrackedTransaction class. Extend to deck spawns, card transfers etc.
 
