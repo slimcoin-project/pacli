@@ -16,6 +16,7 @@ from pypeerassets.provider.rpcnode import Sequence
 import pypeerassets as pa
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
 import pypeerassets.at.dt_misc_utils as dmu
+import pypeerassets.hash_encoding as henc
 import json
 from decimal import Decimal
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
@@ -28,7 +29,7 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, sign: bool=False, send: bool=False):
+def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, sign: bool=False, send: bool=False):
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
     """data = b"L"
@@ -39,7 +40,16 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
     #    lockaddr_bytes = lockaddr.encode("utf-8") # TODO: change to base58!
     #else:
     #    lockaddr_bytes = None
-
+    try:
+        lockhash_type = henc.HASHTYPE.index(addrtype)
+    except IndexError:
+        print("Address type incorrect. Supported types:", ", ".join(HASHTYPE))
+    if lockaddr is not None:
+        if addrtype in ("p2pkh", "p2sh"):
+           lockhash = henc.address_to_hash(lockaddr, lockhash_type, net_query(provider.network))
+        else:
+           print("Segwit, Taproot and hashlocks still not supported.")
+           raise NotImplementedError
 
     deck = deck_from_tx(deckid, provider)
 
@@ -50,7 +60,8 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
                                amount=[amount_to_exponent(amount, deck.number_of_decimals)],
                                version=deck.version,
                                locktime=lock,
-                               lock_address=lockaddr
+                               lockhash=lockhash,
+                               lockhash_type=lockhash_type
                                )
 
     issue = pa.card_transfer(provider=provider,

@@ -638,7 +638,8 @@ def main():
         'transaction': Transaction(),
         'coin': Coin(),
         'proposal' : Proposal(),
-        'donation' : Donation()
+        'donation' : Donation(),
+        'dex' : Dex()
         })
 
 
