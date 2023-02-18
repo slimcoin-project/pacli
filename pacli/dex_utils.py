@@ -261,4 +261,29 @@ def create_card_exchange(provider: Provider, card: CardTransfer, inputs: dict, c
     return unsigned_tx
 
 
+def select_utxos(minvalue: Decimal, address: str=None, minconf: int=1, maxconf: int=99999999, maxvalue=None, utxo_type=None):
+
+    utxos = provider.listunspent(address=address, minconf=minconf, maxconf=maxconf)
+    selected_utxos = []
+
+    for utxo in utxos:
+        if minvalue is not None and utxo["amount"] < minvalue:
+            continue
+        if maxvalue is not None and utxo["amount"] > maxvalue:
+            continue
+        if utxo_type is not None:
+            utxo_tx = provider.getrawtransaction(utxo["txid"], 1)
+            utype = utxo_tx["vout"][utxo["vout"]]["scriptPubKey"]["type"]
+            if utxo_type != utype:
+                continue
+
+        selected_utxos.append(utxo)
+
+    print(len(selected_utxos), "matching utxos found.")
+    print("Use this format (TXID:OUTPUT) to initiate a new exchange.")
+    for utxo in selected_utxos:
+        pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
+        print("Amount: {} coins".format(utxo.get("amount")))
+
+
 

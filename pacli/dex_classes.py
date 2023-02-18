@@ -1,6 +1,7 @@
 import pacli.dex_utils as dxu
 from decimal import Decimal
-from .provider import provider
+from pacli.provider import provider
+from pacli.config import Settings
 
 class Dex:
 
@@ -23,3 +24,11 @@ class Dex:
         cards = dxu.pa.find_all_valid_cards(dxu.provider, deck)
         state = dxu.pa.protocol.DeckState(cards, cleanup_height=provider.getblockcount())
         return state.locks
+
+    @classmethod
+    def select_coins(self, amount, address=None, utxo_type="pubkeyhash"):
+        # alternative to get_unspent, prints out all suitable utxos.
+        if address is None:
+            address = Settings.key.address
+        return dxu.select_utxos(minvalue=amount, address=address, utxo_type=utxo_type)
+
