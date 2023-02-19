@@ -29,21 +29,21 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, sign: bool=False, send: bool=False):
+def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, sign: bool=False, send: bool=False):
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
-    """data = b"L"
-    data += lock.to_bytes(4, "big")
-    if lockaddr is not None:
-        data += lockaddr.encode("utf-8")"""
-    #if lockaddr is not None:
-    #    lockaddr_bytes = lockaddr.encode("utf-8") # TODO: change to base58!
-    #else:
-    #    lockaddr_bytes = None
+    current_blockheight = provider.getblockcount()
+    if absolute:
+        locktime = lock
+        if lock < current_blockheight:
+             print("ERROR: Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
+    else:
+        locktime = lock + current_blockheight
+    print("Locking tokens until block {} (current blockheight: {})".format(locktime, current_blockheight))
     try:
         lockhash_type = henc.HASHTYPE.index(addrtype)
     except IndexError:
-        print("Address type incorrect. Supported types:", ", ".join(HASHTYPE))
+        print("Address type incorrect. Supported types:", ", ".join(henc.HASHTYPE))
     if lockaddr is not None:
         if addrtype in ("p2pkh", "p2sh"):
            lockhash = henc.address_to_hash(lockaddr, lockhash_type, net_query(provider.network))
@@ -89,7 +89,6 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
         coinseller_change_address = coinseller_address
 
     print("Change of the coins sold will be sent to address", coinseller_change_address)
-    # print("Card data:", card)
 
     coinseller_input_values = coinseller_input.split(":")
     coinseller_input_txid, coinseller_input_vout = coinseller_input_values[0], int(coinseller_input_values[1])
@@ -285,5 +284,17 @@ def select_utxos(minvalue: Decimal, address: str=None, minconf: int=1, maxconf: 
         pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
         print("Amount: {} coins".format(utxo.get("amount")))
 
-
+def prettyprint_locks(locks: dict):
+    print("Current locks:")
+    for address in locks.keys():
+        pprint("Address: {}".format(address))
+        for lock in locks.get(address):
+            pprint("* Lock until block: {}".format(lock.get("locktime")))
+            try:
+                lock_address = henc.hash_to_address(lock.get("lockhash"), lock.get("lockhash_type"), net_query(provider.network))
+                pprint("* Lock address: {}".format(lock_address))
+            except NotImplementedError:
+                print("Non-standard lock or address type still not supported. Showing raw data:")
+                print("* Lock hash: {}".format(lock.get("lockhash")))
+                print("* Lock hash type: {}".format(lock.get("lockhash_type")))
 
