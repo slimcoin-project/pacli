@@ -66,7 +66,9 @@ class Proposal: ### DT ###
         try:
             pstate_periods = du.get_proposal_state_periods(deckid, block, advanced=advanced, debug=debug)
         except KeyError:
-            pprint("Error, unconfirmed proposals in mempool. Wait until they are confirmed.")
+            pprint("Error, unconfirmed proposals in mempool or deck not initialized correctly.")
+            pprint("Check if you have initialized the deck with dt_init. Or wait until all proposals are confirmed.")
+            # TODO: we can't rely on this, if there are many proposals maybe always there are some unconfirmed.
             return
         except ValueError as ve:
             if len(ve.args) > 0:
@@ -229,10 +231,14 @@ class Proposal: ### DT ###
 
                     print("{}: {}".format(item, value))
 
-    def create(self, deckid: str, req_amount: str, periods: int, slot_allocation_duration: int, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False):
+    def create(self, deckid: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
         '''Creates a new proposal.'''
+        # MODIFIED: round_length is now optional.
+        # There's a standard "optimal" round length applying, depending on Deck.epoch_length.
+        # The standard round length is calculated in pypeerassets.protocol.
+        # params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
 
-        params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
+        params = { "id" : b"DP" , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : first_ptx }
 
         basic_tx_data = du.get_basic_tx_data("proposal", deckid=deckid, input_address=Settings.key.address)
 
@@ -240,7 +246,7 @@ class Proposal: ### DT ###
 
         return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
-    def vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True):
+    def vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True, debug: bool=False):
         '''Vote (with "yes" or "no") for a proposal'''
 
         if (check_phase is not None) or (wait == True):
@@ -249,16 +255,18 @@ class Proposal: ### DT ###
                 return
 
         if vote in ("+", "positive", "p", "1", "yes", "y", "true"):
-            votechar = "+"
+            votechar, vote_bool = "+", True # TODO: do we need "votechar"? Or is bool better? (leave it open for now)
         elif vote in ("-", "negative", "n", "0", "no", "n", "false"):
-            votechar = "-"
+            votechar, vote_bool = "-", False
         else:
             print("ERROR: Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
 
-        vote_readable = "Positive" if votechar == "+" else "Negative"
+        # vote_readable = "Positive" if votechar == "+" else "Negative"
         # print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
 
-        params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
+        # params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
+        ### PROTOBUF
+        params = { "id" : b"DV" , "proposal_id" : proposal_id, "vote" : vote_bool }
 
         basic_tx_data = du.get_basic_tx_data("voting", proposal_id=proposal_id, input_address=input_address)
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
@@ -337,7 +345,9 @@ class Donation:
             if (check_round is not None) and (check_round < 4):
                 print("Additionally, locking the transaction requires {} coins, so total fees sum up to {}.".format(total_tx_fee, total_tx_fee * 2))
 
-        params = { "id" : "DS" , "prp" : proposal_txid }
+        # params = { "id" : "DS" , "prp" : proposal_txid }
+        ### PROTOBUF
+        params = { "id" : b"DS" , "proposal_id" : proposal_txid }
         basic_tx_data = du.get_basic_tx_data("signalling", proposal_id=proposal_txid, input_address=Settings.key.address)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, debug=debug, network_name=Settings.network)
@@ -366,7 +376,10 @@ class Donation:
             use_slot = True
 
         # timelock and dest_address are saved in the transaction, to be able to reconstruct redeem script
-        params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
+        # params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
+        ### PROTOBUF
+        lockhash_type = 2 # TODO: P2PKH is hardcoded now, but should be done by a check on the submitted addr.
+        params = { "id" : b"DL", "proposal_id" : proposal_txid, "timelock" : cltv_timelock, "address" : dest_address, "lockhash_type" : lockhash_type }
         basic_tx_data = du.get_basic_tx_data("locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, dist_round=dist_round)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
@@ -388,7 +401,9 @@ class Donation:
         use_slot = False if (amount is not None) else True
         use_locking_slot = True if dist_round in range(4) else False
 
-        params = { "id" : "DD" , "prp" : proposal_txid }
+        # params = { "id" : "DD" , "prp" : proposal_txid }
+        ### PROTOBUF
+        params = { "id" : b"DD" , "proposal_id" : proposal_txid }
 
         basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, use_locking_slot=use_locking_slot, dist_round=dist_round, debug=debug)
 

@@ -2,7 +2,9 @@ from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransacti
 from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
-from pypeerassets.at.transaction_formats import P2TH_MODIFIER, PROPOSAL_FORMAT, TX_FORMATS, getfmt, setfmt
+# from pypeerassets.at.transaction_formats import setfmt
+from pypeerassets.networks import net_query
+from pypeerassets.at.protobuf_utils import serialize_ttx_metadata
 from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
@@ -133,7 +135,7 @@ def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
     result = {}
     deck = deck_from_tx(deckid, provider)
     try:
-       assert deck.at_type == "DT"
+       assert deck.at_type == b"DT"
     except (AssertionError, AttributeError):
        raise ValueError("Not a DT Proof of Donation deck.")
 
@@ -344,9 +346,14 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
 
     # print("Amount:", amount, "available", available_amount, "input value", input_value, "slot", slot)
 
-    data = setfmt(params, tx_type=b["tx_type"])
+    # data = setfmt(params, tx_type=b["tx_type"])
+    # CHANGED TO PROTOBUF
+    params["ttx_version"] = 1 # NEW. for future upgradeability.
+    data = serialize_ttx_metadata(params=params, network=net_query(provider.network))
+    proposal_txid = params.get("proposal_id")
 
-    return create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=b.get("redeem_script"))
+
+    return create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=b.get("redeem_script"))
 
 def calculate_timelock(proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
@@ -547,4 +554,3 @@ def get_pod_reward_data(proposal_id, donor_address, donation_state=None, propose
         raise Exception("ERROR: Proposal still not processed completely. Wait for the distribution period to end.")
     result.update({"deckid" : deckid, "reward" : formatted_reward})
     return result
-

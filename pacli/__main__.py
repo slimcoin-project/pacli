@@ -15,7 +15,6 @@ from pypeerassets.pautils import (amount_to_exponent,
                                   )
 from pypeerassets.transactions import NulldataScript
 from pypeerassets.__main__ import get_card_transfer
-from pypeerassets.at.transaction_formats import setfmt
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -276,47 +275,21 @@ class Deck:
              })
 
     @classmethod
-    def at_spawn_old(self, name, tracked_address, verify: bool=False, sign: bool=False,
-              send: bool=False, locktime: int=0, multiplier=1, number_of_decimals=2, version=1) -> None: ### ADDRESSTRACK ###
+    def at_spawn(self, name, tracked_address, verify: bool=False, sign: bool=False,
+              send: bool=False, locktime: int=0, multiplier=1, number_of_decimals=2, version=1) -> None: ### ADDRESSTRACK
         '''Wrapper to facilitate addresstrack spawns without having to deal with asset_specific_data.'''
-        # TODO: format has changed
-        if version == 0:
-            asset_specific_data = b"trk:" + tracked_address.encode("utf-8") + b":" + str(multiplier).encode("utf-8")
-        elif version == 1:
-            b_identifier = b'AT'
-            b_multiplier = multiplier.to_bytes(2, "big")
-            b_address = tracked_address.encode("utf-8")
-            asset_specific_data = b_identifier + b_multiplier + b_address
+
+        asset_specific_data = dc.create_deckspawn_data(b"AT", at_address=tracked_address, multiplier=multiplier)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
 
     @classmethod
-    def dt_spawn(self, name: str, dp_length: int, dp_quantity: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
+    def dt_spawn(self, name: str, dp_length: int, dp_reward: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
         '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
-        #TODO: transform into new format without the manual byte setting
 
-        b_identifier = b'DT'
-
-        try:
-
-            b_dp_length = dp_length.to_bytes(3, "big")
-            b_dp_quantity = dp_quantity.to_bytes(2, "big")
-            b_min_vote = min_vote.to_bytes(1, "big")
-
-            if sdp_periods:
-                b_sdp_periods = sdp_periods.to_bytes(1, "big")
-                #b_sdp_deck = sdp_deck.to_bytes(32, "big")
-                b_sdp_deck = bytearray.fromhex(sdp_deck)
-                print(b_sdp_deck)
-            else:
-                b_sdp_periods, b_sdp_deck = b'', b''
-
-        except OverflowError:
-            raise ValueError("Deck spawn: at least one parameter overflowed.")
-
-        asset_specific_data = b_identifier + b_dp_length + b_dp_quantity + b_min_vote + b_sdp_periods + b_sdp_deck
+        asset_specific_data = dc.create_deckspawn_data(b"DT", dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
@@ -590,7 +563,8 @@ class Card:
 
         try:
             asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_vout=donation_vout, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug)
-        except TypeError:
+        except TypeError as e:
+            print("Error:", e)
             return None
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,

@@ -6,8 +6,11 @@ import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.dt_parser_utils import deck_from_tx
-from pypeerassets.at.transaction_formats import setfmt
+# from pypeerassets.at.transaction_formats import setfmt
+from pypeerassets.at.protobuf_utils import serialize_card_extended_data, serialize_deck_extended_data
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
+from pypeerassets.networks import net_query
+from pypeerassets.pautils import load_deck_p2th_into_local_node
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -166,7 +169,7 @@ def list_dt_decks():
     dt_decklist = []
     for d in decks:
         try:
-            if d.at_type == "DT":
+            if d.at_type == b"DT":
                 dt_decklist.append(d)
         except AttributeError:
             continue
@@ -222,6 +225,61 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
             payment.append(rest_amount)
 
 
-    params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout}
-    asset_specific_data = setfmt(params, tx_type="cardissue_dt")
+    # params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout}
+    # asset_specific_data = setfmt(params, tx_type="cardissue_dt")
+    # CHANGED TO PROTOBUF. params dict not longer needed.
+    asset_specific_data = serialize_card_extended_data(net_query(provider.network), id="DT", txid=donation_txid, vout=donation_vout)
     return asset_specific_data, receiver, payment, deckid
+
+def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None):
+
+    if identifier in ("AT", "DT"):
+        identifier = identifier.encode("utf-8") # ensure bytes format. Probably not really necessary.
+
+    if identifier == b"DT":
+
+        params = {"at_type" : identifier,
+                 "epoch_length" : int(epoch_length),
+                 "epoch_quantity": int(epoch_reward),
+                 "min_vote" : int(min_vote),
+                 "sdp_deckid" : bytes.fromhex(sdp_deckid),
+                 "sdp_periods" : int(sdp_periods)}
+
+
+        """if version == 0:
+            asset_specific_data = b"trk:" + tracked_address.encode("utf-8") + b":" + str(multiplier).encode("utf-8")
+        elif version == 1:
+            b_identifier = b'AT'
+            b_multiplier = multiplier.to_bytes(2, "big")
+            b_address = tracked_address.encode("utf-8")
+            asset_specific_data = b_identifier + b_multiplier + b_address"""
+
+    elif identifier == b"AT":
+
+        params = {"at_type" : identifier,
+                  "multiplier" : int(multiplier),
+                  "at_address" : at_address,
+                  "addr_type" : int(addr_type)}
+
+    return serialize_deck_extended_data(net_query(provider.network), params=params)
+
+    """b_identifier = b'DT'
+
+        try:
+
+            b_dp_length = dp_length.to_bytes(3, "big")
+            b_dp_quantity = dp_quantity.to_bytes(2, "big")
+            b_min_vote = min_vote.to_bytes(1, "big")
+
+            if sdp_periods:
+                b_sdp_periods = sdp_periods.to_bytes(1, "big")
+                #b_sdp_deck = sdp_deck.to_bytes(32, "big")
+                b_sdp_deck = bytearray.fromhex(sdp_deck)
+                print(b_sdp_deck)
+            else:
+                b_sdp_periods, b_sdp_deck = b'', b''
+
+        except OverflowError:
+            raise ValueError("Deck spawn: at least one parameter overflowed.")
+
+        asset_specific_data = b_identifier + b_dp_length + b_dp_quantity + b_min_vote + b_sdp_periods + b_sdp_deck"""
