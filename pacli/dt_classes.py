@@ -231,16 +231,19 @@ class Proposal: ### DT ###
 
                     print("{}: {}".format(item, value))
 
-    def create(self, deckid: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, first_ptx: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
+    def create(self, deckid: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, modify: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
         '''Creates a new proposal.'''
+
+        basic_tx_data = du.get_basic_tx_data("proposal", deckid=deckid, input_address=Settings.key.address)
+
         # MODIFIED: round_length is now optional.
         # There's a standard "optimal" round length applying, depending on Deck.epoch_length.
         # The standard round length is calculated in pypeerassets.protocol.
-        # params = { "id" : "DP" , "dck" : deckid, "eps" : int(periods), "sla" : int(slot_allocation_duration), "amt" : int(req_amount), "ptx" : first_ptx}
+        # MODIFIED: --modify replaces --first_ptx (usability)
+        if round_length == 0:
+            print("Using standard round length of the deck:", basic_tx_data["deck"].standard_round_length)
 
-        params = { "id" : b"DP" , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : first_ptx }
-
-        basic_tx_data = du.get_basic_tx_data("proposal", deckid=deckid, input_address=Settings.key.address)
+        params = { "id" : b"DP" , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : modify }
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
