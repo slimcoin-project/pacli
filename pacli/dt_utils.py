@@ -4,7 +4,7 @@ from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
 # from pypeerassets.at.transaction_formats import setfmt
 from pypeerassets.networks import net_query
-from pypeerassets.at.protobuf_utils import serialize_ttx_metadata, parse_ttx_metadata
+from pypeerassets.at.protobuf_utils import serialize_ttx_metadata, parse_protobuf
 from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
@@ -348,6 +348,8 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
     # CHANGED TO PROTOBUF
     params["ttx_version"] = 1 # NEW. for future upgradeability.
     data = serialize_ttx_metadata(params=params, network=net_query(provider.network))
+    if debug:
+        print("OP_RETURN size: {} bytes".format(len(data)))
     proposal_txid = params.get("proposal_id")
 
 
@@ -417,7 +419,7 @@ def create_trackedtx(txid=None, txhex=None):
         raw_tx = provider.decoderawtransaction(txhex)
     try:
         opreturn = read_tx_opreturn(raw_tx["vout"][1])
-        txident = parse_ttx_metadata(opreturn).id
+        txident = parse_protobuf(opreturn, "ttx")["id"]
     except KeyError:
         print("Transaction not found or incorrect format.")
 

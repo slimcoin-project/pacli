@@ -245,9 +245,23 @@ class Proposal: ### DT ###
 
         params = { "id" : b"DP" , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : modify }
 
-        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network, debug=debug)
 
         return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
+
+    def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, modify: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
+        # new command to modify without having to provide deckid. Would have changes in protobuf.
+
+        old_proposal_tx = dmu.proposal_from_tx(proposal_id, provider)
+        basic_tx_data = du.get_basic_tx_data("proposal", deckid=old_proposal_tx.deck.id, input_address=Settings.key.address)
+
+        if round_length == 0:
+            print("Using standard round length of the deck:", basic_tx_data["deck"].standard_round_length)
+
+        params = { "id" : b"DP" , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : proposal_id }
+
+        rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network, debug=debug)
+
 
     def vote(self, proposal_id: str, vote: str, p2th_fee: str="0.01", tx_fee: str="0.01", change_address: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, check_phase: int=None, wait: bool=False, confirm: bool=True, debug: bool=False):
         '''Vote (with "yes" or "no") for a proposal'''
@@ -404,8 +418,6 @@ class Donation:
         use_slot = False if (amount is not None) else True
         use_locking_slot = True if dist_round in range(4) else False
 
-        # params = { "id" : "DD" , "prp" : proposal_txid }
-        ### PROTOBUF
         params = { "id" : b"DD" , "proposal_id" : proposal_txid }
 
         basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, use_locking_slot=use_locking_slot, dist_round=dist_round, debug=debug)

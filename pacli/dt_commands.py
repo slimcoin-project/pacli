@@ -242,17 +242,8 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
                  "epoch_length" : int(epoch_length),
                  "epoch_quantity": int(epoch_reward),
                  "min_vote" : int(min_vote),
-                 "sdp_deckid" : bytes.fromhex(sdp_deckid),
-                 "sdp_periods" : int(sdp_periods)}
-
-
-        """if version == 0:
-            asset_specific_data = b"trk:" + tracked_address.encode("utf-8") + b":" + str(multiplier).encode("utf-8")
-        elif version == 1:
-            b_identifier = b'AT'
-            b_multiplier = multiplier.to_bytes(2, "big")
-            b_address = tracked_address.encode("utf-8")
-            asset_specific_data = b_identifier + b_multiplier + b_address"""
+                 "sdp_deckid" : bytes.fromhex(sdp_deckid) if sdp_deckid else b"",
+                 "sdp_periods" : int(sdp_periods) if sdp_periods else 0 }
 
     elif identifier == b"AT":
 
@@ -262,24 +253,3 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
                   "addr_type" : int(addr_type)}
 
     return serialize_deck_extended_data(net_query(provider.network), params=params)
-
-    """b_identifier = b'DT'
-
-        try:
-
-            b_dp_length = dp_length.to_bytes(3, "big")
-            b_dp_quantity = dp_quantity.to_bytes(2, "big")
-            b_min_vote = min_vote.to_bytes(1, "big")
-
-            if sdp_periods:
-                b_sdp_periods = sdp_periods.to_bytes(1, "big")
-                #b_sdp_deck = sdp_deck.to_bytes(32, "big")
-                b_sdp_deck = bytearray.fromhex(sdp_deck)
-                print(b_sdp_deck)
-            else:
-                b_sdp_periods, b_sdp_deck = b'', b''
-
-        except OverflowError:
-            raise ValueError("Deck spawn: at least one parameter overflowed.")
-
-        asset_specific_data = b_identifier + b_dp_length + b_dp_quantity + b_min_vote + b_sdp_periods + b_sdp_deck"""
