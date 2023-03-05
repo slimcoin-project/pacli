@@ -231,7 +231,7 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
     asset_specific_data = serialize_card_extended_data(net_query(provider.network), id="DT", txid=donation_txid, vout=donation_vout)
     return asset_specific_data, receiver, payment, deckid
 
-def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None):
+def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2):
 
     if identifier in ("AT", "DT"):
         identifier = identifier.encode("utf-8") # ensure bytes format. Probably not really necessary.

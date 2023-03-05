@@ -33,6 +33,8 @@ from pacli.config import (write_default_config,
 
 import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
+from pacli.at_classes import AT
+from pacli.at_utils import create_at_issuance_data
 from pacli.dt_classes import Proposal, Donation
 from pacli.dex_classes import Dex
 
@@ -520,33 +522,14 @@ class Card:
         return tracked_address.decode("utf-8"), int(multiplier)
 
     @classmethod ### NEW FEATURE - AT ###
-    def at_issue(self, deckid: str, txid: str, receiver: list=None, amount: list=None,
-              locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False) -> str:
+    def claim_at_tokens(self, deckid: str, txid: str, vout: int=None, receiver: list=None, amount: list=None,
+              locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False) -> str:
         '''To simplify self.issue, all data is taken from the transaction.'''
+        # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
-        tracked_address, multiplier = self.__find_deck_data(deckid)
-        spending_tx = provider.getrawtransaction(txid, 1)
+        deck = self.__find_deck(deckid)
 
-        for output in spending_tx["vout"]:
-            if tracked_address in output["scriptPubKey"]["addresses"]:
-                vout = str(output["n"]).encode("utf-8")
-                spent_amount = output["value"] * multiplier
-                break
-        else:
-            raise Exception("No vout of this transaction spends to the tracked address")
-
-        if not receiver: # if there is no receiver, spends to himself.
-            receiver = [Settings.key.address]
-
-        if not amount:
-            amount = [spent_amount]
-
-        if (sum(amount) != spent_amount) and (not force):
-            raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
-
-        # TODO: for now, hardcoded asset data; should be a pa function call
-        asset_specific_data = b"tx:" + txid.encode("utf-8") + b":" + vout
-
+        asset_specific_data, amount, receiver = create_at_issuance_data(deck, txid, amount=amount, donation_vout=vout, debug=debug)
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)
@@ -613,6 +596,7 @@ def main():
         'coin': Coin(),
         'proposal' : Proposal(),
         'donation' : Donation(),
+        'at' : AT(),
         'dex' : Dex()
         })
 
