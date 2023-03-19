@@ -262,7 +262,7 @@ class Proposal: ### DT ###
     def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, modify: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
         # new command to modify without having to provide deckid. Would have changes in protobuf.
 
-        old_proposal_tx = dmu.proposal_from_tx(proposal_id, provider)
+        old_proposal_tx = dmu.find_proposal(proposal_id, provider)
         basic_tx_data = du.get_basic_tx_data("proposal", deckid=old_proposal_tx.deck.id, input_address=Settings.key.address)
 
         if round_length == 0:
@@ -319,7 +319,7 @@ class Proposal: ### DT ###
     def voters(self, proposal_id: str, debug: bool=False, blockheight: int=None):
         '''Shows enabled voters and their balance at the start of the current epoch or at a defined blockheight.'''
 
-        proposal_tx = dmu.proposal_from_tx(proposal_id, provider)
+        proposal_tx = dmu.find_proposal(proposal_id, provider)
 
         parser_state = dmu.get_parser_state(provider, deck=proposal_tx.deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
 

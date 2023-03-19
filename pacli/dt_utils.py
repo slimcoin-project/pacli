@@ -2,10 +2,9 @@ from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransacti
 from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
-# from pypeerassets.at.transaction_formats import setfmt
 from pypeerassets.networks import net_query
 from pypeerassets.at.protobuf_utils import serialize_ttx_metadata, parse_protobuf
-from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, sats_to_coins, coins_to_sats
+from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, find_proposal, get_parser_state, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
@@ -51,7 +50,7 @@ def check_current_period(proposal_txid, tx_type, dist_round=None, phase=None, re
         return False
 
     print("Target period: {}{}".format(target_period[0],str(target_period[1])))
-    proposal_tx = proposal_from_tx(proposal_txid, provider)
+    proposal_tx = find_proposal(proposal_txid, provider)
     ps = ProposalState(first_ptx=proposal_tx, valid_ptx=proposal_tx)
     startblock, endblock = dp.get_startendvalues(target_period, ps)
 
@@ -92,7 +91,7 @@ def get_next_suitable_period(tx_type, period, dist_round=None):
 def dummy_pstate(proposal_txid):
     """Creates a dummy ProposalState from a ProposalTransaction ID without any parser information."""
     try:
-        proposal_tx = proposal_from_tx(proposal_txid, provider)
+        proposal_tx = find_proposal(proposal_txid, provider)
         ps = ProposalState(proposal_tx, proposal_tx)
 
     except: # catches mainly AttributeError and DecodeError
@@ -159,7 +158,7 @@ def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
 
 def get_proposal_info(proposal_txid):
     # MODIFIED: state removed, get_proposal_state should be used.
-    proposal_tx = proposal_from_tx(proposal_txid, provider)
+    proposal_tx = find_proposal(proposal_txid, provider)
     return proposal_tx.__dict__
 
 def get_slot(proposal_id, donor_address, dist_round=None):
@@ -252,7 +251,7 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
     """Gets basic data for a new TrackedTransaction"""
 
     if proposal_id is not None:
-        proposal = proposal_from_tx(proposal_id, provider)
+        proposal = find_proposal(proposal_id, provider)
         deck = proposal.deck
         tx_data = { "proposal_tx" : proposal }
     else:
@@ -359,7 +358,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount=None
 def calculate_timelock(proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
 
-    first_proposal_tx = proposal_from_tx(proposal_id, provider)
+    first_proposal_tx = find_proposal(proposal_id, provider)
     # print("first tx info", first_proposal_tx.blockheight, first_proposal_tx.epoch, first_proposal_tx.deck.epoch_length, first_proposal_tx.epoch_number)
     cltv_timelock = (first_proposal_tx.epoch + first_proposal_tx.epoch_number + 1) * first_proposal_tx.deck.epoch_length
     return cltv_timelock
@@ -479,7 +478,7 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
     # An advanced mode could even detect those with wrong format.
 
     for tx_type in ("voting", "signalling", "locking", "donation"):
-        ptx = proposal_from_tx(proposal_id, provider)
+        ptx = find_proposal(proposal_id, provider)
         p2th = ptx.deck.derived_p2th_address(tx_type)
         txes = get_marked_txes(provider, p2th)
         print(tx_type, ":")
@@ -507,7 +506,7 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
 def get_pod_reward_data(proposal_id, donor_address, donation_state=None, proposer=False, debug=False, network_name=Settings.network):
     """Returns a dict with the amount of the reward and the deckid."""
     # coin = coin_value(network_name=network_name)
-    ptx = proposal_from_tx(proposal_id, provider) # ptx is given directly to get_donation_state
+    ptx = find_proposal(proposal_id, provider) # ptx is given directly to get_donation_state
     deckid = ptx.deck.id
     decimals = ptx.deck.number_of_decimals
     if proposer:
