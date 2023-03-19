@@ -33,8 +33,9 @@ from pacli.config import (write_default_config,
 
 import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
+import pacli.extended_utils as eu
 from pacli.at_classes import AT
-from pacli.at_utils import create_at_issuance_data
+from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import Proposal, Donation
 from pacli.dex_classes import Dex
 
@@ -281,7 +282,7 @@ class Deck:
               send: bool=False, locktime: int=0, multiplier=1, number_of_decimals=2, version=1) -> None: ### ADDRESSTRACK
         '''Wrapper to facilitate addresstrack spawns without having to deal with asset_specific_data.'''
 
-        asset_specific_data = dc.create_deckspawn_data(b"AT", at_address=tracked_address, multiplier=multiplier)
+        asset_specific_data = eu.create_deckspawn_data(b"AT", at_address=tracked_address, multiplier=multiplier)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
@@ -291,14 +292,14 @@ class Deck:
     def dt_spawn(self, name: str, dp_length: int, dp_reward: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
         '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
 
-        asset_specific_data = dc.create_deckspawn_data(b"DT", dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
+        asset_specific_data = eu.create_deckspawn_data(b"DT", dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
     def init(self, deckid: str):
         '''Initializes deck and imports its P2TH address into node.'''
-        dc.init_deck(Settings.network, deckid)
+        eu.init_deck(Settings.network, deckid)
 
     def dt_init(self, deckid: str):
         '''Initializes DT deck and imports all P2TH addresses into node.'''
@@ -310,11 +311,24 @@ class Deck:
 
         pprint(dc.get_deckinfo(deckid, p2th))
 
+    def at_info(self, deckid: str):
+        '''Prints AT-specific deck info.'''
+
+        at_deckinfo(deckid)
+
+    @classmethod
+    def at_list(self):
+        '''Prints list of AT decks'''
+
+        at_decklist = eu.list_decks(b'AT')
+        print_deck_list(at_decklist)
+
+
     @classmethod
     def dt_list(self):
         '''List all DT decks.'''
 
-        dt_decklist = dc.list_dt_decks()
+        dt_decklist = eu.list_decks(b'DT')
         print_deck_list(dt_decklist)
 
     def dt_state(self, deckid: str, debug: bool=False):
@@ -511,6 +525,7 @@ class Card:
     @classmethod
     def __find_deck_data(self, deckid: str) -> tuple: ### NEW FEATURE - AT ###
         '''returns addresstrack-specific data'''
+        # TODO: probably obsolete.
 
         deck = self.__find_deck(deckid)
 

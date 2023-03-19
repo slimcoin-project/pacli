@@ -48,7 +48,7 @@ class Proposal: ### DT ###
         for period, blockheights in periods.items():
             print(di.printout_period(period, blockheights, blockheights_first=True))
 
-    def list(self, deckid: str, block: int=None, only_active: bool=False, all: bool=False, debug: bool=False) -> None:
+    def list(self, deckid: str, block: int=None, only_active: bool=False, all: bool=False, simple: bool=False, debug: bool=False) -> None:
         '''Shows all proposals for a deck and the period they are currently in, optionally at a specific blockheight.'''
         # TODO re-check: it seems that if we use Decimal for values like req_amount scientific notation is used.
         # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
@@ -58,6 +58,7 @@ class Proposal: ### DT ###
             statelist.append("completed")
         if all:
             statelist.append("abandoned")
+        if simple:
             advanced = False
 
         if block is None:
@@ -77,7 +78,7 @@ class Proposal: ### DT ###
             return
 
         coin = dmu.coin_value(Settings.network)
-
+        shown_pstates = 0
 
         if len([p for l in pstate_periods.values() for p in l]) == 0:
             print("No proposals found for deck: " + deckid)
@@ -94,21 +95,30 @@ class Proposal: ### DT ###
                 endblock = pstate_data["endblock"]
 
                 if pstate.state in statelist:
+                    shown_pstates += 1
                     if first:
                         print("\n")
                         pprint(di.printout_period(period, [startblock, endblock], show_blockheights=False))
                         first = False
                     requested_amount = pstate.req_amount / coin
+                    # We can't add the state in simple mode, as it will always be "active" at the start.
                     result = ["ID: " + pstate.id,
                               "Startblock of this period: {} Endblock: {}".format(startblock, endblock),
                               "Requested amount: {}".format(requested_amount),
-                              "Donation address: {}".format(pstate.donation_address)]
+                              "Donation address: {}".format(pstate.donation_address)
+                              ]
+
                     if advanced:
                         donated_amount = str(sum(pstate.donated_amounts) / coin)
                         result.append("State: {}".format(pstate.state))
                         result.append("Donated amount: {}".format(donated_amount))
                         result.append("Donation transactions: {}".format(len([d for rd in pstate.donation_txes for d in rd])))
                     print("\n*", "\n    ".join(result))
+
+        if shown_pstates == 0:
+
+            pmsg = "" if all else "active and/or completed "
+            print("No {}proposal states found for deck {}.".format(pmsg, deckid))
 
     def info(self, proposal_txid: str) -> None:
         '''Get basic info of a proposal.'''

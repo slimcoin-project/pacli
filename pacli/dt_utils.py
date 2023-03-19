@@ -6,7 +6,7 @@ from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.networks import net_query
 from pypeerassets.at.protobuf_utils import serialize_ttx_metadata, parse_protobuf
 from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, proposal_from_tx, get_parser_state, sats_to_coins, coins_to_sats
-from pypeerassets.at.dt_parser_utils import deck_from_tx, get_proposal_states, get_marked_txes
+from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
 from pypeerassets.kutil import Kutil
 from pypeerassets.transactions import sign_transaction, MutableTransaction
@@ -17,6 +17,7 @@ from pacli.utils import (cointoolkit_verify,
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
 
+import pypeerassets as pa
 import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
 import pypeerassets.at.dt_misc_utils as dmu
@@ -133,7 +134,7 @@ def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
     # Advanced mode calls the parser, thus much slower, and shows other parts of the state.
 
     result = {}
-    deck = deck_from_tx(deckid, provider)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     try:
        assert deck.at_type == b"DT"
     except (AssertionError, AttributeError):
@@ -255,7 +256,7 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
         deck = proposal.deck
         tx_data = { "proposal_tx" : proposal }
     else:
-        deck = deck_from_tx(deckid, provider)
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         tx_data = {}
 
     tx_data.update({"deck" : deck, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })

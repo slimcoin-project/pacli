@@ -26,9 +26,7 @@ def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existin
     if not label:
 
         if backup_id:
-            # old_key = keyring.get_password("pacli", "key")
             old_key = get_key("key")
-            #keyring.set_password("pacli", get_key_prefix(network_name) + backup_id, old_key)
             set_key(kprefix + backup_id, old_key)
         elif existing_label == "key":
             raise Exception("Trying to replace main key without providing backup ID. Use --force if you really want to do that.")
@@ -54,14 +52,14 @@ def get_key_prefix(network_name: str=None, legacy: bool=False): ### NEW FEATURE 
     else:
         return "key_" + network_name + "_"
 
-def get_key(full_label: str) -> str: ### NEW FEATURE ###
+def get_key(full_label: str) -> str:
     return keyring.get_password("pacli", full_label)
 
-def delete_key(full_label: str) -> None: ### NEW FEATURE ###
+def delete_key(full_label: str) -> None:
     '''delete key from keyring.'''
     keyring.delete_password("pacli", full_label)
 
-def set_key(full_label: str, key: str) -> None: ### NEW FEATURE ###
+def set_key(full_label: str, key: str) -> None:
     '''set new key, simple way'''
     keyring.set_password("pacli", full_label, key)
 

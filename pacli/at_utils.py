@@ -1,11 +1,14 @@
 # at utils
 
+import pypeerassets as pa
 from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
 from pypeerassets.networks import net_query
 from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
+import pacli.extended_utils as eu
+from prettyprinter import cpprint as pprint
 
 def create_simple_transaction(amount: Decimal, dest_address: str, input_address: str, tx_fee: Decimal=None, change_address: str=None, debug: bool=False):
 
@@ -18,11 +21,62 @@ def create_simple_transaction(amount: Decimal, dest_address: str, input_address:
     return dtx.to_raw_transaction()
 
 
-def show_txes_by_block(tracked_address: str, endblock: int=None, startblock: int=0, debug: bool=False):
-    # VERY SLOW.
+def show_wallet_txes(tracked_address: str=None, deckid: str=None, input_address: str=None, unclaimed: bool=False):
+    # in this simple form it doesn't show from which address the originated, it shows all from the wallet.
+    txes = []
+    if unclaimed and deckid: # works only with deckid!
+        claims = show_claim_transactions(deckid, input_address)
+
+    if deckid:
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        try:
+            tracked_address = deck.at_address
+        except AttributeError:
+            raise ValueError("Deck ID {} does not reference an AT deck.".format(deckid))
+
+    start = 0
+    while True:
+        new_txes = provider.listtransactions(many=500, since=start)
+        txes += new_txes
+        try:
+            assert len(new_txes) == 500
+            start += 500
+        except AssertionError:
+            break
+    #used_txes = []
+    #for tx in txes:
+    #    if tx["txid"] in used_txes:
+    #        continue
+    #    else:
+    #        used_txes.append(tx["txid"])
+    print("Searching in {} transactions in this wallet ...".format(len(txes)))
+    txes_to_address = []
+    for tx in txes:
+        rawtx = provider.getrawtransaction(tx["txid"], 1)
+        for index, output in enumerate(rawtx["vout"]):
+            try:
+                # print(tracked_address, output["scriptPubKey"]["addresses"])
+                if tracked_address in output["scriptPubKey"]["addresses"]:
+                    tx_dict = {"txid" : tx["txid"], "value" : output["value"], "output" : index }
+                    txes_to_address.append(tx_dict)
+            except KeyError:
+                continue
+    pprint(txes_to_address)
+
+
+
+def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=None, startblock: int=0, debug: bool=False):
+    # VERY SLOW. When watchaddresses are available this should be replaced.
 
     if not endblock:
         endblock = provider.getblockcount()
+
+    if deckid:
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        try:
+            tracked_address = deck.at_address
+        except AttributeError:
+            raise ValueError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     tracked_txes = []
     for bh in range(startblock, endblock + 1):
@@ -132,5 +186,23 @@ def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amoun
         asset_specific_data = serialize_card_extended_data(net_query(provider.network), txid=donation_txid, vout=donation_vout)
         return asset_specific_data, amount, receiver
 
+
+def at_deckinfo(deckid):
+    for deck in eu.list_decks(b'AT'):
+        if deck.id == deckid:
+            break
+
+    for deck_param in deck.__dict__.keys():
+        pprint("{}: {}".format(deck_param, deck.__dict__[deck_param]))
+
+def get_claim_transactions(deckid: str, input_address: str):
+    cards = pa.find_all_valid_cards(deckid)
+    ds = pa.protocol.DeckState(cards)
+    cards = ds.valid_cards()
+    claim_txes = []
+    for card in cards:
+        if card.type == "CardIssue" and card.sender == input_address:
+            claim_txes.append(card)
+    return claim_txes
 
 

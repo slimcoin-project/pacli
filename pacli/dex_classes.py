@@ -1,4 +1,5 @@
 import pacli.dex_utils as dxu
+import pypeerassets as pa
 from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
@@ -20,9 +21,9 @@ class Dex:
 
     @classmethod
     def show_locks(self, deckid, raw=False):
-        deck = dxu.deck_from_tx(deckid, dxu.provider)
-        cards = dxu.pa.find_all_valid_cards(dxu.provider, deck)
-        state = dxu.pa.protocol.DeckState(cards, cleanup_height=provider.getblockcount())
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        cards = pa.find_all_valid_cards(dxu.provider, deck)
+        state = pa.protocol.DeckState(cards, cleanup_height=provider.getblockcount())
         if raw:
             return state.locks
         else:

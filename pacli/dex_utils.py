@@ -20,7 +20,6 @@ import pypeerassets.hash_encoding as henc
 import json
 from decimal import Decimal
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
-from pypeerassets.at.dt_parser_utils import deck_from_tx
 import pacli.dt_utils as du
 import pacli.dt_interface as di
 import pacli.keystore_extended as ke
@@ -51,7 +50,7 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
            print("Segwit, Taproot and hashlocks still not supported.")
            raise NotImplementedError
 
-    deck = deck_from_tx(deckid, provider)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,
@@ -81,7 +80,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     my_key = Settings.key
     my_address = my_key.address
     my_change_address = Settings.change
-    deck = deck_from_tx(deckid, provider)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     card = pa.CardTransfer(deck=deck, sender=my_key.address, receiver=[coinseller_address], amount=[amount_to_exponent(card_amount, deck.number_of_decimals)])
 
     # coinseller can submit another change address if he wants, otherwise cardseller sends it to the coinseller addr.

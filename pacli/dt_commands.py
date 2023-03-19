@@ -5,8 +5,6 @@ import pacli.dt_interface as di
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 from prettyprinter import cpprint as pprint
-from pypeerassets.at.dt_parser_utils import deck_from_tx
-# from pypeerassets.at.transaction_formats import setfmt
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data, serialize_deck_extended_data
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
 from pypeerassets.networks import net_query
@@ -23,7 +21,7 @@ def show_votes_by_address(deckid, address):
 
     pprint("Votes cast from address: " + address)
     vote_readable = { b'+' : 'Positive', b'-' : 'Negative' }
-    deck = deck_from_tx(deckid, provider)
+    pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     try:
         pst = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True)
@@ -55,7 +53,7 @@ def show_donations_by_address(deckid, address):
     # shows all valid donation transactions from a specific address, for all proposals.
 
     pprint("Donations realized from address: " + address)
-    deck = deck_from_tx(deckid, provider)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     try:
         pst = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True)
@@ -85,23 +83,9 @@ def show_donations_by_address(deckid, address):
 
 # Deck
 
-
-def init_deck(network, deckid, rescan=True):
-    deck = deck_from_tx(deckid, provider)
-    if deckid not in provider.listaccounts():
-        provider.importprivkey(deck.p2th_wif, deck.id, rescan)
-        print("Importing P2TH address from deck.")
-    else:
-        print("P2TH address was already imported.")
-    check_addr = provider.validateaddress(deck.p2th_address)
-    print("Output of validation tool:\n", check_addr)
-        # load_deck_p2th_into_local_node(provider, deck) # we don't use this here because it doesn't provide the rescan option
-
-
-
 def init_dt_deck(network_name, deckid, rescan=True):
     # MODIFIED: added support for legacy blockchains
-    deck = deck_from_tx(deckid, provider)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     legacy = is_legacy_blockchain(network_name)
 
     if "sdp_deckid" not in deck.__dict__.keys():
@@ -142,7 +126,7 @@ def init_dt_deck(network_name, deckid, rescan=True):
     print("Done.")
 
 def get_deckinfo(deckid, p2th: bool=False):
-    d = deck_from_tx(deckid, provider)
+    d = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     d_dict = d.__dict__
     if p2th:
         print("Showing P2TH addresses.")
@@ -157,29 +141,14 @@ def get_deckinfo(deckid, p2th: bool=False):
     return d_dict
 
 
-def list_dt_decks():
-    # TODO: This does not catch some errors with invalid decks which are displayed:
-    # InvalidDeckSpawn ("InvalidDeck P2TH.") -> not catched in deck_parser in pautils.py
-    # 'error': 'OP_RETURN not found.' -> InvalidNulldataOutput , in pautils.py
-    # 'error': 'Deck () metainfo incomplete, deck must have a name.' -> also in pautils.py, defined in exceptions.py.
 
-    decks = pa.find_all_valid_decks(provider,
-                                    Settings.deck_version,
-                                    Settings.production)
-    dt_decklist = []
-    for d in decks:
-        try:
-            if d.at_type == b"DT":
-                dt_decklist.append(d)
-        except AttributeError:
-            continue
 
     return dt_decklist
 
 def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donations: bool=False):
     # prints the ParserState (DTDeckState).
 
-    deck = deck_from_tx(deckid, provider)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     pst_dict = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True, debug=debug, debug_voting=debug_voting, debug_donations=debug_donations).__dict__
     di.prepare_dict(pst_dict, only_txids=["initial_cards", "sdp_cards", "donation_txes"], only_id=["sdp_deck", "deck"], only_ids = ["proposal_states", "approved_proposals", "valid_proposals"])
     # di.prepare_complete_collection(pst.__dict__)
@@ -231,25 +200,4 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
     asset_specific_data = serialize_card_extended_data(net_query(provider.network), id="DT", txid=donation_txid, vout=donation_vout)
     return asset_specific_data, receiver, payment, deckid
 
-def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2):
 
-    if identifier in ("AT", "DT"):
-        identifier = identifier.encode("utf-8") # ensure bytes format. Probably not really necessary.
-
-    if identifier == b"DT":
-
-        params = {"at_type" : identifier,
-                 "epoch_length" : int(epoch_length),
-                 "epoch_quantity": int(epoch_reward),
-                 "min_vote" : int(min_vote),
-                 "sdp_deckid" : bytes.fromhex(sdp_deckid) if sdp_deckid else b"",
-                 "sdp_periods" : int(sdp_periods) if sdp_periods else 0 }
-
-    elif identifier == b"AT":
-
-        params = {"at_type" : identifier,
-                  "multiplier" : int(multiplier),
-                  "at_address" : at_address,
-                  "addr_type" : int(addr_type)}
-
-    return serialize_deck_extended_data(net_query(provider.network), params=params)
