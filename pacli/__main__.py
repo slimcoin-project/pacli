@@ -282,7 +282,7 @@ class Deck:
               send: bool=False, locktime: int=0, multiplier=1, number_of_decimals=2, version=1) -> None: ### ADDRESSTRACK
         '''Wrapper to facilitate addresstrack spawns without having to deal with asset_specific_data.'''
 
-        asset_specific_data = eu.create_deckspawn_data(b"AT", at_address=tracked_address, multiplier=multiplier)
+        asset_specific_data = eu.create_deckspawn_data("at", at_address=tracked_address, multiplier=multiplier)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
@@ -292,7 +292,7 @@ class Deck:
     def dt_spawn(self, name: str, dp_length: int, dp_reward: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
         '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
 
-        asset_specific_data = eu.create_deckspawn_data(b"DT", dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
+        asset_specific_data = eu.create_deckspawn_data("dt", dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
@@ -320,7 +320,7 @@ class Deck:
     def at_list(self):
         '''Prints list of AT decks'''
 
-        at_decklist = eu.list_decks(b'AT')
+        at_decklist = eu.list_decks("at")
         print_deck_list(at_decklist)
 
 
@@ -328,7 +328,7 @@ class Deck:
     def dt_list(self):
         '''List all DT decks.'''
 
-        dt_decklist = eu.list_decks(b'DT')
+        dt_decklist = eu.list_decks("dt")
         print_deck_list(dt_decklist)
 
     def dt_state(self, deckid: str, debug: bool=False):
@@ -537,14 +537,14 @@ class Card:
         return tracked_address.decode("utf-8"), int(multiplier)
 
     @classmethod ### NEW FEATURE - AT ###
-    def claim_at_tokens(self, deckid: str, txid: str, vout: int=None, receiver: list=None, amount: list=None,
+    def claim_at_tokens(self, deckid: str, txid: str, receiver: list=None, amount: list=None,
               locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False) -> str:
         '''To simplify self.issue, all data is taken from the transaction.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
         deck = self.__find_deck(deckid)
 
-        asset_specific_data, amount, receiver = create_at_issuance_data(deck, txid, amount=amount, donation_vout=vout, debug=debug)
+        asset_specific_data, amount, receiver = create_at_issuance_data(deck, txid, amount=amount, debug=debug)
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
                              verify=verify, locktime=locktime, sign=sign, send=send)

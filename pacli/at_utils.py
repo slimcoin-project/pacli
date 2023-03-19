@@ -3,6 +3,7 @@
 import pypeerassets as pa
 from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
+from pypeerassets.at.constants import AT_ID # currently a workaround is used and not this id, but keep.
 from pypeerassets.networks import net_query
 from decimal import Decimal
 from pacli.provider import provider
@@ -129,39 +130,43 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
     return tracked_txes
 
 
-def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amount: list=None, donation_vout: int=None, debug: bool=False) -> tuple:
-        # note: uses the "claim once per vout" approach instead of "claim once per transaction".
+def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amount: list=None, debug: bool=False) -> tuple:
+        # note: uses now the "claim once per transaction" approach.
 
         spending_tx = provider.getrawtransaction(donation_txid, 1) # changed from txid
 
         spent_amount = 0
-        if donation_vout is None:
 
-            for n, output in enumerate(spending_tx["vout"]):
-                print("Searching output {}: {}".format(n, output))
-                if deck.at_address in output["scriptPubKey"]["addresses"]:
-                    donation_vout = n
-                    break
+        # old protocol: claim once per vout
+        #if donation_vout is None:
+        #
+        #    for n, output in enumerate(spending_tx["vout"]):
+        #        print("Searching output {}: {}".format(n, output))
+        #        if deck.at_address in output["scriptPubKey"]["addresses"]:
+        #            donation_vout = n
+        #            break
+
+        vouts = []
+        for output in spending_tx["vout"]:
+            if deck.at_address in output["scriptPubKey"]["addresses"]: # changed from tracked_address
+                # TODO: maybe we need a check for the script type
+                vouts.append(output["n"]) # used only for debugging/printouts
+                spent_amount += output["value"]
+
+        if len(vouts) == 0:
+            raise Exception("No vout of this transaction spends to the tracked address")
 
         if debug:
             print("AT Address:", deck.at_address)
-            print("Donation vout:", donation_vout)
+            print("Donation output indexes (vouts):", vouts)
+            # print("Donation vout:", donation_vout)
 
-        try:
-            assert deck.at_address in spending_tx["vout"][donation_vout]["scriptPubKey"]["addresses"]
-            spent_amount = spending_tx["vout"][donation_vout]["value"]
-        except (AssertionError, KeyError):
-            raise ValueError("This transaction/vout combination does not spend to the tracked address.")
-
-        # TODO: alternative. the next lines are for the donation_tx as a whole approach.
-        #for output in spending_tx["vout"]:
-        #    if deck.at_address in output["scriptPubKey"]["addresses"]: # changed from tracked_address
-        #        # vout = output["n"]
-        #        # vout = str(output["n"]).encode("utf-8") # encoding not necessary for protobuf.
-        #        spent_amount += output["value"]
-        #        # break # we want the complete amount to that address, which can be in more than 1 output.
-        #else:
-        #    raise Exception("No vout of this transaction spends to the tracked address")
+        # old protocol
+        #try:
+        #    assert deck.at_address in spending_tx["vout"][donation_vout]["scriptPubKey"]["addresses"]
+        #    spent_amount = spending_tx["vout"][donation_vout]["value"]
+        #except (AssertionError, KeyError):
+        #    raise ValueError("This transaction/vout combination does not spend to the tracked address.")
 
         claimable_amount = spent_amount * deck.multiplier
 
@@ -179,16 +184,14 @@ def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amoun
 
         if debug:
             print("You are enabled to claim {} tokens.".format(claimable_amount))
-            print("Parameters for claim: txid:", donation_txid, "vout:", donation_vout)
+            print("TXID with transfer enabling claim:", donation_txid)
 
-        # TODO: for now, hardcoded asset data; should be a pa function call
-        # asset_specific_data = b"tx:" + txid.encode("utf-8") + b":" + vout
-        asset_specific_data = serialize_card_extended_data(net_query(provider.network), txid=donation_txid, vout=donation_vout)
+        asset_specific_data = serialize_card_extended_data(net_query(provider.network), txid=donation_txid)
         return asset_specific_data, amount, receiver
 
 
 def at_deckinfo(deckid):
-    for deck in eu.list_decks(b'AT'):
+    for deck in eu.list_decks("at"):
         if deck.id == deckid:
             break
 
