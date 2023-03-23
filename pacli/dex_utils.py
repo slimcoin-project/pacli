@@ -20,7 +20,7 @@ import pypeerassets.hash_encoding as henc
 import json
 from decimal import Decimal
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
-import pacli.dt_utils as du
+import pacli.extended_utils as eu
 import pacli.dt_interface as di
 import pacli.keystore_extended as ke
 from pypeerassets.pa_constants import param_query
@@ -69,7 +69,7 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
                              change_address=Settings.change,
                              )
 
-    return du.finalize_tx(issue, verify=False, sign=sign, send=send)
+    return eu.finalize_tx(issue, verify=False, sign=sign, send=send)
 
 # main function to be changed:
 # - coinseller_address (formerly partner_address) is now the card receiver.
@@ -113,7 +113,6 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
 
     network_params = net_query(provider.network)
     # print(network_params)
-    # input_types = du.get_input_types(unsigned_tx)
     if sign:
         # sighash has be ALL, otherwise the counterparty could modify it, and anyonecanpay must be False.
         for i in range(len(utxos) - 1): # we sign all inputs minus the last one which is from the coin_seller.

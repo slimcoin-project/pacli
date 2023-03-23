@@ -1,6 +1,5 @@
-# at utils
-
 import pypeerassets as pa
+from pypeerassets.pautils import find_tx_sender
 from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
 from pypeerassets.at.constants import AT_ID # currently a workaround is used and not this id, but keep.
@@ -22,11 +21,12 @@ def create_simple_transaction(amount: Decimal, dest_address: str, input_address:
     return dtx.to_raw_transaction()
 
 
-def show_wallet_txes(tracked_address: str=None, deckid: str=None, input_address: str=None, unclaimed: bool=False):
+def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, burntxes: bool=False) -> list:
     # in this simple form it doesn't show from which address the originated, it shows all from the wallet.
-    txes = []
+    raw_txes = []
+    print("input address:", input_address)
     if unclaimed and deckid: # works only with deckid!
-        claims = show_claim_transactions(deckid, input_address)
+        claims = get_claim_transactions(deckid, input_address)
 
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -35,38 +35,34 @@ def show_wallet_txes(tracked_address: str=None, deckid: str=None, input_address:
         except AttributeError:
             raise ValueError("Deck ID {} does not reference an AT deck.".format(deckid))
 
-    start = 0
-    while True:
-        new_txes = provider.listtransactions(many=500, since=start)
-        txes += new_txes
-        try:
-            assert len(new_txes) == 500
-            start += 500
-        except AssertionError:
-            break
-    #used_txes = []
-    #for tx in txes:
-    #    if tx["txid"] in used_txes:
-    #        continue
-    #    else:
-    #        used_txes.append(tx["txid"])
-    print("Searching in {} transactions in this wallet ...".format(len(txes)))
+    raw_txes = eu.get_wallet_transactions()
+    # print([t["address"] for t in raw_txes if t["category"] == "send"])
+    filtered_txes = [t for t in raw_txes if ((t["category"] == "send") and (t["address"] == tracked_address))]
+
+    txids = set([t["txid"] for t in filtered_txes])
+    print("{} sent transactions to address {} in this wallet.".format(len(txids), tracked_address))
     txes_to_address = []
-    for tx in txes:
-        rawtx = provider.getrawtransaction(tx["txid"], 1)
-        for index, output in enumerate(rawtx["vout"]):
-            try:
-                # print(tracked_address, output["scriptPubKey"]["addresses"])
-                if tracked_address in output["scriptPubKey"]["addresses"]:
-                    tx_dict = {"txid" : tx["txid"], "value" : output["value"], "output" : index }
-                    txes_to_address.append(tx_dict)
-            except KeyError:
+    for txid in txids:
+        rawtx = provider.getrawtransaction(txid, 1)
+        # protocol defines that only address spending first input is counted.
+        # so we can use find_tx_sender from pautils.
+        if input_address:
+            if find_tx_sender(provider, rawtx) != input_address:
                 continue
-    pprint(txes_to_address)
+
+        value, indexes = 0, []
+        for index, output in enumerate(rawtx["vout"]):
+            if output["scriptPubKey"]["addresses"][0] == tracked_address:
+                value += Decimal(str(output["value"]))
+                indexes.append(index)
+
+        tx_dict = {"txid" : txid, "value" : value, "outputs" : indexes }
+        txes_to_address.append(tx_dict)
+
+    return txes_to_address
 
 
-
-def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=None, startblock: int=0, debug: bool=False):
+def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=None, startblock: int=0, debug: bool=False) -> list:
     # VERY SLOW. When watchaddresses are available this should be replaced.
 
     if not endblock:
@@ -174,7 +170,7 @@ def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amoun
             receiver = [Settings.key.address]
 
         if not amount:
-            amount = [spent_amount]
+            amount = [claimable_amount]
 
         if len(amount) != len(receiver):
             raise ValueError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receiver), len(amount)))

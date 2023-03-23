@@ -4,10 +4,12 @@ from pacli.config import Settings
 from pacli.provider import provider
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
+import pypeerassets.at.constants as c
 import json
 from decimal import Decimal
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 import pacli.dt_utils as du
+import pacli.extended_utils as eu
 import pacli.dt_interface as di
 import pacli.keystore_extended as ke
 
@@ -102,10 +104,12 @@ class Proposal: ### DT ###
                         first = False
                     requested_amount = pstate.req_amount / coin
                     # We can't add the state in simple mode, as it will always be "active" at the start.
-                    result = ["ID: " + pstate.id,
+                    result = [
+                              "Short ID & description: " + pstate.idstring,
                               "Startblock of this period: {} Endblock: {}".format(startblock, endblock),
                               "Requested amount: {}".format(requested_amount),
-                              "Donation address: {}".format(pstate.donation_address)
+                              "Donation address: {}".format(pstate.donation_address),
+                              "Complete ID: " + pstate.id
                               ]
 
                     if advanced:
@@ -127,6 +131,7 @@ class Proposal: ### DT ###
 
     def state(self, proposal_id: str, param: str=None, debug: bool=False, simple: bool=False, complete: bool=False, raw: bool=False) -> None:
         '''Shows a single proposal state.'''
+        # TODO: could be improved if the short id can be also used.
         pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
         pdict = pstate.__dict__
         if param is not None:
@@ -147,7 +152,7 @@ class Proposal: ### DT ###
             di.prepare_complete_collection(pdict)
             pprint(pdict)
         else:
-            pprint("Proposal State " + proposal_id + ":")
+            pprint("Proposal State - " + pstate.idstring)
             # in the standard mode, some objects are shown in a simplified way.
             di.prepare_dict(pdict)
             pprint(pdict)
@@ -241,34 +246,31 @@ class Proposal: ### DT ###
 
                     print("{}: {}".format(item, value))
 
-    def create(self, deckid: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, modify: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
+    def create(self, deckid: str, req_amount: str, periods: int, description: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
         '''Creates a new proposal.'''
+        # MODIFIED: round_length has now been eliminated.
+        # MODIFIED: --modify has now an own command.
+        # MODIFIED: description added.
 
         basic_tx_data = du.get_basic_tx_data("proposal", deckid=deckid, input_address=Settings.key.address)
 
-        # MODIFIED: round_length is now optional.
-        # There's a standard "optimal" round length applying, depending on Deck.epoch_length.
-        # The standard round length is calculated in pypeerassets.protocol.
-        # MODIFIED: --modify replaces --first_ptx (usability)
-        if round_length == 0:
-            print("Using standard round length of the deck:", basic_tx_data["deck"].standard_round_length)
 
-        params = { "id" : b"DP" , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : modify }
+        #if round_length == 0:
+        #    print("Using standard round length of the deck:", basic_tx_data["deck"].standard_round_length)
+
+        params = { "id" : c.ID_PROPOSAL , "deckid" : deckid, "epoch_number" : int(periods), "req_amount" : Decimal(str(req_amount)), "description" : description }
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network, debug=debug)
 
-        return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
+        return eu.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
-    def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, modify: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
+    def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
         # new command to modify without having to provide deckid. Would have changes in protobuf.
 
         old_proposal_tx = dmu.find_proposal(proposal_id, provider)
         basic_tx_data = du.get_basic_tx_data("proposal", deckid=old_proposal_tx.deck.id, input_address=Settings.key.address)
 
-        if round_length == 0:
-            print("Using standard round length of the deck:", basic_tx_data["deck"].standard_round_length)
-
-        params = { "id" : b"DP" , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : proposal_id }
+        params = { "id" : c.ID_PROPOSAL , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : proposal_id }
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network, debug=debug)
 
@@ -291,14 +293,12 @@ class Proposal: ### DT ###
         # vote_readable = "Positive" if votechar == "+" else "Negative"
         # print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
 
-        # params = { "id" : "DV" , "prp" : proposal_id, "vot" : votechar }
-        ### PROTOBUF
-        params = { "id" : b"DV" , "proposal_id" : proposal_id, "vote" : vote_bool }
+        params = { "id" : c.ID_VOTING , "proposal_id" : proposal_id, "vote" : vote_bool }
 
         basic_tx_data = du.get_basic_tx_data("voting", proposal_id=proposal_id, input_address=input_address)
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, network_name=Settings.network)
 
-        console_output = du.finalize_tx(rawtx, verify, sign, send, debug=debug)
+        console_output = eu.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
         if confirm and sign and send:
             print("Waiting for confirmation (this can take several minutes) ...", end='')
@@ -372,14 +372,12 @@ class Donation:
             if (check_round is not None) and (check_round < 4):
                 print("Additionally, locking the transaction requires {} coins, so total fees sum up to {}.".format(total_tx_fee, total_tx_fee * 2))
 
-        # params = { "id" : "DS" , "prp" : proposal_txid }
-        ### PROTOBUF
-        params = { "id" : b"DS" , "proposal_id" : proposal_txid }
+        params = { "id" : c.ID_SIGNALLING, "proposal_id" : proposal_txid }
         basic_tx_data = du.get_basic_tx_data("signalling", proposal_id=proposal_txid, input_address=Settings.key.address)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, dest_address=dest_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, debug=debug, network_name=Settings.network)
 
-        return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
+        return eu.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
     def lock(self, proposal_txid: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", p2th_fee: str="0.01", sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, dist_round: int=None, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False) -> None:
 
@@ -403,15 +401,14 @@ class Donation:
             use_slot = True
 
         # timelock and dest_address are saved in the transaction, to be able to reconstruct redeem script
-        # params = { "id" : "DL", "prp" : proposal_txid, "lck" : cltv_timelock, "adr" : dest_address }
         ### PROTOBUF
         lockhash_type = 2 # TODO: P2PKH is hardcoded now, but should be done by a check on the submitted addr.
-        params = { "id" : b"DL", "proposal_id" : proposal_txid, "timelock" : cltv_timelock, "address" : dest_address, "lockhash_type" : lockhash_type }
+        params = { "id" : c.ID_LOCKING, "proposal_id" : proposal_txid, "timelock" : cltv_timelock, "address" : dest_address, "lockhash_type" : lockhash_type }
         basic_tx_data = du.get_basic_tx_data("locking", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, dist_round=dist_round)
 
         rawtx = du.create_unsigned_trackedtx(params, basic_tx_data, dest_address=dest_address, change_address=change_address, raw_tx_fee=tx_fee, raw_p2th_fee=p2th_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, reserve_address=reserve_address, network_name=Settings.network)
 
-        return du.finalize_tx(rawtx, verify, sign, send, debug=debug)
+        return eu.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
 
     def release(self, proposal_txid: str, amount: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, origin_label: str=None, origin_key: str=None, force: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> None: ### ADDRESSTRACK ###
@@ -428,7 +425,7 @@ class Donation:
         use_slot = False if (amount is not None) else True
         use_locking_slot = True if dist_round in range(4) else False
 
-        params = { "id" : b"DD" , "proposal_id" : proposal_txid }
+        params = { "id" : c.ID_DONATION , "proposal_id" : proposal_txid }
 
         basic_tx_data = du.get_basic_tx_data("donation", proposal_id=proposal_txid, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, use_locking_slot=use_locking_slot, dist_round=dist_round, debug=debug)
 
@@ -442,7 +439,40 @@ class Donation:
             key = Settings.key
             rscript = basic_tx_data.get("redeem_script")
 
-        return du.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, redeem_script=rscript, debug=debug)
+        return eu.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, redeem_script=rscript, debug=debug)
+
+    def resume(self, donation_state: str, send=False):
+        """This method allows to select the next step of the donation state with all standard values,
+        i.e. selecting always the full slot and using the previous transactions' outputs.
+        The command works in the correct period and the one directly before.
+        """
+        if send:
+            print("You selected to send your next transaction once the round has arrived.")
+        else:
+            print("This is a dry run, your transaction will not be sent. Use --send to send it.")
+
+        dstate = du.find_donation_state_by_string(donation_state)
+        if dstate.state == "complete":
+            print("Donation state is already complete.")
+            return
+        elif dstate.state == "abandoned":
+            print("Donation state is abandoned. You missed a step in the process.")
+            return
+        period = du.get_period(dstate.proposal_id)
+        dist_round = du.get_dist_round(dstate.proposal_id, period=period)
+        if dstate.dist_round == dist_round:
+            if dist_round <= 3 and dstate.signalling_tx:
+                # here the next step should be a LockingTransaction
+                self.lock(dstate.proposal_id, wait=True, sign=True, send=send)
+            elif dist_round >= 4 and dstate.signalling_tx:
+                # next step is release.
+                self.release(dstate.proposal_id, wait=True, sign=True, send=send)
+        elif period in (("D", 1), ("D", 2)): # release period and period immediately before
+            # (we don't need to check the locking tx because we checked the state already.)
+            self.release(dstate.proposal_id, wait=True, sign=True, send=send)
+
+
+
 
     def check_tx(self, txid=None, txhex=None):
         '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.'''

@@ -20,6 +20,7 @@ import pypeerassets as pa
 import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
 import pypeerassets.at.dt_misc_utils as dmu
+import pypeerassets.at.constants as c
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -108,9 +109,10 @@ def get_period(proposal_txid, blockheight=None):
     result = dp.period_query(pdict, blockheight)
     return result
 
-def get_dist_round(proposal_id, blockheight=None):
+def get_dist_round(proposal_id: str, blockheight: int=None, period: tuple=None):
     """Provides the current dist round if blockheight is inside one."""
-    period = get_period(proposal_id, blockheight)
+    if not period:
+        period = get_period(proposal_id, blockheight)
     try:
         assert (period[0][0] in ("B", "D")) and (period[0][1] >= 10)
         if period[0][0] == "B":
@@ -135,7 +137,7 @@ def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
     result = {}
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     try:
-       assert deck.at_type == b"DT"
+       assert deck.at_type == c.DT_ID
     except (AssertionError, AttributeError):
        raise ValueError("Not a DT Proof of Donation deck.")
 
@@ -181,6 +183,7 @@ def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
     # this creates a robust hierarchy to select the correct donation state for a locking/donation transaction.
     # first, sorted by blockheight and blockseq
     # second, distinct assertions exclude certain transactions.
+    # TODO: isn't that obsolete after the protocol overhaul?
     for dstate in sorted(dstates, key=lambda x: (x.origin_tx.blockheight, x.origin_tx.blockseq)):
         if debug: print("Donation state found:", dstate.id)
         if debug and (dstate.signalling_tx is not None): print("Signalling tx:", dstate.signalling_tx.txid)
@@ -208,6 +211,17 @@ def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
 
 
     return dstate
+
+def find_donation_state_by_string(searchstring: str):
+
+    try:
+        txid = eu.find_transaction_by_string(searchstring)
+        return dmu.get_dstate_from_origin_tx(txid, provider)
+    except Exception as e:
+        print("ERROR", e)
+
+
+## Inputs, outputs and Transactions
 
 def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, debug=False, use_locking_slot=False):
     # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
@@ -244,8 +258,6 @@ def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=N
         inputdata.update({ "inp_type" : [prev_tx.outs[2].script_pubkey.type] })
 
     return inputdata
-
-## Inputs, outputs and Transactions
 
 def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, new_inputs: bool=False, use_slot: bool=False, use_locking_slot: bool=False, debug: bool=False):
     """Gets basic data for a new TrackedTransaction"""
@@ -363,51 +375,6 @@ def calculate_timelock(proposal_id):
     cltv_timelock = (first_proposal_tx.epoch + first_proposal_tx.epoch_number + 1) * first_proposal_tx.deck.epoch_length
     return cltv_timelock
 
-def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=None, input_types=None, debug=False):
-    # groups the last steps together
-
-    if verify:
-        print(
-            cointoolkit_verify(rawtx.hexlify())
-             )  # link to cointoolkit - verify
-
-    if False in (sign, send):
-        print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
-
-    if sign:
-
-        if redeem_script is not None:
-            if debug: print("Signing with redeem script:", redeem_script)
-            # TODO: in theory we need to solve inputs from --new_inputs separately from the p2sh inputs.
-            # For now we can only use new_inputs OR spend the P2sh.
-            # TODO: here we use Settings.key, but give the option to provide different key in donation release command?
-            try:
-                tx = sign_p2sh_transaction(provider, rawtx, redeem_script, Settings.key)
-            except NameError as e:
-                print("Exception:", e)
-                #    return None
-
-        elif (key is not None) or (label is not None): # sign with a different key
-            tx = signtx_by_key(rawtx, label=label, key=key)
-            # we need to check the type of the input, as the Kutil method cannot sign P2PK
-        else:
-            if input_types is None:
-                input_types = get_input_types(rawtx)
-
-            if "pubkey" not in input_types:
-                tx = sign_transaction(provider, rawtx, Settings.key)
-            else:
-                tx = sign_mixed_transaction(provider, rawtx, Settings.key, input_types)
-            #else:
-            #    # fallback, will not always work, try to avoid!
-            #    tx = sign_transaction(provider, rawtx, Settings.key)
-            #    # tx = signtx(rawtx)
-
-        if send:
-            pprint({'txid': sendtx(tx)})
-        return {'hex': tx.hexlify()}
-
-    return rawtx.hexlify()
 
 def create_trackedtx(txid=None, txhex=None):
     """Creates a TrackedTransaction object from a raw transaction or txid."""
@@ -423,11 +390,11 @@ def create_trackedtx(txid=None, txhex=None):
     except KeyError:
         print("Transaction not found or incorrect format.")
 
-    if txident == b"DL": return LockingTransaction.from_json(raw_tx, provider)
-    if txident == b"DS": return SignallingTransaction.from_json(raw_tx, provider)
-    if txident == b"DD": return DonationTransaction.from_json(raw_tx, provider)
-    if txident == b"DV": return VotingTransaction.from_json(raw_tx, provider)
-    if txident == b"DP": return ProposalTransaction.from_json(raw_tx, provider)
+    if txident == c.ID_LOCKING: return LockingTransaction.from_json(raw_tx, provider)
+    if txident == c.ID_SIGNALLING: return SignallingTransaction.from_json(raw_tx, provider)
+    if txident == c.ID_DONATION: return DonationTransaction.from_json(raw_tx, provider)
+    if txident == c.ID_VOTING: return VotingTransaction.from_json(raw_tx, provider)
+    if txident == c.ID_PROPOSAL: return ProposalTransaction.from_json(raw_tx, provider)
 
 
 def previous_input_unspent(basic_tx_data):
@@ -445,33 +412,6 @@ def previous_input_unspent(basic_tx_data):
                 return True
     print("Selected input spent, searching for another one.")
     return False
-
-def signtx_by_key(rawtx, label=None, key=None):
-    # Allows to sign a transaction with a different than the main key.
-
-    if not key:
-        try:
-           key = get_key(label)
-        except ValueError:
-           raise ValueError("No key nor key label provided.")
-
-    return sign_transaction(provider, rawtx, key)
-
-def get_input_types(rawtx):
-    # gets the types of ScriptPubKey inputs of a transaction.
-    # Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,
-    # because it manages input selection (RpcNode.select_inputs)
-    input_types = []
-    try:
-        for inp in rawtx.ins:
-            prev_tx = provider.getrawtransaction(inp.txid, 1)
-            prev_out = prev_tx["vout"][inp.txout]
-            input_types.append(prev_out["scriptPubKey"]["type"])
-
-        return input_types
-
-    except KeyError:
-        raise ValueError("Transaction data not correctly given.")
 
 def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
     # This gets all tracked transactions and displays them, without checking validity.
