@@ -87,9 +87,8 @@ class Proposal: ### DT ###
         else:
             print("Proposals in the following periods are available for this deck:")
 
-        for period in pstate_periods:
+        for index, period in enumerate(pstate_periods):
             pstates = pstate_periods[period]
-            first = True
             for pstate_data in pstates:
 
                 pstate = pstate_data["state"]
@@ -98,18 +97,18 @@ class Proposal: ### DT ###
 
                 if pstate.state in statelist:
                     shown_pstates += 1
-                    if first:
+                    if index == 0: # first
                         print("\n")
-                        pprint(di.printout_period(period, [startblock, endblock], show_blockheights=False))
+                        pprint(di.printout_period(period, [startblock, endblock], show_blockheights=True))
                         first = False
                     requested_amount = pstate.req_amount / coin
                     # We can't add the state in simple mode, as it will always be "active" at the start.
                     result = [
                               "Short ID & description: " + pstate.idstring,
-                              "Startblock of this period: {} Endblock: {}".format(startblock, endblock),
                               "Requested amount: {}".format(requested_amount),
                               "Donation address: {}".format(pstate.donation_address),
-                              "Complete ID: " + pstate.id
+                              "Complete ID: {}".format(pstate.id),
+                              "Proposed delivery (block): {}".format(pstate.deck.epoch_length * pstate.end_epoch)
                               ]
 
                     if advanced:
@@ -129,10 +128,26 @@ class Proposal: ### DT ###
         info = du.get_proposal_info(proposal_txid)
         pprint(info)
 
-    def state(self, proposal_id: str, param: str=None, debug: bool=False, simple: bool=False, complete: bool=False, raw: bool=False) -> None:
+    def find(self, searchstring: str, advanced: bool=False, shortid: bool=False) -> None:
+        '''finds a proposal based on its description string or short id'''
+        pstates = du.find_proposal_state_by_string(searchstring, advanced=advanced, shortid=shortid)
+        for pstate in pstates:
+            # this should go into dt_interface
+            pprint(pstate.idstring)
+            pprint("Donation Address: {}".format(pstate.donation_address))
+            pprint("ID: {}".format(pstate.id))
+            if advanced:
+                pprint("State: {}".format(pstate.state))
+
+    def state(self, proposal_string: str, param: str=None, debug: bool=False, simple: bool=False, complete: bool=False, raw: bool=False, search: bool=False) -> None:
         '''Shows a single proposal state.'''
-        # TODO: could be improved if the short id can be also used.
-        pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
+        if search:
+            pstate = du.find_proposal_state_by_string(proposal_string, advanced=True)[0]
+        elif len(proposal_string) == 16:
+            pstate = du.find_proposal_state_by_string(proposal_string, shortid=True, advanced=True)[0]
+        elif len(proposal_string) == 64:
+            proposal_id = proposal_string
+            pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
         pdict = pstate.__dict__
         if param is not None:
             result = pdict.get(param)

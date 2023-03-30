@@ -63,7 +63,7 @@ def get_next_suitable_period(tx_type, period, dist_round=None):
     if tx_type in ("donation", "signalling", "locking"):
         offset = 0 if tx_type == "signalling" else 1
 
-        if period[0] in ("B", "D") and (10 <= period[1] <= 49):
+        if period[0] in ("B", "D") and (10 <= period[1] <= 41):
             # the original code gives always the next period
             # target_period = (period[0], (period[1] // 10 + 1) * 10 + offset)
             # new code: gives current period if current one is suitable, otherwise the next one.
@@ -212,13 +212,31 @@ def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
 
     return dstate
 
-def find_donation_state_by_string(searchstring: str):
+def find_donation_state_by_string(searchstring: str, only_start: bool=False):
 
     try:
-        txid = eu.find_transaction_by_string(searchstring)
+        txid = eu.find_transaction_by_string(searchstring, only_start=only_start)
         return dmu.get_dstate_from_origin_tx(txid, provider)
     except Exception as e:
         print("ERROR", e)
+
+def find_proposal_state_by_string(searchstring: str, advanced: bool=False, shortid: bool=False):
+
+    matching_proposals = []
+
+
+    for deck in dmu.list_decks_by_at_type(provider, c.ID_DT):
+        if advanced:
+            pstates = get_parser_state(provider, deck, force_continue=True).proposal_states
+        else:
+            pstates = get_proposal_states(provider, deck)
+        for proposal in pstates.values():
+            if shortid:
+                if proposal.id.startswith(searchstring):
+                    matching_proposals.append(proposal)
+            elif searchstring in proposal.first_ptx.description:
+                matching_proposals.append(proposal)
+    return matching_proposals
 
 
 ## Inputs, outputs and Transactions

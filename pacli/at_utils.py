@@ -2,7 +2,7 @@ import pypeerassets as pa
 from pypeerassets.pautils import find_tx_sender
 from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
-from pypeerassets.at.constants import AT_ID # currently a workaround is used and not this id, but keep.
+from pypeerassets.at.constants import ID_AT
 from pypeerassets.networks import net_query
 from decimal import Decimal
 from pacli.provider import provider
@@ -187,7 +187,8 @@ def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amoun
 
 
 def at_deckinfo(deckid):
-    for deck in eu.list_decks("at"):
+    #for deck in eu.list_decks("at"):
+    for deck in dmu.list_decks_by_at_type(ID_AT):
         if deck.id == deckid:
             break
 

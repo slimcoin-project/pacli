@@ -5,6 +5,7 @@ from pypeerassets.at.dt_states import DonationState
 from pypeerassets.protocol import Deck
 
 def printout_period(period: tuple, blockheights: list, show_blockheights: bool=False, blockheights_first: bool=False) -> str:
+    # MODIF: changed order to fix bug with period D50.
     [start, end] = blockheights
     if end == None:
         end = "End of chain"
@@ -34,15 +35,16 @@ def printout_period(period: tuple, blockheights: list, show_blockheights: bool=F
         return "{}Period D1: Voting Round 2.{}".format(bf, bhs)
     elif period == ("D", 2):
         return "{}Period D2: Donation Release Period.{}".format(bf, bhs)
+    elif period == ("D", 50):
+        return "{}Period D50. Remaining period of Final Phase (reward claiming still not allowed).{}".format(bf, bhs)
     elif period[0] == "D":
         if period[1] % 10 == 0:
              return "{}Period D{}: Final Slot Distribution, round {} Signalling Phase.{}".format(bf, period[1], period[1]//10, bhs)
         else:
              return "{}Period D{}: Final Slot Distribution, round {} Donation Phase.{}".format(bf, period[1], period[1]//10, bhs)
-    elif period == ("D", 50):
-        return "{}Period E0. Remaining period of Final Phase.{}".format(bf, bhs)
+
     elif period == ("E", 0):
-        return "{}Period E1. All distribution phases concluded.{}".format(bf, bhs)
+        return "{}Period E. Distribution finished (reward claiming allowed if proposal was successful).{}".format(bf, bhs)
 
 ## Display info about decks, transactions, proposals etc.
 

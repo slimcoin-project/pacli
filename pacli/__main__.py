@@ -34,7 +34,7 @@ from pacli.config import (write_default_config,
 import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
-from pacli.at_classes import AT
+from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import Proposal, Donation
 from pacli.dex_classes import Dex
@@ -279,10 +279,11 @@ class Deck:
 
     @classmethod
     def at_spawn(self, name, tracked_address, verify: bool=False, sign: bool=False,
-              send: bool=False, locktime: int=0, multiplier=1, number_of_decimals=2, version=1) -> None: ### ADDRESSTRACK
+              send: bool=False, locktime: int=0, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
+              endblock: int=None, version=1) -> None: ### ADDRESSTRACK
         '''Wrapper to facilitate addresstrack spawns without having to deal with asset_specific_data.'''
 
-        asset_specific_data = eu.create_deckspawn_data("at", at_address=tracked_address, multiplier=multiplier)
+        asset_specific_data = eu.create_deckspawn_data("at", at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
 
         return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
                           asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
@@ -611,7 +612,8 @@ def main():
         'coin': Coin(),
         'proposal' : Proposal(),
         'donation' : Donation(),
-        'at' : AT(),
+        'attoken' : ATToken(),
+        'pobtoken' : PoBToken(),
         'dex' : Dex()
         })
 

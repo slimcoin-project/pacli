@@ -1,4 +1,5 @@
 import pypeerassets as pa
+from typing import Optional, Union
 from pypeerassets.pautils import load_deck_p2th_into_local_node
 from pypeerassets.transactions import sign_transaction
 from pypeerassets.networks import net_query
@@ -10,11 +11,12 @@ from pacli.config import Settings
 
 
 # TODO: workaround for the identification problem, try to make more elegant.
+# The problem is that I don't want the constants in __main__. So we'll have to list them here.
 
-ATTYPE = { "at" : ID_AT, "dt" : ID_DT }
+
 # Utils which are used by at and dt (and perhaps normal) tokens.
 
-def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2):
+def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None):
 
     # note: we use an additional identifier only for this function, to avoid having to import extension
     # data into __main__.
@@ -35,7 +37,9 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
         params = {"at_type" : ID_AT,
                   "multiplier" : int(multiplier),
                   "at_address" : at_address,
-                  "addr_type" : int(addr_type)}
+                  "addr_type" : int(addr_type),
+                  "startblock" : int(startblock),
+                  "endblock" : int(endblock)}
 
     data = serialize_deck_extended_data(net_query(provider.network), params=params)
     # print("OP_RETURN length in bytes:", len(data))
@@ -43,26 +47,9 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
 
 
 def list_decks(identifier: str="dt"):
-    # TODO: almost duplicate with a method in dt_misc_utils. Decide which needs to be kept.
-    # default: lists DT decks.
-    # TODO: This does not catch some errors with invalid decks which are displayed:
-    # InvalidDeckSpawn ("InvalidDeck P2TH.") -> not catched in deck_parser in pautils.py
-    # 'error': 'OP_RETURN not found.' -> InvalidNulldataOutput , in pautils.py
-    # 'error': 'Deck () metainfo incomplete, deck must have a name.' -> also in pautils.py, defined in exceptions.py.
-
-    decks = pa.find_all_valid_decks(provider,
-                                    Settings.deck_version,
-                                    Settings.production)
-
-    decklist = []
-    for d in decks:
-        try:
-            if d.at_type == ATTYPE[identifier]:
-                decklist.append(d)
-        except AttributeError:
-            continue
-
-    return decklist
+    # quick workaround for the problem that we don't want too much extension stuff in __main__.
+    at_type = { "at" : ID_AT, "dt" : ID_DT }
+    return dmu.list_decks_by_at_type(provider, at_type[identifier])
 
 def init_deck(network, deckid, rescan=True):
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -138,10 +125,6 @@ def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=N
                 tx = sign_transaction(provider, rawtx, Settings.key)
             else:
                 tx = dmu.sign_mixed_transaction(provider, rawtx, Settings.key, input_types)
-            #else:
-            #    # fallback, will not always work, try to avoid!
-            #    tx = sign_transaction(provider, rawtx, Settings.key)
-            #    # tx = signtx(rawtx)
 
         if send:
             pprint({'txid': sendtx(tx)})
@@ -161,10 +144,39 @@ def get_wallet_transactions(fburntx: bool=False):
             break
     return raw_txes
 
-def find_transaction_by_string(searchstring: str):
+def find_transaction_by_string(searchstring: str, only_start: bool=False):
 
     wallet_txids = set([tx.txid for tx in get_wallet_transactions()])
     for txid in wallet_txids:
-       if txid.startswith(searchstring):
+       if (only_start and txid.startswith(searchstring)) or (searchstring in txid and not only_start):
            break
     return txid
+
+def advanced_card_transfer(deckid: str, receiver: list=None, amount: list=None,
+                 asset_specific_data: str=None, locktime: int=0, verify: bool=False,
+                 sign: bool=False, send: bool=False) -> Optional[dict]:
+    # allows some more options, and to use P2PK inputs.
+
+    deck = pa.find_deck(deckid)
+
+    if isinstance(deck, pa.Deck):
+        card = pa.CardTransfer(deck=deck,
+                               receiver=receiver,
+                               amount=[self.to_exponent(deck.number_of_decimals, i)
+                                       for i in amount],
+                               version=deck.version,
+                               asset_specific_data=asset_specific_data
+                               )
+
+    else:
+
+        raise Exception({"error": "Deck {deckid} not found.".format(deckid=deckid)})
+
+    issue_tx = pa.card_transfer(provider=provider,
+                                 inputs=provider.select_inputs(Settings.key.address, 0.02),
+                                 card=card,
+                                 change_address=Settings.change,
+                                 locktime=locktime
+                                 )
+
+    return finalize_tx(issue_tx, verify, sign, send)
