@@ -224,3 +224,18 @@ def wait_for_block(startblock, endblock, provider, wait=False):
                 print("Period deadline has already passed", startendvalues)
                 print("Current block:", current_block)
                 return False
+
+def get_allowed_states(all: bool, unclaimed: bool, only_incomplete: bool):
+
+    allowed_states = []
+    if only_incomplete:
+        allowed_states = ["incomplete"]
+    elif unclaimed:
+        allowed_states = ["complete"]
+    else:
+        allowed_states = ["incomplete", "complete", "claimed"]
+        if all:
+            allowed_states.append("abandoned")
+
+    return allowed_states
+

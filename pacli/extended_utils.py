@@ -20,26 +20,24 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
 
     # note: we use an additional identifier only for this function, to avoid having to import extension
     # data into __main__.
-    #if identifier in ("at", "dt"):
-    #    identifier = identifier.encode("utf-8") # ensure bytes format. Probably not really necessary.
 
-    if identifier == "dt":
+    if identifier == ID_DT:
 
         params = {"at_type" : ID_DT,
                  "epoch_length" : int(epoch_length),
-                 "epoch_quantity": int(epoch_reward),
-                 "min_vote" : int(min_vote),
+                 "epoch_reward": int(epoch_reward),
+                 "min_vote" : int(min_vote) if min_vote else 0,
                  "sdp_deckid" : bytes.fromhex(sdp_deckid) if sdp_deckid else b"",
                  "sdp_periods" : int(sdp_periods) if sdp_periods else 0 }
 
-    elif identifier == "at":
+    elif identifier == ID_AT:
 
         params = {"at_type" : ID_AT,
                   "multiplier" : int(multiplier),
                   "at_address" : at_address,
                   "addr_type" : int(addr_type),
-                  "startblock" : int(startblock),
-                  "endblock" : int(endblock)}
+                  "startblock" : int(startblock) if startblock else 0,
+                  "endblock" : int(endblock) if endblock else 0}
 
     data = serialize_deck_extended_data(net_query(provider.network), params=params)
     # print("OP_RETURN length in bytes:", len(data))
@@ -180,3 +178,23 @@ def advanced_card_transfer(deckid: str, receiver: list=None, amount: list=None,
                                  )
 
     return finalize_tx(issue_tx, verify, sign, send)
+
+
+def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes,
+                        verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
+    # idem card transfer, allows p2pk inputs.
+
+    network = Settings.network
+    production = Settings.production
+    version = Settings.deck_version
+
+    new_deck = pa.Deck(name, number_of_decimals, issue_mode, network,
+                           production, version, asset_specific_data)
+
+    spawn_tx = pa.deck_spawn(provider=provider,
+                          inputs=provider.select_inputs(Settings.key.address, 0.02),
+                          deck=new_deck,
+                          change_address=Settings.change,
+                          locktime=locktime
+                          )
+    return finalize_tx(spawn_tx, verify, sign, send)

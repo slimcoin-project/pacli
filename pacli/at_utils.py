@@ -4,10 +4,12 @@ from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
 from pypeerassets.at.constants import ID_AT
 from pypeerassets.networks import net_query
+from pypeerassets.exceptions import UnsupportedNetwork
 from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.extended_utils as eu
+import pypeerassets.at.dt_misc_utils as dmu
 from prettyprinter import cpprint as pprint
 
 def create_simple_transaction(amount: Decimal, dest_address: str, input_address: str, tx_fee: Decimal=None, change_address: str=None, debug: bool=False):
@@ -26,7 +28,7 @@ def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address:
     raw_txes = []
     print("input address:", input_address)
     if unclaimed and deckid: # works only with deckid!
-        claims = get_claim_transactions(deckid, input_address)
+        claims = set([c.donation_txid for c in get_claim_transactions(deckid, input_address)])
 
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -38,8 +40,10 @@ def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address:
     raw_txes = eu.get_wallet_transactions()
     # print([t["address"] for t in raw_txes if t["category"] == "send"])
     filtered_txes = [t for t in raw_txes if ((t["category"] == "send") and (t["address"] == tracked_address))]
-
     txids = set([t["txid"] for t in filtered_txes])
+    if unclaimed:
+        txids.difference(claims)
+
     print("{} sent transactions to address {} in this wallet.".format(len(txids), tracked_address))
     txes_to_address = []
     for txid in txids:
@@ -187,10 +191,12 @@ def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amoun
 
 
 def at_deckinfo(deckid):
-    #for deck in eu.list_decks("at"):
-    for deck in dmu.list_decks_by_at_type(ID_AT):
+    for deck in dmu.list_decks_by_at_type(provider, ID_AT):
         if deck.id == deckid:
             break
+    else:
+        print("Deck not found or not valid.")
+        return
 
     for deck_param in deck.__dict__.keys():
         pprint("{}: {}".format(deck_param, deck.__dict__[deck_param]))
@@ -204,5 +210,13 @@ def get_claim_transactions(deckid: str, input_address: str):
         if card.type == "CardIssue" and card.sender == input_address:
             claim_txes.append(card)
     return claim_txes
+
+def burn_address():
+    if not provider.network.endswith("slm"):
+        raise UnsupportedNetwork("Unsupported network for burn tokens.")
+    if provider.network[0] == "t":
+        return "mmSLiMCoinTestnetBurnAddress1XU5fu"
+    else:
+        return "SfSLMCoinMainNetworkBurnAddr1DeTK5"
 
 

@@ -36,10 +36,8 @@ import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
 from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
-from pacli.dt_classes import Proposal, Donation
+from pacli.dt_classes import PoDToken, Proposal, Donation
 from pacli.dex_classes import Dex
-
-# TODO: P2PK is now supported, but only for the TrackedTransaction class. Extend to deck spawns, card transfers etc.
 
 class Config:
 
@@ -127,34 +125,30 @@ class Address:
         return Settings.key.address
 
     def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str:
-        '''Shows a stored alternative address or key.'''
-        # WARNING: Can expose private keys. Try to use 'privkey' and 'wif' options only on testnet.
+        '''Shows a stored alternative address or key.
+        WARNING: Can expose private keys. Try to use 'privkey' and 'wif' options only on testnet.'''
+
         return ke.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy)
 
     def show_all(self, debug: bool=False, legacy: bool=False):
         '''Shows all stored addresses and their balance (Unix only).'''
+
         return ke.show_all_keys(debug, legacy)
 
     def show_label(self, address=Settings.key.address):
         '''Shows the label of the current main address, or of another address.'''
+
         return ke.show_label(address)
 
-    def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None: ### NEW FEATURE ###
+    def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None:
         '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
+
         return ke.delete_key_from_keyring(label, legacy=legacy)
 
-    def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None: ### NEW FEATURE ###
+    def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None:
         '''imports main key or any stored key to wallet managed by RPC node.'''
 
         return ke.import_key_to_wallet(accountname, label, legacy)
-
-    def my_votes(self, deckid: str, address: str=Settings.key.address):
-        '''shows votes cast from this address, for all proposals of a deck.'''
-        return dc.show_votes_by_address(deckid, address)
-
-    def my_donations(self, deckid: str, address: str=Settings.key.address):
-        '''shows donation states involving this address, for all proposals of a deck.'''
-        return dc.show_donations_by_address(deckid, address)
 
 
 class Deck:
@@ -277,7 +271,8 @@ class Deck:
             {'combo': functools.reduce(operator.or_, *args)
              })
 
-    @classmethod
+    # following are moved in the attoken/podtoken class!
+    """@classmethod
     def at_spawn(self, name, tracked_address, verify: bool=False, sign: bool=False,
               send: bool=False, locktime: int=0, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, version=1) -> None: ### ADDRESSTRACK
@@ -295,46 +290,12 @@ class Deck:
 
         asset_specific_data = eu.create_deckspawn_data("dt", dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
 
-        return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
-                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
+        return eu.advanced_deck_spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
+                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)"""
 
     def init(self, deckid: str):
         '''Initializes deck and imports its P2TH address into node.'''
         eu.init_deck(Settings.network, deckid)
-
-    def dt_init(self, deckid: str):
-        '''Initializes DT deck and imports all P2TH addresses into node.'''
-
-        dc.init_dt_deck(Settings.network, deckid)
-
-    def dt_info(self, deckid: str, p2th: bool=False):
-        '''Prints DT-specific deck info.'''
-
-        pprint(dc.get_deckinfo(deckid, p2th))
-
-    def at_info(self, deckid: str):
-        '''Prints AT-specific deck info.'''
-
-        at_deckinfo(deckid)
-
-    @classmethod
-    def at_list(self):
-        '''Prints list of AT decks'''
-
-        at_decklist = eu.list_decks("at")
-        print_deck_list(at_decklist)
-
-
-    @classmethod
-    def dt_list(self):
-        '''List all DT decks.'''
-
-        dt_decklist = eu.list_decks("dt")
-        print_deck_list(dt_decklist)
-
-    def dt_state(self, deckid: str, debug: bool=False):
-        '''Prints the DT deck state.'''
-        dc.dt_state(deckid, debug)
 
 
 class Card:
@@ -537,7 +498,7 @@ class Card:
 
         return tracked_address.decode("utf-8"), int(multiplier)
 
-    @classmethod ### NEW FEATURE - AT ###
+    """@classmethod ### NEW FEATURE - AT ###
     def claim_at_tokens(self, deckid: str, txid: str, receiver: list=None, amount: list=None,
               locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False) -> str:
         '''To simplify self.issue, all data is taken from the transaction.'''
@@ -567,20 +528,12 @@ class Card:
             return None
 
         return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
-                             verify=verify, locktime=locktime, sign=sign, send=send)
+                             verify=verify, locktime=locktime, sign=sign, send=send)"""
 
     @classmethod
     def simple_transfer(self, deckid: str, receiver: str, amount: str, sign: bool=False, send: bool=False):
-        '''Simplified transfer with only one single payment.'''
+        '''Simplified transfer with only one single payment.''' ### added by addresstrack team
         return self.transfer(deckid, receiver=[receiver], amount=[amount], sign=sign, send=send)
-
-    #@classmethod
-    #def at_issue_all(self, deckid: str) -> str:
-    #    '''this function checks all transactions from own address to tracked address and then issues tx.'''
-    #
-    #    deck = self.__find_deck(deckid)
-    #    tracked_address = deck.asset_specific_data.split(b":")[1].decode("utf-8")
-    #     # UNFINISHED #
 
 class Transaction:
 
@@ -614,6 +567,7 @@ def main():
         'donation' : Donation(),
         'attoken' : ATToken(),
         'pobtoken' : PoBToken(),
+        'podtoken' : PoDToken(),
         'dex' : Dex()
         })
 

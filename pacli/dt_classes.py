@@ -2,6 +2,7 @@
 from prettyprinter import cpprint as pprint
 from pacli.config import Settings
 from pacli.provider import provider
+from pacli.tui import print_deck_list
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
@@ -11,7 +12,65 @@ from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransactio
 import pacli.dt_utils as du
 import pacli.extended_utils as eu
 import pacli.dt_interface as di
+import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
+
+
+class PoDToken:
+
+    @classmethod
+    def deck_spawn(self, name: str, dp_length: int, dp_reward: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
+        '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
+
+        asset_specific_data = eu.create_deckspawn_data(c.ID_DT, dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
+
+        return eu.advanced_deck_spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
+                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
+
+    def claim(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_vout: int=2, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
+        '''Issue Proof-of-donation tokens after a successful donation.'''
+
+        if donor_address is None:
+            donor_address = Settings.key.address
+        else:
+            print("You provided a custom address. You will only be able to do a dry run, not to actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
+            sign, send = False, False
+
+        try:
+            asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_vout=donation_vout, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug)
+        except TypeError as e:
+            print("Error:", e)
+            return None
+
+        return eu.advanced_transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, verify=verify, locktime=locktime, sign=sign, send=send)
+
+    def init_deck(self, deckid: str):
+        '''Initializes DT deck and imports all P2TH addresses into node.'''
+
+        dc.init_dt_deck(Settings.network, deckid)
+
+    def deck_info(self, deckid: str, p2th: bool=False):
+        '''Prints DT-specific deck info.'''
+
+        pprint(dc.get_deckinfo(deckid, p2th))
+
+    def deck_list(self):
+        '''List all DT decks.'''
+
+        dt_decklist = dmu.list_decks_by_at_type(provider, c.ID_DT)
+        print_deck_list(dt_decklist)
+
+    def deck_state(self, deckid: str, debug: bool=False):
+        '''Prints the DT deck state.'''
+        dc.dt_state(deckid, debug)
+
+    def my_votes(self, deckid: str, address: str=Settings.key.address):
+        '''shows votes cast from this address, for all proposals of a deck.'''
+        return dc.show_votes_by_address(deckid, address)
+
+    def my_donations(self, deckid: str, address: str=Settings.key.address):
+        '''shows donation states involving this address, for all proposals of a deck.'''
+        return dc.show_donations_by_address(deckid, address)
 
 class Proposal: ### DT ###
 
@@ -148,6 +207,9 @@ class Proposal: ### DT ###
         elif len(proposal_string) == 64:
             proposal_id = proposal_string
             pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
+        else:
+            print("NOTE: Non-standard search, trying to find by ID start.\nBe aware that you may not get the state of the proposal you intended.\nBe sure to check the Proposal ID.")
+            pstate = du.find_proposal_state_by_string(proposal_string, shortid=True, advanced=True)[0]
         pdict = pstate.__dict__
         if param is not None:
             result = pdict.get(param)
@@ -190,7 +252,7 @@ class Proposal: ### DT ###
         pprint(str(dmu.sats_to_coins(Decimal(pstate.available_slot_amount[dist_round]), Settings.network)))
 
 
-    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, debug: bool=False):
+    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, all: bool=False, unclaimed: bool=False, only_incomplete: bool=False, debug: bool=False):
         '''Shows the donation states involving a certain address (default: current active address).'''
         # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
 
@@ -210,7 +272,11 @@ class Proposal: ### DT ###
             # Default behavior: only shows the state where the address is used as donor address.
             my_dstates = dmu.get_donation_states(provider, proposal_id, donor_address=address, debug=debug)
 
+        allowed_states = di.get_allowed_states(all, unclaimed, only_incomplete)
+
         for pos, dstate in enumerate(my_dstates):
+            if dstate.state not in allowed_states:
+                continue
             pprint("Address: {}".format(dstate.donor_address))
             try:
                 # this will only work if the key corresponding to the address is in the user's keystore.
@@ -233,13 +299,7 @@ class Proposal: ### DT ###
         '''Shows currently active (default) or all (--all flag) donation states of this proposal.'''
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
 
-        if only_incomplete:
-           allowed_states = ["incomplete"]
-        else:
-           allowed_states = ["incomplete", "complete"]
-           if all:
-               allowed_states += ["abandoned"]
-
+        allowed_states = di.get_allowed_states(all, unclaimed, only_incomplete)
 
         for dstate in dstates:
 
@@ -263,15 +323,8 @@ class Proposal: ### DT ###
 
     def create(self, deckid: str, req_amount: str, periods: int, description: str=None, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
         '''Creates a new proposal.'''
-        # MODIFIED: round_length has now been eliminated.
-        # MODIFIED: --modify has now an own command.
-        # MODIFIED: description added.
 
         basic_tx_data = du.get_basic_tx_data("proposal", deckid=deckid, input_address=Settings.key.address)
-
-
-        #if round_length == 0:
-        #    print("Using standard round length of the deck:", basic_tx_data["deck"].standard_round_length)
 
         params = { "id" : c.ID_PROPOSAL , "deckid" : deckid, "epoch_number" : int(periods), "req_amount" : Decimal(str(req_amount)), "description" : description }
 
@@ -280,7 +333,7 @@ class Proposal: ### DT ###
         return eu.finalize_tx(rawtx, verify, sign, send, debug=debug)
 
     def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, tx_fee: str="0.01", p2th_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False):
-        # new command to modify without having to provide deckid. Would have changes in protobuf.
+        '''Modify a proposal without providing the deck id.'''
 
         old_proposal_tx = dmu.find_proposal(proposal_id, provider)
         basic_tx_data = du.get_basic_tx_data("proposal", deckid=old_proposal_tx.deck.id, input_address=Settings.key.address)
