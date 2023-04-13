@@ -38,6 +38,7 @@ from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import PoDToken, Proposal, Donation
 from pacli.dex_classes import Dex
+from pacli.tools_extended import Tools
 
 class Config:
 
@@ -568,7 +569,8 @@ def main():
         'attoken' : ATToken(),
         'pobtoken' : PoBToken(),
         'podtoken' : PoDToken(),
-        'dex' : Dex()
+        'dex' : Dex(),
+        'tools' : Tools()
         })
 
 

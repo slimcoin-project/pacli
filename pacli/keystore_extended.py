@@ -7,8 +7,9 @@ import pypeerassets as pa
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.keystore as k
+import pacli.config_extended as ce
 
-def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=None, legacy: bool=False) -> None: ### NEW FEATURE ###
+def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=None, legacy: bool=False) -> None:
     '''save/import new key, can be as main address or with an id, old key can be backed up
        this feature allows to import keys and generate new addresses'''
 
@@ -232,3 +233,30 @@ def delete_key_from_keyring(label: str, legacy: bool=False):
        print("Key", label, "successfully deleted.")
     except keyring.errors.PasswordDeleteError:
        print("Key", label, "does not exist. Nothing deleted.")
+
+def label_to_kutil(full_label: str) -> pa.Kutil:
+    raw_key = bytearray.fromhex(get_key(full_label))
+    return pa.Kutil(network=Settings.network, privkey=raw_key)
+
+# extended config
+def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False):
+    keyring_prefix = "key_"
+    if not full:
+        ext_label = network_name + "_" + label
+        full_label = keyring_prefix + ext_label
+    else:
+        full_label = label
+        ext_label = full_label[len(keyring_prefix):]
+    if not address:
+        address = label_to_kutil(full_label).address
+    try:
+        ce.write_item(category="address", key=ext_label, value=address)
+    except ce.ValueExistsError:
+        print("Value already exists. Config file not changed.")
+
+def get_address(label: str, network_name: str=Settings.network) -> str:
+    ext_label = network_name + "_" + label
+    return ce.read_item(category="address", key=ext_label)
+
+
+
