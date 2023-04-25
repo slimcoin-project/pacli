@@ -252,14 +252,14 @@ class Proposal: ### DT ###
         pprint(str(dmu.sats_to_coins(Decimal(pstate.available_slot_amount[dist_round]), Settings.network)))
 
 
-    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, all: bool=False, unclaimed: bool=False, only_incomplete: bool=False, debug: bool=False):
+    def my_donation_states(self, proposal_id: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, all: bool=False, unclaimed: bool=False, only_incomplete: bool=False, extconf: bool=False, debug: bool=False):
         '''Shows the donation states involving a certain address (default: current active address).'''
         # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
 
         if all_addresses:
 
             all_dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
-            labels = ke.get_all_labels(Settings.network)
+            labels = ke.get_all_labels(Settings.network, extconf=extconf)
             my_addresses = [ke.show_stored_address(label, network_name=Settings.network, noprefix=True) for label in labels]
             # print(my_addresses)
             my_dstates = [d for d in all_dstates if d.donor_address in my_addresses]

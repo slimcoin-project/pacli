@@ -29,30 +29,38 @@ class ATToken():
         txes = au.show_txes_by_block(tracked_address=address, deckid=deckid, startblock=start, endblock=end, debug=debug)
         pprint(txes)
 
-    def my_txes(self, address: str=None, deckid: str=None, unclaimed: bool=False) -> None:
+    def my_txes(self, address: str=None, deckid: str=None, unclaimed: bool=False, wallet: bool=False, debug: bool=False) -> None:
 
-        txes = au.show_wallet_txes(tracked_address=address, deckid=deckid, unclaimed=unclaimed)
+        input_address = Settings.key.address if not wallet else None
+        txes = au.show_wallet_txes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, debug=debug)
         pprint(txes)
 
     @classmethod
-    def claim(self, deckid: str, txid: str, receiver: list=None, amount: list=None,
-              locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False) -> str:
+    def claim(self, deckid: str, txid: str, receivers: list=None, amounts: list=None,
+              locktime: int=0, payto: str=None, payamount: str=None, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False, force: bool=False) -> str:
         '''To simplify self.issue, all data is taken from the transaction.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
-        #deck = self.__find_deck(deckid)
-        deck = pa.find_deck(provider, deckid)
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
-        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, amount=amount, debug=debug)
+        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=Decimal(str(payamount)), debug=debug, force=force)
 
         # return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
         #                     verify=verify, locktime=locktime, sign=sign, send=send)
-        issue = eu.advanced_card_transfer(provider=provider,
-                                 inputs=provider.select_inputs(Settings.key.address, 0.02),
-                                 card=card,
-                                 change_address=Settings.change,
-                                 locktime=locktime
+
+        # inputs=provider.select_inputs(Settings.key.address, 0.02),
+        # change_address=Settings.change,
+        return eu.advanced_card_transfer(deck,
+                                 amount=amount,
+                                 receiver=receiver,
+                                 locktime=locktime,
+                                 asset_specific_data=asset_specific_data,
+                                 sign=sign,
+                                 send=send,
+                                 verify=verify,
+                                 debug=debug
                                  )
+
     @classmethod
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, version=1, locktime: int=0, verify: bool=False, sign: bool=False,
@@ -103,10 +111,11 @@ class PoBToken(ATToken):
 
         return self.create_tx(address=au.burn_address(), amount=amount, input_address=input_address, tx_fee=tx_fee, change_address=change_address, sign=sign, send=send, verify=verify, debug=debug)
 
-    def my_burns(self, unclaimed: bool=False, wallet: bool=False) -> None:
+    def my_burns(self, unclaimed: bool=False, wallet: bool=False, deckid: str=None, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 
-        input_address = Settings.key.address if not wallet else None
-        txes = au.show_wallet_txes(tracked_address=au.burn_address(), unclaimed=unclaimed, burntxes=True, input_address=input_address)
-        pprint(txes)
+        return self.my_txes(address=au.burn_address(), unclaimed=unclaimed, deckid=deckid, wallet=wallet, debug=debug)
+        #input_address = Settings.key.address if not wallet else None
+        #txes = au.show_wallet_txes(tracked_address=au.burn_address(), unclaimed=unclaimed, deckid=deckid, burntxes=True, input_address=input_address)
+        #pprint(txes)

@@ -1,10 +1,13 @@
-# Tools class, for example to store recent blockhash.
+# Tools class, for new pacli commands not directly related to a token type.
 # TODO: re-check if we need a way to store ints as keys specifically.
+# TODO: (not urgent) there are some commands which are related to the new keystore. Maybe also integrate the extended keystore here, or create a new class (e.g. "keys", "ekeystore", "extkeys" ...?)
 
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.config_extended as ce
 import pacli.keystore_extended as ke
+import pacli.extended_utils as eu
+from prettyprinter import cpprint as pprint
 
 class Tools:
 
@@ -15,18 +18,29 @@ class Tools:
     def store_addresses_from_keyring(self) -> None:
         print("Storing all addresses of network", provider.network, "from keyring into extended config file.")
         print("The config file will NOT store private keys. It only allows faster access to addresses.")
-        labels = ke.get_all_labels(provider.network)
-        print(labels)
+        labels = ke.get_labels_from_keyring(provider.network)
+        print("Labels retrieved from keyring:", labels)
         for label in labels:
             ke.store_address(label, full=True)
 
     def get_address(self, label: str) -> str:
         return ke.get_address(label)
 
-    def get_all_addresses(self) -> None:
+    def get_label(self, address: str) -> str:
+        return ce.search_value("address", address)[0]
+
+    def get_all_addresses(self, network: str=None) -> None:
         addresses = ce.get_config()["address"]
-        for label in addresses:
-           print(label, " - ", addresses[label])
+        for fulllabel in addresses:
+            addr = addresses[fulllabel]
+            lparams = ce.process_fulllabel(fulllabel)
+            label, networkname = lparams["label"], lparams["network"]
+            balance = str(provider.getbalance(addr))
+
+            if network and (networkname == network):
+                print(label.ljust(16), balance.ljust(16), addr)
+            else:
+                print(label.ljust(16), networkname.ljust(6), balance.ljust(16), addr)
 
     def delete_item(self, category: str, key: str, now: bool=False) -> None:
         ce.delete_item(category, key, now)
@@ -34,55 +48,20 @@ class Tools:
     def get_config(self) -> list:
         return ce.get_config()
 
-
     def store_checkpoint(self, height: int=None) -> None:
-        if height is None:
-            height = provider.getblockcount()
-        blockhash = provider.getblockhash(height)
-        print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
-        ce.write_item(category="checkpoint", key=height, value=blockhash)
+        return eu.store_checkpoint(height=height)
 
     def get_checkpoint(self, height: int=None) -> str:
-        # TODO move main part in extended_utils
-        config = ce.get_config()
-        bheights = sorted([ int(h) for h in config["checkpoint"] ])
-        if height is None:
-            # default: show latest checkpoint
-            height = max(bheights)
-        else:
-            height = int(height)
-            if height not in bheights:
-                # if height not in blockheights, show the highest below it
-                for i, h in enumerate(bheights):
-                    if h > height:
-                        new_height = bheights[i-1]
-                        break
-                else:
-                    # if the highest checkpoint is below the required height, use it
-                    new_height = bheights[-1]
+        return eu.retrieve_checkpoint(height=height)
 
-                print("No checkpoint for height {}, closest (lower) checkpoint is: {}".format(height, new_height))
-                height = new_height
+    def get_all_checkpoints(self):
+        return eu.retrieve_all_checkpoints()
 
-
-
-        return {height : config["checkpoint"][str(height)]}
+    def delete_checkpoint(self, height: int=None, now: bool=False):
+        ce.delete_item("checkpoint", str(height), now=now)
 
     def reorg_check(self):
-        # TODO move main part in extended_utils
-        print("Looking for reorg.")
-        config = ce.get_config()
-        bheights = sorted([ int(h) for h in config["checkpoint"] ])
-        last_height = bheights[-1]
-        stored_bhash = config["checkpoint"][str(last_height)]
-        print("Last checkpoint found: height {} hash {}".format(last_height, stored_bhash))
-        checked_bhash = provider.getblockhash(last_height)
-        if checked_bhash == stored_bhash:
-            print("No reorganization found. Everything seems to be ok.")
-        else:
-            print("WARNING! Chain reorganization found.")
-            print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
-            print("This is not necessarily a problem. But make sure you check token balances and other states.")
+        return eu.reorg_check()
 
     def store_deck(self, label: str, deckid: str):
         ce.write_item(category="deck", key=label, value=deckid)
@@ -98,9 +77,7 @@ class Tools:
         proposal = ce.read_item(category="proposal", key=label)
         print(proposal)
 
-
-
-
-
-
+    def get_all_legacy_labels(self, prefix: str=provider.network) -> None:
+        """For debugging only."""
+        print(ke.get_all_labels(prefix))
 

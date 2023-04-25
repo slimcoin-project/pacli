@@ -5,16 +5,13 @@ from pypeerassets.transactions import sign_transaction
 from pypeerassets.networks import net_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
+from pypeerassets.pautils import amount_to_exponent
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
+import pacli.config_extended as ce
 from pacli.provider import provider
 from pacli.config import Settings
 
-
-# TODO: workaround for the identification problem, try to make more elegant.
-# The problem is that I don't want the constants in __main__. So we'll have to list them here.
-
-
-# Utils which are used by at and dt (and perhaps normal) tokens.
+# Utils which are used by both at and dt (and perhaps normal) tokens.
 
 def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None):
 
@@ -88,8 +85,13 @@ def get_input_types(rawtx):
         raise ValueError("Transaction data not correctly given.")
 
 
-def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=None, input_types=None, debug=False):
+def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, debug: bool=False) -> dict:
     # groups the last steps together
+
+    if not ignore_checkpoint:
+        # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
+        if reorg_check() and not confirm_continuation():
+            return
 
     if verify:
         print(
@@ -128,7 +130,10 @@ def finalize_tx(rawtx, verify, sign, send, redeem_script=None, label=None, key=N
             pprint({'txid': sendtx(tx)})
         return {'hex': tx.hexlify()}
 
-    return rawtx.hexlify()
+    if not ignore_checkpoint:
+        store_checkpoint()
+
+    return {'raw hex' : rawtx.hexlify()}
 
 def get_wallet_transactions(fburntx: bool=False):
     start = 0
@@ -150,17 +155,18 @@ def find_transaction_by_string(searchstring: str, only_start: bool=False):
            break
     return txid
 
-def advanced_card_transfer(deckid: str, receiver: list=None, amount: list=None,
+def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False,
-                 sign: bool=False, send: bool=False) -> Optional[dict]:
+                 sign: bool=False, send: bool=False, debug: bool=False) -> Optional[dict]:
     # allows some more options, and to use P2PK inputs.
 
-    deck = pa.find_deck(deckid)
+    if not deck:
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,
                                receiver=receiver,
-                               amount=[self.to_exponent(deck.number_of_decimals, i)
+                               amount=[amount_to_exponent(i, deck.number_of_decimals)
                                        for i in amount],
                                version=deck.version,
                                asset_specific_data=asset_specific_data
@@ -177,7 +183,7 @@ def advanced_card_transfer(deckid: str, receiver: list=None, amount: list=None,
                                  locktime=locktime
                                  )
 
-    return finalize_tx(issue_tx, verify, sign, send)
+    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, debug=debug)
 
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes,
@@ -198,3 +204,66 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
                           locktime=locktime
                           )
     return finalize_tx(spawn_tx, verify, sign, send)
+
+
+def store_checkpoint(height: int=None) -> None:
+    if height is None:
+        height = provider.getblockcount()
+    blockhash = provider.getblockhash(height)
+    print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
+    ce.write_item(category="checkpoint", key=height, value=blockhash)
+
+def retrieve_checkpoint(height: int=None) -> dict:
+    config = ce.get_config()
+    bheights = sorted([ int(h) for h in config["checkpoint"] ])
+    if height is None:
+        # default: show latest checkpoint
+        height = max(bheights)
+    else:
+        height = int(height)
+        if height not in bheights:
+            # if height not in blockheights, show the highest below it
+            for i, h in enumerate(bheights):
+                if h > height:
+                    new_height = bheights[i-1]
+                    break
+            else:
+                # if the highest checkpoint is below the required height, use it
+                new_height = bheights[-1]
+
+            print("No checkpoint for height {}, closest (lower) checkpoint is: {}".format(height, new_height))
+            height = new_height
+
+    return {height : config["checkpoint"][str(height)]}
+
+def retrieve_all_checkpoints() -> dict:
+    config = ce.get_config()
+    return config["checkpoint"]
+
+def reorg_check() -> None:
+    print("Looking for chain reorganizations ...")
+    config = ce.get_config()
+    bheights = sorted([ int(h) for h in config["checkpoint"] ])
+    last_height = bheights[-1]
+    stored_bhash = config["checkpoint"][str(last_height)]
+    print("Last checkpoint found: height {} hash {}".format(last_height, stored_bhash))
+    checked_bhash = provider.getblockhash(last_height)
+    if checked_bhash == stored_bhash:
+        print("No reorganization found. Everything seems to be ok.")
+        return 0
+    else:
+        print("WARNING! Chain reorganization found.")
+        print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
+        print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
+        print("Make sure you check token balances and other states.")
+        return 1
+
+def confirm_continuation() -> bool:
+    print("Enter 'yes' to confirm to continue")
+    cont = input()
+    if cont == "yes":
+        return True
+    else:
+        return False
+
+

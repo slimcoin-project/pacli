@@ -4,14 +4,14 @@ import json, os
 # This stores some settings in an additional config file, for example short keys for addresses, proposals, decks etc.
 # An alternative for the future could be to use sqlite3 eventually.
 
-ext_configfile = os.path.join(conf_dir, "extended_config.json")
-categories = ["address", "checkpoint", "deck", "proposal", "donation"]
-CAT_INIT = {c : {} for c in categories}
+EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
+CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation"]
+CAT_INIT = {c : {} for c in CATEGORIES}
 
 class ValueExistsError(Exception):
     pass
 
-def get_config(configfilename: str=ext_configfile) -> dict:
+def get_config(configfilename: str=EXT_CONFIGFILE) -> dict:
 
     try:
         with open(configfilename, "r") as configfile:
@@ -28,7 +28,7 @@ def get_config(configfilename: str=ext_configfile) -> dict:
         return CAT_INIT
 
 
-def write_item(category: str, key: str, value: str, configfilename: str=ext_configfile, mode: str="protect", debug: bool=True) -> None:
+def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, mode: str="protect", debug: bool=True) -> None:
 
     if debug:
         print("Storing: category: {}, key: {}, value: {}".format(category, key, value))
@@ -54,13 +54,13 @@ def write_item(category: str, key: str, value: str, configfilename: str=ext_conf
         config = get_config(configfilename)
         print("New config:", config)
 
-def read_item(category: str, key: str, configfilename: str=ext_configfile):
+def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     #with open(configfilename, "r") as configfile:
     #    config = json.load(configfile)
     config = get_config(configfilename)
     return config[category][str(key)]
 
-def delete_item(category: str, key: str, now: bool=False, configfilename: str=ext_configfile, debug: bool=True):
+def delete_item(category: str, key: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, debug: bool=True):
     config = get_config(configfilename)
     try:
         print("WARNING: deleting item from category {}, key: {}, value: {}".format(category, key, config[category][key]))
@@ -75,6 +75,21 @@ def delete_item(category: str, key: str, now: bool=False, configfilename: str=ex
             json.dump(config, configfile)
     if debug:
         print("New config file content:", config)
+
+def search_value(category: str, value: str, configfilename: str=EXT_CONFIGFILE):
+    config = get_config(configfilename)
+    return [ key for key in config[category] if config[category][key] == value ]
+
+def search_value_content(category: str, searchstring: str, configfilename: str=EXT_CONFIGFILE):
+    config = get_config(configfilename)
+    return [ key for key in config[category] if searchstring in config[category][key] ]
+
+def process_fulllabel(fulllabel):
+    # uses the network_label format
+    label_split = fulllabel.split("_")
+    network = label_split[0]
+    label = "_".join(label_split[1:])
+    return (network, label)
 
 
 

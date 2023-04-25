@@ -64,10 +64,11 @@ def set_key(full_label: str, key: str) -> None:
     '''set new key, simple way'''
     keyring.set_password("pacli", full_label, key)
 
-def get_all_labels(prefix: str):
+def get_labels_from_keyring(prefix: str):
     # returns all labels corresponding to a network shortname (the prefix)
     # does currently NOT support Windows Credential Locker nor KDE.
     # Should work with Gnome Keyring, KeepassXC, and KSecretsService.
+
     try:
         import secretstorage
     except ImportError:
@@ -111,8 +112,10 @@ def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: 
 
 def show_stored_address(label: str, network_name: str, json_mode: bool=False, noprefix: bool=False):
     # Safer mode for show_stored_key.
-    # TODO: json mode still unfinished.
-    return show_stored_key(label, network_name=network_name, json_mode=json_mode, noprefix=noprefix)
+    if json_mode:
+        return get_address(label, network_name)
+    else:
+        return show_stored_key(label, network_name=network_name, json_mode=json_mode, noprefix=noprefix)
 
 def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
     if len(addrlist) != len(keylist):
@@ -128,19 +131,34 @@ def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
         result.append(adr)
     return result
 
-def show_label(address):
-    # Needs secretstorage!
-    labels = get_all_labels(Settings.network)
-    for fulllabel in labels:
+def show_label(address: str, extconf: bool=False, set_main: bool=False) -> dict:
+    # Needs secretstorage or extended config.
+    if extconf:
+        # address category has only one entry per value, so we can pick the first item.
         try:
-            # label = fulllabel.split("_")[-1] # this behaves wrongly with addresses with _ in it.
-            prefix = "_".join(fulllabel.split("_")[:2]) + "_"
-            label = fulllabel.replace(prefix, "")
+            fulllabel = ce.search_value("address", address)[0]
         except IndexError:
-            continue
-        addr2 = show_stored_key(label, Settings.network)
-        if address == addr2:
-            return {"label" : label, "address" : address}
+            print("No label is assigned to that address.")
+            return
+        # label is differently stored in extconf than in keyring.
+        label = "_".join(fulllabel.split("_")[1:])
+
+    else:
+        labels = get_labels_from_keyring(Settings.network)
+        for fulllabel in labels:
+            try:
+                # label = fulllabel.split("_")[-1] # this behaves wrongly with labels with _ in it.
+                prefix = "_".join(fulllabel.split("_")[:2]) + "_"
+                label = fulllabel.replace(prefix, "")
+            except IndexError:
+                continue
+            if address == show_stored_key(label, Settings.network):
+                break
+    if set_main:
+        print("This address is now the main address (--set_main option).")
+        set_main_key(label)
+
+    return {"label" : label, "address" : address}
 
 def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False):
     # TODO: can't this be merged with fresh_address?
@@ -194,7 +212,7 @@ def show_all_keys(debug: bool=False, legacy: bool=False):
 
     net_prefix = "bak" if legacy else Settings.network
 
-    labels = get_all_labels(net_prefix)
+    labels = get_labels_from_keyring(net_prefix)
 
     prefix = "key_" + net_prefix + "_"
     print("Address".ljust(35), "Balance".ljust(15), "Label".ljust(15))
@@ -211,6 +229,12 @@ def show_all_keys(debug: bool=False, legacy: bool=False):
         except Exception as e:
             if debug: print("ERROR:", label, e)
             continue
+
+
+def set_main_key(label: str, backup: str=None, legacy: bool=False) -> str:
+    set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
+    Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(k.load_key()))
+    return Settings.key.address
 
 
 def import_key_to_wallet(accountname: str, label: str=None, legacy: bool=False):
@@ -257,6 +281,14 @@ def store_address(label: str, network_name: str=Settings.network, address: str=N
 def get_address(label: str, network_name: str=Settings.network) -> str:
     ext_label = network_name + "_" + label
     return ce.read_item(category="address", key=ext_label)
+
+def get_all_labels(prefix: str, extconf: bool=False) -> list:
+    if extconf:
+        labels = ce.get_config()["addresses"]
+        labels_in_legacy_format = [ "key_" + l for l in labels ]
+        return labels_in_legacy_format
+    else:
+        return get_labels_from_keyring(prefix)
 
 
 

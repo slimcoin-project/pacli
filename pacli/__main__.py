@@ -120,10 +120,10 @@ class Address:
     def set_main(self, label: str, backup: str=None, legacy: bool=False) -> str:
         '''Declares a key identified by a label as the main one.'''
 
-        ke.set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
-        Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
-
-        return Settings.key.address
+        #ke.set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
+        #Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
+        #return Settings.key.address
+        return ke.set_main_key(label, backup=backup, legacy=legacy)
 
     def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str:
         '''Shows a stored alternative address or key.
@@ -136,10 +136,11 @@ class Address:
 
         return ke.show_all_keys(debug, legacy)
 
-    def show_label(self, address=Settings.key.address):
+    def show_label(self, address=Settings.key.address, extconf=False, set_main=False):
         '''Shows the label of the current main address, or of another address.'''
 
-        return ke.show_label(address)
+        return ke.show_label(address, extconf=extconf, set_main=set_main)
+
 
     def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None:
         '''deletes a key with an user-defined label. Cannot be used to delete main key.'''

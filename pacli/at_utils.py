@@ -23,35 +23,46 @@ def create_simple_transaction(amount: Decimal, dest_address: str, input_address:
     return dtx.to_raw_transaction()
 
 
-def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, burntxes: bool=False) -> list:
-    # in this simple form it doesn't show from which address the originated, it shows all from the wallet.
-    raw_txes = []
-    print("input address:", input_address)
-    if unclaimed and deckid: # works only with deckid!
-        claims = set([c.donation_txid for c in get_claim_transactions(deckid, input_address)])
+def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, debug: bool=False) -> list:
 
+    raw_txes = []
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        if unclaimed:
+            claimed_txes = get_claimed_txes(deck, input_address, only_wallet=True)
+            if debug:
+                print("Transactions you already claimed tokens for of this deck:", claimed_txes)
         try:
             tracked_address = deck.at_address
         except AttributeError:
             raise ValueError("Deck ID {} does not reference an AT deck.".format(deckid))
+    elif unclaimed:
+        raise ValueError("You need to provide a Deck ID to show unclaimed transactions.")
 
     raw_txes = eu.get_wallet_transactions()
-    # print([t["address"] for t in raw_txes if t["category"] == "send"])
+
     filtered_txes = [t for t in raw_txes if ((t["category"] == "send") and (t["address"] == tracked_address))]
     txids = set([t["txid"] for t in filtered_txes])
     if unclaimed:
-        txids.difference(claims)
+        txids = txids.difference(claimed_txes)
 
     print("{} sent transactions to address {} in this wallet.".format(len(txids), tracked_address))
+    if input_address is not None:
+        print("Showing only transactions sent from the following address:", input_address)
+    if unclaimed:
+        print("Showing only unclaimed transactions for this deck.")
     txes_to_address = []
     for txid in txids:
         rawtx = provider.getrawtransaction(txid, 1)
+        sender = find_tx_sender(provider, rawtx)
+        try:
+            height = provider.getblock(rawtx["blockhash"])["height"]
+        except KeyError:
+            height = None
         # protocol defines that only address spending first input is counted.
         # so we can use find_tx_sender from pautils.
         if input_address:
-            if find_tx_sender(provider, rawtx) != input_address:
+            if sender != input_address:
                 continue
 
         value, indexes = 0, []
@@ -60,7 +71,9 @@ def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address:
                 value += Decimal(str(output["value"]))
                 indexes.append(index)
 
-        tx_dict = {"txid" : txid, "value" : value, "outputs" : indexes }
+        tx_dict = {"txid" : txid, "value" : value, "outputs" : indexes, "height" : height}
+        if not input_address:
+           tx_dict.update({"sender" : sender})
         txes_to_address.append(tx_dict)
 
     return txes_to_address
@@ -130,56 +143,59 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
     return tracked_txes
 
 
-def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amount: list=None, debug: bool=False) -> tuple:
+def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: list=None, amounts: list=None, payto: str=None, payamount: Decimal=None, debug: bool=False, force: bool=False) -> tuple:
         # note: uses now the "claim once per transaction" approach.
 
         spending_tx = provider.getrawtransaction(donation_txid, 1) # changed from txid
 
-        spent_amount = 0
+        if sender != find_tx_sender(provider, spending_tx):
+            raise Exception("Error: You cannot claim coins for another sender.")
 
-        # old protocol: claim once per vout
-        #if donation_vout is None:
-        #
-        #    for n, output in enumerate(spending_tx["vout"]):
-        #        print("Searching output {}: {}".format(n, output))
-        #        if deck.at_address in output["scriptPubKey"]["addresses"]:
-        #            donation_vout = n
-        #            break
+        if donation_txid in get_claimed_txes(deck, sender):
+            raise Exception("Error: Duplicate. You already have claimed the coins from this transaction successfully.")
+
+        spent_amount = Decimal(0)
 
         vouts = []
         for output in spending_tx["vout"]:
             if deck.at_address in output["scriptPubKey"]["addresses"]: # changed from tracked_address
                 # TODO: maybe we need a check for the script type
                 vouts.append(output["n"]) # used only for debugging/printouts
-                spent_amount += output["value"]
+                spent_amount += Decimal(str(output["value"]))
 
         if len(vouts) == 0:
-            raise Exception("No vout of this transaction spends to the tracked address")
+            raise Exception("This transaction does not spend coins to the tracked address")
 
         if debug:
             print("AT Address:", deck.at_address)
             print("Donation output indexes (vouts):", vouts)
-            # print("Donation vout:", donation_vout)
-
-        # old protocol
-        #try:
-        #    assert deck.at_address in spending_tx["vout"][donation_vout]["scriptPubKey"]["addresses"]
-        #    spent_amount = spending_tx["vout"][donation_vout]["value"]
-        #except (AssertionError, KeyError):
-        #    raise ValueError("This transaction/vout combination does not spend to the tracked address.")
 
         claimable_amount = spent_amount * deck.multiplier
 
-        if not receiver: # if there is no receiver, spends to himself.
-            receiver = [Settings.key.address]
+        if not receivers:
+            # payto and payamount enable easy payment to a second address,
+            # even if not the full amount is paid
+            if payto:
+               if (payamount is None) or (payamount == claimable_amount):
+                   amounts = [claimable_amount]
+                   receivers = [payto]
+               elif payamount < claimable_amount:
+                   amounts = [payamount, claimable_amount - payamount]
+                   receivers = [payto, Settings.key.address]
+               else:
+                   raise ValueError("Claimed amount {} higher than available amount {}.".format(payamount, claimable_amount))
 
-        if not amount:
-            amount = [claimable_amount]
+            # if there is no receiver, spends to himself.
+            else:
+               receivers = [Settings.key.address]
 
-        if len(amount) != len(receiver):
-            raise ValueError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receiver), len(amount)))
+        if not amounts:
+            amounts = [claimable_amount]
 
-        if (sum(amount) != claimable_amount): # and (not force): # force option overcomplicates things.
+        if len(amounts) != len(receivers):
+            raise ValueError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amount)))
+
+        if (sum(amounts) != claimable_amount) and (not force): # force option overcomplicates things.
             raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
 
         if debug:
@@ -187,7 +203,7 @@ def create_at_issuance_data(deck, donation_txid: str, receiver: list=None, amoun
             print("TXID with transfer enabling claim:", donation_txid)
 
         asset_specific_data = serialize_card_extended_data(net_query(provider.network), txid=donation_txid)
-        return asset_specific_data, amount, receiver
+        return asset_specific_data, amounts, receivers
 
 
 def at_deckinfo(deckid):
@@ -201,15 +217,25 @@ def at_deckinfo(deckid):
     for deck_param in deck.__dict__.keys():
         pprint("{}: {}".format(deck_param, deck.__dict__[deck_param]))
 
-def get_claim_transactions(deckid: str, input_address: str):
-    cards = pa.find_all_valid_cards(deckid)
+def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
+    # NOTE: Sender no longer necessary.
+
+    wallet_txids = set([t["txid"] for t in eu.get_wallet_transactions()]) if (only_wallet and not input_address) else None
+
+    cards = pa.find_all_valid_cards(provider, deck)
     ds = pa.protocol.DeckState(cards)
-    cards = ds.valid_cards()
-    claim_txes = []
-    for card in cards:
-        if card.type == "CardIssue" and card.sender == input_address:
-            claim_txes.append(card)
-    return claim_txes
+    claim_cards = []
+    for card in ds.valid_cards:
+        if card.type == "CardIssue":
+            if (input_address and (card.sender == input_address)) \
+            or (wallet_txids and (card.txid in wallet_txids)) \
+            or ((input_address is None) and not wallet_txids):
+                claim_cards.append(card)
+    return claim_cards
+
+def get_claimed_txes(deck: object, input_address: str, only_wallet: bool=False) -> set:
+    # returns TXIDs of already claimed txes.
+    return set([c.donation_txid for c in get_valid_cardissues(deck, input_address, only_wallet=only_wallet)])
 
 def burn_address():
     if not provider.network.endswith("slm"):
