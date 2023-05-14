@@ -7,6 +7,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 from pacli.tui import print_deck_list
 import pacli.extended_utils as eu
+import pacli.extended_interface as ei
 import pacli.at_utils as au
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
@@ -15,42 +16,42 @@ class ATToken():
     def create_tx(self, address: str, amount: str, input_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
 
         dec_amount = Decimal(str(amount))
-        rawtx = au.create_simple_transaction(amount=dec_amount, dest_address=address, input_address=Settings.key.address, change_address=change_address, debug=debug)
+        rawtx = ei.run_command(au.create_simple_transaction(amount=dec_amount, dest_address=address, input_address=Settings.key.address, change_address=change_address, debug=debug))
 
-        return eu.finalize_tx(rawtx, verify, sign, send, debug=debug)
+        return ei.run_command(eu.finalize_tx(rawtx, verify, sign, send, debug=debug))
 
     def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, debug: bool=False, burns: bool=False) -> None:
-        '''show all transactions to a tracked address between two block heights.'''
+        '''Show all transactions to a tracked address between two block heights (very slow!).'''
 
         if burns:
              print("Using burn address.")
              address = burn_address(network_name=provider.network)
 
-        txes = au.show_txes_by_block(tracked_address=address, deckid=deckid, startblock=start, endblock=end, debug=debug)
+        txes = ei.run_command(au.show_txes_by_block(tracked_address=address, deckid=deckid, startblock=start, endblock=end, debug=debug))
         pprint(txes)
 
     def my_txes(self, address: str=None, deckid: str=None, unclaimed: bool=False, wallet: bool=False, debug: bool=False) -> None:
-
+        '''Shows all transactions from your wallet to the tracked address.'''
         input_address = Settings.key.address if not wallet else None
-        txes = au.show_wallet_txes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, debug=debug)
+        txes = ei.run_command(au.show_wallet_txes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, debug=debug))
         pprint(txes)
 
     @classmethod
     def claim(self, deckid: str, txid: str, receivers: list=None, amounts: list=None,
               locktime: int=0, payto: str=None, payamount: str=None, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False, force: bool=False) -> str:
-        '''To simplify self.issue, all data is taken from the transaction.'''
+        '''Claims tokens for a transaction to a tracked address.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
-        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=Decimal(str(payamount)), debug=debug, force=force)
+        asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=Decimal(str(payamount)), debug=debug, force=force))
 
         # return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
         #                     verify=verify, locktime=locktime, sign=sign, send=send)
 
         # inputs=provider.select_inputs(Settings.key.address, 0.02),
         # change_address=Settings.change,
-        return eu.advanced_card_transfer(deck,
+        return ei.run_command(eu.advanced_card_transfer(deck,
                                  amount=amount,
                                  receiver=receiver,
                                  locktime=locktime,
@@ -59,30 +60,48 @@ class ATToken():
                                  send=send,
                                  verify=verify,
                                  debug=debug
-                                 )
+                                 ))
 
     @classmethod
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, version=1, locktime: int=0, verify: bool=False, sign: bool=False,
               send: bool=False) -> None:
-        '''Wrapper to facilitate addresstrack spawns without having to deal with asset_specific_data.'''
+        '''Spawns a new AT deck.'''
 
-        asset_specific_data = eu.create_deckspawn_data(c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data(c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock))
 
-        return eu.advanced_deck_spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
-                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
+        return ei.run_command(eu.advanced_deck_spawn(name=name, number_of_decimals=number_of_decimals,
+               issue_mode=0x01, locktime=locktime, asset_specific_data=asset_specific_data, verify=verify,
+               sign=sign, send=send))
 
 
     def deck_info(self, deckid: str):
         '''Prints AT-specific deck info.'''
 
-        au.at_deckinfo(deckid)
+        ei.run_command(au.at_deckinfo(deckid))
 
     @classmethod
     def deck_list(self):
         '''Prints list of AT decks'''
 
-        print_deck_list(list_decks_by_at_type(provider, c.ID_AT))
+        ei.run_command(print_deck_list(list_decks_by_at_type(provider, c.ID_AT)))
+
+    def show_claims(self, deckid: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
+        '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        claims = ei.run_command(au.get_valid_cardissues(deck, input_address=address, only_wallet=wallet))
+        for claim in claims:
+            if full:
+                pprint(claim.__dict__)
+                continue
+            elif param:
+                params = [param] if type(param) == str else param # .split(",")
+            else:
+                params = ["txid", "donation_txid", "amount", "blocknum"]
+
+            pprint({p : claim.__dict__[p] for p in params})
+
+
 
 
     #@classmethod
@@ -109,13 +128,13 @@ class PoBToken(ATToken):
     def create_burn_tx(self, amount: str, input_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address."""
 
-        return self.create_tx(address=au.burn_address(), amount=amount, input_address=input_address, tx_fee=tx_fee, change_address=change_address, sign=sign, send=send, verify=verify, debug=debug)
+        return super().create_tx(address=au.burn_address(), amount=amount, input_address=input_address, tx_fee=tx_fee, change_address=change_address, sign=sign, send=send, verify=verify, debug=debug)
 
     def my_burns(self, unclaimed: bool=False, wallet: bool=False, deckid: str=None, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 
-        return self.my_txes(address=au.burn_address(), unclaimed=unclaimed, deckid=deckid, wallet=wallet, debug=debug)
+        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deckid=deckid, wallet=wallet, debug=debug)
         #input_address = Settings.key.address if not wallet else None
         #txes = au.show_wallet_txes(tracked_address=au.burn_address(), unclaimed=unclaimed, deckid=deckid, burntxes=True, input_address=input_address)
         #pprint(txes)

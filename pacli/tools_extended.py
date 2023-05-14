@@ -23,18 +23,19 @@ class Tools:
         for label in labels:
             ke.store_address(label, full=True)
 
-    def get_address(self, label: str) -> str:
+    def show_address(self, label: str) -> str:
         return ke.get_address(label)
 
-    def get_label(self, address: str) -> str:
+    def show_label(self, address: str) -> str:
         return ce.search_value("address", address)[0]
 
-    def get_all_addresses(self, network: str=None) -> None:
+    def show_all_addresses(self, network: str=None) -> None:
+        """Get all addresses from this wallet which were stored in the json config file."""
         addresses = ce.get_config()["address"]
         for fulllabel in addresses:
             addr = addresses[fulllabel]
             lparams = ce.process_fulllabel(fulllabel)
-            label, networkname = lparams["label"], lparams["network"]
+            label, networkname = lparams[0], lparams[1] # lparams["label"], lparams["network"]
             balance = str(provider.getbalance(addr))
 
             if network and (networkname == network):
@@ -45,16 +46,16 @@ class Tools:
     def delete_item(self, category: str, key: str, now: bool=False) -> None:
         ce.delete_item(category, key, now)
 
-    def get_config(self) -> list:
+    def show_config(self) -> list:
         return ce.get_config()
 
     def store_checkpoint(self, height: int=None) -> None:
         return eu.store_checkpoint(height=height)
 
-    def get_checkpoint(self, height: int=None) -> str:
+    def show_checkpoint(self, height: int=None) -> str:
         return eu.retrieve_checkpoint(height=height)
 
-    def get_all_checkpoints(self):
+    def show_all_checkpoints(self):
         return eu.retrieve_all_checkpoints()
 
     def delete_checkpoint(self, height: int=None, now: bool=False):
@@ -66,16 +67,22 @@ class Tools:
     def store_deck(self, label: str, deckid: str):
         ce.write_item(category="deck", key=label, value=deckid)
 
-    def get_deck(self, label: str):
+    def show_deck(self, label: str):
         deck = ce.read_item(category="deck", key=label)
         print(deck)
+
+    def show_stored_decks(self):
+        pprint(ce.get_config()["deck"])
 
     def store_proposal(self, label: str, proposal_id: str):
         ce.write_item(category="proposal", key=label, value=proposal_id)
 
-    def get_proposal(self, label: str):
+    def show_proposal(self, label: str):
         proposal = ce.read_item(category="proposal", key=label)
         print(proposal)
+
+    def show_stored_proposals(self):
+        pprint(ce.get_config()["proposal"])
 
     def get_all_legacy_labels(self, prefix: str=provider.network) -> None:
         """For debugging only."""

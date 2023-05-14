@@ -28,9 +28,10 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, sign: bool=False, send: bool=False):
+def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=True, sign: bool=False, send: bool=False, txhex: bool=False, silent: bool=False):
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
+    silent = True if True in (silent, txhex) else False
     current_blockheight = provider.getblockcount()
     if absolute:
         locktime = lock
@@ -38,7 +39,8 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
              print("ERROR: Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
     else:
         locktime = lock + current_blockheight
-    print("Locking tokens until block {} (current blockheight: {})".format(locktime, current_blockheight))
+    if not silent:
+        print("Locking tokens until block {} (current blockheight: {})".format(locktime, current_blockheight))
     try:
         lockhash_type = henc.HASHTYPE.index(addrtype)
     except IndexError:
@@ -69,13 +71,14 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
                              change_address=Settings.change,
                              )
 
-    return eu.finalize_tx(issue, verify=False, sign=sign, send=send)
+    return di.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send), txhex=txhex, confirm=confirm)
 
 # main function to be changed:
 # - coinseller_address (formerly partner_address) is now the card receiver.
 # - change of coinseller input must go to coinseller address.
 
 def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, sign: bool=False):
+    # TODO: this should also get a silent option, with the TXHEX stored in the extended config file.
     # the card seller builds the transaction
     my_key = Settings.key
     my_address = my_key.address
@@ -130,21 +133,25 @@ def build_input(input_txid: str, input_vout: int):
     return MutableTxIn(txid=input_txid, txout=input_vout, script_sig=ScriptSig.empty(), sequence=Sequence.max())
 
 
-def finalize_coin2card_exchange(txstr: str, send: bool=False):
+def finalize_coin2card_exchange(txstr: str, confirm: bool=True, send: bool=False, txhex: bool=False):
+    silent = True if True in (silent, txhex) else False
     # this is signed by the coin vendor. Basically they add their input and solve it.
     network_params = net_query(provider.network)
     tx = MutableTransaction.unhexlify(txstr, network=network_params)
 
     my_input = tx.ins[-1] # the coin seller's input is the last one
     my_input_index = len(tx.ins) - 1
-    print(my_input_index)
+    if not silent:
+        print(my_input_index)
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
-    if send:
-        print("Sending transaction.")
-        pprint({'txid': sendtx(tx)})
 
-    return tx.hexlify() # this one should be fully signed, or not? Is something like .to_immutable necessary?
+    return di_output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send), txhex=txhex, confirm=confirm)
+    #if send:
+    #    print("Sending transaction.")
+    #    pprint({'txid': sendtx(tx)})
+
+    # return tx.hexlify()
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False):
 

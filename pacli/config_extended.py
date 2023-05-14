@@ -28,7 +28,7 @@ def get_config(configfilename: str=EXT_CONFIGFILE) -> dict:
         return CAT_INIT
 
 
-def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, mode: str="protect", debug: bool=True) -> None:
+def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, mode: str="protect", debug: bool=False) -> None:
 
     if debug:
         print("Storing: category: {}, key: {}, value: {}".format(category, key, value))
@@ -60,7 +60,7 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
     return config[category][str(key)]
 
-def delete_item(category: str, key: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, debug: bool=True):
+def delete_item(category: str, key: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, debug: bool=False):
     config = get_config(configfilename)
     try:
         print("WARNING: deleting item from category {}, key: {}, value: {}".format(category, key, config[category][key]))

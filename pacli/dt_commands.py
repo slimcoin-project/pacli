@@ -12,6 +12,7 @@ from pypeerassets.pautils import load_deck_p2th_into_local_node
 
 from pacli.provider import provider
 from pacli.config import Settings
+from pacli.extended_utils import PacliInputDataError
 
 # Address
 
@@ -21,7 +22,7 @@ def show_votes_by_address(deckid, address):
 
     pprint("Votes cast from address: " + address)
     vote_readable = { b'+' : 'Positive', b'-' : 'Negative' }
-    pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     try:
         pst = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True)
@@ -59,7 +60,7 @@ def show_donations_by_address(deckid, address):
         pst = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True)
 
     except AttributeError:
-        print("This seems not to be a proof-of-donation deck. No donation count possible.")
+        raise PacliInputDataError("This seems not to be a proof-of-donation deck. No donation count possible.")
         return
 
     pstates = pst.proposal_states
@@ -156,6 +157,8 @@ def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donation
     pprint(pst_dict)
 
 # Card
+# TODO this should be obsolete now. Re-check the functionality.
+# Reward data seems to be missing in the "new" function ATM.
 
 def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False):
 
@@ -199,5 +202,4 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
     # CHANGED TO PROTOBUF. params dict not longer needed.
     asset_specific_data = serialize_card_extended_data(net_query(provider.network), id="DT", txid=donation_txid, vout=donation_vout)
     return asset_specific_data, receiver, payment, deckid
-
 

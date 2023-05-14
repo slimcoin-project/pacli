@@ -1,8 +1,14 @@
 import itertools, sys
 from time import sleep
+from decimal import Decimal
 from pypeerassets.at.dt_entities import TrackedTransaction
 from pypeerassets.at.dt_states import DonationState
+from pypeerassets.at.dt_misc_utils import coins_to_sats
 from pypeerassets.protocol import Deck
+from pacli.provider import provider
+from pacli.config import Settings
+from pacli.extended_utils import PacliInputDataError
+
 
 def printout_period(period: tuple, blockheights: list, show_blockheights: bool=False, blockheights_first: bool=False) -> str:
     # MODIF: changed order to fix bug with period D50.
@@ -154,50 +160,16 @@ def update_2levels(d): # obsolete, will be replaced by the recursive function.
         elif issubclass(type(d[item]), Deck):
             d[item] = d[item].id
 
-
-
-
-def spinner(duration):
-    '''Prints a "spinner" for a defined duration in seconds.'''
-
-    animation = [
-    "‐          ",
-    " ‑         ",
-    "  ‒        ",
-    "   –       ",
-    "    —      ",
-    "     ―     ",
-    "      —    ",
-    "       –   ",
-    "        ‒  ",
-    "         ‑ ",
-    "          ‐",
-    "         ‑ ",
-    "        ‒  ",
-    "       –   ",
-    "      —    ",
-    "     ―     ",
-    "   –       ",
-    "  ‒        ",
-    " ‑         ",
-    "‐          ",
-    ]
-
-    spinner = itertools.cycle(animation)
-    for i in range(duration * 20):
-        sys.stdout.write(next(spinner))   # write the next character
-        sys.stdout.flush()                # flush stdout buffer (actual character display)
-        sys.stdout.write('\b\b\b\b\b\b\b\b\b\b\b') # erase the last written chars
-        sleep(0.1)
-
-
-def wait_for_block(startblock, endblock, provider, wait=False):
-    # This function enables the "wait" option. It loops each 15 sec until the targe period is correctly reached.
+def wait_for_block(startblock: int, endblock: int, provider: object, wait: bool=False, silent: bool=False):
+    # This function enables the "wait" option. It loops each 15 sec until the target period is correctly reached.
     # It will terminate and launch the transaction creator when the start block has been reached,
     # or exit without launching if the end block has passed.
     # If "wait" is set to False, then if the blockheight is outside the target period, the function exits after one loop.
-    startendvalues = "(start: {}, end: {}).".format(startblock, endblock)
+    startendvalues = "(between block: {}, and block: {}).".format(startblock, endblock)
     oldblock = 0
+    if not silent:
+        print("Waiting for target block height", startendvalues)
+        print("The target timeframe is influenced by your selected security level.")
     while True:
         current_block = provider.getblockcount()
         if current_block == oldblock:
@@ -208,22 +180,27 @@ def wait_for_block(startblock, endblock, provider, wait=False):
 
 
         if startblock <= next_block <= endblock:
-            print("Period has been reached", startendvalues)
-            print("Transaction will probably be included in block:", current_block + 1, "- current block:", current_block)
+            if not silent:
+                print("Next block is inside the target timeframe", startendvalues)
+                print("Transaction will probably be included in block:", current_block + 1, "- last block:", current_block)
             return True
         else:
 
             if next_block < startblock:
-                print("Period still not reached", startendvalues)
-                print("Transaction would probably be included in block:", next_block, "- current block:", current_block)
+                if not silent:
+                   print("Current block height:", current_block)
+                   # print("Period still not reached", startendvalues)
+                   # print("Transaction would probably be included in block:", next_block, "- current block:", current_block)
                 if not wait:
                     return False
                 sleep(15)
                 oldblock = current_block
             else:
-                print("Period deadline has already passed", startendvalues)
-                print("Current block:", current_block)
-                return False
+                # MODIF: we raise an error here. So we ensure the transaction isn't processed.
+                #if not silent:
+                #    print("Target deadline has already passed", startendvalues)
+                #    print("Current block:", current_block)
+                raise PacliInputDataError("Target deadline has already passed {}. Current block: {}".format(startendvalues, current_block))
 
 def get_allowed_states(all: bool, unclaimed: bool, only_incomplete: bool):
 
@@ -238,4 +215,51 @@ def get_allowed_states(all: bool, unclaimed: bool, only_incomplete: bool):
             allowed_states.append("abandoned")
 
     return allowed_states
+
+def signalling_info(amount: str, check_round: int, basic_tx_data: dict, dest_label: str=None, force: bool=False, donor_address_used: bool=False) -> None:
+
+    dest_address = basic_tx_data["dest_address"]
+    deck = basic_tx_data["deck"]
+    proposal_tx = basic_tx_data["proposal_tx"]
+    if donor_address_used:
+        raise PacliInputDataError("Your donor address was already used. Choose another one.")
+    print("You are signalling {} coins.".format(amount))
+    print("Your donation address: {}".format(dest_address))
+    if dest_label is not None:
+        print("Label: {}".format(dest_label))
+
+    # decimals = basic_tx_data["deck"].number_of_decimals
+
+    reward_units = deck.epoch_quantity
+    req_amount = proposal_tx.req_amount
+    amount_sats = coins_to_sats(Decimal(str(amount)), provider.network)
+    min_reward_amount = req_amount / reward_units
+    print("Reward per epoch:", reward_units)
+    print("Requested amount:", req_amount)
+    print("Amount in sats (minimum units):", amount_sats)
+
+    print("Expected maximum reward:", min(amount_sats / req_amount, 1) * reward_units)
+
+    if (amount_sats > req_amount) and (not force):
+        raise PacliInputDataError("You are signalling more coins than the requested amount of the Proposal you would support. Repeat command using --force to override this warning and do it anyway.")
+    elif (amount_sats < min_reward_amount):
+        raise PacliInputDataError("You are signalling less coins than those necessary for the minimum reward you could get. Transaction aborted.")
+    elif (amount_sats < (10 * min_reward_amount)) and (not force):
+        raise PacliInputDataError("You are signalling an amount of less than 10 times the minimum reward you could get. If several proposals are approved in the same epoch, you could get no reward. Repeat command using --force to override this warning and use this amount anyway.")
+
+    # WORKAROUND. This should be done with the "legacy" parameter and net_query.
+
+    if Settings.network in ("slm", "tslm"):
+        total_tx_fee = 0.03
+    elif Settings.network in ("tppc"):
+        total_tx_fee = 0.02
+    elif Settings.network in ("ppc"):
+        total_tx_fee = 0.002
+
+    print("Take into account that releasing the donation requires {} coins for fees.".format(total_tx_fee))
+    if (check_round is not None) and (check_round < 4): # TODO this is not good, as it will only appear if check_round is used. Refactor!
+        print("Additionally, locking the transaction requires {} coins, so total fees sum up to {}.".format(total_tx_fee, total_tx_fee * 2))
+
+
+
 

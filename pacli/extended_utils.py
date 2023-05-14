@@ -1,6 +1,6 @@
 import pypeerassets as pa
 from typing import Optional, Union
-from pypeerassets.pautils import load_deck_p2th_into_local_node
+from prettyprinter import cpprint as pprint
 from pypeerassets.transactions import sign_transaction
 from pypeerassets.networks import net_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
@@ -10,6 +10,7 @@ import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" fu
 import pacli.config_extended as ce
 from pacli.provider import provider
 from pacli.config import Settings
+from pacli.utils import (sendtx, cointoolkit_verify)
 
 # Utils which are used by both at and dt (and perhaps normal) tokens.
 
@@ -55,7 +56,6 @@ def init_deck(network, deckid, rescan=True):
         print("P2TH address was already imported.")
     check_addr = provider.validateaddress(deck.p2th_address)
     print("Output of validation tool:\n", check_addr)
-        # load_deck_p2th_into_local_node(provider, deck) # we don't use this here because it doesn't provide the rescan option
 
 def signtx_by_key(rawtx, label=None, key=None):
     # Allows to sign a transaction with a different than the main key.
@@ -64,7 +64,7 @@ def signtx_by_key(rawtx, label=None, key=None):
         try:
            key = get_key(label)
         except ValueError:
-           raise ValueError("No key nor key label provided.")
+           raise PacliInputDataError("No key nor label provided.")
 
     return sign_transaction(provider, rawtx, key)
 
@@ -82,23 +82,24 @@ def get_input_types(rawtx):
         return input_types
 
     except KeyError:
-        raise ValueError("Transaction data not correctly given.")
+        raise PacliInputDataError("Transaction data not correctly given.")
 
 
-def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, debug: bool=False) -> dict:
-    # groups the last steps together
+def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, debug: bool=False, silent: bool=False) -> object:
+    # Important function called by all AT, DT and Dex transactions and groups several checks and the last steps (signing) together.
 
     if not ignore_checkpoint:
         # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
-        if reorg_check() and not confirm_continuation():
+        if reorg_check(silent=silent) and not confirm_continuation():
             return
+        store_checkpoint(silent=silent)
 
     if verify:
         print(
             cointoolkit_verify(rawtx.hexlify())
              )  # link to cointoolkit - verify
 
-    if False in (sign, send):
+    if (False in (sign, send)) and (not silent):
         print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
 
     if sign:
@@ -111,7 +112,8 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
             try:
                 tx = dmu.sign_p2sh_transaction(provider, rawtx, redeem_script, Settings.key)
             except NameError as e:
-                print("Exception:", e)
+                raise PacliInputDataError("Invalid redeem script.")
+                # print("Exception:", e)
                 #    return None
 
         elif (key is not None) or (label is not None): # sign with a different key
@@ -127,13 +129,19 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
                 tx = dmu.sign_mixed_transaction(provider, rawtx, Settings.key, input_types)
 
         if send:
-            pprint({'txid': sendtx(tx)})
+            if not silent:
+                pprint({'txid': sendtx(tx)})
+            else:
+                sendtx(tx)
+
         return {'hex': tx.hexlify()}
 
-    if not ignore_checkpoint:
-        store_checkpoint()
-
-    return {'raw hex' : rawtx.hexlify()}
+    if send:
+        # this is when the tx is already signed (DEX use case)
+        sendtx(rawtx)
+        return {'hex': rawtx.hexlify()}
+    else:
+        return {'raw hex' : rawtx.hexlify()}
 
 def get_wallet_transactions(fburntx: bool=False):
     start = 0
@@ -174,7 +182,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
     else:
 
-        raise Exception({"error": "Deck {deckid} not found.".format(deckid=deckid)})
+        raise PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
     issue_tx = pa.card_transfer(provider=provider,
                                  inputs=provider.select_inputs(Settings.key.address, 0.02),
@@ -206,14 +214,15 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     return finalize_tx(spawn_tx, verify, sign, send)
 
 
-def store_checkpoint(height: int=None) -> None:
+def store_checkpoint(height: int=None, silent: bool=False) -> None:
     if height is None:
         height = provider.getblockcount()
     blockhash = provider.getblockhash(height)
-    print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
+    if not silent:
+        print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
     ce.write_item(category="checkpoint", key=height, value=blockhash)
 
-def retrieve_checkpoint(height: int=None) -> dict:
+def retrieve_checkpoint(height: int=None, silent: bool=False) -> dict:
     config = ce.get_config()
     bheights = sorted([ int(h) for h in config["checkpoint"] ])
     if height is None:
@@ -231,7 +240,8 @@ def retrieve_checkpoint(height: int=None) -> dict:
                 # if the highest checkpoint is below the required height, use it
                 new_height = bheights[-1]
 
-            print("No checkpoint for height {}, closest (lower) checkpoint is: {}".format(height, new_height))
+            if not silent:
+                print("No checkpoint for height {}, closest (lower) checkpoint is: {}".format(height, new_height))
             height = new_height
 
     return {height : config["checkpoint"][str(height)]}
@@ -240,22 +250,26 @@ def retrieve_all_checkpoints() -> dict:
     config = ce.get_config()
     return config["checkpoint"]
 
-def reorg_check() -> None:
-    print("Looking for chain reorganizations ...")
+def reorg_check(silent: bool=False) -> None:
+    if not silent:
+        print("Looking for chain reorganizations ...")
     config = ce.get_config()
     bheights = sorted([ int(h) for h in config["checkpoint"] ])
     last_height = bheights[-1]
     stored_bhash = config["checkpoint"][str(last_height)]
-    print("Last checkpoint found: height {} hash {}".format(last_height, stored_bhash))
+    if not silent:
+        print("Last checkpoint found: height {} hash {}".format(last_height, stored_bhash))
     checked_bhash = provider.getblockhash(last_height)
     if checked_bhash == stored_bhash:
-        print("No reorganization found. Everything seems to be ok.")
+        if not silent:
+            print("No reorganization found. Everything seems to be ok.")
         return 0
     else:
-        print("WARNING! Chain reorganization found.")
-        print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
-        print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
-        print("Make sure you check token balances and other states.")
+        if not silent:
+            print("WARNING! Chain reorganization found.")
+            print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
+            print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
+            print("Make sure you check token balances and other states.")
         return 1
 
 def confirm_continuation() -> bool:
@@ -265,5 +279,34 @@ def confirm_continuation() -> bool:
         return True
     else:
         return False
+
+
+def get_safe_block_timeframe(period_start, period_end, security_level=1):
+    # looks for a safe blockheight to make attacks less likely.
+    # security_level:
+    # 0 is very risky (5 to 95%, no minimum distance in blocks to period border)
+    # 1 is default (10 to 90%, 25 blocks minimum, equivalent to the recommended number of confirmations)
+    # 2 is safe (20 to 80%, 50 blocks minimum)
+    # 3 is very safe (30 to 70%, 100 blocks minimum)
+    # 4 is optimal (50%), always in the block closest to the middle of each period
+    security_levels = [(5, 0),
+                       (10, 25),
+                       (20, 50),
+                       (30, 100),
+                       (50, 0)]
+
+    period_length = period_end - period_start
+    level = security_levels[security_level]
+    safe_start = period_start + max(period_length * level[0], level[1])
+    safe_end = period_end - max(period_length * level[0], level[1])
+    return (safe_start, safe_end)
+
+
+class PacliInputDataError(Exception):
+    # exception thrown when there is some problem with the commands the user enters and the blockchain data.
+    # i.e. transaction outside of donation rounds, claim before the donation is confirmed, etc.
+    pass
+
+
 
 

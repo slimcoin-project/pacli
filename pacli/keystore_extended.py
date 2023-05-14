@@ -117,17 +117,21 @@ def show_stored_address(label: str, network_name: str, json_mode: bool=False, no
     else:
         return show_stored_key(label, network_name=network_name, json_mode=json_mode, noprefix=noprefix)
 
-def show_addresses(addrlist: list, keylist: list, network: str, debug=False):
-    if len(addrlist) != len(keylist):
+def show_addresses(addrlist: list, label_list: list, network: str, debug=False):
+    # This function "synchronizes" labels and addresses given as lists.
+    # Useful if we have an option where we can alternatively input addresses and labels.
+    if len(addrlist) != len(label_list):
         raise ValueError("Both lists must have the same length.")
     result = []
-    for kpos in range(len(keylist)):
-        if (addrlist[kpos] == None) and (keylist[kpos] is not None):
-
-            adr = show_stored_address(keylist[kpos], network_name=network)
-            if debug: print("Address", adr, "got from key", keylist[kpos])
+    for lpos in range(len(label_list)):
+        if addrlist[lpos] == None:
+            if label_list[lpos] is None: # if both values are None, they stay None.
+                adr = None
+            else:
+                adr = show_stored_address(label_list[lpos], network_name=network)
+                if debug: print("Address", adr, "got from label", label_list[lpos])
         else:
-            adr = addrlist[kpos]
+            adr = addrlist[lpos]
         result.append(adr)
     return result
 
