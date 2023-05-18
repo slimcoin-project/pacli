@@ -71,13 +71,13 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
                              change_address=Settings.change,
                              )
 
-    return di.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send), txhex=txhex, confirm=confirm)
+    return di.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send, confirm=confirm), txhex=txhex)
 
 # main function to be changed:
 # - coinseller_address (formerly partner_address) is now the card receiver.
 # - change of coinseller input must go to coinseller address.
 
-def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, sign: bool=False):
+def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, sign: bool=False):
     # TODO: this should also get a silent option, with the TXHEX stored in the extended config file.
     # the card seller builds the transaction
     my_key = Settings.key
@@ -123,7 +123,9 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
             unsigned_tx.spend_single(index=i, txout=result["txout"], solver=result["solver"])
 
         print("The following string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).")
-        return unsigned_tx.hexlify()
+        pprint(unsigned_tx.hexlify())
+        if save:
+            eu.save_transaction(save, tx_hex, partly=True)
     else:
         return unsigned_tx.hexlify()
 
@@ -146,12 +148,7 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=True, send: bool=False
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
-    return di_output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send), txhex=txhex, confirm=confirm)
-    #if send:
-    #    print("Sending transaction.")
-    #    pprint({'txid': sendtx(tx)})
-
-    # return tx.hexlify()
+    return di_output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, confirm=confirm), txhex=txhex)
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False):
 

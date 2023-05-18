@@ -5,7 +5,7 @@ import json, os
 # An alternative for the future could be to use sqlite3 eventually.
 
 EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
-CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation"]
+CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "txhex" ]
 CAT_INIT = {c : {} for c in CATEGORIES}
 
 class ValueExistsError(Exception):
@@ -90,7 +90,4 @@ def process_fulllabel(fulllabel):
     network = label_split[0]
     label = "_".join(label_split[1:])
     return (network, label)
-
-
-
 

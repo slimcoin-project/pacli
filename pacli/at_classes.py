@@ -16,9 +16,9 @@ class ATToken():
     def create_tx(self, address: str, amount: str, input_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
 
         dec_amount = Decimal(str(amount))
-        rawtx = ei.run_command(au.create_simple_transaction(amount=dec_amount, dest_address=address, input_address=Settings.key.address, change_address=change_address, debug=debug))
+        rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, input_address=Settings.key.address, change_address=change_address, debug=debug)
 
-        return ei.run_command(eu.finalize_tx(rawtx, verify, sign, send, debug=debug))
+        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, debug=debug)
 
     def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, debug: bool=False, burns: bool=False) -> None:
         '''Show all transactions to a tracked address between two block heights (very slow!).'''
@@ -27,13 +27,13 @@ class ATToken():
              print("Using burn address.")
              address = burn_address(network_name=provider.network)
 
-        txes = ei.run_command(au.show_txes_by_block(tracked_address=address, deckid=deckid, startblock=start, endblock=end, debug=debug))
+        txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, debug=debug)
         pprint(txes)
 
     def my_txes(self, address: str=None, deckid: str=None, unclaimed: bool=False, wallet: bool=False, debug: bool=False) -> None:
         '''Shows all transactions from your wallet to the tracked address.'''
         input_address = Settings.key.address if not wallet else None
-        txes = ei.run_command(au.show_wallet_txes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, debug=debug))
+        txes = ei.run_command(au.show_wallet_txes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, debug=debug)
         pprint(txes)
 
     @classmethod
@@ -44,14 +44,14 @@ class ATToken():
 
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
-        asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=Decimal(str(payamount)), debug=debug, force=force))
+        asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data, deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=Decimal(str(payamount)), debug=debug, force=force)
 
         # return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
         #                     verify=verify, locktime=locktime, sign=sign, send=send)
 
         # inputs=provider.select_inputs(Settings.key.address, 0.02),
         # change_address=Settings.change,
-        return ei.run_command(eu.advanced_card_transfer(deck,
+        return ei.run_command(eu.advanced_card_transfer, deck,
                                  amount=amount,
                                  receiver=receiver,
                                  locktime=locktime,
@@ -60,7 +60,7 @@ class ATToken():
                                  send=send,
                                  verify=verify,
                                  debug=debug
-                                 ))
+                                 )
 
     @classmethod
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
@@ -68,28 +68,28 @@ class ATToken():
               send: bool=False) -> None:
         '''Spawns a new AT deck.'''
 
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data(c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock))
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
 
-        return ei.run_command(eu.advanced_deck_spawn(name=name, number_of_decimals=number_of_decimals,
+        return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, locktime=locktime, asset_specific_data=asset_specific_data, verify=verify,
-               sign=sign, send=send))
+               sign=sign, send=send)
 
 
     def deck_info(self, deckid: str):
         '''Prints AT-specific deck info.'''
 
-        ei.run_command(au.at_deckinfo(deckid))
+        ei.run_command(au.at_deckinfo, deckid)
 
     @classmethod
     def deck_list(self):
         '''Prints list of AT decks'''
 
-        ei.run_command(print_deck_list(list_decks_by_at_type(provider, c.ID_AT)))
+        ei.run_command(print_deck_list, list_decks_by_at_type(provider, c.ID_AT))
 
     def show_claims(self, deckid: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
         '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        claims = ei.run_command(au.get_valid_cardissues(deck, input_address=address, only_wallet=wallet))
+        claims = ei.run_command(au.get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
         for claim in claims:
             if full:
                 pprint(claim.__dict__)

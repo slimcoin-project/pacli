@@ -12,7 +12,7 @@ from pypeerassets.pautils import load_deck_p2th_into_local_node
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.extended_utils import PacliInputDataError
+from pacli.extended_interface import PacliInputDataError
 
 # Address
 

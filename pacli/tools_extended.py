@@ -29,7 +29,7 @@ class Tools:
     def show_label(self, address: str) -> str:
         return ce.search_value("address", address)[0]
 
-    def show_all_addresses(self, network: str=None) -> None:
+    def show_stored_addresses(self, network: str=None) -> None:
         """Get all addresses from this wallet which were stored in the json config file."""
         addresses = ce.get_config()["address"]
         for fulllabel in addresses:
@@ -55,7 +55,7 @@ class Tools:
     def show_checkpoint(self, height: int=None) -> str:
         return eu.retrieve_checkpoint(height=height)
 
-    def show_all_checkpoints(self):
+    def show_stored_checkpoints(self):
         return eu.retrieve_all_checkpoints()
 
     def delete_checkpoint(self, height: int=None, now: bool=False):
@@ -83,6 +83,21 @@ class Tools:
 
     def show_stored_proposals(self):
         pprint(ce.get_config()["proposal"])
+
+    def store_transaction(self, tx_hex: str):
+        txid = provider.decoderawtransaction(tx_hex)["txid"]
+        ce.write_item(category="transaction", key=txid, value=tx_hex)
+
+    def store_txhex(self, identifier: str, tx_hex: str):
+        ce.write_item(category="txhex", key=identifier, value=tx_hex)
+
+    def show_transaction(self, txid):
+        tx = ce.read_item(category="transaction", key=txid)
+        print(tx)
+
+    def show_txhex(self, identifier):
+        txhex = ce.read_item(category="txhex", key=identifier)
+        print(txhex)
 
     def get_all_legacy_labels(self, prefix: str=provider.network) -> None:
         """For debugging only."""

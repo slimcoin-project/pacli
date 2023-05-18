@@ -1,4 +1,3 @@
-import itertools, sys
 from time import sleep
 from decimal import Decimal
 from pypeerassets.at.dt_entities import TrackedTransaction
@@ -7,7 +6,7 @@ from pypeerassets.at.dt_misc_utils import coins_to_sats
 from pypeerassets.protocol import Deck
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.extended_utils import PacliInputDataError
+from pacli.extended_interface import PacliInputDataError
 
 
 def printout_period(period: tuple, blockheights: list, show_blockheights: bool=False, blockheights_first: bool=False) -> str:
@@ -259,7 +258,3 @@ def signalling_info(amount: str, check_round: int, basic_tx_data: dict, dest_lab
     print("Take into account that releasing the donation requires {} coins for fees.".format(total_tx_fee))
     if (check_round is not None) and (check_round < 4): # TODO this is not good, as it will only appear if check_round is used. Refactor!
         print("Additionally, locking the transaction requires {} coins, so total fees sum up to {}.".format(total_tx_fee, total_tx_fee * 2))
-
-
-
-

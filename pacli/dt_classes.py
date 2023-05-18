@@ -15,6 +15,7 @@ import pacli.dt_interface as di
 import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
+import pacli.dt_txtools as dtx
 
 
 class PoDToken:
@@ -23,10 +24,10 @@ class PoDToken:
     def deck_spawn(self, name: str, dp_length: int, dp_reward: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
         '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
 
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data(c.ID_DT, dp_length, dp_reward, min_vote, sdp_periods, sdp_deck))
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
 
-        return ei.run_command(eu.advanced_deck_spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
-                  locktime=locktime, asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send))
+        return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
+                  locktime=locktime, asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
     def claim(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_vout: int=2, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
@@ -34,26 +35,26 @@ class PoDToken:
         if donor_address is None:
             donor_address = Settings.key.address
         else:
-            print("You provided a custom address. You will only be able to do a dry run, not to actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
+            print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
             sign, send = False, False
 
-        try:
-            asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens(proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_vout=donation_vout, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug))
-        except TypeError as e: # TODO: shouldn't this be catched too by the PacliInputDataError?
-            print("Error:", e)
-            return None
+        # try:
+        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_vout=donation_vout, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug)
+        #except TypeError as e: # should be catched.
+        #    print("Error:", e)
+        #    return None
 
-        return ei.run_command(eu.advanced_transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, verify=verify, locktime=locktime, sign=sign, send=send))
+        return ei.run_command(eu.advanced_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, verify=verify, locktime=locktime, sign=sign, send=send)
 
     def init_deck(self, deckid: str):
         '''Initializes DT deck and imports all P2TH addresses into node.'''
 
-        ei.run_command(dc.init_dt_deck(Settings.network, deckid))
+        ei.run_command(dc.init_dt_deck, Settings.network, deckid)
 
     def deck_info(self, deckid: str, p2th: bool=False, param: str=None):
         '''Prints DT-specific deck info.'''
 
-        deckinfo = ei.run_command(dc.get_deckinfo(deckid, p2th))
+        deckinfo = ei.run_command(dc.get_deckinfo, deckid, p2th)
         if param:
             print(deckinfo.get(param))
         else:
@@ -62,20 +63,20 @@ class PoDToken:
     def deck_list(self):
         '''List all DT decks.'''
 
-        dt_decklist = ei.run_command(dmu.list_decks_by_at_type(provider, c.ID_DT))
-        ei.run_command(print_deck_list(dt_decklist))
+        dt_decklist = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
+        ei.run_command(print_deck_list, dt_decklist)
 
     def deck_state(self, deckid: str, debug: bool=False):
         '''Prints the DT deck state.'''
-        ei.run_command(dc.dt_state(deckid, debug))
+        ei.run_command(dc.dt_state, deckid, debug)
 
     def my_votes(self, deckid: str, address: str=Settings.key.address):
         '''shows votes cast from this address, for all proposals of a deck.'''
-        return ei.run_command(dc.show_votes_by_address(deckid, address))
+        return ei.run_command(dc.show_votes_by_address, deckid, address)
 
     def my_donations(self, deckid: str, address: str=Settings.key.address):
         '''shows donation states involving this address, for all proposals of a deck.'''
-        return ei.run_command(dc.show_donations_by_address(deckid, address))
+        return ei.run_command(dc.show_donations_by_address, deckid, address)
 
 class Proposal:
 
@@ -98,21 +99,23 @@ class Proposal:
             approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
             pprint("In this round, the proposal was {}.".format(approval_state))
 
-    def current_period(self, proposal_id: str, blockheight: int=None, show_blockheights: bool=True) -> None:
+    def current_period(self, proposal_id: str, blockheight: int=None, show_blockheights: bool=True, debug: bool=False) -> None:
         '''Shows the current period of the proposal lifecycle.'''
 
         if blockheight is None:
             blockheight = provider.getblockcount() + 1
             pprint("Next block: {}".format(blockheight))
-        proposal_tx = dmu.find_proposal(proposal_id, provider)
-        period, blockheights = ei.run_command(du.get_period(proposal_id, proposal_tx.deck, blockheight))
+        deck = ei.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
+        # proposal_tx = dmu.find_proposal(proposal_id, provider)
+        period, blockheights = ei.run_command(du.get_period,proposal_id, deck, blockheight)
         pprint(di.printout_period(period, blockheights, show_blockheights))
 
-    def all_periods(self, proposal_id: str) -> None:
+    def all_periods(self, proposal_id: str, debug: bool=False) -> None:
         '''Shows all periods of the proposal lifecycle.'''
 
-        proposal_tx = dmu.find_proposal(proposal_id, provider)
-        periods = ei.run_command(du.get_all_periods(proposal_id), proposal_tx.deck)
+        deck = ei.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
+        # proposal_tx = dmu.find_proposal(proposal_id, provider)
+        periods = ei.run_command(du.get_all_periods, proposal_id, deck)
         for period, blockheights in periods.items():
             print(di.printout_period(period, blockheights, blockheights_first=True))
 
@@ -124,7 +127,7 @@ class Proposal:
         except:
             ei.print_red("Error: Period entered in wrong format. You have to enter a letter-number combination, e.g. b10 or d50.")
         proposal_tx = dmu.find_proposal(proposal_id, provider)
-        periods = ei.run_command(du.get_all_periods(proposal_id, proposal_tx.deck))
+        periods = ei.run_command(du.get_all_periods, proposal_id, proposal_tx.deck)
         period_heights = periods[(pletter, pnumber)]
         if mode == "start":
             return period_heights[0]
@@ -151,7 +154,7 @@ class Proposal:
             block = provider.getblockcount() + 1 # modified, next block is the reference, not last block
             pprint("Next block to be added to blockchain: " + str(block))
         #try:
-        pstate_periods = ei.run_command(du.get_proposal_state_periods(deckid, block, advanced=advanced, debug=debug))
+        pstate_periods = ei.run_command(du.get_proposal_state_periods, deckid, block, advanced=advanced, debug=debug)
         #except KeyError:
         #    ei.print_red("Error: unconfirmed proposals in mempool or deck not initialized correctly.")
         #    ei.print_red("Check if you have initialized the deck with dt_init. Or wait until all proposals are confirmed.")
@@ -220,7 +223,7 @@ class Proposal:
 
     def find(self, searchstring: str, advanced: bool=False, shortid: bool=False) -> None:
         '''finds a proposal based on its description string or short id'''
-        pstates = ei.run_command(du.find_proposal_state_by_string(searchstring, advanced=advanced, shortid=shortid))
+        pstates = ei.run_command(du.find_proposal_state_by_string, searchstring, advanced=advanced, shortid=shortid)
         for pstate in pstates:
             # this should go into dt_interface
             pprint(pstate.idstring)
@@ -232,15 +235,15 @@ class Proposal:
     def state(self, proposal_string: str, param: str=None, debug: bool=False, simple: bool=False, complete: bool=False, raw: bool=False, search: bool=False) -> None:
         '''Shows a single proposal state.'''
         if search:
-            pstate = ei.run_command(du.find_proposal_state_by_string(proposal_string, advanced=True)[0])
+            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True)[0]
         elif len(proposal_string) == 16:
-            pstate = ei.run_command(du.find_proposal_state_by_string(proposal_string, shortid=True, advanced=True)[0])
+            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, shortid=True, advanced=True)[0]
         elif len(proposal_string) == 64:
             proposal_id = proposal_string
             pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
         else:
             print("NOTE: Non-standard search, trying to find by ID start.\nBe aware that you may not get the state of the proposal you intended.\nBe sure to check the Proposal ID.")
-            pstate = ei.run_command(du.find_proposal_state_by_string(proposal_string, shortid=True, advanced=True)[0])
+            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, shortid=True, advanced=True)[0]
         pdict = pstate.__dict__
         if param is not None:
             result = pdict.get(param)
@@ -274,7 +277,7 @@ class Proposal:
             return
 
         elif dist_round is None:
-            dist_round = ei.run_command(du.get_dist_round(proposal_id, pstate.deck))
+            dist_round = ei.run_command(du.get_dist_round, proposal_id, pstate.deck)
             if dist_round is None:
                 print("ERROR: Current block height isn't inside a distribution round. Please provide one, or use --all.")
                 return
@@ -289,8 +292,8 @@ class Proposal:
 
         if all_addresses:
 
-            all_dstates = ei.run_command(dmu.get_donation_states(provider, proposal_id, debug=debug))
-            labels = ei.run_command(ke.get_all_labels(Settings.network, extconf=extconf))
+            all_dstates = ei.run_command(dmu.get_donation_states, provider, proposal_id, debug=debug)
+            labels = ei.run_command(ke.get_all_labels, Settings.network, extconf=extconf)
             my_addresses = [ke.show_stored_address(label, network_name=Settings.network, noprefix=True) for label in labels]
             # print(my_addresses)
             my_dstates = [d for d in all_dstates if d.donor_address in my_addresses]
@@ -326,7 +329,7 @@ class Proposal:
                     value = ds_dict[item]
                 print(item + ":", value)
 
-    def all_donation_states(self, proposal_id: str, all: bool=False, only_incomplete: bool=False, short: bool=False, debug: bool=False):
+    def all_donation_states(self, proposal_id: str, all: bool=False, only_incomplete: bool=False, unclaimed: bool=False, short: bool=False, debug: bool=False):
         '''Shows currently active (default) or all (--all flag) donation states of this proposal.'''
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
 
@@ -352,44 +355,54 @@ class Proposal:
 
                     print("{}: {}".format(item, value))
 
-    def create(self, deckid: str, req_amount: str, periods: int, description: str="", change_address: str=None, change_label: str=None, tx_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
+    def create(self, deckid: str, req_amount: str, periods: int, description: str="", change_address: str=None, change_label: str=None, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
         '''Creates a new proposal.'''
 
-        addresses, labels = (None, None, change_address), (None, None, change_label)
-        basic_tx_data = ei.run_command(du.get_basic_tx_data("proposal", deckid=deckid, input_address=Settings.key.address, addresses=addresses, labels=labels, silent=txhex))
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
+
+        """addresses, labels = (None, None, change_address), (None, None, change_label)
+        basic_tx_data = ei.run_command(du.get_basic_tx_data, "proposal", deckid=deckid, input_address=Settings.key.address, addresses=addresses, labels=labels, silent=txhex)
 
         params = { "id" : c.ID_PROPOSAL , "deckid" : deckid, "epoch_number" : int(periods), "req_amount" : Decimal(str(req_amount)), "description" : description }
 
-        rawtx = ei.run_command(du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network, debug=debug))
+        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network, debug=debug)
 
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex), txhex=txhex, confirm=confirm)
+        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
-    def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, change_label: str=None, tx_fee: str="0.01", input_txid: str=None, input_vout: int=None, input_address: str=Settings.key.address, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
+    def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, change_label: str=None, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
         '''Modify a proposal without providing the deck id.'''
 
-        old_proposal_tx = dmu.find_proposal(proposal_id, provider)
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
+
+        """old_proposal_tx = dmu.find_proposal(proposal_id, provider)
         addresses, labels = (None, None, change_address), (None, None, change_label)
 
-        basic_tx_data = ei.run_command(du.get_basic_tx_data("proposal", deckid=old_proposal_tx.deck.id, input_address=Settings.key.address, addresses=addresses, labels=labels, silent=txhex))
+        basic_tx_data = ei.run_command(du.get_basic_tx_data, "proposal", deckid=old_proposal_tx.deck.id, input_address=Settings.key.address, addresses=addresses, labels=labels, silent=txhex)
 
         params = { "id" : c.ID_PROPOSAL , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : proposal_id }
 
-        rawtx = ei.run_command(du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network, debug=debug))
+        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network, debug=debug)
 
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex), txhex=txhex, confirm=confirm)
+        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
 
     def vote(self, proposal_id: str, vote: str, tx_fee: str="0.01", change_address: str=None, change_label: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=True, txhex: bool=False, security: int=1, debug: bool=False):
         '''Vote (with "yes" or "no") for a proposal'''
 
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
+
+        """
         # MODIF: check_phase was eliminated. The extremely long timeframes between phases don't make worth it (nobody would start a transaction with --wait >2 months earlier).
-        #if (check_phase is not None) or (wait == True):
-        #    print("Checking blockheights ...")
-        #    if not ei.run_command(du.check_current_period(proposal_id, "voting", phase=check_phase, wait=wait, security_level=security)):
-        #        return
+
         addresses, labels = (None, None, change_address), (None, None, change_label)
 
-        basic_tx_data = ei.run_command(du.get_basic_tx_data("voting", proposal_id=proposal_id, addresses=addresses, labels=labels, input_address=input_address, wait=wait, security_level=security, silent=txhex))
+        basic_tx_data = ei.run_command(du.get_basic_tx_data, "voting", proposal_id=proposal_id, addresses=addresses, labels=labels, input_address=input_address, wait=wait, security_level=security, silent=txhex)
 
         if vote in ("+", "positive", "p", "1", "yes", "y", "true"):
             votechar, vote_bool = "+", True # TODO: do we need "votechar"? Or is bool better? (leave it open for now)
@@ -404,9 +417,9 @@ class Proposal:
         params = { "id" : c.ID_VOTING , "proposal_id" : proposal_id, "vote" : vote_bool }
 
 
-        rawtx = ei.run_command(du.create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network))
+        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network)
 
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex), txhex=txhex, confirm=confirm)
+        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
 
     def voters(self, proposal_id: str, debug: bool=False, blockheight: int=None, outputformat=None):
@@ -447,32 +460,37 @@ class Proposal:
 class Donation:
 
 
-    def signal(self, proposal_id: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", change_label: str=None, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=True, input_address: str=Settings.key.address, debug: bool=False, txhex: bool=False, security: int=1, force: bool=False) -> None:
+    def signal(self, proposal_id: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", change_label: str=None, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=True, debug: bool=False, txhex: bool=False, security: int=1, force: bool=False) -> None:
         '''Creates a compliant signalling transaction for a proposal.'''
 
-        #[dest_address, change_address] = ke.show_addresses([dest_address, change_address], [dest_label, change_label], Settings.network)
-        addresses, labels = [dest_address, None, change_address], [dest_label, None, change_label]
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
+        # return ei.run_command(dtx.create_trackedtransaction, "signalling", proposal_id=proposal_id, amount=amount, dest_label=dest_label, dest_address=dest_address, change_address=change_address, change_label=change_label, tx_fee=tx_fee, confirm=confirm, sign=sign, send=send, verify=verify, check_round=check_round, wait=wait, debug=debug, txhex=txhex, security=security, force=force)
 
-        #if (check_round is not None) or (wait == True):
-        #    if not ei.run_command(du.check_current_period(proposal_id, "signalling", dist_round=check_round, wait=wait, security_level=security)):
-        #        return
+        """addresses, labels = [dest_address, None, change_address], [dest_label, None, change_label]
 
         params = { "id" : c.ID_SIGNALLING, "proposal_id" : proposal_id }
-        basic_tx_data = ei.run_command(du.get_basic_tx_data("signalling", proposal_id=proposal_id, input_address=Settings.key.address, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, silent=txhex))
+        basic_tx_data = ei.run_command(du.get_basic_tx_data, "signalling", proposal_id=proposal_id, input_address=Settings.key.address, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, silent=txhex)
 
         donor_address_used = du.donor_address_used(basic_tx_data["dest_address"], proposal_id)
         if not txhex:
-            ei.run_command(di.signalling_info(amount, check_round, basic_tx_data, dest_label=dest_label, donor_address_used=donor_address_used, force=force))
+            ei.run_command(di.signalling_info, amount, check_round, basic_tx_data, dest_label=dest_label, donor_address_used=donor_address_used, force=force)
 
-        rawtx = ei.run_command(du.create_unsigned_trackedtx(params, basic_tx_data, raw_tx_fee=tx_fee, raw_amount=amount, debug=debug, network_name=Settings.network, silent=txhex))
+        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, raw_tx_fee=tx_fee, raw_amount=amount, debug=debug, network_name=Settings.network, silent=txhex)
 
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex), txhex=txhex, confirm=confirm)
+        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
 
-    def lock(self, proposal_id: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, manual_timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
+    def lock(self, proposal_id: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
+
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
 
         '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.'''
-        # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
+
+        """# TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
         # but: maybe in the future address reusage may have to be completely discouraged
         # [dest_address, reserve_address, change_address] = ke.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
         addresses, labels = [dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label]
@@ -487,7 +505,7 @@ class Donation:
 
         lockhash_type = 2 # TODO: P2PKH is hardcoded now, but should be done by a check on the submitted addr.
         params = { "id" : c.ID_LOCKING, "proposal_id" : proposal_id, "timelock" : cltv_timelock, "address" : dest_address, "lockhash_type" : lockhash_type }
-        basic_tx_data = ei.run_command(du.get_basic_tx_data("locking", proposal_id=proposal_id, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, silent=txhex))
+        basic_tx_data = ei.run_command(du.get_basic_tx_data, "locking", proposal_id=proposal_id, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, silent=txhex)
 
         if not txhex:
             print("Locking funds until block", cltv_timelock)
@@ -497,20 +515,24 @@ class Donation:
 
         rawtx = ei.run_command(du.create_unsigned_trackedtx(params, basic_tx_data, raw_tx_fee=tx_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, network_name=Settings.network, silent=txhex))
 
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex), txhex=txhex, confirm=confirm)
+        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
 
-    def release(self, proposal_id: str, amount: str=None, change_address: str=None, change_label: str=None, reserve_address: str=None, reserve_label: str=None, tx_fee: str="0.01", input_address: str=Settings.key.address, check_round: int=None, check_release: bool=False, wait: bool=False, new_inputs: bool=False, origin_label: str=None, origin_key: str=None, force: bool=False, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None: ### ADDRESSTRACK ###
+    def release(self, proposal_id: str, amount: str=None, change_address: str=None, change_label: str=None, reserve_address: str=None, reserve_label: str=None, tx_fee: str="0.01", check_round: int=None, wait: bool=False, new_inputs: bool=False, force: bool=False, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None: ### ADDRESSTRACK ###
         '''Releases a donation.'''
 
-        use_slot = False if (amount is not None) else True
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
+
+        """use_slot = False if (amount is not None) else True
 
         params = { "id" : c.ID_DONATION , "proposal_id" : proposal_id }
         addresses, labels = (None, reserve_address, change_address), (None, reserve_label, change_label)
 
-        basic_tx_data = ei.run_command(du.get_basic_tx_data("donation", proposal_id=proposal_id, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, debug=debug, silent=txhex))
+        basic_tx_data = ei.run_command(du.get_basic_tx_data, "donation", proposal_id=proposal_id, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, debug=debug, silent=txhex)
 
-        rawtx = ei.run_command(du.create_unsigned_trackedtx(params, basic_tx_data, raw_amount=amount, raw_tx_fee=tx_fee, new_inputs=new_inputs, force=force, network_name=Settings.network, debug=debug, silent=txhex))
+        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, raw_amount=amount, raw_tx_fee=tx_fee, new_inputs=new_inputs, force=force, network_name=Settings.network, debug=debug, silent=txhex)
 
         # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
         if new_inputs:
@@ -520,7 +542,7 @@ class Donation:
             key = Settings.key
             rscript = basic_tx_data.get("redeem_script")
 
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, redeem_script=rscript, debug=debug, silent=txhex), txhex=txhex, confirm=confirm)
+        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, redeem_script=rscript, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
     def resume(self, donation_state: str, send=False):
         """This method allows to select the next step of the donation state with all standard values,
@@ -555,20 +577,20 @@ class Donation:
 
     def check_tx(self, txid=None, txhex=None):
         '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.'''
-        tx = ei.run_command(du.create_trackedtx(txid=txid, txhex=txhex))
+        tx = ei.run_command(du.create_trackedtx, txid=txid, txhex=txhex)
         pprint("Type: " + str(type(tx)))
         pprint(tx.__dict__)
 
     def check_all_tx(self, proposal_id: str, include_badtx: bool=False, light: bool=False):
         '''Lists all TrackedTransactions for a proposal, even invalid ones.
            include_badtx also detects wrongly formatted transactions, but only displays the txid.'''
-        ei.run_command(du.get_all_trackedtxes(proposal_id, include_badtx=include_badtx, light=light))
+        ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
 
     def show_slot(self, proposal_id: str, dist_round: int=None, satoshi: bool=False):
         '''Simplified variant of my_donation_states, only shows slot.
            If an address participated in several rounds, the round can be given.'''
 
-        sat_slot = ei.run_command(du.get_slot(proposal_id, Settings.key.address, dist_round=dist_round))
+        sat_slot = ei.run_command(du.get_slot, proposal_id, Settings.key.address, dist_round=dist_round)
 
         if dist_round is None:
             print("Showing first slot where this address participated.")
@@ -629,5 +651,11 @@ class Donation:
         else:
             result = "Not used in this proposal, you can freely use it." if not silent else True
         return result
+
+
+    def create_trackedtransaction(self, *args, **kwargs):
+        '''Generic tracked transaction creation.'''
+
+        return ei.run_command(dtx.create_trackedtransaction, *args, **kwargs)
 
 

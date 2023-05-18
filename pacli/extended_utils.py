@@ -8,6 +8,7 @@ from pypeerassets.at.constants import ID_AT, ID_DT
 from pypeerassets.pautils import amount_to_exponent
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
+import pacli.extended_interface as ei
 from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import (sendtx, cointoolkit_verify)
@@ -64,7 +65,7 @@ def signtx_by_key(rawtx, label=None, key=None):
         try:
            key = get_key(label)
         except ValueError:
-           raise PacliInputDataError("No key nor label provided.")
+           raise ei.PacliInputDataError("No key nor label provided.")
 
     return sign_transaction(provider, rawtx, key)
 
@@ -82,10 +83,10 @@ def get_input_types(rawtx):
         return input_types
 
     except KeyError:
-        raise PacliInputDataError("Transaction data not correctly given.")
+        raise ei.PacliInputDataError("Transaction data not correctly given.")
 
 
-def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, debug: bool=False, silent: bool=False) -> object:
+def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, confirm: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, save: bool=False, debug: bool=False, silent: bool=False) -> object:
     # Important function called by all AT, DT and Dex transactions and groups several checks and the last steps (signing) together.
 
     if not ignore_checkpoint:
@@ -102,19 +103,19 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
     if (False in (sign, send)) and (not silent):
         print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
 
+    dict_key = 'hex' # key of dict returned to the user.
+
     if sign:
 
         if redeem_script is not None:
             if debug: print("Signing with redeem script:", redeem_script)
             # TODO: in theory we need to solve inputs from --new_inputs separately from the p2sh inputs.
             # For now we can only use new_inputs OR spend the P2sh.
-            # TODO: here we use Settings.key, but give the option to provide different key in donation release command?
+            # MODIF: no more the option to use a different key!
             try:
                 tx = dmu.sign_p2sh_transaction(provider, rawtx, redeem_script, Settings.key)
             except NameError as e:
-                raise PacliInputDataError("Invalid redeem script.")
-                # print("Exception:", e)
-                #    return None
+                raise ei.PacliInputDataError("Invalid redeem script.")
 
         elif (key is not None) or (label is not None): # sign with a different key
             tx = signtx_by_key(rawtx, label=label, key=key)
@@ -133,15 +134,38 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
                 pprint({'txid': sendtx(tx)})
             else:
                 sendtx(tx)
+            if confirm:
+                ei.confirm_tx(tx, silent=silent)
 
-        return {'hex': tx.hexlify()}
+        tx_hex = tx.hexlify()
 
-    if send:
+        # return {'hex': tx.hexlify()}
+
+    elif send:
         # this is when the tx is already signed (DEX use case)
         sendtx(rawtx)
-        return {'hex': rawtx.hexlify()}
+        tx_hex = rawtx.hexlify()
+
+        if confirm:
+            ei.confirm_tx(tx, silent=silent)
+
+        # return {'hex': rawtx.hexlify()}
     else:
-        return {'raw hex' : rawtx.hexlify()}
+        dict_key = 'raw hex'
+        tx_hex = rawtx.hexlify()
+        # return {'raw hex' : rawtx.hexlify()}
+
+    if save:
+        try:
+            assert True in (sign, send) # even if an unsigned tx gets a txid, it doesn't make sense to save it
+            txid = tx["txid"] if tx is not None else rawtx["txid"]
+        except (KeyError, AssertionError):
+            raise PacliInputDataError("You can't save a transaction which was not at least partly signed.")
+        else:
+            save_transaction(txid, tx_hex)
+
+
+    return { dict_key : tx_hex }
 
 def get_wallet_transactions(fburntx: bool=False):
     start = 0
@@ -182,7 +206,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
     else:
 
-        raise PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
+        raise ei.PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
     issue_tx = pa.card_transfer(provider=provider,
                                  inputs=provider.select_inputs(Settings.key.address, 0.02),
@@ -301,12 +325,41 @@ def get_safe_block_timeframe(period_start, period_end, security_level=1):
     safe_end = period_end - max(period_length * level[0], level[1])
     return (safe_start, safe_end)
 
+def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
+    # partly indicates partly signed transactions, which will be stored in the txhex category.
+    # the identifier can be a txid or (in the case of partly signed transactions) an arbitrary string.
+    cat = "txhex" if partly else "transaction"
+    ce.write_item(cat, identifier, tx_hex)
+    if not silent:
+        print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
 
-class PacliInputDataError(Exception):
-    # exception thrown when there is some problem with the commands the user enters and the blockchain data.
-    # i.e. transaction outside of donation rounds, claim before the donation is confirmed, etc.
-    pass
+def search_for_stored_tx_label(category: str, identifier: str, silent: bool=False) -> str:
+    # if the identifier is a label stored in the extended config file, return the associated txid.
+    # the try-except clause returns the identifier if it's already in txid format.
 
+    if is_possible_txid(identifier):
+        return identifier
+    else:
+        result = ce.read_item(category, identifier)
 
+        if result is not None:
+            if is_possible_txid(result):
+                if not silent:
+                    print("Using {} stored with label {} and ID {}.".format(category, identifier, result))
+                return result
+            else:
+                raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
+        else:
+            raise ei.PacliInputDataError("Label not found.")
+
+def is_possible_txid(txid: str):
+    try:
+
+        assert len(txid) == 64
+        hexident = int(txid, 16)
+        return True
+
+    except (ValueError, AssertionError):
+        return False
 
 
