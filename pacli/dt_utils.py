@@ -526,7 +526,7 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
 
 # Reward calculation
 
-def get_pod_reward_data(proposal_id, donor_address, donation_state=None, proposer=False, debug=False, network_name=Settings.network):
+def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: object=None, proposer: bool=False, debug: bool=False, silent: bool=False, network_name: str=Settings.network) -> dict:
     """Returns a dict with the amount of the reward and the deckid."""
     # coin = coin_value(network_name=network_name)
     ptx = find_proposal(proposal_id, provider) # ptx is given directly to get_donation_state
@@ -534,7 +534,8 @@ def get_pod_reward_data(proposal_id, donor_address, donation_state=None, propose
     decimals = ptx.deck.number_of_decimals
     if proposer:
         if donor_address == ptx.donation_address:
-            print("Claiming tokens for the Proposer for missing donations ...")
+            if not silent:
+                print("Claiming tokens for the Proposer for missing donations ...")
             pstate = get_proposal_state(provider, proposal_id)
             reward = pstate.proposer_reward
             result = {"donation_txid" : proposal_id}
@@ -557,23 +558,26 @@ def get_pod_reward_data(proposal_id, donor_address, donation_state=None, propose
         else:
             raise PacliInputDataError("No valid donation state found.")
 
-        print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")
-        if ds.donated_amount != ds.effective_slot:
-            print("Your effective slot value is different:", sats_to_coins(Decimal(ds.effective_slot), network_name=network_name))
-            print("The effective slot is taken into account for the token distribution.")
+        if not silent:
+            print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")
+            if ds.donated_amount != ds.effective_slot:
+                print("Your effective slot value is different:", sats_to_coins(Decimal(ds.effective_slot), network_name=network_name))
+                print("The effective slot is taken into account for the token distribution.")
         if (ds.donated_amount > 0) and (ds.effective_slot == 0):
-            print("Your slot is 0, there was a problem with your donation.")
+            raise PacliInputDataError("Your slot is 0, your donation was probably too low.")
         reward = ds.reward
         result = {"donation_txid" : ds.donation_tx.txid}
 
     if reward < 1:
        raise PacliInputDataError("Reward is zero or lower than one token unit.")
 
-    print("Token reward by distribution period:", ptx.deck.epoch_quantity)
+    if not silent:
+        print("Token reward by distribution period:", ptx.deck.epoch_quantity)
 
     if (proposer and pstate.dist_factor) or (ds.reward is not None):
         formatted_reward = Decimal(reward) / 10 ** decimals
-        print("Your reward:", formatted_reward, "PoD tokens")
+        if not silent:
+            print("Your reward:", formatted_reward, "PoD tokens")
     else:
         raise PacliInputDataError("Proposal still not processed completely. Claim your reward when the current distribution period has ended.")
     result.update({"deckid" : deckid, "reward" : formatted_reward})

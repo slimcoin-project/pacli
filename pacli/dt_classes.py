@@ -29,7 +29,7 @@ class PoDToken:
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                   locktime=locktime, asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
-    def claim(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_vout: int=2, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
+    def claim(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=True, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
         if donor_address is None:
@@ -39,12 +39,13 @@ class PoDToken:
             sign, send = False, False
 
         # try:
-        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_vout=donation_vout, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug)
+        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=txhex)
         #except TypeError as e: # should be catched.
         #    print("Error:", e)
         #    return None
 
-        return ei.run_command(eu.advanced_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, verify=verify, locktime=locktime, sign=sign, send=send)
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, verify=verify, locktime=locktime, confirm=confirm, silent=txhex, sign=sign, send=send)
+        return ei.output_tx(tx, txhex=txhex)
 
     def init_deck(self, deckid: str):
         '''Initializes DT deck and imports all P2TH addresses into node.'''
@@ -362,14 +363,6 @@ class Proposal:
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
-        """addresses, labels = (None, None, change_address), (None, None, change_label)
-        basic_tx_data = ei.run_command(du.get_basic_tx_data, "proposal", deckid=deckid, input_address=Settings.key.address, addresses=addresses, labels=labels, silent=txhex)
-
-        params = { "id" : c.ID_PROPOSAL , "deckid" : deckid, "epoch_number" : int(periods), "req_amount" : Decimal(str(req_amount)), "description" : description }
-
-        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network, debug=debug)
-
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
     def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, change_label: str=None, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
         '''Modify a proposal without providing the deck id.'''
@@ -378,17 +371,6 @@ class Proposal:
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
-        """old_proposal_tx = dmu.find_proposal(proposal_id, provider)
-        addresses, labels = (None, None, change_address), (None, None, change_label)
-
-        basic_tx_data = ei.run_command(du.get_basic_tx_data, "proposal", deckid=old_proposal_tx.deck.id, input_address=Settings.key.address, addresses=addresses, labels=labels, silent=txhex)
-
-        params = { "id" : c.ID_PROPOSAL , "deckid" : deckid, "epoch_number" : int(periods), "round_length" : int(round_length), "req_amount" : Decimal(str(req_amount)), "first_ptx_txid" : proposal_id }
-
-        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network, debug=debug)
-
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
-
 
     def vote(self, proposal_id: str, vote: str, tx_fee: str="0.01", change_address: str=None, change_label: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=True, txhex: bool=False, security: int=1, debug: bool=False):
         '''Vote (with "yes" or "no") for a proposal'''
@@ -396,30 +378,6 @@ class Proposal:
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
-
-        """
-        # MODIF: check_phase was eliminated. The extremely long timeframes between phases don't make worth it (nobody would start a transaction with --wait >2 months earlier).
-
-        addresses, labels = (None, None, change_address), (None, None, change_label)
-
-        basic_tx_data = ei.run_command(du.get_basic_tx_data, "voting", proposal_id=proposal_id, addresses=addresses, labels=labels, input_address=input_address, wait=wait, security_level=security, silent=txhex)
-
-        if vote in ("+", "positive", "p", "1", "yes", "y", "true"):
-            votechar, vote_bool = "+", True # TODO: do we need "votechar"? Or is bool better? (leave it open for now)
-        elif vote in ("-", "negative", "n", "0", "no", "n", "false"):
-            votechar, vote_bool = "-", False
-        else:
-            print("ERROR: Incorrect vote. Vote with 'positive'/'yes' or 'negative'/'no'.")
-
-        # vote_readable = "Positive" if votechar == "+" else "Negative"
-        # print("Vote:", vote_readable ,"\nProposal ID:", proposal_id)
-
-        params = { "id" : c.ID_VOTING , "proposal_id" : proposal_id, "vote" : vote_bool }
-
-
-        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, change_address=change_address, raw_tx_fee=tx_fee, network_name=Settings.network)
-
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
 
     def voters(self, proposal_id: str, debug: bool=False, blockheight: int=None, outputformat=None):
@@ -461,94 +419,35 @@ class Donation:
 
 
     def signal(self, proposal_id: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", change_label: str=None, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=True, debug: bool=False, txhex: bool=False, security: int=1, force: bool=False) -> None:
-        '''Creates a compliant signalling transaction for a proposal.'''
+        '''Creates a compliant signalling transaction for a proposal. The destination address becomes the donor address of the Donation State. It can be added as an address or as a label.'''
 
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
-        # return ei.run_command(dtx.create_trackedtransaction, "signalling", proposal_id=proposal_id, amount=amount, dest_label=dest_label, dest_address=dest_address, change_address=change_address, change_label=change_label, tx_fee=tx_fee, confirm=confirm, sign=sign, send=send, verify=verify, check_round=check_round, wait=wait, debug=debug, txhex=txhex, security=security, force=force)
-
-        """addresses, labels = [dest_address, None, change_address], [dest_label, None, change_label]
-
-        params = { "id" : c.ID_SIGNALLING, "proposal_id" : proposal_id }
-        basic_tx_data = ei.run_command(du.get_basic_tx_data, "signalling", proposal_id=proposal_id, input_address=Settings.key.address, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, silent=txhex)
-
-        donor_address_used = du.donor_address_used(basic_tx_data["dest_address"], proposal_id)
-        if not txhex:
-            ei.run_command(di.signalling_info, amount, check_round, basic_tx_data, dest_label=dest_label, donor_address_used=donor_address_used, force=force)
-
-        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, raw_tx_fee=tx_fee, raw_amount=amount, debug=debug, network_name=Settings.network, silent=txhex)
-
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
 
     def lock(self, proposal_id: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
-
+        '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.'''
+        # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
+        # but: maybe in the future address reusage may have to be completely discouraged
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
 
-        '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.'''
 
-        """# TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
-        # but: maybe in the future address reusage may have to be completely discouraged
-        # [dest_address, reserve_address, change_address] = ke.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
-        addresses, labels = [dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label]
-
-        #dist_round = du.get_dist_round(proposal_id) # not needed for LockingTX, but re-check
-
-        cltv_timelock = int(manual_timelock) if manual_timelock else du.calculate_timelock(proposal_id)
-        if force: # modified: before, False was also assigned if amount is given.
-            use_slot = False
-        else:
-            use_slot = True
-
-        lockhash_type = 2 # TODO: P2PKH is hardcoded now, but should be done by a check on the submitted addr.
-        params = { "id" : c.ID_LOCKING, "proposal_id" : proposal_id, "timelock" : cltv_timelock, "address" : dest_address, "lockhash_type" : lockhash_type }
-        basic_tx_data = ei.run_command(du.get_basic_tx_data, "locking", proposal_id=proposal_id, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, silent=txhex)
-
-        if not txhex:
-            print("Locking funds until block", cltv_timelock)
-
-            if amount is not None:
-                print("Not using slot, instead locking custom amount:", amount)
-
-        rawtx = ei.run_command(du.create_unsigned_trackedtx(params, basic_tx_data, raw_tx_fee=tx_fee, raw_amount=amount, cltv_timelock=cltv_timelock, force=force, new_inputs=new_inputs, debug=debug, reserve=reserve, network_name=Settings.network, silent=txhex))
-
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
-
-
-    def release(self, proposal_id: str, amount: str=None, change_address: str=None, change_label: str=None, reserve_address: str=None, reserve_label: str=None, tx_fee: str="0.01", check_round: int=None, wait: bool=False, new_inputs: bool=False, force: bool=False, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None: ### ADDRESSTRACK ###
-        '''Releases a donation.'''
+    def release(self, proposal_id: str, amount: str=None, change_address: str=None, change_label: str=None, reserve_address: str=None, reserve_label: str=None, tx_fee: str="0.01", check_round: int=None, wait: bool=False, new_inputs: bool=False, force: bool=False, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
+        '''Releases a donation and transfers the coins to the Proposer. This command can be used both in the release phase and in the donation rounds of the second distribution phase.'''
 
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
 
-        """use_slot = False if (amount is not None) else True
-
-        params = { "id" : c.ID_DONATION , "proposal_id" : proposal_id }
-        addresses, labels = (None, reserve_address, change_address), (None, reserve_label, change_label)
-
-        basic_tx_data = ei.run_command(du.get_basic_tx_data, "donation", proposal_id=proposal_id, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, addresses=addresses, labels=labels, check_round=check_round, wait=wait, security_level=security, debug=debug, silent=txhex)
-
-        rawtx = ei.run_command(du.create_unsigned_trackedtx, params, basic_tx_data, raw_amount=amount, raw_tx_fee=tx_fee, new_inputs=new_inputs, force=force, network_name=Settings.network, debug=debug, silent=txhex)
-
-        # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
-        if new_inputs:
-            p2sh, prv, key, rscript = None, None, None, None
-        else:
-            p2sh = True
-            key = Settings.key
-            rscript = basic_tx_data.get("redeem_script")
-
-        return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, key=key, label=origin_label, redeem_script=rscript, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)"""
 
     def resume(self, donation_state: str, send=False):
-        """This method allows to select the next step of the donation state with all standard values,
+        '''This method allows to select the next step of the donation state with all standard values,
         i.e. selecting always the full slot and using the previous transactions' outputs.
-        The command works in the correct period and the one directly before.
-        """
+        The command works in the correct period and the one directly before.'''
+
         if send:
             print("You selected to send your next transaction once the round has arrived.")
         else:
@@ -575,19 +474,24 @@ class Donation:
             # (we don't need to check the locking tx because we checked the state already.)
             self.release(dstate.proposal_id, wait=True, sign=True, send=send)
 
+
     def check_tx(self, txid=None, txhex=None):
         '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.'''
+
         tx = ei.run_command(du.create_trackedtx, txid=txid, txhex=txhex)
         pprint("Type: " + str(type(tx)))
         pprint(tx.__dict__)
 
+
     def check_all_tx(self, proposal_id: str, include_badtx: bool=False, light: bool=False):
         '''Lists all TrackedTransactions for a proposal, even invalid ones.
            include_badtx also detects wrongly formatted transactions, but only displays the txid.'''
+
         ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
 
+
     def show_slot(self, proposal_id: str, dist_round: int=None, satoshi: bool=False):
-        '''Simplified variant of my_donation_states, only shows slot.
+        '''Simplified variant of my_donation_states, only shows the current slot.
            If an address participated in several rounds, the round can be given.'''
 
         sat_slot = ei.run_command(du.get_slot, proposal_id, Settings.key.address, dist_round=dist_round)
@@ -602,9 +506,12 @@ class Donation:
 
         print("Slot:", slot)
 
+
     def qualified(self, proposal_id: str, dist_round: int, address: str=Settings.key.address, label: str=None, debug: bool=False):
         '''Shows if the address is entitled to participate in a slot distribution round.'''
         # Note: the donor address must be used as the origin address for the new signalling transaction.
+        # TODO: could probably be reworked with the ProposalState methods.
+
         if label is not None:
             address = ke.show_stored_key(label, Settings.network)
             address_label = "{} with label {}".format(address, label)
@@ -653,9 +560,9 @@ class Donation:
         return result
 
 
-    def create_trackedtransaction(self, *args, **kwargs):
+    def create_trackedtransaction(self, tx_type, **kwargs):
         '''Generic tracked transaction creation.'''
 
-        return ei.run_command(dtx.create_trackedtransaction, *args, **kwargs)
+        return ei.run_command(dtx.create_trackedtransaction, tx_type, **kwargs)
 
 

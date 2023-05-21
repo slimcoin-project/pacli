@@ -1,9 +1,11 @@
 # Commands specific for DT tokens in standard pacli classes
 
 import pacli.dt_utils as du
+import pacli.extended_utils as eu
 import pacli.dt_interface as di
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
+import pypeerassets.at.constants as c
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data, serialize_deck_extended_data
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
@@ -160,46 +162,44 @@ def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donation
 # TODO this should be obsolete now. Re-check the functionality.
 # Reward data seems to be missing in the "new" function ATM.
 
-def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, donation_vout: int=2, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False):
+def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False, silent: bool=False):
 
     if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
         receiver = [donor_address]
 
+    # enable using labels for proposals
+    proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id, silent=silent)
+
     if not force:
         beneficiary = "proposer" if proposer else "donor {}".format(donor_address)
-        print("Calculating reward for {} ...".format(beneficiary))
-        try:
-            reward_data = du.get_pod_reward_data(proposal_id, donor_address, donation_state=donation_state, proposer=proposer, debug=debug)
-        except Exception as e:
-            print(e)
-            return None
+        if not silent:
+            print("Calculating reward for {} ...".format(beneficiary))
+
+        reward_data = du.get_pod_reward_data(proposal_id, donor_address, donation_state=donation_state, proposer=proposer, debug=debug, silent=silent)
         deckid = reward_data.get("deckid")
         max_payment = reward_data.get("reward")
         donation_txid = reward_data.get("donation_txid")
+
     elif not deckid:
-        print("ERROR: No deckid provided, if you use --force you need to provide it.")
-        return None
+        raise PacliInputDataError("No deckid provided, if you use --force you need to provide it.")
+
     elif payment is not None:
         max_payment = sum(payment)
-        print("WARNING: Overriding reward calculation. If you calculated your payment incorrectly, the transaction will be invalid.")
+        if not silent:
+            print("WARNING: Overriding reward calculation. If you calculated your payment incorrectly, the transaction will be invalid.")
     else:
-        print("ERROR: No payment data provided.")
-        return None
+        raise PacliInputDataError("No payment data provided.")
 
     if payment is None:
         payment = [max_payment]
     else:
         if sum(payment) > max_payment:
-            raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
+            raise PacliInputDataError("Amount of cards does not correspond to the spent coins. Use --force to override.")
         rest_amount = max_payment - sum(payment)
         if rest_amount > 0:
             receiver.append(donor_address)
             payment.append(rest_amount)
 
-
-    # params = { "id" : "DT", "dtx" : donation_txid, "out" : donation_vout}
-    # asset_specific_data = setfmt(params, tx_type="cardissue_dt")
-    # CHANGED TO PROTOBUF. params dict not longer needed.
-    asset_specific_data = serialize_card_extended_data(net_query(provider.network), id="DT", txid=donation_txid, vout=donation_vout)
+    asset_specific_data = serialize_card_extended_data(net_query(provider.network), id=c.ID_DT, txid=donation_txid)
     return asset_specific_data, receiver, payment, deckid
 

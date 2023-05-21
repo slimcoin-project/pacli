@@ -189,7 +189,7 @@ def find_transaction_by_string(searchstring: str, only_start: bool=False):
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False,
-                 sign: bool=False, send: bool=False, debug: bool=False) -> Optional[dict]:
+                 sign: bool=False, send: bool=False, debug: bool=False, silent: bool=False, confirm: bool=False) -> Optional[dict]:
     # allows some more options, and to use P2PK inputs.
 
     if not deck:
@@ -215,7 +215,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
                                  locktime=locktime
                                  )
 
-    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, debug=debug)
+    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, silent=silent, confirm=confirm, debug=debug)
 
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes,
