@@ -48,11 +48,16 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
         # allows to manage lists
         config[category][key].append(value)
 
-    with open(configfilename, "w") as configfile:
-        json.dump(config, configfile)
+    write_config(config, configfilename)
+    #with open(configfilename, "w") as configfile:
+    #    json.dump(config, configfile)
     if debug:
         config = get_config(configfilename)
         print("New config:", config)
+
+def write_config(config, configfilename: str=EXT_CONFIGFILE):
+    with open(configfilename, "w") as configfile:
+        json.dump(config, configfile)
 
 def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     #with open(configfilename, "r") as configfile:
@@ -60,13 +65,15 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
     return config[category][str(key)]
 
-def delete_item(category: str, key: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, debug: bool=False):
+def delete_item(category: str, key: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, debug: bool=False, silent: bool=False):
     config = get_config(configfilename)
     try:
-        print("WARNING: deleting item from category {}, key: {}, value: {}".format(category, key, config[category][key]))
+        if not silent:
+            print("WARNING: deleting item from category {}, key: {}, value: {}".format(category, key, config[category][key]))
+        del config[category][key]
     except KeyError:
         raise ValueError("No item with this key. Nothing was deleted.")
-    del config[category][key]
+
     if not now:
         print("This is a dry run. Use --now to delete irrecoverabily.")
 
@@ -90,4 +97,26 @@ def process_fulllabel(fulllabel):
     network = label_split[0]
     label = "_".join(label_split[1:])
     return (network, label)
+
+def update_categories(configfilename: str=EXT_CONFIGFILE, debug: bool=False):
+    # when a new category is added to the category list, this function adds it to the config file.
+    config = get_config(configfilename)
+    for cat in CAT_INIT:
+        if cat not in config:
+            if debug:
+                print("Adding new category:", cat)
+            config.update({cat : {} })
+    write_config(config, configfilename)
+
+def delete_category(category, configfilename: str=EXT_CONFIGFILE):
+    # no tools command for this one. Should be used only manually.
+    config = get_config(configfilename)
+    del config[category]
+    write_config(config, configfilename)
+
+def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
+    config = get_config(configfilename)
+    write_config(config, backupfilename)
+
+
 

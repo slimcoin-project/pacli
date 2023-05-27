@@ -29,24 +29,6 @@ class PoDToken:
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                   locktime=locktime, asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
-    def claim(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=True, debug: bool=False) -> str:
-        '''Issue Proof-of-donation tokens after a successful donation.'''
-
-        if donor_address is None:
-            donor_address = Settings.key.address
-        else:
-            print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
-            sign, send = False, False
-
-        # try:
-        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=txhex)
-        #except TypeError as e: # should be catched.
-        #    print("Error:", e)
-        #    return None
-
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, verify=verify, locktime=locktime, confirm=confirm, silent=txhex, sign=sign, send=send)
-        return ei.output_tx(tx, txhex=txhex)
-
     def init_deck(self, deckid: str):
         '''Initializes DT deck and imports all P2TH addresses into node.'''
 
@@ -85,6 +67,7 @@ class Proposal:
         '''Displays the result of both voting rounds.'''
         # TODO: ideally there may be a variable indicating the second round has not started yet.
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         all_votes = dmu.get_votestate(provider, proposal_id, debug)
 
         for phase in (0, 1):
@@ -103,6 +86,7 @@ class Proposal:
     def current_period(self, proposal_id: str, blockheight: int=None, show_blockheights: bool=True, debug: bool=False) -> None:
         '''Shows the current period of the proposal lifecycle.'''
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         if blockheight is None:
             blockheight = provider.getblockcount() + 1
             pprint("Next block: {}".format(blockheight))
@@ -114,6 +98,7 @@ class Proposal:
     def all_periods(self, proposal_id: str, debug: bool=False) -> None:
         '''Shows all periods of the proposal lifecycle.'''
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         deck = ei.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
         # proposal_tx = dmu.find_proposal(proposal_id, provider)
         periods = ei.run_command(du.get_all_periods, proposal_id, deck)
@@ -127,6 +112,8 @@ class Proposal:
             pnumber = int(period[1:])
         except:
             ei.print_red("Error: Period entered in wrong format. You have to enter a letter-number combination, e.g. b10 or d50.")
+
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         proposal_tx = dmu.find_proposal(proposal_id, provider)
         periods = ei.run_command(du.get_all_periods, proposal_id, proposal_tx.deck)
         period_heights = periods[(pletter, pnumber)]
@@ -219,11 +206,14 @@ class Proposal:
 
     def info(self, proposal_id: str) -> None:
         '''Get basic info of a proposal.'''
+
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         info = du.get_proposal_info(proposal_id)
         pprint(info)
 
     def find(self, searchstring: str, advanced: bool=False, shortid: bool=False) -> None:
         '''finds a proposal based on its description string or short id'''
+
         pstates = ei.run_command(du.find_proposal_state_by_string, searchstring, advanced=advanced, shortid=shortid)
         for pstate in pstates:
             # this should go into dt_interface
@@ -235,16 +225,20 @@ class Proposal:
 
     def state(self, proposal_string: str, param: str=None, debug: bool=False, simple: bool=False, complete: bool=False, raw: bool=False, search: bool=False) -> None:
         '''Shows a single proposal state.'''
+
         if search:
-            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True)[0]
-        elif len(proposal_string) == 16:
-            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, shortid=True, advanced=True)[0]
-        elif len(proposal_string) == 64:
-            proposal_id = proposal_string
-            pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
+            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True)[0]
         else:
-            print("NOTE: Non-standard search, trying to find by ID start.\nBe aware that you may not get the state of the proposal you intended.\nBe sure to check the Proposal ID.")
-            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, shortid=True, advanced=True)[0]
+            if len(proposal_string) == 16:
+                # if the length is 16 like in the short id, we search this id.
+                pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True, shortid=True)[0]
+            else:
+                proposal_id = eu.search_for_stored_tx_label("proposal", proposal_string)
+                try:
+                    pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
+                except (IndexError, KeyError) as e:
+                    ei.print_red("Error:", e)
+
         pdict = pstate.__dict__
         if param is not None:
             result = pdict.get(param)
@@ -271,6 +265,8 @@ class Proposal:
 
     def available_slot_amount(self, proposal_id: str, dist_round: int=None, all: bool=False, debug: bool=False):
         '''Shows the available slot amount in a slot distribution round, or show all of them. Default is the current round, if the current blockheight is inside one.'''
+
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
         if all:
             for rd, round_slot in enumerate(pstate.available_slot_amount):
@@ -291,6 +287,7 @@ class Proposal:
         '''Shows the donation states involving a certain address (default: current active address).'''
         # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         if all_addresses:
 
             all_dstates = ei.run_command(dmu.get_donation_states, provider, proposal_id, debug=debug)
@@ -332,8 +329,9 @@ class Proposal:
 
     def all_donation_states(self, proposal_id: str, all: bool=False, only_incomplete: bool=False, unclaimed: bool=False, short: bool=False, debug: bool=False):
         '''Shows currently active (default) or all (--all flag) donation states of this proposal.'''
-        dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
+        dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
         allowed_states = di.get_allowed_states(all, unclaimed, only_incomplete)
 
         for dstate in dstates:
@@ -356,33 +354,11 @@ class Proposal:
 
                     print("{}: {}".format(item, value))
 
-    def create(self, deckid: str, req_amount: str, periods: int, description: str="", change_address: str=None, change_label: str=None, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
-        '''Creates a new proposal.'''
-
-        kwargs = locals()
-        del kwargs["self"]
-        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
-
-
-    def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, change_label: str=None, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
-        '''Modify a proposal without providing the deck id.'''
-
-        kwargs = locals()
-        del kwargs["self"]
-        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
-
-
-    def vote(self, proposal_id: str, vote: str, tx_fee: str="0.01", change_address: str=None, change_label: str=None, input_address: str=Settings.key.address, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=True, txhex: bool=False, security: int=1, debug: bool=False):
-        '''Vote (with "yes" or "no") for a proposal'''
-
-        kwargs = locals()
-        del kwargs["self"]
-        return ei.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
-
 
     def voters(self, proposal_id: str, debug: bool=False, blockheight: int=None, outputformat=None):
         '''Shows enabled voters and their balance at the start of the current epoch or at a defined blockheight.'''
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         proposal_tx = dmu.find_proposal(proposal_id, provider)
 
         parser_state = dmu.get_parser_state(provider, deck=proposal_tx.deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
@@ -414,9 +390,35 @@ class Proposal:
         elif outputformat == "simpledict":
             print(parser_state.enabled_voters)
 
+    # Tracked Transactions in Proposal class
+
+    def create(self, deckid: str, req_amount: str, periods: int, description: str="", change_address: str=None, change_label: str=None, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
+        '''Creates a new proposal.'''
+
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
+
+
+    def modify(self, proposal_id: str, req_amount: str, periods: int, round_length: int=0, change_address: str=None, change_label: str=None, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False):
+        '''Modify a proposal without providing the deck id.'''
+
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
+
+
+    def vote(self, proposal_id: str, vote: str, tx_fee: str="0.01", change_address: str=None, change_label: str=None, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=True, txhex: bool=False, security: int=1, debug: bool=False):
+        '''Vote (with "yes" or "no") for a proposal'''
+
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
+
 
 class Donation:
 
+    # Tracked Transactions in Donation class
 
     def signal(self, proposal_id: str, amount: str, dest_label: str=None, dest_address: str=None, change_address: str=None, tx_fee: str="0.01", change_label: str=None, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=True, debug: bool=False, txhex: bool=False, security: int=1, force: bool=False) -> None:
         '''Creates a compliant signalling transaction for a proposal. The destination address becomes the donor address of the Donation State. It can be added as an address or as a label.'''
@@ -428,8 +430,7 @@ class Donation:
 
     def lock(self, proposal_id: str, amount: str=None, change_address: str=None, dest_address: str=Settings.key.address, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, change_label: str=None, force: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
         '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.'''
-        # TODO: dest_address could be trashed completely as the convention is now to use always the donor address.
-        # but: maybe in the future address reusage may have to be completely discouraged
+
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
@@ -441,6 +442,24 @@ class Donation:
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
+
+    def claim_reward(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=True, debug: bool=False) -> str:
+        '''Issue Proof-of-donation tokens after a successful donation.'''
+
+        if donor_address is None:
+            donor_address = Settings.key.address
+        else:
+            print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
+            sign, send = False, False
+
+        # try:
+        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=txhex)
+        #except TypeError as e: # should be catched.
+        #    print("Error:", e)
+        #    return None
+
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, verify=verify, locktime=locktime, confirm=confirm, silent=txhex, sign=sign, send=send)
+        return ei.output_tx(tx, txhex=txhex)
 
 
     def resume(self, donation_state: str, send=False):
@@ -475,6 +494,8 @@ class Donation:
             self.release(dstate.proposal_id, wait=True, sign=True, send=send)
 
 
+    # Other commands
+
     def check_tx(self, txid=None, txhex=None):
         '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.'''
 
@@ -487,6 +508,7 @@ class Donation:
         '''Lists all TrackedTransactions for a proposal, even invalid ones.
            include_badtx also detects wrongly formatted transactions, but only displays the txid.'''
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
 
 
@@ -494,6 +516,7 @@ class Donation:
         '''Simplified variant of my_donation_states, only shows the current slot.
            If an address participated in several rounds, the round can be given.'''
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         sat_slot = ei.run_command(du.get_slot, proposal_id, Settings.key.address, dist_round=dist_round)
 
         if dist_round is None:
@@ -512,6 +535,7 @@ class Donation:
         # Note: the donor address must be used as the origin address for the new signalling transaction.
         # TODO: could probably be reworked with the ProposalState methods.
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         if label is not None:
             address = ke.show_stored_key(label, Settings.network)
             address_label = "{} with label {}".format(address, label)
@@ -553,6 +577,7 @@ class Donation:
         '''Shows if the donor address was already used for a Proposal.'''
         # note: a "False" here means that the check was not passed, i.e. the donor address should not be used.
 
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id)
         if donor_address_used(donor_address, proposal_id):
             result = "Already used in this proposal, use another address." if not silent else False
         else:

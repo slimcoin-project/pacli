@@ -3,16 +3,10 @@ from pypeerassets.provider import Provider
 from pypeerassets.at.dt_states import ProposalState, DonationState
 from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.networks import net_query
-from pypeerassets.at.protobuf_utils import serialize_ttx_metadata, parse_protobuf
-from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, find_proposal, get_parser_state, sats_to_coins, coins_to_sats
+from pypeerassets.at.protobuf_utils import parse_protobuf
+from pypeerassets.at.dt_misc_utils import get_proposal_state, find_proposal, get_parser_state, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
-from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
-from pypeerassets.kutil import Kutil
-from pypeerassets.transactions import sign_transaction, MutableTransaction
-from pypeerassets.legacy import is_legacy_blockchain, legacy_import, legacy_mintx
-from pacli.utils import (cointoolkit_verify,
-                         signtx,
-                         sendtx)
+from pypeerassets.pautils import read_tx_opreturn
 from pacli.extended_interface import PacliInputDataError
 
 from decimal import Decimal
@@ -243,109 +237,78 @@ def find_donation_state_by_string(searchstring: str, only_start: bool=False):
         raise PacliInputDataError("Donation state not found.")
         # print("ERROR", e)
 
-def find_proposal_state_by_string(searchstring: str, advanced: bool=False, shortid: bool=False):
+def find_proposal_state_by_string(searchstring: str, advanced: bool=False, shortid: bool=False, require_state: bool=False):
 
     matching_proposals = []
 
-
-    for deck in dmu.list_decks_by_at_type(provider, c.ID_DT):
-        if advanced:
-            pstates = get_parser_state(provider, deck, force_continue=True).proposal_states
-        else:
-            pstates = get_proposal_states(provider, deck)
-        for proposal in pstates.values():
-            if shortid:
-                if proposal.id.startswith(searchstring):
+    try:
+        for deck in dmu.list_decks_by_at_type(provider, c.ID_DT):
+            if advanced:
+                pstates = get_parser_state(provider, deck, force_continue=True).proposal_states
+            else:
+                pstates = get_proposal_states(provider, deck)
+            for proposal in pstates.values():
+                if shortid:
+                    if proposal.id.startswith(searchstring):
+                        matching_proposals.append(proposal)
+                elif searchstring in proposal.first_ptx.description:
                     matching_proposals.append(proposal)
-            elif searchstring in proposal.first_ptx.description:
-                matching_proposals.append(proposal)
+        if require_state:
+            assert matching_proposals
+    except (KeyError, IndexError, AssertionError):
+        raise PacliInputDataError("Proposal state not found.")
     return matching_proposals
 
 
 ## Inputs, outputs and Transactions
 
 
-def get_previous_tx_input_data(address, tx_type, proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, use_locking_slot=False, debug=False, silent=False):
+def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent=False) -> dict: #proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, use_locking_slot=False,
     # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
     # TODO: "txid" and "vout" could be changed better into "input_txid" and "input_vout", because later it is mixed with data of the actual tx (not only the input tx).
     # TODO: re-check what we really want to achieve with the "address" parameter. could it replaced by the donor address?
+    # MODIF: Donation state is now searched in main tx creation function, as it is needed for some other params.
 
     # This function searches for the donation state and then provides the inputs for the transaction to create.
     # provides the following data: slot, txid and vout of signalling or locking tx, value of input.
     # starts the parser.
     inputdata = {}
-    if not silent:
-        print("Searching for donation state for this transaction. Please wait.")
-    dstates = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, donor_address=address, dist_round=dist_round, debug=debug)
-    if not dstates:
-        raise PacliInputDataError("No donation states found.")
-    dstate = select_donation_state(dstates, tx_type, debug=debug)
+    # if not silent:
+    #     print("Searching for donation state for this transaction. Please wait.")
+    #dstates = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, donor_address=address, dist_round=dist_round, debug=debug)
+    #if not dstates:
+    #    raise PacliInputDataError("No donation states found.")
+    #dstate = select_donation_state(dstates, tx_type, debug=debug)
 
     if (tx_type == "donation") and (dstate.dist_round < 4):
 
         prev_tx = dstate.locking_tx
         # TODO: this seems to raise an error sometimes when donating in later rounds ...
         # This can in reality only happen if there is an incorrect donation state found.
-        inputdata.update({"redeem_script" : prev_tx.redeem_script})
+        redeem_script = prev_tx.redeem_script
+        inputdata.update({"redeem_script" : redeem_script})
     else:
         # reserve tx has always priority in the case a signalling tx also exists in the same donation state.
+        redeem_script = None
         if dstate.reserve_tx is not None:
             prev_tx = dstate.reserve_tx
         else:
             prev_tx = dstate.signalling_tx
 
-    inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount, "slot" : dstate.slot })
-    if use_locking_slot and dstate.dist_round < 4:
-        inputdata.update({ "locking_slot" : dstate.effective_locking_slot })
+    inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount})
+    # MODIF: slot dropped here, the slot we use is already added in get_basic_tx_data
+    # inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount, "slot" : dstate.slot })
+    #if use_locking_slot and dstate.dist_round < 4:
+    #    inputdata.update({ "locking_slot" : dstate.effective_locking_slot })
 
     # Output type. This should be always P2PKH or P2SH.
-    if prev_tx:
-        inputdata.update({ "inp_type" : [prev_tx.outs[2].script_pubkey.type] })
+    # if prev_tx: # MODIF: don't need if here.
+    inputdata.update({ "inp_type" : [prev_tx.outs[2].script_pubkey.type] })
+
+    if not previous_input_unspent(prev_tx.txid, 2 , silent=silent, redeem_script=redeem_script):
+        raise PacliInputDataError("Input of previous transaction was already spent. Use --new_inputs to create the transaction.")
 
     return inputdata
-
-
-'''def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, addresses: list=None, labels: list=None, check_round: int=None, security_level: int=None, wait: bool=False, new_inputs: bool=False, use_slot: bool=False, silent: bool=False, debug: bool=False):
-    """Gets basic data for a new TrackedTransaction"""
-
-    # step 1 (new): address/label synchronization
-    # [dest_address, reserve_address, change_address] = ke.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
-    if (addresses, labels) != (None, None):
-        [dest_address, reserve_address, change_address] = ke.show_addresses(addresses, labels, Settings.network)
-
-    tx_data = {"dest_address" : dest_address, "reserve_address" : reserve_address, "change_address" : change_address }
-
-    # step 2: proposal and deck data
-    if proposal_id is not None:
-        proposal = find_proposal(proposal_id, provider)
-        deck = proposal.deck
-        tx_data.update({ "proposal_tx" : proposal })
-    else:
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-
-    tx_data.update({"deck" : deck, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })
-
-    # step 3: check period (new, not for proposals.)
-    if (check_round is not None) or (wait == True):
-        if not check_current_period(proposal_id, deck, tx_type, dist_round=check_round, wait=wait, security_level=security_level):
-            raise PacliInputDataError("Transaction created in wrong period.")
-
-
-    # step 4: input data (only donation and locking)
-    if tx_type in ("donation", "locking"):
-        dist_round = get_dist_round(proposal_id, deck) # TODO: this can be optimized # MODIF: deck added
-        if tx_type == "donation" and dist_round in range(4):
-            use_locking_slot = True
-        else:
-            use_locking_slot = False
-        tx_data.update({"use_locking_slot" : use_locking_slot})
-        try:
-            if (not new_inputs) or use_slot:
-                tx_data.update(get_previous_tx_input_data(input_address, tx_type, proposal_tx=proposal, dist_round=dist_round, use_locking_slot=use_locking_slot, debug=debug, silent=silent))
-        except ValueError:
-            raise PacliInputDataError("No suitable signalling/reserve transactions found.")
-
-    return tx_data'''
 
 
 def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: int, network_name: str, new_inputs: bool=False, force: bool=False, silent: bool=False):
@@ -364,7 +327,6 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
             raise PacliInputDataError("No slot available for this donation. Transaction will not be created.")
     # elif new_inputs and (chosen_amount is not None):
     elif chosen_amount is not None:
-        # effective_slot = None # TODO: Re-check if this solved the "No slot available" error.
         amount = chosen_amount
     elif available_amount is not None:
         amount = available_amount
@@ -390,62 +352,6 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
         print("FORCING custom amount {} higher than the assigned slot.".format(raw_amount))
 
     return amount
-
-"""def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount: str=None, dest_address: str=None, change_address: str=None, raw_tx_fee: str=None, raw_p2th_fee: str=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False, silent: bool=False):
-    # This function first prepares a transaction, creating the protobuf string and calculating fees in an unified way,
-    # then creates transaction with pypeerassets method.
-    # MODIF: addresses can now come from basic_tx_data
-
-    b = basic_tx_data
-    # TODO still not perfect, may lead to None values if they're present in b. But this should be slowly replace the old method.
-    reserve_address = b["reserve_address"] if "reserve_address" in b else reserve_address
-    change_address = b["change_address"] if "change_address" in b else change_address
-    dest_address = b["dest_address"] if "dest_address" in b else dest_address
-    use_locking_slot = b["use_locking_slot"] if "use_locking_slot" in b else False
-
-    chosen_amount = None if raw_amount is None else coins_to_sats(Decimal(str(raw_amount)), network_name=network_name)
-    reserved_amount = None if reserve is None else coins_to_sats(Decimal(str(reserve)), network_name=network_name)
-
-    tx_fee = coins_to_sats(Decimal(str(raw_tx_fee)), network_name=network_name)
-    input_txid, input_vout, input_value, available_amount = None, None, None, None
-
-    min_tx_value = legacy_mintx(network_name)
-    p2th_fee = min_tx_value if min_tx_value else coins_to_sats(net_query(network_name).from_unit)
-
-    # legacy chains need a minimum transaction value even at OP_RETURN transactions
-    op_return_fee = p2th_fee if is_legacy_blockchain(network_name, "nulldata") else 0
-    all_fees = tx_fee + p2th_fee + op_return_fee
-
-    if b["tx_type"] in ("donation", "locking"):
-
-        if (not new_inputs) and previous_input_unspent(basic_tx_data, silent=silent):
-            # new_inputs enables the automatic selection of new inputs for locking and donation transactions.
-            # this can be useful if the previous input is too small for the transaction/p2th fees, or in the case of a
-            # ProposalModification
-            # If new_inputs is chosen or the previous input was spent, then all the following values stay in None.
-            input_txid, input_vout, input_value = b["txid"], b["vout"], b["value"]
-            available_amount = input_value - all_fees
-            if available_amount <= 0:
-                raise PacliInputDataError("Insufficient funds in this input to pay all fees. Use --new_inputs to lock or donate this amount.")
-
-        try:
-            used_slot = b["slot"] if not use_locking_slot else b["locking_slot"]
-            amount = calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force, silent=silent)
-        except KeyError:
-            amount = chosen_amount
-    else:
-        amount = chosen_amount
-
-    # print("Amount:", amount, "available", available_amount, "input value", input_value, "slot", slot)
-    # CHANGED TO PROTOBUF
-    params["ttx_version"] = 1 # NEW. for future upgradeability.
-    data = serialize_ttx_metadata(params=params, network=net_query(provider.network))
-    if debug and not silent:
-        print("OP_RETURN size: {} bytes".format(len(data)))
-    proposal_txid = params.get("proposal_id")
-
-
-    return create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=b.get("redeem_script"), silent=silent)"""
 
 def calculate_timelock(proposal_id):
     # returns the number of the block where the working period of the Proposal ends.
@@ -477,23 +383,24 @@ def create_trackedtx(txid=None, txhex=None):
     if txident == c.ID_PROPOSAL: return ProposalTransaction.from_json(raw_tx, provider)
 
 
-def previous_input_unspent(basic_tx_data, silent=False):
+def previous_input_unspent(input_txid, input_vout, redeem_script=None, silent=False):
     # P2SH is treated as always unspent.
-    if basic_tx_data.get("redeem_script") is not None:
+    # if basic_tx_data.get("redeem_script") is not None:
+    if redeem_script is not None:
         if not silent:
             print("Getting data from P2SH locking transaction.")
         return True
     # checks if previous input in listunspent.
     # print(basic_tx_data)
-    provider = basic_tx_data["provider"]
-    for input in provider.listunspent():
-        if input["txid"] == basic_tx_data["txid"]:
-            if input["vout"] == basic_tx_data["vout"]:
+    # provider = basic_tx_data["provider"]
+    for inp in provider.listunspent():
+        if inp["txid"] == input_txid: # basic_tx_data["txid"]:
+            if inp["vout"] == input_vout: # basic_tx_data["vout"]:
                 if not silent:
                     print("Selected input unspent.")
                 return True
-    if not silent:
-        print("Selected input spent, searching for another one.")
+    #if not silent: # MODIF: we raise an error here.
+    #    print("Selected input spent, searching for another one.")
     return False
 
 def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):

@@ -1,3 +1,4 @@
+import time
 import pypeerassets as pa
 from typing import Optional, Union
 from prettyprinter import cpprint as pprint
@@ -273,6 +274,23 @@ def retrieve_checkpoint(height: int=None, silent: bool=False) -> dict:
 def retrieve_all_checkpoints() -> dict:
     config = ce.get_config()
     return config["checkpoint"]
+
+def prune_old_checkpoints(depth: int=2000, silent: bool=False) -> None:
+    checkpoints = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
+    checkpoints.sort()
+    # print(checkpoints)
+    current_block = provider.getblockcount()
+    index = 0
+    while len(ce.get_config()["checkpoint"]) > 5: # leave at least 5 checkpoints intact
+       c = checkpoints[index]
+       if c < current_block - depth:
+           if not silent:
+               print("Deleting checkpoint", c)
+           ce.delete_item("checkpoint", str(c), now=True, silent=True)
+           time.sleep(1)
+       else:
+           break # as checkpoints are sorted, we break out.
+       index += 1
 
 def reorg_check(silent: bool=False) -> None:
     if not silent:

@@ -55,51 +55,57 @@ class Tools:
     def show_checkpoint(self, height: int=None) -> str:
         return eu.retrieve_checkpoint(height=height)
 
-    def show_stored_checkpoints(self):
+    def show_stored_checkpoints(self) -> list:
         return eu.retrieve_all_checkpoints()
 
-    def delete_checkpoint(self, height: int=None, now: bool=False):
+    def delete_checkpoint(self, height: int=None, now: bool=False) -> None:
         ce.delete_item("checkpoint", str(height), now=now)
 
-    def reorg_check(self):
+    def reorg_check(self) -> None:
         return eu.reorg_check()
 
-    def store_deck(self, label: str, deckid: str):
+    def store_deck(self, label: str, deckid: str) -> None:
         ce.write_item(category="deck", key=label, value=deckid)
 
-    def show_deck(self, label: str):
+    def show_deck(self, label: str) -> str:
         deck = ce.read_item(category="deck", key=label)
-        print(deck)
+        return deck
 
-    def show_stored_decks(self):
+    def show_stored_decks(self) -> None:
         pprint(ce.get_config()["deck"])
 
-    def store_proposal(self, label: str, proposal_id: str):
+    def store_proposal(self, label: str, proposal_id: str) -> None:
         ce.write_item(category="proposal", key=label, value=proposal_id)
 
-    def show_proposal(self, label: str):
+    def show_proposal(self, label: str) -> str:
         proposal = ce.read_item(category="proposal", key=label)
-        print(proposal)
+        return proposal
 
-    def show_stored_proposals(self):
+    def show_stored_proposals(self) -> None:
         pprint(ce.get_config()["proposal"])
 
-    def store_transaction(self, tx_hex: str):
+    def store_transaction(self, tx_hex: str) -> None:
         txid = provider.decoderawtransaction(tx_hex)["txid"]
         ce.write_item(category="transaction", key=txid, value=tx_hex)
 
-    def store_txhex(self, identifier: str, tx_hex: str):
+    def store_txhex(self, identifier: str, tx_hex: str) -> None:
         ce.write_item(category="txhex", key=identifier, value=tx_hex)
 
-    def show_transaction(self, txid):
+    def show_transaction(self, txid) -> str:
         tx = ce.read_item(category="transaction", key=txid)
-        print(tx)
+        return tx
 
-    def show_txhex(self, identifier):
+    def show_txhex(self, identifier) -> str:
         txhex = ce.read_item(category="txhex", key=identifier)
-        print(txhex)
+        return txhex
 
     def get_all_legacy_labels(self, prefix: str=provider.network) -> None:
         """For debugging only."""
         print(ke.get_all_labels(prefix))
+
+    def update_categories(self, debug: bool=False) -> None:
+        ce.update_categories(debug=debug)
+
+    def prune_old_checkpoints(self, depth: int=2000, silent: bool=False) -> None:
+        eu.prune_old_checkpoints(depth=depth, silent=silent)
 

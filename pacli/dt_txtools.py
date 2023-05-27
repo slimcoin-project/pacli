@@ -68,8 +68,8 @@ def create_trackedtransaction(tx_type,
 
     addresses, labels = (dest_address, reserve_address, change_address), (dest_label, reserve_label, change_label)
     # default values for params
-    use_slot, vote_bool = True, True
-    cltv_timelock, lockhash_type, public_address, rscript = None, None, None, None
+    use_slot = False
+    lockhash_type, public_address, rscript = None, None, None
 
     silent = True if txhex else False
 
@@ -88,13 +88,13 @@ def create_trackedtransaction(tx_type,
         periods = int(periods)
 
     elif tx_type == "voting":
-        vote_bool = process_vote(vote)
+        vote = process_vote(vote)
 
     elif tx_type == "signalling":
         donor_address_used = du.donor_address_used(dest_address, proposal_id)
 
     elif tx_type == "locking":
-        timelock = int(timelock) if timelock else du.calculate_timelock(proposal_id)
+        timelock = int(timelock) if timelock is not None else du.calculate_timelock(proposal_id)
         use_slot = False if force else True
         lockhash_type = 2 # TODO: P2PKH is hardcoded now, but should be done by a check on the submitted addr.
         public_address = dest_address # we need this for the redeem script
@@ -104,21 +104,21 @@ def create_trackedtransaction(tx_type,
             if amount is not None:
                 print("Not using slot, instead locking custom amount:", amount)
 
-    elif tx_type == "release":
+    elif tx_type == "donation":
         use_slot = False if (amount is not None) else True
 
+    # TODO: maybe we could create a basic_tx_data string here with the fixed parameters and only delegate the
+    # variable parameters to get_basic_tx_data?
+    basic_tx_data = get_basic_tx_data(tx_type, proposal_id=proposal_id, deckid=deckid, addresses=addresses, labels=labels, input_address=Settings.key.address, amount=amount, reserve=reserve, tx_fee=tx_fee, new_inputs=new_inputs, check_round=check_round, wait=wait, security_level=security, silent=silent)
 
-    basic_tx_data = get_basic_tx_data(tx_type, proposal_id=proposal_id, deckid=deckid, addresses=addresses, labels=labels, input_address=Settings.key.address, new_inputs=new_inputs, use_slot=use_slot, check_round=check_round, wait=wait, security_level=security, silent=silent)
-
-    if tx_type == "release":
-        # TODO: in this configuration we can't use origin_label for P2SH. Look if it can be reorganized.
+    if tx_type == "donation":
         if new_inputs:
             # p2sh, prv, key, rscript = None, None, None, None
             rscript = None
         else:
             # p2sh = True
             # key = Settings.key # this option should not be given.
-            rscript = basic_tx_data.get("redeem_script")
+            rscript = basic_tx_data["input_data"].get("redeem_script")
 
     elif tx_type == "signalling" and not silent:
 
@@ -127,9 +127,9 @@ def create_trackedtransaction(tx_type,
 
     # maybe integrate this later into basic_tx_data
     # TODO: address is only added to params originally in locking_tx. Is this a problem? (if yes, we can create a different "address" parameter only for locking txes)
-    params = create_params(tx_type, proposal_id=proposal_id, deckid=deckid, req_amount=req_amount, epoch_number=periods, description=description, vote=vote_bool, address=public_address, lockhash_type=lockhash_type, timelock=timelock)
+    params = create_params(tx_type, proposal_id=proposal_id, deckid=deckid, req_amount=req_amount, epoch_number=periods, description=description, vote=vote, address=public_address, lockhash_type=lockhash_type, timelock=timelock)
 
-    rawtx = create_unsigned_trackedtx(params, basic_tx_data, change_address=change_address, raw_amount=amount, raw_tx_fee=tx_fee, network_name=Settings.network, silent=silent, debug=debug)
+    rawtx = create_unsigned_trackedtx(params, basic_tx_data, force=force, silent=silent, debug=debug)
 
     return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)
 
@@ -144,21 +144,27 @@ def create_params(tx_type, **kwargs):
     return params
 
 
-def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, addresses: list=None, labels: list=None, check_round: int=None, security_level: int=None, wait: bool=False, new_inputs: bool=False, use_slot: bool=False, silent: bool=False, debug: bool=False):
+def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, addresses: list=None, labels: list=None, amount: str=None, tx_fee: str=None, reserve: str=None, check_round: int=None, security_level: int=None, wait: bool=False, new_inputs: bool=False, silent: bool=False, debug: bool=False):
     """Gets basic data for a new TrackedTransaction"""
 
     # step 1 (new): address/label synchronization
-    # [dest_address, reserve_address, change_address] = ke.show_addresses([dest_address, reserve_address, change_address], [dest_label, reserve_label, change_label], Settings.network)
     if (addresses, labels) != (None, None):
         [dest_address, reserve_address, change_address] = ke.show_addresses(addresses, labels, Settings.network)
 
     tx_data = {"dest_address" : dest_address, "reserve_address" : reserve_address, "change_address" : change_address }
 
+    if amount:
+       tx_data.update({"raw_amount": str(amount)})
+    if reserve:
+       tx_data.update({"reserve": str(reserve)})
+    if tx_fee:
+       tx_data.update({"tx_fee": str(tx_fee)})
+
     # step 2: proposal and deck data
     if proposal_id is not None:
-        proposal = find_proposal(proposal_id, provider)
-        deck = proposal.deck
-        tx_data.update({ "proposal_tx" : proposal })
+        proposal_tx = find_proposal(proposal_id, provider)
+        deck = proposal_tx.deck
+        tx_data.update({ "proposal_tx" : proposal_tx })
     else:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
@@ -172,37 +178,57 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
 
     # step 4: input data (only donation and locking)
     if tx_type in ("donation", "locking"):
-        dist_round = du.get_dist_round(proposal_id, deck) # TODO: this can be optimized # MODIF: deck added
-        if tx_type == "donation" and dist_round in range(4):
-            use_locking_slot = True
-        else:
-            use_locking_slot = False
-        tx_data.update({"use_locking_slot" : use_locking_slot})
+        if not silent:
+            print("Searching for donation state for this transaction. Please wait.")
         try:
-            if (not new_inputs) or use_slot:
-                tx_data.update(du.get_previous_tx_input_data(input_address, tx_type, proposal_tx=proposal, dist_round=dist_round, use_locking_slot=use_locking_slot, debug=debug, silent=silent))
+            proposal_state = get_proposal_state(provider, proposal_tx=proposal_tx, debug_donations=debug)
+        except KeyError:
+            raise PacliInputDataError("Proposal not found. Deck is probably not correctly initialized. Initialize it with 'pacli podtoken init_deck {}'.".format(deck.id))
+        dstates = dmu.get_dstates_from_donor_address(input_address, proposal_state)
+        dstate = du.select_donation_state(dstates, tx_type, debug=debug)
+        # dist_round = du.get_dist_round(proposal_id, deck)
+        if tx_type == "donation" and dstate.dist_round in range(4):
+            used_slot = dstate.effective_locking_slot
+        else:
+            used_slot = dstate.slot
+        tx_data.update({"used_slot" : used_slot})
+        try:
+            if (not new_inputs): # or use_slot: # MODIF: use_slot here doesn't make sense, as the --force parameter determines if the slot or another amount is used. --force can be used also if the old input is used.
+
+                # MODIF: input_data function was limited to pure input data gathering.
+                input_data = du.get_previous_tx_input_data(tx_type, dstate, debug=debug, silent=silent)
+                # tx_data.update(input_data)
+                tx_data.update({"input_data" : input_data})
         except ValueError:
             raise PacliInputDataError("No suitable signalling/reserve transactions found.")
 
     return tx_data
 
 
-def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount: str=None, dest_address: str=None, change_address: str=None, raw_tx_fee: str=None, cltv_timelock=0, network_name=None, version=1, new_inputs: bool=False, reserve: str=None, reserve_address: str=None, force: bool=False, debug: bool=False, silent: bool=False):
+def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, force: bool=False, debug: bool=False, silent: bool=False):
+
     # This function first prepares a transaction, creating the protobuf string and calculating fees in an unified way,
     # then creates transaction with pypeerassets method.
-    # MODIF: addresses can now come from basic_tx_data
+    # MODIF: addresses now all come from basic_tx_data
+    # MODIF: new_inputs now can be ignored, because only no_inputs makes b["input_data"] empty
+    # TODO: we may rename force to use_slot again (must be negative, i.e. force = True -> use_slot = False)
 
     b = basic_tx_data
+    network_name = Settings.network
     # TODO still not perfect, may lead to None values if they're present in b. But this should be slowly replace the old method.
-    reserve_address = b["reserve_address"] if "reserve_address" in b else reserve_address
-    change_address = b["change_address"] if "change_address" in b else change_address
-    dest_address = b["dest_address"] if "dest_address" in b else dest_address
-    use_locking_slot = b["use_locking_slot"] if "use_locking_slot" in b else False
+    reserve_address = b.get("reserve_address") # if "reserve_address" in b else reserve_address
+    change_address = b.get("change_address") # if "change_address" in b else change_address
+    dest_address = b.get("dest_address") # if "dest_address" in b else dest_address
+    used_slot = b.get("used_slot")
+    raw_amount = b.get("raw_amount")
+    dec_tx_fee = Decimal(b["raw_tx_fee"]) if "raw_tx_fee" in b else net_query(network_name).min_tx_fee
+    reserve = b.get("reserve")
 
     chosen_amount = None if raw_amount is None else coins_to_sats(Decimal(str(raw_amount)), network_name=network_name)
     reserved_amount = None if reserve is None else coins_to_sats(Decimal(str(reserve)), network_name=network_name)
 
-    tx_fee = coins_to_sats(Decimal(str(raw_tx_fee)), network_name=network_name)
+    # tx_fee = coins_to_sats(Decimal(str(raw_tx_fee)), network_name=network_name)
+    tx_fee = coins_to_sats(dec_tx_fee, network_name=network_name)
     input_txid, input_vout, input_value, available_amount = None, None, None, None
 
     min_tx_value = legacy_mintx(network_name)
@@ -214,34 +240,43 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, raw_amount: str
 
     if b["tx_type"] in ("donation", "locking"):
 
-        if (not new_inputs) and du.previous_input_unspent(basic_tx_data, silent=silent):
+        if b.get("input_data"):
+            redeem_script = b["input_data"].get("redeem_script")
+            if debug and redeem_script:
+                print("Redeem script:", redeem_script)
+            new_inputs = False
             # new_inputs enables the automatic selection of new inputs for locking and donation transactions.
             # this can be useful if the previous input is too small for the transaction/p2th fees, or in the case of a
             # ProposalModification
             # If new_inputs is chosen or the previous input was spent, then all the following values stay in None.
-            input_txid, input_vout, input_value = b["txid"], b["vout"], b["value"]
+            input_txid, input_vout, input_value = b["input_data"]["txid"], b["input_data"]["vout"], b["input_data"]["value"]
             available_amount = input_value - all_fees
             if available_amount <= 0:
-                raise PacliInputDataError("Insufficient funds in this input to pay all fees. Use --new_inputs to lock or donate this amount.")
+                raise PacliInputDataError("Insufficient funds to pay all fees. Use --new_inputs to lock or donate this amount.")
+        else:
+            new_inputs = True # try to refactor
 
         try:
-            used_slot = b["slot"] if not use_locking_slot else b["locking_slot"]
+            # used_slot = b["slot"] if not use_locking_slot else b["locking_slot"] # MODIF: this switch is in basic_tx_data
             amount = du.calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force, silent=silent)
         except KeyError:
             amount = chosen_amount
     else:
         amount = chosen_amount
+        redeem_script = None
 
-    # print("Amount:", amount, "available", available_amount, "input value", input_value, "slot", slot)
-    # CHANGED TO PROTOBUF
     params["ttx_version"] = 1 # NEW. for future upgradeability.
+
     data = serialize_ttx_metadata(params=params, network=net_query(provider.network))
-    if debug and not silent:
+
+    if debug:
         print("OP_RETURN size: {} bytes".format(len(data)))
+
     proposal_txid = params.get("proposal_id")
+    cltv_timelock = params.get("timelock")
 
 
-    return create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=network_name, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=b.get("redeem_script"), silent=silent)
+    return create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=Settings.network, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=redeem_script, silent=silent)
 
 
 def process_vote(vote: str) -> bool:
