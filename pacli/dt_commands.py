@@ -3,6 +3,7 @@
 import pacli.dt_utils as du
 import pacli.extended_utils as eu
 import pacli.dt_interface as di
+import pacli.config_extended as ce
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
@@ -86,7 +87,7 @@ def show_donations_by_address(deckid, address):
 
 # Deck
 
-def init_dt_deck(network_name, deckid, rescan=True):
+def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, store_label: str=False) -> None:
     # MODIFIED: added support for legacy blockchains
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     legacy = is_legacy_blockchain(network_name)
@@ -122,10 +123,18 @@ def init_dt_deck(network_name, deckid, rescan=True):
             legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan)
         else:
             dmu.import_p2th_address(provider, p2th_sdp_addr)
+
     if rescan:
         if not legacy:
             print("Rescanning ...")
             provider.rescanblockchain()
+
+    if store_label:
+         try:
+             ce.write_item("deck", store_label, deckid)
+         except ce.ValueExistsError:
+             raise PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
+
     print("Done.")
 
 def get_deckinfo(deckid, p2th: bool=False):

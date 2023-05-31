@@ -358,6 +358,7 @@ def search_for_stored_tx_label(category: str, identifier: str, silent: bool=Fals
     if is_possible_txid(identifier):
         return identifier
     else:
+
         result = ce.read_item(category, identifier)
 
         if result is not None:

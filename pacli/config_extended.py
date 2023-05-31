@@ -63,7 +63,7 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     #with open(configfilename, "r") as configfile:
     #    config = json.load(configfile)
     config = get_config(configfilename)
-    return config[category][str(key)]
+    return config[category].get(str(key))
 
 def delete_item(category: str, key: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, debug: bool=False, silent: bool=False):
     config = get_config(configfilename)

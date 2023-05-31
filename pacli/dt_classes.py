@@ -29,10 +29,10 @@ class PoDToken:
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                   locktime=locktime, asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
 
-    def init_deck(self, deckid: str):
+    def init_deck(self, deckid: str, store_label: str=None):
         '''Initializes DT deck and imports all P2TH addresses into node.'''
 
-        ei.run_command(dc.init_dt_deck, Settings.network, deckid)
+        ei.run_command(dc.init_dt_deck, Settings.network, deckid, store_label=store_label)
 
     def deck_info(self, deckid: str, p2th: bool=False, param: str=None):
         '''Prints DT-specific deck info.'''
