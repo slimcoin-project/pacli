@@ -37,8 +37,8 @@ from pacli.config import Settings
 
 
 def create_trackedtransaction(tx_type,
-                              proposal_id: str=None,
-                              deckid: str=None,
+                              proposal: str=None,
+                              deck: str=None,
                               dest_label: str=None,
                               dest_address: str=None,
                               change_address: str=None,
@@ -74,11 +74,11 @@ def create_trackedtransaction(tx_type,
     silent = True if txhex else False
 
     # enable using own labels for decks and proposals
-    if proposal_id:
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id, silent=silent)
+    if proposal:
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal, silent=silent)
 
-    if deckid:
-        deckid = eu.search_for_stored_tx_label("deck", deckid, silent=silent)
+    if deck:
+        deckid = eu.search_for_stored_tx_label("deck", deck, silent=silent)
 
     if tx_type == "proposal":
         if proposal_id is not None: # modifications (refactor better)
@@ -171,7 +171,7 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
     tx_data.update({"deck" : deck, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })
 
     # step 3: check period (all except proposals.)
-    if (check_round is not None) or (wait == True):
+    if (check_round is not None) or wait:
         if not du.check_current_period(proposal_id, deck, tx_type, dist_round=check_round, wait=wait, security_level=security_level):
             raise PacliInputDataError("Transaction created in wrong period.")
 

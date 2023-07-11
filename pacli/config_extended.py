@@ -5,7 +5,7 @@ import json, os
 # An alternative for the future could be to use sqlite3 eventually.
 
 EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
-CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "txhex" ]
+CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo" ]
 CAT_INIT = {c : {} for c in CATEGORIES}
 
 class ValueExistsError(Exception):

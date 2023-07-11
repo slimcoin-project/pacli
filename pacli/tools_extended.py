@@ -1,6 +1,4 @@
 # Tools class, for new pacli commands not directly related to a token type.
-# TODO: re-check if we need a way to store ints as keys specifically.
-# TODO: (not urgent) there are some commands which are related to the new keystore. Maybe also integrate the extended keystore here, or create a new class (e.g. "keys", "ekeystore", "extkeys" ...?)
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -11,8 +9,13 @@ from prettyprinter import cpprint as pprint
 
 class Tools:
 
-    def store_address(self, label: str) -> None:
-        print("Storing address for label", label)
+    # Addresses
+    def store_address(self, label: str, address: str) -> None:
+        ke.store_address(label, address=address)
+        print("Stored address {} with label {}.".format(address, label))
+
+    def store_address_from_keyring(self, label: str) -> None:
+        print("Searching for label label {} in keyring, and storing its address.".format(label))
         ke.store_address(label)
 
     def store_addresses_from_keyring(self) -> None:
@@ -26,7 +29,7 @@ class Tools:
     def show_address(self, label: str) -> str:
         return ke.get_address(label)
 
-    def show_label(self, address: str) -> str:
+    def show_address_label(self, address: str) -> str:
         return ce.search_value("address", address)[0]
 
     def show_stored_addresses(self, network: str=None) -> None:
@@ -43,11 +46,11 @@ class Tools:
             else:
                 print(label.ljust(16), networkname.ljust(6), balance.ljust(16), addr)
 
-    def delete_item(self, category: str, key: str, now: bool=False) -> None:
-        ce.delete_item(category, key, now)
+    def get_legacy_address_labels(self, prefix: str=provider.network) -> None:
+        """For debugging only."""
+        print(ke.get_all_labels(prefix))
 
-    def show_config(self) -> list:
-        return ce.get_config()
+    # Checkpoints and reorg tests
 
     def store_checkpoint(self, height: int=None) -> None:
         return eu.store_checkpoint(height=height)
@@ -61,8 +64,13 @@ class Tools:
     def delete_checkpoint(self, height: int=None, now: bool=False) -> None:
         ce.delete_item("checkpoint", str(height), now=now)
 
+    def prune_old_checkpoints(self, depth: int=2000, silent: bool=False) -> None:
+        eu.prune_old_checkpoints(depth=depth, silent=silent)
+
     def reorg_check(self) -> None:
         return eu.reorg_check()
+
+    # Decks and proposals
 
     def store_deck(self, label: str, deckid: str) -> None:
         ce.write_item(category="deck", key=label, value=deckid)
@@ -84,28 +92,43 @@ class Tools:
     def show_stored_proposals(self) -> None:
         pprint(ce.get_config()["proposal"])
 
-    def store_transaction(self, tx_hex: str) -> None:
-        txid = provider.decoderawtransaction(tx_hex)["txid"]
-        ce.write_item(category="transaction", key=txid, value=tx_hex)
+    # Transactions
 
-    def store_txhex(self, identifier: str, tx_hex: str) -> None:
-        ce.write_item(category="txhex", key=identifier, value=tx_hex)
+    def store_transaction(self, label: str, tx_hex: str) -> None:
+        ce.write_item(category="transaction", key=label, value=tx_hex)
 
-    def show_transaction(self, txid) -> str:
-        tx = ce.read_item(category="transaction", key=txid)
-        return tx
-
-    def show_txhex(self, identifier) -> str:
-        txhex = ce.read_item(category="txhex", key=identifier)
+    def show_transaction(self, label) -> str:
+        txhex = ce.read_item(category="transaction", key=identifier)
         return txhex
 
-    def get_all_legacy_labels(self, prefix: str=provider.network) -> None:
-        """For debugging only."""
-        print(ke.get_all_labels(prefix))
+    def show_stored_transactions(self) -> None:
+        pprint(ce.get_config()["transaction"])
+
+    def store_tx_by_txid(self, tx_hex: str) -> None:
+        txid = provider.decoderawtransaction(tx_hex)["txid"]
+        print("TXID used as label:", txid)
+        ce.write_item(category="transaction", key=txid, value=tx_hex)
+
+    # UTXOs
+    def store_utxo(self, label: str, txid: str, output: int) -> None:
+        utxo = "{}:{}".format(txid, str(output))
+        ce.write_item(category="utxo", key=label, value=utxo)
+
+    def show_utxo(self, label: str) -> str:
+        return ce.read_item(category="utxo", key=label)
+
+    def show_stored_utxos(self) -> None:
+        pprint(ce.get_config()["utxo"])
+
+
+    # General commands
 
     def update_categories(self, debug: bool=False) -> None:
         ce.update_categories(debug=debug)
 
-    def prune_old_checkpoints(self, depth: int=2000, silent: bool=False) -> None:
-        eu.prune_old_checkpoints(depth=depth, silent=silent)
+    def delete_item(self, category: str, key: str, now: bool=False) -> None:
+        ce.delete_item(category, key, now)
+
+    def show_config(self) -> list:
+        return ce.get_config()
 

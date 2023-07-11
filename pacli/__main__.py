@@ -273,28 +273,6 @@ class Deck:
             {'combo': functools.reduce(operator.or_, *args)
              })
 
-    # following are moved in the attoken/podtoken class!
-    """@classmethod
-    def at_spawn(self, name, tracked_address, verify: bool=False, sign: bool=False,
-              send: bool=False, locktime: int=0, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
-              endblock: int=None, version=1) -> None: ### ADDRESSTRACK
-        '''Wrapper to facilitate addresstrack spawns without having to deal with asset_specific_data.'''
-
-        asset_specific_data = eu.create_deckspawn_data("at", at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
-
-        return self.spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
-                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)
-
-
-    @classmethod
-    def dt_spawn(self, name: str, dp_length: int, dp_reward: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None: ### ADDRESSTRACK ###
-        '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
-
-        asset_specific_data = eu.create_deckspawn_data("dt", dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
-
-        return eu.advanced_deck_spawn(name=name, number_of_decimals=number_of_decimals, issue_mode=0x01, locktime=locktime,
-                          asset_specific_data=asset_specific_data, verify=verify, sign=sign, send=send)"""
-
     def init(self, deckid: str):
         '''Initializes deck and imports its P2TH address into node.'''
         eu.init_deck(Settings.network, deckid)
@@ -485,52 +463,6 @@ class Card:
 
         for i in cards:
             pprint(i.to_json())
-
-    @classmethod
-    def __find_deck_data(self, deckid: str) -> tuple: ### NEW FEATURE - AT ###
-        '''returns addresstrack-specific data'''
-        # TODO: probably obsolete.
-
-        deck = self.__find_deck(deckid)
-
-        try:
-            tracked_address, multiplier = deck.asset_specific_data.split(b":")[1:3]
-        except IndexError:
-            raise Exception("Deck has not the correct format for address tracking.")
-
-        return tracked_address.decode("utf-8"), int(multiplier)
-
-    """@classmethod ### NEW FEATURE - AT ###
-    def claim_at_tokens(self, deckid: str, txid: str, receiver: list=None, amount: list=None,
-              locktime: int=0, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False) -> str:
-        '''To simplify self.issue, all data is taken from the transaction.'''
-        # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
-
-        deck = self.__find_deck(deckid)
-
-        asset_specific_data, amount, receiver = create_at_issuance_data(deck, txid, amount=amount, debug=debug)
-
-        return self.transfer(deckid=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
-                             verify=verify, locktime=locktime, sign=sign, send=send)
-
-    @classmethod ### NEW FEATURE - DT ###
-    def claim_pod_tokens(self, proposal_id: str, donor_address:str=None, payment: list=None, receiver: list=None, locktime: int=0, donation_vout: int=2, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, debug: bool=False) -> str:
-        '''Issue Proof-of-donation tokens after a successful donation.'''
-
-        if donor_address is None:
-            donor_address = Settings.key.address
-        else:
-            print("You provided a custom address. You will only be able to do a dry run, not to actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
-            sign, send = False, False
-
-        try:
-            asset_specific_data, receiver, payment, deckid = dc.claim_pod_tokens(proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_vout=donation_vout, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug)
-        except TypeError as e:
-            print("Error:", e)
-            return None
-
-        return self.transfer(deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data,
-                             verify=verify, locktime=locktime, sign=sign, send=send)"""
 
     @classmethod
     def simple_transfer(self, deckid: str, receiver: str, amount: str, sign: bool=False, send: bool=False):

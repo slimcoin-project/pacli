@@ -39,7 +39,7 @@ class ATToken:
         pprint(txes)
 
     @classmethod
-    def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
+    def claim_reward(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
               locktime: int=0, payto: str=None, payamount: str=None, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False, force: bool=False) -> str:
         '''Claims tokens for a transaction to a tracked address.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
