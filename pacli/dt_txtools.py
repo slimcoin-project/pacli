@@ -1,28 +1,28 @@
 # Basic tools for transaction creation
 
 # TODO: check which imports are needed.
-from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, InvalidTrackedTransactionError
-from pypeerassets.provider import Provider
-from pypeerassets.at.dt_states import ProposalState, DonationState
-from pypeerassets.at.dt_parser_state import ParserState
+# from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, InvalidTrackedTransactionError
+# from pypeerassets.provider import Provider
+# from pypeerassets.at.dt_states import ProposalState, DonationState
+# from pypeerassets.at.dt_parser_state import ParserState
 from pypeerassets.networks import net_query
-from pypeerassets.at.protobuf_utils import serialize_ttx_metadata, parse_protobuf
-from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, find_proposal, get_parser_state, sats_to_coins, coins_to_sats
-from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
-from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
-from pypeerassets.kutil import Kutil
-from pypeerassets.transactions import sign_transaction, MutableTransaction
-from pypeerassets.legacy import is_legacy_blockchain, legacy_import, legacy_mintx
-from pacli.utils import (cointoolkit_verify,
-                         signtx,
-                         sendtx)
+from pypeerassets.at.protobuf_utils import serialize_ttx_metadata # , parse_protobuf
+# from pypeerassets.at.dt_misc_utils import import_p2th_address, create_unsigned_tx, get_proposal_state, sign_p2sh_transaction, sign_mixed_transaction, find_proposal, get_parser_state, sats_to_coins, coins_to_sats
+# from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
+# from pypeerassets.pautils import read_tx_opreturn, load_deck_p2th_into_local_node
+# from pypeerassets.kutil import Kutil
+# from pypeerassets.transactions import sign_transaction, MutableTransaction
+from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx #  legacy_import,
+#from pacli.utils import (cointoolkit_verify,
+#                         signtx,
+#                         sendtx)
 from pacli.extended_interface import PacliInputDataError
 
 from decimal import Decimal
-from prettyprinter import cpprint as pprint
+# from prettyprinter import cpprint as pprint
 
 import pypeerassets as pa
-import pypeerassets.at.dt_periods as dp
+# import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
 import pacli.keystore_extended as ke
 import pypeerassets.at.dt_misc_utils as dmu
@@ -63,7 +63,7 @@ def create_trackedtransaction(tx_type,
                               wait: bool=False,
                               confirm: bool=True,
                               txhex: bool=False,
-                              debug: bool=False):
+                              debug: bool=False) -> object:
     '''Generic tracked transaction creation.'''
 
     addresses, labels = (dest_address, reserve_address, change_address), (dest_label, reserve_label, change_label)
@@ -74,11 +74,8 @@ def create_trackedtransaction(tx_type,
     silent = True if txhex else False
 
     # enable using own labels for decks and proposals
-    if proposal:
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal, silent=silent)
-
-    if deck:
-        deckid = eu.search_for_stored_tx_label("deck", deck, silent=silent)
+    proposal_id = eu.search_for_stored_tx_label("proposal", proposal, silent=silent) if proposal else None
+    deckid = eu.search_for_stored_tx_label("deck", deck, silent=silent) if deck else None
 
     if tx_type == "proposal":
         if proposal_id is not None: # modifications (refactor better)
@@ -134,7 +131,7 @@ def create_trackedtransaction(tx_type,
     return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)
 
 
-def create_params(tx_type, **kwargs):
+def create_params(tx_type: str, **kwargs) -> dict:
     # creates a parameter dict.
     txtype_id = c.get_id(tx_type)
     params = { "id" : txtype_id }
@@ -144,7 +141,7 @@ def create_params(tx_type, **kwargs):
     return params
 
 
-def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_round: int=None, deckid: str=None, addresses: list=None, labels: list=None, amount: str=None, tx_fee: str=None, reserve: str=None, check_round: int=None, security_level: int=None, wait: bool=False, new_inputs: bool=False, silent: bool=False, debug: bool=False):
+def get_basic_tx_data(tx_type: str, proposal_id: str=None, input_address: str=None, dist_round: int=None, deckid: str=None, addresses: list=None, labels: list=None, amount: str=None, tx_fee: str=None, reserve: str=None, check_round: int=None, security_level: int=None, wait: bool=False, new_inputs: bool=False, silent: bool=False, debug: bool=False) -> dict:
     """Gets basic data for a new TrackedTransaction"""
 
     # step 1 (new): address/label synchronization
@@ -162,7 +159,7 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
 
     # step 2: proposal and deck data
     if proposal_id is not None:
-        proposal_tx = find_proposal(proposal_id, provider)
+        proposal_tx = dmu.find_proposal(proposal_id, provider)
         deck = proposal_tx.deck
         tx_data.update({ "proposal_tx" : proposal_tx })
     else:
@@ -181,7 +178,7 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
         if not silent:
             print("Searching for donation state for this transaction. Please wait.")
         try:
-            proposal_state = get_proposal_state(provider, proposal_tx=proposal_tx, debug_donations=debug)
+            proposal_state = dmu.get_proposal_state(provider, proposal_tx=proposal_tx, debug_donations=debug)
         except KeyError:
             raise PacliInputDataError("Proposal not found. Deck is probably not correctly initialized. Initialize it with 'pacli podtoken init_deck {}'.".format(deck.id))
         dstates = dmu.get_dstates_from_donor_address(input_address, proposal_state)
@@ -205,7 +202,7 @@ def get_basic_tx_data(tx_type, proposal_id=None, input_address: str=None, dist_r
     return tx_data
 
 
-def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, force: bool=False, debug: bool=False, silent: bool=False):
+def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, force: bool=False, debug: bool=False, silent: bool=False) -> object:
 
     # This function first prepares a transaction, creating the protobuf string and calculating fees in an unified way,
     # then creates transaction with pypeerassets method.
@@ -224,15 +221,15 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, forc
     dec_tx_fee = Decimal(b["raw_tx_fee"]) if "raw_tx_fee" in b else net_query(network_name).min_tx_fee
     reserve = b.get("reserve")
 
-    chosen_amount = None if raw_amount is None else coins_to_sats(Decimal(str(raw_amount)), network_name=network_name)
-    reserved_amount = None if reserve is None else coins_to_sats(Decimal(str(reserve)), network_name=network_name)
+    chosen_amount = None if raw_amount is None else dmu.coins_to_sats(Decimal(str(raw_amount)), network_name=network_name)
+    reserved_amount = None if reserve is None else dmu.coins_to_sats(Decimal(str(reserve)), network_name=network_name)
 
-    # tx_fee = coins_to_sats(Decimal(str(raw_tx_fee)), network_name=network_name)
-    tx_fee = coins_to_sats(dec_tx_fee, network_name=network_name)
+    # tx_fee = dmu.coins_to_sats(Decimal(str(raw_tx_fee)), network_name=network_name)
+    tx_fee = dmu.coins_to_sats(dec_tx_fee, network_name=network_name)
     input_txid, input_vout, input_value, available_amount = None, None, None, None
 
     min_tx_value = legacy_mintx(network_name)
-    p2th_fee = min_tx_value if min_tx_value else coins_to_sats(net_query(network_name).from_unit)
+    p2th_fee = min_tx_value if min_tx_value else dmu.coins_to_sats(net_query(network_name).from_unit)
 
     # legacy chains need a minimum transaction value even at OP_RETURN transactions
     op_return_fee = p2th_fee if is_legacy_blockchain(network_name, "nulldata") else 0
@@ -276,7 +273,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, forc
     cltv_timelock = params.get("timelock")
 
 
-    return create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=Settings.network, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=redeem_script, silent=silent)
+    return dmu.create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=Settings.network, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=redeem_script, silent=silent)
 
 
 def process_vote(vote: str) -> bool:

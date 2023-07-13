@@ -2,7 +2,7 @@ import itertools, sys
 from time import sleep
 from pacli.provider import provider
 
-def output_tx(txdict: dict, txhex: bool=False):
+def output_tx(txdict: dict, txhex: bool=False) -> object:
 
     if txhex:
         try:
@@ -13,10 +13,10 @@ def output_tx(txdict: dict, txhex: bool=False):
         return txdict
 
 
-def print_red(text):
+def print_red(text: str) -> None:
     print("\033[91m {}\033[00m" .format(text))
 
-def run_command(c, *args, **kwargs):
+def run_command(c, *args, **kwargs) -> object:
     # Unified exception handling for PacliInputDataError.
     try:
         result = c(*args, **kwargs)
@@ -29,7 +29,7 @@ def run_command(c, *args, **kwargs):
 
         sys.exit()
 
-def spinner(duration):
+def spinner(duration: int) -> None:
     '''Prints a "spinner" for a defined duration in seconds.'''
 
     animation = [

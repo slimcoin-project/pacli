@@ -19,8 +19,7 @@ from pacli.extended_interface import PacliInputDataError
 
 # Address
 
-def show_votes_by_address(deckid, address):
-    # TODO: cleanup print statements!
+def show_votes_by_address(deckid: str, address: str) -> None:
     # shows all valid voting transactions from a specific address, for all proposals.
 
     pprint("Votes cast from address: " + address)
@@ -53,7 +52,7 @@ def show_votes_by_address(deckid, address):
                     pprint("Weight: " + str(vtx.weight))
 
 
-def show_donations_by_address(deckid, address):
+def show_donations_by_address(deckid: str, address: str) -> None:
     # shows all valid donation transactions from a specific address, for all proposals.
 
     pprint("Donations realized from address: " + address)
@@ -157,7 +156,7 @@ def get_deckinfo(deckid, p2th: bool=False):
 
     return dt_decklist
 
-def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donations: bool=False):
+def dt_state(deckid: str, debug: bool=False, debug_voting: bool=False, debug_donations: bool=False):
     # prints the ParserState (DTDeckState).
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -168,10 +167,10 @@ def dt_state(deckid, debug: bool=False, debug_voting: bool=False, debug_donation
     pprint(pst_dict)
 
 # Card
-# TODO this should be obsolete now. Re-check the functionality.
+# TODO coordinate with "new" Donation claim command.
 # Reward data seems to be missing in the "new" function ATM.
 
-def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False, silent: bool=False):
+def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False, silent: bool=False) -> tuple:
 
     if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
         receiver = [donor_address]

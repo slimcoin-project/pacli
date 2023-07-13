@@ -73,14 +73,14 @@ class ATToken:
                sign=sign, send=send)
 
 
-    def deck_info(self, deck: str):
+    def deck_info(self, deck: str) -> None:
         '''Prints AT-specific deck info.'''
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck)
         ei.run_command(au.at_deckinfo, deckid)
 
     @classmethod
-    def deck_list(self):
+    def deck_list(self) -> None:
         '''Prints list of AT decks'''
 
         ei.run_command(print_deck_list, list_decks_by_at_type(provider, c.ID_AT))
