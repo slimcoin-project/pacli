@@ -1,4 +1,7 @@
+from prettyprinter import cpprint as pprint
 import pypeerassets as pa
+import pypeerassets.at.at_parser as ap
+import pypeerassets.at.dt_misc_utils as dmu
 from pypeerassets.pautils import find_tx_sender
 from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
@@ -9,8 +12,8 @@ from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.extended_utils as eu
-import pypeerassets.at.dt_misc_utils as dmu
-from prettyprinter import cpprint as pprint
+
+
 
 def create_simple_transaction(amount: Decimal, dest_address: str, input_address: str, tx_fee: Decimal=None, change_address: str=None, debug: bool=False):
 
@@ -23,9 +26,8 @@ def create_simple_transaction(amount: Decimal, dest_address: str, input_address:
     return dtx.to_raw_transaction()
 
 
-def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, debug: bool=False) -> list:
+def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, silent: bool=False, debug: bool=False) -> list:
 
-    raw_txes = []
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         if unclaimed:
@@ -41,39 +43,46 @@ def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address:
 
     raw_txes = eu.get_wallet_transactions()
 
-    filtered_txes = [t for t in raw_txes if ((t["category"] == "send") and (t["address"] == tracked_address))]
-    txids = set([t["txid"] for t in filtered_txes])
-    if unclaimed:
-        txids = txids.difference(claimed_txes)
+    valid_txes = []
+    for tx in raw_txes:
+        try:
+            assert tx["category"] == "send"
+            assert tx["address"] == tracked_address
+            full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=input_address)
+            assert full_tx is not None
+            if unclaimed:
+                assert tx["txid"] not in claimed_txes
+            valid_txes.append(full_tx)
 
-    print("{} sent transactions to address {} in this wallet.".format(len(txids), tracked_address))
+        except AssertionError:
+            continue
+
+    txids = set([t["txid"] for t in valid_txes])
+    tx_type_msg = "unclaimed" if unclaimed else "sent"
+
+    if not silent:
+        print("{} {} transactions to address {} in this wallet.".format(len(txids), tx_type_msg, tracked_address))
     if input_address is not None:
         print("Showing only transactions sent from the following address:", input_address)
-    if unclaimed:
-        print("Showing only unclaimed transactions for this deck.")
+
     txes_to_address = []
-    for txid in txids:
-        rawtx = provider.getrawtransaction(txid, 1)
-        sender = find_tx_sender(provider, rawtx)
+    for tx in valid_txes:
+
+        sender = find_tx_sender(provider, tx)
         try:
-            height = provider.getblock(rawtx["blockhash"])["height"]
+            height = provider.getblock(tx["blockhash"])["height"]
         except KeyError:
             height = None
-        # protocol defines that only address spending first input is counted.
-        # so we can use find_tx_sender from pautils.
-        if input_address:
-            if sender != input_address:
-                continue
 
         value, indexes = 0, []
-        for index, output in enumerate(rawtx["vout"]):
+        for index, output in enumerate(tx["vout"]):
             if output["scriptPubKey"]["addresses"][0] == tracked_address:
                 value += Decimal(str(output["value"]))
                 indexes.append(index)
 
-        tx_dict = {"txid" : txid, "value" : value, "outputs" : indexes, "height" : height}
+        tx_dict = {"txid" : tx["txid"], "value" : value, "outputs" : indexes, "height" : height}
         if not input_address:
-           tx_dict.update({"sender" : sender})
+            tx_dict.update({"sender" : sender})
         txes_to_address.append(tx_dict)
 
     return txes_to_address
@@ -99,7 +108,12 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
                 print("Block:", bh)
         blockhash = provider.getblockhash(bh)
         block = provider.getblock(blockhash)
-        for txid in block["tx"]:
+        try:
+           block_txes = block["tx"]
+        except KeyError:
+           print("You have reached the tip of the blockchain.")
+           return tracked_txes
+        for txid in block_txes:
             tx = provider.getrawtransaction(txid, 1)
             total_amount_to_address = Decimal(0)
             try:
@@ -141,6 +155,22 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
                                  })
 
     return tracked_txes
+
+def check_donation_tx_validity(txid: str, tracked_address: str, startblock: int=None, endblock: int=None, expected_sender: str=None, debug: bool=False):
+    # checks the validity of a donation/burn transaction
+    try:
+        raw_tx = ap.check_donation(provider, txid, tracked_address, startblock=startblock, endblock=endblock)
+        if expected_sender:
+            if not expected_sender == find_tx_sender(provider, raw_tx):
+                if debug:
+                    print("Unexpected sender", sender)
+                return None
+        return raw_tx
+    except Exception as e:
+        if debug:
+            print("TX {} invalid:".format(txid), e)
+        return None
+
 
 
 def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: list=None, amounts: list=None, payto: str=None, payamount: Decimal=None, debug: bool=False, force: bool=False) -> tuple:

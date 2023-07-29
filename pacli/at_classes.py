@@ -30,13 +30,16 @@ class ATToken:
         txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, debug=debug)
         pprint(txes)
 
-    def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, debug: bool=False) -> None:
+    def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, silent: bool=False, debug: bool=False) -> None:
         '''Shows all transactions from your wallet to the tracked address.'''
-        if deck:
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck)
+
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
         input_address = Settings.key.address if not wallet else None
-        txes = ei.run_command(au.show_wallet_txes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, debug=debug)
-        pprint(txes)
+        txes = ei.run_command(au.show_wallet_txes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, silent=silent, debug=debug)
+        if not silent:
+            pprint(txes)
+        else:
+            print(txes)
 
     @classmethod
     def claim_reward(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
@@ -44,10 +47,12 @@ class ATToken:
         '''Claims tokens for a transaction to a tracked address.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
+
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        dec_payamount = Decimal(str(payamount)) if payamount else None
 
-        asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data, deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=Decimal(str(payamount)), debug=debug, force=force)
+        asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data, deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=dec_payamount, debug=debug, force=force)
 
         return ei.run_command(eu.advanced_card_transfer, deck,
                                  amount=amount,
@@ -121,14 +126,11 @@ class PoBToken(ATToken):
 
         return super().create_tx(address=au.burn_address(), amount=amount, from_address=from_address, tx_fee=tx_fee, change_address=change_address, sign=sign, send=send, verify=verify, debug=debug)
 
-    def my_burns(self, unclaimed: bool=False, wallet: bool=False, deck: str=None, debug: bool=False) -> None:
+    def my_burns(self, unclaimed: bool=False, wallet: bool=False, deck: str=None, silent: bool=False, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 
-        if deck:
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck)
-
-        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deckid=deckid, wallet=wallet, debug=debug)
+        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, silent=silent, debug=debug)
 
 
     @classmethod
@@ -139,4 +141,4 @@ class PoBToken(ATToken):
 
     def show_all_burns(self, start: int=None, end: int=None, deckid: str=None, debug: bool=False):
         '''Show all burn transactions of all users. Very slow, use of --start and --end highly recommended.'''
-        return self.show_txes(self, address=au.burn_address(), deckid=deckid, start=start, end=end, debug=debug)
+        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, debug=debug)
