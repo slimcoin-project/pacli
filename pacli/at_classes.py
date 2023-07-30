@@ -2,6 +2,7 @@ import pypeerassets as pa
 import pypeerassets.at.constants as c
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.mutable_transactions import TransactionDraft
+from pypeerassets.pautils import exponent_to_amount
 from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
@@ -13,10 +14,33 @@ from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATToken:
 
-    def create_tx(self, address: str, amount: str, input_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+    def my_balance(self, deck: str, address: str=Settings.key.address, silent: bool=False):
+        '''Shows the balance of a token (deck) on the current main address or another address.'''
+
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        cards = pa.find_all_valid_cards(provider, deck)
+        state = pa.protocol.DeckState(cards)
+
+        for i in state.balances:
+            if i == address:
+                balance = exponent_to_amount(state.balances[i], deck.number_of_decimals)
+                if silent:
+                    print(balance)
+                else:
+                    pprint({address : balance})
+                break
+        else:
+            if silent:
+                print(0)
+            else:
+                pprint({address : 0})
+
+    def create_tx(self, address: str, amount: str, from_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+        '''Creates a simple transaction from an address (default: current main address) to another one.'''
 
         dec_amount = Decimal(str(amount))
-        rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, input_address=Settings.key.address, change_address=change_address, debug=debug)
+        rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, input_address=from_address, change_address=change_address, debug=debug)
 
         return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, debug=debug)
 
@@ -35,7 +59,7 @@ class ATToken:
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
         input_address = Settings.key.address if not wallet else None
-        txes = ei.run_command(au.show_wallet_txes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, silent=silent, debug=debug)
+        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, silent=silent, debug=debug)
         if not silent:
             pprint(txes)
         else:
@@ -46,7 +70,6 @@ class ATToken:
               locktime: int=0, payto: str=None, payamount: str=None, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False, force: bool=False) -> str:
         '''Claims tokens for a transaction to a tracked address.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
-
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -126,7 +149,7 @@ class PoBToken(ATToken):
 
         return super().create_tx(address=au.burn_address(), amount=amount, from_address=from_address, tx_fee=tx_fee, change_address=change_address, sign=sign, send=send, verify=verify, debug=debug)
 
-    def my_burns(self, unclaimed: bool=False, wallet: bool=False, deck: str=None, silent: bool=False, debug: bool=False) -> None:
+    def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, silent: bool=False, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 

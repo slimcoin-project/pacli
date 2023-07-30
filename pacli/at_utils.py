@@ -1,4 +1,5 @@
 from prettyprinter import cpprint as pprint
+from decimal import Decimal
 import pypeerassets as pa
 import pypeerassets.at.at_parser as ap
 import pypeerassets.at.dt_misc_utils as dmu
@@ -8,14 +9,13 @@ from pypeerassets.at.protobuf_utils import serialize_card_extended_data
 from pypeerassets.at.constants import ID_AT
 from pypeerassets.networks import net_query
 from pypeerassets.exceptions import UnsupportedNetwork
-from decimal import Decimal
+import pacli.extended_utils as eu
+import pacli.extended_interface as ei
 from pacli.provider import provider
 from pacli.config import Settings
-import pacli.extended_utils as eu
-
-
 
 def create_simple_transaction(amount: Decimal, dest_address: str, input_address: str, tx_fee: Decimal=None, change_address: str=None, debug: bool=False):
+    """Creates a simple coin transaction from a pre-selected address."""
 
     dtx = TransactionDraft(fee_coins=tx_fee, provider=provider, debug=debug)
     dtx.add_p2pkh_output(dest_address, coins=amount)
@@ -26,7 +26,7 @@ def create_simple_transaction(amount: Decimal, dest_address: str, input_address:
     return dtx.to_raw_transaction()
 
 
-def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, silent: bool=False, debug: bool=False) -> list:
+def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, silent: bool=False, debug: bool=False) -> list:
 
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -37,9 +37,13 @@ def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address:
         try:
             tracked_address = deck.at_address
         except AttributeError:
-            raise ValueError("Deck ID {} does not reference an AT deck.".format(deckid))
-    elif unclaimed:
-        raise ValueError("You need to provide a Deck ID to show unclaimed transactions.")
+            raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
+    else:
+        deck = None
+        if unclaimed:
+            raise ei.PacliInputDataError("You need to provide a Deck ID to show unclaimed transactions.")
+        if not tracked_address:
+            raise ei.PacliInputDataError("You need to provide a tracked address or a Deck ID for this command.")
 
     raw_txes = eu.get_wallet_transactions()
 
@@ -48,8 +52,11 @@ def show_wallet_txes(deckid: str=None, tracked_address: str=None, input_address:
         try:
             assert tx["category"] == "send"
             assert tx["address"] == tracked_address
-            full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=input_address)
-            assert full_tx is not None
+            if deck is not None:
+                full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=input_address)
+                assert full_tx is not None
+            else:
+                full_tx = provider.getrawtransaction(tx["txid"], 1)
             if unclaimed:
                 assert tx["txid"] not in claimed_txes
             valid_txes.append(full_tx)
@@ -99,7 +106,7 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
         try:
             tracked_address = deck.at_address
         except AttributeError:
-            raise ValueError("Deck ID {} does not reference an AT deck.".format(deckid))
+            raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     tracked_txes = []
     for bh in range(startblock, endblock + 1):
@@ -179,10 +186,10 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
         spending_tx = provider.getrawtransaction(donation_txid, 1) # changed from txid
 
         if sender != find_tx_sender(provider, spending_tx):
-            raise Exception("Error: You cannot claim coins for another sender.")
+            raise ei.PacliInputDataError("You cannot claim coins for another sender.")
 
         if donation_txid in get_claimed_txes(deck, sender):
-            raise Exception("Error: Duplicate. You already have claimed the coins from this transaction successfully.")
+            raise ei.PacliInputDataError("Duplicate. You already have claimed the coins from this transaction successfully.")
 
         spent_amount = Decimal(0)
 
@@ -194,7 +201,7 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
                 spent_amount += Decimal(str(output["value"]))
 
         if len(vouts) == 0:
-            raise Exception("This transaction does not spend coins to the tracked address")
+            raise ei.PacliInputDataError("This transaction does not spend coins to the tracked address")
 
         if debug:
             print("AT Address:", deck.at_address)
@@ -213,7 +220,7 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
                    amounts = [payamount, claimable_amount - payamount]
                    receivers = [payto, Settings.key.address]
                else:
-                   raise ValueError("Claimed amount {} higher than available amount {}.".format(payamount, claimable_amount))
+                   raise ei.PacliInputDataError("Claimed amount {} higher than available amount {}.".format(payamount, claimable_amount))
 
             # if there is no receiver, spends to himself.
             else:
@@ -223,10 +230,10 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
             amounts = [claimable_amount]
 
         if len(amounts) != len(receivers):
-            raise ValueError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amount)))
+            raise ei.PacliInputDataError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amount)))
 
         if (sum(amounts) != claimable_amount) and (not force): # force option overcomplicates things.
-            raise Exception("Amount of cards does not correspond to the spent coins. Use --force to override.")
+            raise ei.PacliInputDataError("Amount of cards does not correspond to the spent coins. Use --force to override.")
 
         if debug:
             print("You are enabled to claim {} tokens.".format(claimable_amount))
