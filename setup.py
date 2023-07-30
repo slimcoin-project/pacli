@@ -16,13 +16,13 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='pacli',
-      version='0.4.7.2',
-      description='Simple CLI PeerAssets client.',
+      version='0.4.7.2-at',
+      description='Simple CLI PeerAssets client with support for AT tokens.',
       long_description=long_description,
       long_description_content_type='text/markdown',
       keywords=['peerassets', 'blockchain', 'assets', 'client'],
-      url='https://github.com/peerassets/pacli',
-      author='Peerchemist',
+      url='https://github.com/d5000/pacli',
+      author='Peerchemist / Slimcoin Team',
       author_email='peerchemist@protonmail.ch',
       license='GPL',
       packages=['pacli'],

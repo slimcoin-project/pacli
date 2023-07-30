@@ -13,7 +13,7 @@ def generate_key() -> PrivateKey:
     return os.urandom(32).hex()
 
 
-def init_keystore() -> None:
+def init_keystore(new_key=None) -> None:
     '''save key to the keystore'''
 
     if not keyring.get_password('pacli', 'key'):

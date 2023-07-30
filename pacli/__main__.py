@@ -6,6 +6,7 @@ import random
 import pypeerassets as pa
 import json
 from prettyprinter import cpprint as pprint
+from pprint import pprint as alt_pprint
 
 from pypeerassets.pautils import (amount_to_exponent,
                                   exponent_to_amount,
@@ -17,20 +18,27 @@ from pypeerassets.__main__ import get_card_transfer
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.keystore import init_keystore
+from pacli.keystore import init_keystore, load_key ### MODIFIED ###
 from pacli.tui import print_deck_info, print_deck_list
 from pacli.tui import print_card_list
 from pacli.export import export_to_csv
 from pacli.utils import (cointoolkit_verify,
                          signtx,
-                         sendtx
-                         )
+                         sendtx)
 from pacli.coin import Coin
 from pacli.config import (write_default_config,
                           conf_file,
                           default_conf,
                           write_settings)
 
+import pacli.dt_commands as dc
+import pacli.keystore_extended as ke
+import pacli.extended_utils as eu
+from pacli.at_classes import ATToken, PoBToken
+from pacli.at_utils import create_at_issuance_data, at_deckinfo
+from pacli.dt_classes import PoDToken, Proposal, Donation
+from pacli.dex_classes import Dex
+from pacli.tools_extended import Tools
 
 class Config:
 
@@ -94,6 +102,55 @@ class Address:
                 )
         except KeyError:
             pprint({'error': 'No UTXOs ;('})
+
+    ### Commands for the Extended Keystore (keystore_extended module)
+    ### Allows to use more than one address/key
+
+    def new_privkey(self, label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False) -> str:
+        '''import new private key, taking hex or wif format, or generate new key.
+           You can assign a label, otherwise it will become the main key.'''
+
+        return ke.new_privkey(label, key=key, backup=backup, wif=wif, legacy=legacy)
+
+    def fresh(self, label: str, show: bool=True, set_main: bool=False, backup: str=None, legacy: bool=False):
+        '''This function uses the standard client commands to create an address/key and assigns it a label.'''
+
+        return ke.fresh_address(label, show=show, set_main=set_main, backup=backup, legacy=legacy)
+
+    def set_main(self, label: str, backup: str=None, legacy: bool=False) -> str:
+        '''Declares a key identified by a label as the main one.'''
+
+        #ke.set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
+        #Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
+        #return Settings.key.address
+        return ke.set_main_key(label, backup=backup, legacy=legacy)
+
+    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str:
+        '''Shows a stored alternative address or key.
+        WARNING: Can expose private keys. Try to use 'privkey' and 'wif' options only on testnet.'''
+
+        return ke.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy)
+
+    def show_all(self, debug: bool=False, legacy: bool=False):
+        '''Shows all stored addresses and their balance (Unix only).'''
+
+        return ke.show_all_keys(debug, legacy)
+
+    def show_label(self, address=Settings.key.address, extconf=False, set_main=False):
+        '''Shows the label of the current main address, or of another address.'''
+
+        return ke.show_label(address, extconf=extconf, set_main=set_main)
+
+
+    def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None:
+        '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
+
+        return ke.delete_key_from_keyring(label, legacy=legacy)
+
+    def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None:
+        '''imports main key or any stored key to wallet managed by RPC node.'''
+
+        return ke.import_key_to_wallet(accountname, label, legacy)
 
 
 class Deck:
@@ -215,6 +272,10 @@ class Deck:
         pprint(
             {'combo': functools.reduce(operator.or_, *args)
              })
+
+    def init(self, deckid: str):
+        '''Initializes deck and imports its P2TH address into node.'''
+        eu.init_deck(Settings.network, deckid)
 
 
 class Card:
@@ -348,7 +409,7 @@ class Card:
               locktime: int=0, verify: bool=False,
               sign: bool=False,
               send: bool=False) -> str:
-        '''Wrapper around self.tranfer'''
+        '''Wrapper around self.transfer'''
 
         return self.transfer(deckid, receiver, amount, asset_specific_data,
                              locktime, verify, sign, send)
@@ -403,6 +464,10 @@ class Card:
         for i in cards:
             pprint(i.to_json())
 
+    @classmethod
+    def simple_transfer(self, deckid: str, receiver: str, amount: str, sign: bool=False, send: bool=False):
+        '''Simplified transfer with only one single payment.''' ### added by addresstrack team
+        return self.transfer(deckid, receiver=[receiver], amount=[amount], sign=sign, send=send)
 
 class Transaction:
 
@@ -431,7 +496,14 @@ def main():
         'card': Card(),
         'address': Address(),
         'transaction': Transaction(),
-        'coin': Coin()
+        'coin': Coin(),
+        'proposal' : Proposal(),
+        'donation' : Donation(),
+        'attoken' : ATToken(),
+        'pobtoken' : PoBToken(),
+        'podtoken' : PoDToken(),
+        'dex' : Dex(),
+        'tools' : Tools()
         })
 
 
