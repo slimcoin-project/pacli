@@ -36,7 +36,6 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     if debug:
         print("Old config:", config)
 
-
     if mode == "protect":
         if (key not in config[category]) or (not config[category][key]):
             config[category].update({key : value})
@@ -49,8 +48,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
         config[category][key].append(value)
 
     write_config(config, configfilename)
-    #with open(configfilename, "w") as configfile:
-    #    json.dump(config, configfile)
+
     if debug:
         config = get_config(configfilename)
         print("New config:", config)
@@ -60,8 +58,6 @@ def write_config(config, configfilename: str=EXT_CONFIGFILE):
         json.dump(config, configfile)
 
 def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
-    #with open(configfilename, "r") as configfile:
-    #    config = json.load(configfile)
     config = get_config(configfilename)
     return config[category].get(str(key))
 

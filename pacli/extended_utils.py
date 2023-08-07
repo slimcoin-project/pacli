@@ -245,7 +245,11 @@ def store_checkpoint(height: int=None, silent: bool=False) -> None:
     blockhash = provider.getblockhash(height)
     if not silent:
         print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
-    ce.write_item(category="checkpoint", key=height, value=blockhash)
+    try:
+        ce.write_item(category="checkpoint", key=height, value=blockhash)
+    except ce.ValueExistsError:
+        if not silent:
+            print("Checkpoint already stored (probably node block height has not changed).")
 
 def retrieve_checkpoint(height: int=None, silent: bool=False) -> dict:
     config = ce.get_config()
@@ -296,9 +300,18 @@ def reorg_check(silent: bool=False) -> None:
     if not silent:
         print("Looking for chain reorganizations ...")
     config = ce.get_config()
-    bheights = sorted([ int(h) for h in config["checkpoint"] ])
-    last_height = bheights[-1]
+
+    try:
+        bheights = sorted([ int(h) for h in config["checkpoint"] ])
+        last_height = bheights[-1]
+    except IndexError: # first reorg check
+        if not silent:
+            print("A reorg check was never performed on this node.")
+            print("Saving first checkpoint.")
+        return 0
+
     stored_bhash = config["checkpoint"][str(last_height)]
+
     if not silent:
         print("Last checkpoint found: height {} hash {}".format(last_height, stored_bhash))
     checked_bhash = provider.getblockhash(last_height)
