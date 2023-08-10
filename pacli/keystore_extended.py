@@ -4,20 +4,22 @@ This module contains basic and high-level commands."""
 import os
 import keyring
 import pypeerassets as pa
+from pypeerassets.networks import networks as supported_networks
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.keystore as k
 import pacli.config_extended as ce
+import pacli.extended_interface as ei
+import pacli.extended_utils as eu
 
-def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=None, legacy: bool=False) -> None:
-    '''save/import new key, can be as main address or with an id, old key can be backed up
+def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=None, legacy: bool=False) -> None:
+    '''save/import new key, can be as main address or with a label, old key can be backed up
        this feature allows to import keys and generate new addresses'''
 
     try:
         # to prevent malfunction if "--wif" is forgot or format is wrong, this checks if the key is a hex number
         # may be even better to do that with kutil, to catch all format errors.
         if new_key:
-            # print(new_key, type(new_key))
             checkkey = int(new_key, 16)
     except ValueError:
         raise ValueError("Key in wrong format.")
@@ -34,8 +36,10 @@ def set_new_key(new_key: str=None, backup_id: str=None, label: str=None, existin
 
     if new_key is not None:
         key = new_key
+    elif new_address is not None:
+        wif_key = provider.dumpprivkey(new_address)
+        key = pa.Kutil(network=network_name, from_wif=wif_key).privkey
     elif existing_label:
-        #key = keyring.get_password("pacli", get_key_prefix(network_name) + existing_label)
         key = get_key(kprefix + existing_label)
     else:
         key = k.generate_key()
@@ -64,7 +68,7 @@ def set_key(full_label: str, key: str) -> None:
     '''set new key, simple way'''
     keyring.set_password("pacli", full_label, key)
 
-def get_labels_from_keyring(prefix: str):
+def get_labels_from_keyring(prefix: str=None):
     # returns all labels corresponding to a network shortname (the prefix)
     # does currently NOT support Windows Credential Locker nor KDE.
     # Should work with Gnome Keyring, KeepassXC, and KSecretsService.
@@ -80,7 +84,7 @@ def get_labels_from_keyring(prefix: str):
     for item in collection.search_items({'application': 'Python keyring library', "service" : "pacli"}):
         # print(item.get_label())
         label = item.get_attributes()["username"]
-        if prefix in label:
+        if (not prefix) or (prefix in label):
             labels.append(label)
 
     return labels
@@ -96,8 +100,8 @@ def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: 
     try:
         raw_key = bytearray.fromhex(get_key(fulllabel))
     except TypeError:
-        exc_text = "No key data for key {}".format(fulllabel)
-        raise Exception(exc_text)
+        ei.print_red("Error: Label {} was not stored in the keyring.".format(label))
+        return None
 
     key = pa.Kutil(network=network_name, privkey=raw_key)
 
@@ -138,7 +142,8 @@ def show_addresses(addrlist: list, label_list: list, network: str, debug=False):
 def show_label(address: str, extconf: bool=False, set_main: bool=False) -> dict:
     # Needs secretstorage or extended config.
     if extconf:
-        # address category has only one entry per value, so we can pick the first item.
+        # extended_config address category has only one entry per value
+        # so we can pick the first item.
         try:
             fulllabel = ce.search_value("address", address)[0]
         except IndexError:
@@ -150,19 +155,41 @@ def show_label(address: str, extconf: bool=False, set_main: bool=False) -> dict:
     else:
         labels = get_labels_from_keyring(Settings.network)
         for fulllabel in labels:
+            legacy = is_legacy_label(fulllabel)
             try:
-                # label = fulllabel.split("_")[-1] # this behaves wrongly with labels with _ in it.
-                prefix = "_".join(fulllabel.split("_")[:2]) + "_"
-                label = fulllabel.replace(prefix, "")
+                label = format_label(fulllabel)
             except IndexError:
                 continue
-            if address == show_stored_key(label, Settings.network):
+            if address == show_stored_key(label, Settings.network, legacy=legacy):
                 break
+        else:
+            ei.print_red("Error: No label was stored for address {}.".format(address))
+            return None
+
     if set_main:
         print("This address is now the main address (--set_main option).")
         set_main_key(label)
 
     return {"label" : label, "address" : address}
+
+def format_label(fulllabel: str):
+
+    prefix = "_".join(fulllabel.split("_")[:2]) + "_"
+    label = fulllabel.replace(prefix, "")
+    return label
+
+def is_legacy_label(fulllabel: str):
+    # The label format was originally less standardized
+    # without this test, errors will be raised due to that.
+
+    label_elements = fulllabel.split("_")
+    network_names = [ n.shortname for n in supported_networks ]
+
+    # current labels have at least 3 elements, network is the second one,
+    if (len(label_elements) >= 3) and (label_elements[0] == "key") and (label_elements[1] in network_names):
+        return False
+    else:
+        return True
 
 def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False):
     # TODO: can't this be merged with fresh_address?
@@ -186,7 +213,7 @@ def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, le
     return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address
 
 def fresh_address(label: str, backup: str=None, show: bool=True, set_main: bool=False, legacy: bool=False):
-    # NOTE: This command does not assign the address an account name or label in the wallet!
+    # NOTE: This command does not assign the address an account name or label in the wallet.
 
     addr = provider.getnewaddress()
     privkey_wif = provider.dumpprivkey(addr)
@@ -293,6 +320,37 @@ def get_all_labels(prefix: str, extconf: bool=False) -> list:
         return labels_in_legacy_format
     else:
         return get_labels_from_keyring(prefix)
+
+def get_address_transactions(address: str=None, label: str=None, send: bool=False, receive: bool=False, advanced: bool=False) -> list:
+
+    if label:  # label overrides address
+        address = show_stored_address(label, network_name=Settings.network)
+    if not address:
+        ei.print_red("Error: You must provide either a valid address or a valid label.")
+
+    all_txes = True if (not send) and (not receive) else False
+    all_txids = set([t["txid"] for t in eu.get_wallet_transactions()])
+    all_wallet_txes = [provider.getrawtransaction(txid, 1) for txid in all_txids]
+    result = []
+
+    for tx in all_wallet_txes:
+        if send or all_txes:
+            for sender_dict in eu.find_tx_senders(tx):
+                if address in sender_dict["sender"]:
+                    txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"]}
+                    result.append(txdict)
+        if receive or all_txes:
+            for output in tx["vout"]:
+                out_addresses = output["scriptPubKey"].get("addresses")
+                try:
+                    if address in out_addresses:
+                        txdict = tx if advanced else {"txid" : tx["txid"], "type" : "receive", "value": output["value"]}
+                        result.append(txdict)
+                except TypeError:
+                    continue
+
+    return result
+
 
 
 

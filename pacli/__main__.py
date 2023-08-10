@@ -31,7 +31,6 @@ from pacli.config import (write_default_config,
                           default_conf,
                           write_settings)
 
-import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
 from pacli.at_classes import ATToken, PoBToken
@@ -120,9 +119,6 @@ class Address:
     def set_main(self, label: str, backup: str=None, legacy: bool=False) -> str:
         '''Declares a key identified by a label as the main one.'''
 
-        #ke.set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
-        #Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
-        #return Settings.key.address
         return ke.set_main_key(label, backup=backup, legacy=legacy)
 
     def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str:
@@ -141,6 +137,19 @@ class Address:
 
         return ke.show_label(address, extconf=extconf, set_main=set_main)
 
+    def set_label(self, label: str, address: str, set_main: bool=False):
+        '''Assigns a label to an address and saves it in the keyring.'''
+
+        return ke.set_new_key(label=label, new_address=address, network_name=Settings.network)
+
+    def show_all_labels(self, fulllabels: bool=False, prefix: str=None):
+        '''Shows all labels which were stored in the keyring.'''
+
+        labels = ke.get_labels_from_keyring(prefix=prefix)
+        if fulllabels:
+            print(labels)
+        else:
+            print([ke.format_label(l) for l in labels])
 
     def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None:
         '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
@@ -151,6 +160,13 @@ class Address:
         '''imports main key or any stored key to wallet managed by RPC node.'''
 
         return ke.import_key_to_wallet(accountname, label, legacy)
+
+    def get_transactions(self, address: str=Settings.key.address, label: str=None, send: bool=False, receive: bool=False, advanced: bool=False):
+        '''returns all transactions from or to that address in the wallet.'''
+
+        for txdict in ke.get_address_transactions(address=address, label=label, send=send, receive=receive, advanced=advanced):
+            pprint(txdict)
+        # pprint(ke.get_address_transactions(address=address, label=label, send=send, receive=receive, advanced=advanced), max_seq_len=None)
 
 
 class Deck:

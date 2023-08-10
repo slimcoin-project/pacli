@@ -44,14 +44,14 @@ class ATToken:
 
         return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, debug=debug)
 
-    def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, debug: bool=False, burns: bool=False) -> None:
+    def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
         '''Show all transactions to a tracked address between two block heights (very slow!).'''
 
         if burns:
              print("Using burn address.")
              address = burn_address(network_name=provider.network)
 
-        txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, debug=debug)
+        txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, silent=silent, debug=debug)
         pprint(txes)
 
     def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, silent: bool=False, debug: bool=False) -> None:
@@ -162,6 +162,6 @@ class PoBToken(ATToken):
 
         ei.run_command(print_deck_list, [d for d in list_decks_by_at_type(provider, c.ID_AT) if d.at_address == au.burn_address()])
 
-    def show_all_burns(self, start: int=None, end: int=None, deckid: str=None, debug: bool=False):
+    def show_all_burns(self, start: int=0, end: int=None, deckid: str=None, silent: bool=False, debug: bool=False):
         '''Show all burn transactions of all users. Very slow, use of --start and --end highly recommended.'''
-        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, debug=debug)
+        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, silent=silent, debug=debug)

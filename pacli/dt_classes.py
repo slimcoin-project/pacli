@@ -245,7 +245,7 @@ class Proposal:
                 try:
                     pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
                 except (IndexError, KeyError) as e:
-                    ei.print_red("Error:", e)
+                    ei.print_red("Error: {}".format(e))
 
         pdict = pstate.__dict__
         if param is not None:

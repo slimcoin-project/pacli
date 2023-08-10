@@ -35,7 +35,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, input_address
             if debug:
                 print("Transactions you already claimed tokens for of this deck:", claimed_txes)
         try:
-            tracked_address = deck.at_address
+            if not tracked_address:
+                tracked_address = deck.at_address
         except AttributeError:
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
     else:
@@ -95,11 +96,17 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, input_address
     return txes_to_address
 
 
-def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=None, startblock: int=0, debug: bool=False) -> list:
+def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=None, startblock: int=0, silent: bool=False, debug: bool=False) -> list:
     # VERY SLOW. When watchaddresses are available this should be replaced.
 
     if not endblock:
         endblock = provider.getblockcount()
+    if (not silent) and ((endblock - startblock) > 10000):
+        print("""
+              NOTE: This commands cycles through all blocks and will take very long
+              to finish. It's recommended to use it for block ranges of less than 10000 blocks.
+              Abort and get results with CTRL-C.
+              """)
 
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -109,57 +116,62 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     tracked_txes = []
+
     for bh in range(startblock, endblock + 1):
-        if debug:
-            if bh % 100 == 0:
-                print("Block:", bh)
-        blockhash = provider.getblockhash(bh)
-        block = provider.getblock(blockhash)
         try:
-           block_txes = block["tx"]
-        except KeyError:
-           print("You have reached the tip of the blockchain.")
-           return tracked_txes
-        for txid in block_txes:
-            tx = provider.getrawtransaction(txid, 1)
-            total_amount_to_address = Decimal(0)
+            if not silent and bh % 100 == 0:
+                print("Processing block:", bh)
+            blockhash = provider.getblockhash(bh)
+            block = provider.getblock(blockhash)
+
             try:
-                vouts = tx["vout"]
+                block_txes = block["tx"]
             except KeyError:
-                if debug:
-                    print("Transaction not considered:", txid)
-                continue
-            for output in vouts:
+                print("You have reached the tip of the blockchain.")
+                return tracked_txes
+
+            for txid in block_txes:
+                tx = provider.getrawtransaction(txid, 1)
+                total_amount_to_address = Decimal(0)
                 try:
-                    output_addr = output["scriptPubKey"]["addresses"][0] # TODO: this only tracks simple scripts.
+                    vouts = tx["vout"]
                 except KeyError:
-                    if output.get("value") == 0: # PoS coinstake txes
-                        continue
-                    if output["scriptPubKey"].get("type") == "nulldata":
-                        continue # op_return
                     if debug:
-                        print("Script not implemented.", txid, output)
+                        print("Transaction not considered:", txid)
+                    continue
+                for output in vouts:
+                    try:
+                        output_addr = output["scriptPubKey"]["addresses"][0] # TODO: this only tracks simple scripts.
+                    except KeyError:
+                        if output.get("value") == 0: # PoS coinstake txes
+                            continue
+                        if output["scriptPubKey"].get("type") == "nulldata":
+                            continue # op_return
+                        if debug:
+                            print("Script not implemented.", txid, output)
+                        continue
+
+                    if tracked_address == output_addr:
+                        total_amount_to_address += Decimal(str(output["value"]))
+
+                if total_amount_to_address == 0:
                     continue
 
-                if tracked_address == output_addr:
-                    total_amount_to_address += Decimal(str(output["value"]))
-
-            if total_amount_to_address == 0:
-                continue
-
-            if debug:
-                print("TX {} added, value {}.".format(txid, total_amount_to_address))
-            try:
-                origin = [(inp["txid"], inp["vout"]) for inp in tx["vin"]]
-            except KeyError:
-                origin = [("coinbase", inp["coinbase"]) for inp in tx["vin"]]
+                if debug:
+                    print("TX {} added, value {}.".format(txid, total_amount_to_address))
+                try:
+                    origin = [(inp["txid"], inp["vout"]) for inp in tx["vin"]]
+                except KeyError:
+                    origin = [("coinbase", inp["coinbase"]) for inp in tx["vin"]]
 
 
-            tracked_txes.append({"height" : bh,
-                                 "txid" : txid,
-                                 "origin" : origin,
-                                 "amount" : total_amount_to_address
-                                 })
+                tracked_txes.append({"height" : bh,
+                                     "txid" : txid,
+                                     "origin" : origin,
+                                     "amount" : total_amount_to_address
+                                     })
+        except KeyboardInterrupt:
+            break
 
     return tracked_txes
 

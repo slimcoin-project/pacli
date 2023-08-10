@@ -384,7 +384,7 @@ def search_for_stored_tx_label(category: str, identifier: str, silent: bool=Fals
         else:
             raise ei.PacliInputDataError("Label not found.")
 
-def is_possible_txid(txid: str):
+def is_possible_txid(txid: str) -> bool:
     try:
 
         assert len(txid) == 64
@@ -393,5 +393,22 @@ def is_possible_txid(txid: str):
 
     except (ValueError, AssertionError):
         return False
+
+def find_tx_senders(tx: dict) -> list:
+    # find_tx_sender from pypeerassets only finds the first sender.
+    # this variant returns a list of all input senders.
+
+    senders = []
+    for vin in tx["vin"]:
+        try:
+            sending_tx = provider.getrawtransaction(vin["txid"], 1)
+            vout = vin["vout"]
+            sender = sending_tx["vout"][vout]["scriptPubKey"]["addresses"]
+            value = sending_tx["vout"][vout]["value"]
+            senders.append({"sender" : sender, "value" : value})
+        except KeyError: # coinbase transactions
+            continue
+    return senders
+
 
 
