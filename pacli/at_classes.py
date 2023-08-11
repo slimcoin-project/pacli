@@ -36,7 +36,7 @@ class ATToken:
             else:
                 pprint({address : 0})
 
-    def create_tx(self, address: str, amount: str, from_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+    def create_tx(self, address: str, amount: str, from_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.'''
 
         dec_amount = Decimal(str(amount))
@@ -144,7 +144,7 @@ class PoBToken(ATToken):
 
         return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, startblock, endblock, version, locktime, verify, sign, send)
 
-    def burn_coins(self, amount: str, from_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=None, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, from_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address."""
 
         return super().create_tx(address=au.burn_address(), amount=amount, from_address=from_address, tx_fee=tx_fee, change_address=change_address, sign=sign, send=send, verify=verify, debug=debug)
