@@ -137,13 +137,16 @@ class Address:
 
         return ke.show_label(address, extconf=extconf, set_main=set_main)
 
-    def set_label(self, label: str, address: str, set_main: bool=False):
+    def set_label(self, label: str, address: str, set_main: bool=False, modify=False):
         '''Assigns a label to an address and saves it in the keyring.'''
 
-        return ke.set_new_key(label=label, new_address=address, network_name=Settings.network)
+        ke.set_new_key(label=label, new_address=address, modify=modify, network_name=Settings.network)
+
+        if set_main:
+            ke.set_main_key(label)
 
     def show_all_labels(self, fulllabels: bool=False, prefix: str=None):
-        '''Shows all labels which were stored in the keyring.'''
+        '''Shows all labels which were stored in the keyring. For debugging mainly.'''
 
         labels = ke.get_labels_from_keyring(prefix=prefix)
         if fulllabels:
@@ -151,7 +154,7 @@ class Address:
         else:
             print([ke.format_label(l) for l in labels])
 
-    def delete_key_from_keyring(self, label: str, legacy: bool=False) -> None:
+    def delete_label(self, label: str, legacy: bool=False) -> None:
         '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
 
         return ke.delete_key_from_keyring(label, legacy=legacy)

@@ -1,5 +1,6 @@
-from pacli.config import conf_dir
 import json, os
+import pacli.extended_interface as ei
+from pacli.config import conf_dir
 
 # This stores some settings in an additional config file, for example short keys for addresses, proposals, decks etc.
 # An alternative for the future could be to use sqlite3 eventually.
@@ -68,7 +69,8 @@ def delete_item(category: str, key: str, now: bool=False, configfilename: str=EX
             print("WARNING: deleting item from category {}, key: {}, value: {}".format(category, key, config[category][key]))
         del config[category][key]
     except KeyError:
-        raise ValueError("No item with this key. Nothing was deleted.")
+        # raise ValueError("No item with this key. Nothing was deleted.")
+        ei.print_red("Error: No item with this key. Nothing was deleted.")
 
     if not now:
         print("This is a dry run. Use --now to delete irrecoverabily.")

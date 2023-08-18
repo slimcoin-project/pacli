@@ -12,7 +12,7 @@ import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 
-def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=None, legacy: bool=False) -> None:
+def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=Settings.network, modify: bool=False, legacy: bool=False) -> None:
     '''save/import new key, can be as main address or with a label, old key can be backed up
        this feature allows to import keys and generate new addresses'''
 
@@ -45,6 +45,14 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
         key = k.generate_key()
 
     if label:
+        if modify:
+            try:
+                old_label = kprefix + show_label(new_address)["label"]
+                delete_key(old_label)
+            except ImportError:
+                ei.print_red("Error: Feature --modify not available, secretstorage missing (probably not supported by your operating system)")
+            except (KeyError, TypeError):
+                print("Note: This address/key wasn't stored in the keyring before. No keyring entry was deleted.")
         set_key(kprefix + label, key)
     else:
         set_key('key', key)
@@ -89,8 +97,8 @@ def get_labels_from_keyring(prefix: str=None):
 
     return labels
 
-def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode: bool=False, legacy: bool=False, noprefix: bool=False):
-    # TODO: json_mode (only for addresses)
+def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode: bool=False, legacy: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
+
     if legacy:
        fulllabel = "key_bak_" + label
     elif noprefix:
@@ -100,8 +108,11 @@ def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: 
     try:
         raw_key = bytearray.fromhex(get_key(fulllabel))
     except TypeError:
-        ei.print_red("Error: Label {} was not stored in the keyring.".format(label))
-        return None
+        if raise_if_invalid_label:
+            raise
+        else:
+            ei.print_red("Error: Label {} was not stored in the keyring.".format(label))
+            return None
 
     key = pa.Kutil(network=network_name, privkey=raw_key)
 
@@ -114,14 +125,14 @@ def show_stored_key(label: str, network_name: str, pubkey: bool=False, privkey: 
     else:
         return key.address
 
-def show_stored_address(label: str, network_name: str, json_mode: bool=False, noprefix: bool=False):
+def show_stored_address(label: str, network_name: str=Settings.network, json_mode: bool=False, noprefix: bool=False):
     # Safer mode for show_stored_key.
     if json_mode:
         return get_address(label, network_name)
     else:
         return show_stored_key(label, network_name=network_name, json_mode=json_mode, noprefix=noprefix)
 
-def show_addresses(addrlist: list, label_list: list, network: str, debug=False):
+def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
     # This function "synchronizes" labels and addresses given as lists.
     # Useful if we have an option where we can alternatively input addresses and labels.
     if len(addrlist) != len(label_list):
@@ -138,6 +149,18 @@ def show_addresses(addrlist: list, label_list: list, network: str, debug=False):
             adr = addrlist[lpos]
         result.append(adr)
     return result
+
+def process_address(addr_string: str) -> str:
+    """Allows to use a label or an address; you'll get an address back."""
+    try:
+        address = show_stored_address(addr_string, raise_if_invalid_label=True)
+    except TypeError:
+        try:
+            address = show_stored_address(addr_string, json_mode=True)
+            assert address is not None
+        except AssertionError:
+            return addr_string
+    return address
 
 def show_label(address: str, extconf: bool=False, set_main: bool=False) -> dict:
     # Needs secretstorage or extended config.

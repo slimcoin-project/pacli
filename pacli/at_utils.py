@@ -1,4 +1,5 @@
 from prettyprinter import cpprint as pprint
+from btcpy.structs.address import InvalidAddress
 from decimal import Decimal
 import pypeerassets as pa
 import pypeerassets.at.at_parser as ap
@@ -14,24 +15,27 @@ import pacli.extended_interface as ei
 from pacli.provider import provider
 from pacli.config import Settings
 
-def create_simple_transaction(amount: Decimal, dest_address: str, input_address: str, tx_fee: Decimal=None, change_address: str=None, debug: bool=False):
+def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decimal=None, change_address: str=None, debug: bool=False):
     """Creates a simple coin transaction from a pre-selected address."""
 
-    dtx = TransactionDraft(fee_coins=tx_fee, provider=provider, debug=debug)
-    dtx.add_p2pkh_output(dest_address, coins=amount)
-    dtx.add_necessary_inputs(input_address)
-    dtx.add_change_output(change_address)
-    if debug:
-        print("Transaction:", dtx.__dict__)
-    return dtx.to_raw_transaction()
+    try:
+        dtx = TransactionDraft(fee_coins=tx_fee, provider=provider, debug=debug)
+        dtx.add_p2pkh_output(dest_address, coins=amount)
+        dtx.add_necessary_inputs(Settings.key.address)
+        dtx.add_change_output(change_address)
+        if debug:
+            print("Transaction:", dtx.__dict__)
+        return dtx.to_raw_transaction()
+    except InvalidAddress:
+        raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
-def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, input_address: str=None, unclaimed: bool=False, silent: bool=False, debug: bool=False) -> list:
+def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, silent: bool=False, debug: bool=False) -> list:
 
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         if unclaimed:
-            claimed_txes = get_claimed_txes(deck, input_address, only_wallet=True)
+            claimed_txes = get_claimed_txes(deck, sender, only_wallet=True)
             if debug:
                 print("Transactions you already claimed tokens for of this deck:", claimed_txes)
         try:
@@ -54,7 +58,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, input_address
             assert tx["category"] == "send"
             assert tx["address"] == tracked_address
             if deck is not None:
-                full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=input_address)
+                full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=sender)
                 assert full_tx is not None
             else:
                 full_tx = provider.getrawtransaction(tx["txid"], 1)
@@ -70,17 +74,21 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, input_address
 
     if not silent:
         print("{} {} transactions to address {} in this wallet.".format(len(txids), tx_type_msg, tracked_address))
-    if input_address is not None:
-        print("Showing only transactions sent from the following address:", input_address)
+    if sender is not None:
+        print("Showing only transactions sent from the following address:", sender)
 
     txes_to_address = []
     for tx in valid_txes:
 
-        sender = find_tx_sender(provider, tx)
+        tx_sender = find_tx_sender(provider, tx)
         try:
+            if sender is not None:
+                assert sender == tx_sender
             height = provider.getblock(tx["blockhash"])["height"]
         except KeyError:
             height = None
+        except AssertionError:
+            continue
 
         value, indexes = 0, []
         for index, output in enumerate(tx["vout"]):
@@ -89,8 +97,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, input_address
                 indexes.append(index)
 
         tx_dict = {"txid" : tx["txid"], "value" : value, "outputs" : indexes, "height" : height}
-        if not input_address:
-            tx_dict.update({"sender" : sender})
+        if not sender:
+            tx_dict.update({"sender" : tx_sender})
         txes_to_address.append(tx_dict)
 
     return txes_to_address

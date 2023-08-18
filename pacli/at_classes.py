@@ -8,6 +8,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 from pacli.tui import print_deck_list
 import pacli.extended_utils as eu
+import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
 import pacli.at_utils as au
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
@@ -36,11 +37,13 @@ class ATToken:
             else:
                 pprint({address : 0})
 
-    def create_tx(self, address: str, amount: str, from_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.'''
 
+        change_address = ke.process_address(change)
+
         dec_amount = Decimal(str(amount))
-        rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, input_address=from_address, change_address=change_address, debug=debug)
+        rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, change_address=change_address, debug=debug)
 
         return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, debug=debug)
 
@@ -58,8 +61,8 @@ class ATToken:
         '''Shows all transactions from your wallet to the tracked address.'''
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
-        input_address = Settings.key.address if not wallet else None
-        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, input_address=input_address, silent=silent, debug=debug)
+        sender = Settings.key.address if not wallet else None
+        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, silent=silent, debug=debug)
         if not silent:
             pprint(txes)
         else:
@@ -144,10 +147,10 @@ class PoBToken(ATToken):
 
         return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, startblock, endblock, version, locktime, verify, sign, send)
 
-    def burn_coins(self, amount: str, from_address: str=Settings.key.address, tx_fee: Decimal=None, change_address: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address."""
 
-        return super().create_tx(address=au.burn_address(), amount=amount, from_address=from_address, tx_fee=tx_fee, change_address=change_address, sign=sign, send=send, verify=verify, debug=debug)
+        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, verify=verify, debug=debug)
 
     def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, silent: bool=False, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).

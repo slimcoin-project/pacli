@@ -26,7 +26,6 @@ def run_command(c, *args, **kwargs) -> object:
         print_red("\nError: {}".format(e.args[0]))
         if "debug" in kwargs.keys() and kwargs["debug"]:
             raise
-
         sys.exit()
 
 def spinner(duration: int) -> None:
