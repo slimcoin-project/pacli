@@ -317,7 +317,7 @@ def label_to_kutil(full_label: str) -> pa.Kutil:
     return pa.Kutil(network=Settings.network, privkey=raw_key)
 
 # extended config
-def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False):
+def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False):
     keyring_prefix = "key_"
     if not full:
         ext_label = network_name + "_" + label
@@ -328,7 +328,7 @@ def store_address(label: str, network_name: str=Settings.network, address: str=N
     if not address:
         address = label_to_kutil(full_label).address
     try:
-        ce.write_item(category="address", key=ext_label, value=address)
+        ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name)
     except ce.ValueExistsError:
         print("Value already exists. Config file not changed.")
 
