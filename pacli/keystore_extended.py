@@ -22,7 +22,8 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
         if new_key:
             checkkey = int(new_key, 16)
     except ValueError:
-        raise ValueError("Key in wrong format.")
+        ei.print_red("Key in wrong format.")
+        return
 
     kprefix = get_key_prefix(network_name, legacy)
 
@@ -32,13 +33,21 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
             old_key = get_key("key")
             set_key(kprefix + backup_id, old_key)
         elif existing_label == "key":
-            raise Exception("Trying to replace main key without providing backup ID. Use --force if you really want to do that.")
+            ei.print_red("Error: Trying to replace main key without providing backup ID. Use --force if you really want to do that.")
+            return
+    else:
+        label = str(label)
 
     if new_key is not None:
         key = new_key
     elif new_address is not None:
         wif_key = provider.dumpprivkey(new_address)
-        key = pa.Kutil(network=network_name, from_wif=wif_key).privkey
+        try:
+            key = pa.Kutil(network=network_name, from_wif=wif_key).privkey
+        except ValueError:
+            ei.print_red("Error: Invalid address or private key.")
+            return
+
     elif existing_label:
         key = get_key(kprefix + existing_label)
     else:
@@ -51,6 +60,7 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
                 delete_key(old_label)
             except ImportError:
                 ei.print_red("Error: Feature --modify not available, secretstorage missing (probably not supported by your operating system)")
+                return
             except (KeyError, TypeError):
                 print("Note: This address/key wasn't stored in the keyring before. No keyring entry was deleted.")
         set_key(kprefix + label, key)
@@ -99,6 +109,7 @@ def get_labels_from_keyring(prefix: str=None):
 
 def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode: bool=False, legacy: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
 
+    label = str(label)
     if legacy:
        fulllabel = "key_bak_" + label
     elif noprefix:
@@ -125,12 +136,12 @@ def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool
     else:
         return key.address
 
-def show_stored_address(label: str, network_name: str=Settings.network, json_mode: bool=False, noprefix: bool=False):
+def show_stored_address(label: str, network_name: str=Settings.network, json_mode: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
     # Safer mode for show_stored_key.
     if json_mode:
-        return get_address(label, network_name)
+        return get_address(str(label), network_name)
     else:
-        return show_stored_key(label, network_name=network_name, json_mode=json_mode, noprefix=noprefix)
+        return show_stored_key(str(label), network_name=network_name, json_mode=json_mode, noprefix=noprefix, raise_if_invalid_label=raise_if_invalid_label)
 
 def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
     # This function "synchronizes" labels and addresses given as lists.
@@ -238,6 +249,7 @@ def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, le
 def fresh_address(label: str, backup: str=None, show: bool=True, set_main: bool=False, legacy: bool=False):
     # NOTE: This command does not assign the address an account name or label in the wallet.
 
+    label = str(label)
     addr = provider.getnewaddress()
     privkey_wif = provider.dumpprivkey(addr)
     privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
@@ -286,7 +298,13 @@ def show_all_keys(debug: bool=False, legacy: bool=False):
 
 
 def set_main_key(label: str, backup: str=None, legacy: bool=False) -> str:
-    set_new_key(existing_label=label, backup_id=backup, network_name=Settings.network, legacy=legacy)
+
+    try:
+        set_new_key(existing_label=str(label), backup_id=backup, network_name=Settings.network, legacy=legacy)
+    except TypeError:
+        ei.print_red("Error: Label {} does not exist. Main address is not changed.".format(str(label)))
+        return ""
+
     Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(k.load_key()))
     return Settings.key.address
 
