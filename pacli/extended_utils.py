@@ -247,7 +247,7 @@ def store_checkpoint(height: int=None, silent: bool=False) -> None:
         print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
     try:
         ce.write_item(category="checkpoint", key=height, value=blockhash)
-    except ce.ValueExistsError:
+    except ei.ValueExistsError:
         if not silent:
             print("Checkpoint already stored (probably node block height has not changed).")
 

@@ -21,7 +21,7 @@ def run_command(c, *args, **kwargs) -> object:
     try:
         result = c(*args, **kwargs)
         return result
-    except PacliInputDataError as e:
+    except (PacliInputDataError, ValueExistsError) as e:
 
         print_red("\nError: {}".format(e.args[0]))
         if "debug" in kwargs.keys() and kwargs["debug"]:
@@ -83,9 +83,13 @@ def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
             if not silent:
                 spinner(10)
 
+# Exceptions
 
 class PacliInputDataError(Exception):
     # exception thrown when there is some conflict between the commands the user enters and the blockchain data.
     # e.g. transaction outside of donation rounds, claim before the donation is confirmed, non-existing deck, etc.
     pass
 
+class ValueExistsError(Exception):
+    # exception thrown when a key already exists in the extended config file and protected mode is used.
+    pass

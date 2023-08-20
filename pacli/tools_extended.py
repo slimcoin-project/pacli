@@ -5,6 +5,7 @@ from pacli.config import Settings
 import pacli.config_extended as ce
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
+import pacli.extended_interface as ei
 from prettyprinter import cpprint as pprint
 
 class Tools:
@@ -99,70 +100,69 @@ class Tools:
         checks if the most recent checkpoint corresponds to the stored block hash."""
         return eu.reorg_check()
 
-    # Decks and proposals
+    # Decks, proposals, transactions, UTXOs
+    # Use the __store, __show, and __show_stored protected methods.
 
-    def store_deck(self, label: str, deckid: str, modify: bool=False) -> None:
+    def store_deck(self, label: str, deckid: str, modify: bool=False, silent: bool=False) -> None:
         """Stores a deck with label and deckid. Use --modify to change the label."""
-        ce.write_item(category="deck", key=label, value=deckid, modify=modify)
+        return self.__store("deck", label, value=deckid, silent=silent, modify=modify)
 
     def show_deck(self, label: str) -> str:
         """Shows a stored deck ID by label."""
-        deck = ce.read_item(category="deck", key=label)
-        return deck
+        return self.__show("deck", label)
 
-    def show_stored_decks(self) -> None:
+    def show_stored_decks(self, silent: bool=False) -> None:
         """Shows all stored deck IDs and their labels."""
-        pprint(ce.get_config()["deck"])
+        return self.__show_stored("deck", silent=silent)
 
-    def store_proposal(self, label: str, proposal_id: str, modify: bool=False) -> None:
+    def store_proposal(self, label: str, proposal_id: str, modify: bool=False, silent: bool=False) -> None:
         """Stores a proposal with label and proposal id (TXID). Use --modify to change the label."""
-        ce.write_item(category="proposal", key=label, value=proposal_id, modify=modify)
+        return self.__store("proposal", label, value=proposal_id, silent=silent, modify=modify)
 
     def show_proposal(self, label: str) -> str:
         """Shows a stored proposal ID (its txid) by label."""
-        proposal = ce.read_item(category="proposal", key=label)
-        return proposal
+        return self.__show("proposal", label)
 
-    def show_stored_proposals(self) -> None:
+    def show_stored_proposals(self, silent: bool=False) -> None:
         """Shows all stored proposal IDs and their labels."""
-        pprint(ce.get_config()["proposal"])
+        return self.__show_stored("proposal", silent=silent)
 
-    # Transactions
-
-    def store_transaction(self, label: str, tx_hex: str, modify: bool=False) -> None:
+    def store_transaction(self, label: str, tx_hex: str, modify: bool=False, silent: bool=False) -> None:
         """Stores a transaction with label and hex string. Use --modify to change the label."""
-        ce.write_item(category="transaction", key=label, value=tx_hex, modify=modify)
+        return self.__store("transaction", label, value=tx_hex, silent=silent, modify=modify)
 
     def show_transaction(self, label) -> str:
         """Shows a stored transaction hex by label."""
-        txhex = ce.read_item(category="transaction", key=identifier)
-        return txhex
+        return self.__show("transaction", label)
 
-    def show_stored_transactions(self) -> None:
+    def show_stored_transactions(self, silent: bool=False) -> None:
         """Shows all stored transactions and their labels."""
-        pprint(ce.get_config()["transaction"])
+        return self.__show_stored("transaction", silent=silent)
 
-    def store_tx_by_txid(self, tx_hex: str) -> None:
+    def store_tx_by_txid(self, tx_hex: str, silent: bool=False) -> None:
         """Stores a transaction's hex string. The TXID is used as label."""
         txid = provider.decoderawtransaction(tx_hex)["txid"]
-        print("TXID used as label:", txid)
-        ce.write_item(category="transaction", key=txid, value=tx_hex)
+        if not silent:
+            print("TXID used as label:", txid)
+        return self.__store("transaction", txid, value=tx_hex, silent=silent)
 
-    # UTXOs
-    def store_utxo(self, label: str, txid: str, output: int, modify: bool=False) -> None:
+    def store_utxo(self, label: str, txid_or_oldlabel: str, output: int=None, modify: bool=False, silent: bool=False) -> None:
         """Stores an UTXO with label, txid and output number (vout).
-        Use --modify to change the label."""
-        utxo = "{}:{}".format(txid, str(output))
-        ce.write_item(category="utxo", key=label, value=utxo, modify=modify)
+        Use --modify to change the label.
+        If changing a label directly, omit the output."""
+        if modify and (output is None):
+            utxo = txid_or_oldlabel
+        else:
+            utxo = "{}:{}".format(txid_or_oldlabel, str(output))
+        return self.__store("utxo", label, value=utxo, silent=silent, modify=modify)
 
     def show_utxo(self, label: str) -> str:
         """Shows a stored UTXO by its label."""
-        return ce.read_item(category="utxo", key=label)
+        return self.__show("utxo", label)
 
-    def show_stored_utxos(self) -> None:
+    def show_stored_utxos(self, silent: bool=False) -> None:
         """Shows all stored UTXOs and their labels."""
-        pprint(ce.get_config()["utxo"])
-
+        return self.__show_stored("utxo", silent=silent)
 
     # General commands
 
@@ -179,4 +179,19 @@ class Tools:
     def show_config(self) -> list:
         """Shows current contents of the extended configuration file."""
         return ce.get_config()
+
+    # Helper commands
+    def __store(self, category: str, label: str, value: str, modify: bool=False, silent: bool=False):
+        return ei.run_command(ce.write_item, category=category, key=label, value=value, modify=modify, silent=silent)
+
+    def __show(self, category: str, label: str):
+        return ei.run_command(ce.read_item, category=category, key=label)
+
+    def __show_stored(self, category: str, silent: bool=False):
+        cfg = ei.run_command(ce.get_config, silent=silent)
+        if silent:
+            print(cfg[category])
+        else:
+            pprint(cfg[category])
+
 

@@ -1,5 +1,6 @@
 import json, os
 import pacli.extended_interface as ei
+from prettyprinter import cpprint as pprint
 from pacli.config import conf_dir
 
 # This stores some settings in an additional config file, for example short keys for addresses, proposals, decks etc.
@@ -16,10 +17,7 @@ CAT_INIT = {c : {} for c in CATEGORIES}
 # "protect" : only allows additions of new labels, no modifications (default)
 MODES = ["replace", "modify", "add", "protect"]
 
-class ValueExistsError(Exception):
-    pass
-
-def get_config(configfilename: str=EXT_CONFIGFILE) -> dict:
+def get_config(configfilename: str=EXT_CONFIGFILE, silent: bool=False) -> dict:
 
     try:
         with open(configfilename, "r") as configfile:
@@ -27,27 +25,26 @@ def get_config(configfilename: str=EXT_CONFIGFILE) -> dict:
                 return json.load(configfile)
             except json.JSONDecodeError as e:
                 if len(configfile.read()) == 0:
-                    print("Empty file. Returning default config.")
+                    if not silent:
+                        print("Empty file. Returning default config.")
                     return CAT_INIT
                 else:
                     raise json.JSONDecodeError(e)
     except FileNotFoundError:
-        print("File does not exist. Returning default config.")
+        if not silent:
+            print("File does not exist. Returning default config.")
         return CAT_INIT
 
 
-def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, network_name: str=None, modify: bool=False, add: bool=False, replace: bool=False, debug: bool=False) -> None:
+def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, network_name: str=None, modify: bool=False, add: bool=False, replace: bool=False, silent: bool=False, debug: bool=False) -> None:
 
     # to allow simple command line arguments and avoid additional per-command processing,
     # this listcomp generates the mode from the add and modify bool variables.
     # the True value at the end means that "protect" (MODES[-1]) is the default.
     mode = [MODES[i] for i, m in enumerate([replace, modify, add, True]) if m][0]
 
-    if debug:
-        print("Storing: category: {}, key: {}, value: {}".format(category, key, value))
-
     config = get_config(configfilename)
-    print(category, key, value, mode, network_name)
+
     if mode == "modify":
         if category == "address":
             old_key = network_name + "_" + value
@@ -64,10 +61,9 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
                 assert len(matching_items) == 1
 
             except IndexError:
-                ei.print_red("Error: Value doesn't exist in configuration. Nothing was modified.")
-                return
+                raise ei.PacliInputDataError("Value doesn't exist in configuration. Nothing was modified.")
             except AssertionError:
-                ei.print_red("Error: More than one label for this value. Nothing was modified. Try to modify the label directly instead.")
+                raise ei.PacliInputDataError("More than one label for this value. Nothing was modified. Try to modify the label directly instead.")
                 return
         value = config[category][old_key]
 
@@ -78,7 +74,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
         if (key not in config[category]) or (not config[category][key]):
             config[category].update({key : value})
         else:
-            raise ValueExistsError("Value already exists, you can't change it in protected mode.")
+            raise ei.ValueExistsError("Value already exists, you can't change it in protected mode.")
         if mode == "modify":
             del config[category][old_key]
 
@@ -93,6 +89,8 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     if debug:
         config = get_config(configfilename)
         print("New config:", config)
+    if not silent:
+        print("Stored {}:\nLabel: {}\nValue: {}".format(category, key, value))
 
 def write_config(config, configfilename: str=EXT_CONFIGFILE):
     with open(configfilename, "w") as configfile:
@@ -111,9 +109,7 @@ def delete_item(category: str, key: str, now: bool=False, configfilename: str=EX
 
         del config[category][key]
     except KeyError:
-        # raise ValueError("No item with this key. Nothing was deleted.")
-        ei.print_red("Error: No item with this key. Nothing was deleted.")
-        return
+        raise PacliInputDataError("No item with this key. Nothing was deleted.")
 
     if not now:
         print("This is a dry run. Use --now to delete irrecoverabily.")
