@@ -1,4 +1,5 @@
 import time
+from decimal import Decimal
 import pypeerassets as pa
 from typing import Optional, Union
 from prettyprinter import cpprint as pprint
@@ -6,7 +7,7 @@ from pypeerassets.transactions import sign_transaction
 from pypeerassets.networks import net_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
-from pypeerassets.pautils import amount_to_exponent
+from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
@@ -40,7 +41,6 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
                   "endblock" : int(endblock) if endblock else 0}
 
     data = serialize_deck_extended_data(net_query(provider.network), params=params)
-    # print("OP_RETURN length in bytes:", len(data))
     return data
 
 
@@ -410,5 +410,14 @@ def find_tx_senders(tx: dict) -> list:
             continue
     return senders
 
+def get_address_token_balance(deck: object, address: str) -> Decimal:
 
+    cards = pa.find_all_valid_cards(provider, deck)
+    state = pa.protocol.DeckState(cards)
+
+    for i in state.balances:
+        if i == address:
+            return exponent_to_amount(state.balances[i], deck.number_of_decimals)
+    else:
+        return 0
 

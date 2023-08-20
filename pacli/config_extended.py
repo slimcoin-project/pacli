@@ -129,7 +129,8 @@ def search_value_content(category: str, searchstring: str, configfilename: str=E
     return [ key for key in config[category] if searchstring in config[category][key] ]
 
 def process_fulllabel(fulllabel):
-    # uses the network_label format
+    # uses the network_label format.
+    # this is necesary because a label can have underscores.
     label_split = fulllabel.split("_")
     network = label_split[0]
     label = "_".join(label_split[1:])
@@ -154,6 +155,4 @@ def delete_category(category, configfilename: str=EXT_CONFIGFILE):
 def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
     write_config(config, backupfilename)
-
-
 

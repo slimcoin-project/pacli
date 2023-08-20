@@ -33,7 +33,7 @@ from pacli.config import (write_default_config,
 
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
-from pacli.at_classes import ATToken, PoBToken
+from pacli.at_classes import Token, ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import PoDToken, Proposal, Donation
 from pacli.dex_classes import Dex
@@ -169,7 +169,6 @@ class Address:
 
         for txdict in ke.get_address_transactions(address=address, label=label, send=send, receive=receive, advanced=advanced):
             pprint(txdict)
-        # pprint(ke.get_address_transactions(address=address, label=label, send=send, receive=receive, advanced=advanced), max_seq_len=None)
 
 
 class Deck:
@@ -518,6 +517,7 @@ def main():
         'coin': Coin(),
         'proposal' : Proposal(),
         'donation' : Donation(),
+        'token' : Token(),
         'attoken' : ATToken(),
         'pobtoken' : PoBToken(),
         'podtoken' : PoDToken(),
