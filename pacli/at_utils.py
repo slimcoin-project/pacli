@@ -27,7 +27,10 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
             print("Transaction:", dtx.__dict__)
         return dtx.to_raw_transaction()
     except InvalidAddress:
-        raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
+        if debug:
+            raise
+        else:
+            raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
 def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, silent: bool=False, debug: bool=False) -> list:
