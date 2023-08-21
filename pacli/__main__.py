@@ -33,7 +33,8 @@ from pacli.config import (write_default_config,
 
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
-from pacli.at_classes import Token, ATToken, PoBToken
+from pacli.token_extended import Token
+from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import PoDToken, Proposal, Donation
 from pacli.dex_classes import Dex
@@ -481,11 +482,6 @@ class Card:
 
         for i in cards:
             pprint(i.to_json())
-
-    @classmethod
-    def simple_transfer(self, deckid: str, receiver: str, amount: str, sign: bool=False, send: bool=False):
-        '''Simplified transfer with only one single payment.''' ### added by addresstrack team
-        return self.transfer(deckid, receiver=[receiver], amount=[amount], sign=sign, send=send)
 
 class Transaction:
 

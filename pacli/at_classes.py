@@ -12,45 +12,7 @@ import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
 import pacli.at_utils as au
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
-
-
-class Token:
-
-    def all_balances(self, address: str=Settings.key.address, silent: bool=False, debug: bool=False):
-        # shows all balances on this address
-        decks = pa.find_all_valid_decks(provider, Settings.deck_version,
-                                        Settings.production)
-        balances = {}
-
-        for deck in decks:
-            if debug:
-                print("checking deck:", deck.id)
-            try:
-                balance = eu.get_address_token_balance(deck, address)
-            except KeyError:
-                if not silent:
-                    print("Warning: Omitting not initialized deck:", deck.id)
-                continue
-            if balance > 0:
-                balances.update({deck.id : balance})
-
-        if silent:
-            return balances
-        else:
-            pprint(balances)
-
-
-    def my_balance(self, deck: str, address: str=Settings.key.address, silent: bool=False):
-        '''Shows the balance of a token (deck) on the current main address or another address.'''
-
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        balance = eu.get_address_token_balance(deck, address)
-
-        if silent:
-            return balance
-        else:
-            pprint({address : balance})
+from pacli.token_extended import Token
 
 class ATToken(Token):
 
