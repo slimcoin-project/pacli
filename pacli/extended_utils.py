@@ -421,3 +421,25 @@ def get_address_token_balance(deck: object, address: str) -> Decimal:
     else:
         return 0
 
+def get_wallet_token_balances(deck: object, addrdict: dict, use_addresses: bool=True) -> dict:
+
+    cards = pa.find_all_valid_cards(provider, deck)
+    state = pa.protocol.DeckState(cards)
+
+    balances = {}
+    for i in state.balances:
+        for full_label in addrdict:
+            address = addrdict[full_label]
+            if i == address:
+                if use_addresses:
+                    balances.update({address : exponent_to_amount(state.balances[i], deck.number_of_decimals)})
+                else:
+                    prefix = Settings.network + "_"
+                    # workaround until keystore_extended is finally removed
+                    # remove key_, but only if it's at the start.
+                    if full_label[:4] == "key_":
+                        full_label = full_label[4:]
+                    label = full_label.replace(prefix, "")
+                    balances.update({label : exponent_to_amount(state.balances[i], deck.number_of_decimals)})
+    return balances
+

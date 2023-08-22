@@ -107,7 +107,7 @@ def get_labels_from_keyring(prefix: str=None):
 
     return labels
 
-def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool=False, privkey: bool=False, wif: bool=False, json_mode: bool=False, legacy: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
+def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
 
     label = str(label)
     if legacy:
@@ -136,12 +136,12 @@ def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool
     else:
         return key.address
 
-def show_stored_address(label: str, network_name: str=Settings.network, json_mode: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
+def show_stored_address(label: str, network_name: str=Settings.network, extconf: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
     # Safer mode for show_stored_key.
-    if json_mode:
-        return get_address(str(label), network_name)
+    if extconf:
+        return get_address(str(label), network_name, noprefix=noprefix)
     else:
-        return show_stored_key(str(label), network_name=network_name, json_mode=json_mode, noprefix=noprefix, raise_if_invalid_label=raise_if_invalid_label)
+        return show_stored_key(str(label), network_name=network_name, noprefix=noprefix, raise_if_invalid_label=raise_if_invalid_label)
 
 def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
     # This function "synchronizes" labels and addresses given as lists.
@@ -167,7 +167,7 @@ def process_address(addr_string: str) -> str:
         address = show_stored_address(addr_string, raise_if_invalid_label=True)
     except TypeError:
         try:
-            address = show_stored_address(addr_string, json_mode=True)
+            address = show_stored_address(addr_string, extconf=True)
             assert address is not None
         except AssertionError:
             return addr_string
@@ -350,17 +350,30 @@ def store_address(label: str, network_name: str=Settings.network, address: str=N
     except ce.ValueExistsError:
         print("Value already exists. Config file not changed.")
 
-def get_address(label: str, network_name: str=Settings.network) -> str:
+def get_address(label: str, network_name: str=Settings.network, noprefix: bool=False) -> str:
     ext_label = network_name + "_" + label
     return ce.read_item(category="address", key=ext_label)
 
 def get_all_labels(prefix: str, extconf: bool=False) -> list:
     if extconf:
-        labels = ce.get_config()["addresses"]
-        labels_in_legacy_format = [ "key_" + l for l in labels ]
-        return labels_in_legacy_format
+        labels = ce.get_config()["address"]
+        # TODO: investigate reason for the following lines
+        #labels_in_legacy_format = [ "key_" + l for l in labels ]
+        #return labels_in_legacy_format
+        return labels
     else:
         return get_labels_from_keyring(prefix)
+
+def get_addresses_and_labels(prefix: str=Settings.network, extconf: bool=False) -> dict:
+    if extconf:
+        return ce.get_config()["address"]
+    labels = get_all_labels(prefix)
+    result = {}
+    for label in labels:
+        address = show_stored_address(label=label, noprefix=True)
+        result.update({label: address})
+    return result
+
 
 def get_address_transactions(address: str=None, label: str=None, send: bool=False, receive: bool=False, advanced: bool=False) -> list:
 

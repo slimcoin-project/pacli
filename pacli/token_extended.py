@@ -5,6 +5,8 @@ from pacli.provider import provider
 from pacli.config import Settings
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
+import pacli.keystore_extended as ke
+import pacli.config_extended as ce
 
 
 class Token:
@@ -13,6 +15,8 @@ class Token:
     # TODO: support address labels once the transition from keystore_extended to Tools is complete
 
     def balances(self, deck: str, silent: bool=False):
+        """List all balances of a deck (with support for deck labels).
+        --silent suppresses information about the deck when a label is used."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
 
@@ -21,6 +25,8 @@ class Token:
 
 
     def list(self, deck: str, silent: bool=False):
+        """List all cards of a deck (with support for deck labels).
+        --silent suppresses information about the deck when a label is used."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
 
@@ -29,6 +35,8 @@ class Token:
 
 
     def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
+        """Transfer tokens/cards to a single receiver.
+        --sign and --send are set true by default."""
         # Not a wrapper, so the signature errors from P2PK are also fixed.
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
@@ -45,6 +53,12 @@ class Token:
 
 
     def multi_transfer(self, deck: str, transferlist: str, locktime: int=0, asset_specific_data: bytes=None, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False):
+        """Transfer tokens/cards to multiple receivers in a single transaction.
+        The second argument, the transfer list, contains addresses and amounts.
+        Individual transfers are separated by a semicolon (;).
+        Address and amount are separated by a colon (:).
+        The transfer list has to be put between quotes.
+        --sign and --send are true by default."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -69,23 +83,43 @@ class Token:
 
     # more general Token commands
 
-    def all_balances(self, address: str=Settings.key.address, silent: bool=False, debug: bool=False):
-        # shows all balances on this address
+    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, silent: bool=False, extconf: bool=False, no_labels: bool=False, debug: bool=False):
+        """Shows all token/card balances on this address.
+        --wallet flag allows to show all balances of addresses
+        which are part of the wallet."""
+
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
         balances = {}
 
+        if extconf and (not no_labels):
+            deck_labels = ce.get_config()["deck"]
+        else:
+            deck_labels = None
+
+        if wallet:
+            addrdict = ke.get_addresses_and_labels(extconf=extconf)
+
         for deck in decks:
             if debug:
-                print("checking deck:", deck.id)
+                print("Checking deck:", deck.id)
             try:
-                balance = eu.get_address_token_balance(deck, address)
+                if wallet:
+                    # Note: returns a dict, structure of balances var is thus different.
+                    balance = eu.get_wallet_token_balances(deck, addrdict, use_addresses=no_labels)
+                else:
+                    balance = eu.get_address_token_balance(deck, address)
             except KeyError:
-                if not silent:
+                if debug:
                     print("Warning: Omitting not initialized deck:", deck.id)
                 continue
-            if balance > 0:
-                balances.update({deck.id : balance})
+            if balance:
+                # support for deck labels
+                if (deck_labels) and (deck.id in deck_labels.values()):
+                    deck_label = [l for l in deck_labels if deck_labels[l] == deck.id][0]
+                    balances.update({deck_label : balance})
+                else:
+                    balances.update({deck.id : balance})
 
         if silent:
             return balances
@@ -93,14 +127,27 @@ class Token:
             pprint(balances)
 
 
-    def my_balance(self, deck: str, address: str=Settings.key.address, silent: bool=False):
-        '''Shows the balance of a token (deck) on the current main address or another address.'''
+    def my_balance(self, deck: str, address: str=Settings.key.address, wallet: bool=False, extconf: bool=False, no_labels: bool=False, silent: bool=False):
+        """Shows the balance of a single token (deck) on the current main address or another address.
+        --wallet flag allows to show all balances of addresses
+        which are part of the wallet."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        balance = eu.get_address_token_balance(deck, address)
 
-        if silent:
-            return balance
+        if wallet:
+            addrdict = ke.get_addresses_and_labels(extconf=extconf)
+            balances = eu.get_wallet_token_balances(deck, addrdict, use_addresses=no_labels)
+
+            if silent:
+                return balances
+            else:
+                pprint(balances)
+                return
         else:
-            pprint({address : balance})
+            balance = eu.get_address_token_balance(deck, address)
+
+            if silent:
+                return balance
+            else:
+                pprint({address : balance})
