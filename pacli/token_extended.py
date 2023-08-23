@@ -34,17 +34,19 @@ class Token:
         return Card().list(deckid)
 
 
-    def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
+    def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
         """Transfer tokens/cards to a single receiver.
         --sign and --send are set true by default."""
         # Not a wrapper, so the signature errors from P2PK are also fixed.
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        change_address = ke.process_address(change)
 
         return ei.run_command(eu.advanced_card_transfer, deck,
                                  amount=[Decimal(str(amount))],
                                  receiver=[receiver],
+                                 change_address=change_address,
                                  locktime=locktime,
                                  sign=sign,
                                  send=send,
@@ -52,7 +54,7 @@ class Token:
                                  )
 
 
-    def multi_transfer(self, deck: str, transferlist: str, locktime: int=0, asset_specific_data: bytes=None, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False):
+    def multi_transfer(self, deck: str, transferlist: str, change: str=Settings.change, locktime: int=0, asset_specific_data: bytes=None, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False):
         """Transfer tokens/cards to multiple receivers in a single transaction.
         The second argument, the transfer list, contains addresses and amounts.
         Individual transfers are separated by a semicolon (;).
@@ -65,6 +67,7 @@ class Token:
         transfers = transferlist.split(";")
         receivers = [transfer.split(":")[0] for transfer in transfers]
         amounts = [Decimal(str(transfer.split(":")[1])) for transfer in transfers]
+        change_address = ke.process_address(change)
 
         if not silent:
             print("Sending tokens to the following receivers:", receivers)
@@ -72,6 +75,7 @@ class Token:
         return ei.run_command(eu.advanced_card_transfer, deck,
                                  amount=amounts,
                                  receiver=receivers,
+                                 change_address=change_address,
                                  locktime=locktime,
                                  asset_specific_data=asset_specific_data,
                                  sign=sign,

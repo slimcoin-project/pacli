@@ -50,13 +50,15 @@ class ATToken(Token):
 
     @classmethod
     def claim_reward(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
-              locktime: int=0, payto: str=None, payamount: str=None, verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False, force: bool=False) -> str:
+                    locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
+                    verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False, force: bool=False) -> str:
         '''Claims tokens for a transaction to a tracked address.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         dec_payamount = Decimal(str(payamount)) if payamount else None
+        change_address = ke.process_address(change)
 
         asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data, deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=dec_payamount, debug=debug, force=force)
 
@@ -64,6 +66,7 @@ class ATToken(Token):
                                  amount=amount,
                                  receiver=receiver,
                                  locktime=locktime,
+                                 change_address=change_address,
                                  asset_specific_data=asset_specific_data,
                                  sign=sign,
                                  send=send,
@@ -73,15 +76,16 @@ class ATToken(Token):
 
     @classmethod
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
-              endblock: int=None, version=1, locktime: int=0, verify: bool=False, sign: bool=False,
-              send: bool=False) -> None:
+              endblock: int=None, change: str=Settings.change, version=1, locktime: int=0, verify: bool=False,
+              sign: bool=False, send: bool=False) -> None:
         '''Spawns a new AT deck.'''
 
+        change_address = ke.process_address(change)
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
-               issue_mode=0x01, locktime=locktime, asset_specific_data=asset_specific_data, verify=verify,
-               sign=sign, send=send)
+               issue_mode=0x01, locktime=locktime, change_address=change_address, asset_specific_data=asset_specific_data,
+               verify=verify, sign=sign, send=send)
 
 
     def deck_info(self, deck: str) -> None:
@@ -118,14 +122,14 @@ class PoBToken(ATToken):
     # bundles all PoB-specific functions.
 
     def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
-              endblock: int=None, verify: bool=False, sign: bool=False,
+              endblock: int=None, change: str=Settings.change, verify: bool=False, sign: bool=False,
               send: bool=False, locktime: int=0, version=1):
         """Spawn a new PoB token, uses automatically the burn address of the network."""
 
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
 
-        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, startblock, endblock, version, locktime, verify, sign, send)
+        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=startblock, endblock=endblock, version=version, locktime=locktime, verify=verify, sign=sign, send=send)
 
     def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address."""

@@ -189,7 +189,7 @@ def find_transaction_by_string(searchstring: str, only_start: bool=False):
     return txid
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
-                 asset_specific_data: str=None, locktime: int=0, verify: bool=False,
+                 asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
                  sign: bool=False, send: bool=False, debug: bool=False, silent: bool=False, confirm: bool=False) -> Optional[dict]:
     # allows some more options, and to use P2PK inputs.
 
@@ -212,14 +212,14 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     issue_tx = pa.card_transfer(provider=provider,
                                  inputs=provider.select_inputs(Settings.key.address, 0.02),
                                  card=card,
-                                 change_address=Settings.change,
+                                 change_address=change_address,
                                  locktime=locktime
                                  )
 
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, silent=silent, confirm=confirm, debug=debug)
 
 
-def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes,
+def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
                         verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
     # idem card transfer, allows p2pk inputs.
 
@@ -233,7 +233,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     spawn_tx = pa.deck_spawn(provider=provider,
                           inputs=provider.select_inputs(Settings.key.address, 0.02),
                           deck=new_deck,
-                          change_address=Settings.change,
+                          change_address=change_address,
                           locktime=locktime
                           )
     return finalize_tx(spawn_tx, verify, sign, send)

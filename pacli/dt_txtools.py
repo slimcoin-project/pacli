@@ -41,8 +41,7 @@ def create_trackedtransaction(tx_type,
                               deck: str=None,
                               dest_label: str=None,
                               dest_address: str=None,
-                              change_address: str=None,
-                              change_label: str=None,
+                              change: str=None,
                               reserve_address: str=None,
                               reserve_label: str=None,
                               req_amount: str=None,
@@ -66,6 +65,7 @@ def create_trackedtransaction(tx_type,
                               debug: bool=False) -> object:
     '''Generic tracked transaction creation.'''
 
+    change_address = ke.process_address(change)
     addresses, labels = (dest_address, reserve_address, change_address), (dest_label, reserve_label, change_label)
     # default values for params
     use_slot = False
