@@ -3,6 +3,7 @@ from prettyprinter import cpprint as pprint
 from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
+from pacli.tui import print_card_list
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.keystore_extended as ke
@@ -24,14 +25,22 @@ class Token:
         return Card().balances(deckid)
 
 
-    def list(self, deck: str, silent: bool=False):
+    def list(self, deck: str, silent: bool=False, valid: bool=False):
         """List all cards of a deck (with support for deck labels).
-        --silent suppresses information about the deck when a label is used."""
+        --silent suppresses information about the deck when a label is used.
+        --valid only shows valid cards according to Proof-of-Timeline rules,
+        i.e. where no double spend has been recorded."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
 
-        from pacli.__main__ import Card
-        return Card().list(deckid)
+        if valid:
+            deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+            cards = pa.find_all_valid_cards(provider, deck)
+            valid_cards = pa.protocol.DeckState(cards).valid_cards
+            print_card_list(valid_cards)
+        else:
+            from pacli.__main__ import Card
+            return Card().list(deckid)
 
 
     def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
