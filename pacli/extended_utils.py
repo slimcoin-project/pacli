@@ -140,8 +140,6 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
 
         tx_hex = tx.hexlify()
 
-        # return {'hex': tx.hexlify()}
-
     elif send:
         # this is when the tx is already signed (DEX use case)
         sendtx(rawtx)
@@ -150,11 +148,10 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
         if confirm:
             ei.confirm_tx(tx, silent=silent)
 
-        # return {'hex': rawtx.hexlify()}
     else:
         dict_key = 'raw hex'
         tx_hex = rawtx.hexlify()
-        # return {'raw hex' : rawtx.hexlify()}
+
 
     if save:
         try:
@@ -165,8 +162,8 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
         else:
             save_transaction(txid, tx_hex)
 
-
     return { dict_key : tx_hex }
+
 
 def get_wallet_transactions(fburntx: bool=False):
     start = 0
@@ -220,7 +217,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
-                        verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
+                        confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
     # idem card transfer, allows p2pk inputs.
 
     network = Settings.network
@@ -236,7 +233,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
                           change_address=change_address,
                           locktime=locktime
                           )
-    return finalize_tx(spawn_tx, verify, sign, send)
+    return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, send=send)
 
 
 def store_checkpoint(height: int=None, silent: bool=False) -> None:

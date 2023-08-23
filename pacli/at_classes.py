@@ -17,7 +17,7 @@ from pacli.token_extended import Token
 class ATToken(Token):
 
 
-    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.'''
 
         change_address = ke.process_address(change)
@@ -25,7 +25,7 @@ class ATToken(Token):
         dec_amount = Decimal(str(amount))
         rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, change_address=change_address, debug=debug)
 
-        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, debug=debug)
+        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=confirm, silent=silent, debug=debug)
 
     def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
         '''Show all transactions to a tracked address between two block heights (very slow!).'''
@@ -43,6 +43,7 @@ class ATToken(Token):
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
         sender = Settings.key.address if not wallet else None
         txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, silent=silent, debug=debug)
+
         if not silent:
             pprint(txes)
         else:
@@ -51,7 +52,8 @@ class ATToken(Token):
     @classmethod
     def claim_reward(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
                     locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
-                    verify: bool=False, sign: bool=False, send: bool=False, debug: bool=False, force: bool=False) -> str:
+                    confirm: bool=True, silent: bool=False, force: bool=False,
+                    verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
         '''Claims tokens for a transaction to a tracked address.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
@@ -71,13 +73,14 @@ class ATToken(Token):
                                  sign=sign,
                                  send=send,
                                  verify=verify,
+                                 confirm=confirm,
                                  debug=debug
                                  )
 
     @classmethod
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, change: str=Settings.change, version=1, locktime: int=0, verify: bool=False,
-              sign: bool=False, send: bool=False) -> None:
+              confirm: bool=True, sign: bool=False, send: bool=False) -> None:
         '''Spawns a new AT deck.'''
 
         change_address = ke.process_address(change)
@@ -85,7 +88,7 @@ class ATToken(Token):
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, locktime=locktime, change_address=change_address, asset_specific_data=asset_specific_data,
-               verify=verify, sign=sign, send=send)
+               confirm=confirm, verify=verify, sign=sign, send=send)
 
 
     def deck_info(self, deck: str) -> None:
@@ -122,19 +125,19 @@ class PoBToken(ATToken):
     # bundles all PoB-specific functions.
 
     def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
-              endblock: int=None, change: str=Settings.change, verify: bool=False, sign: bool=False,
-              send: bool=False, locktime: int=0, version=1):
+              endblock: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
+              confirm: bool=True, send: bool=True, locktime: int=0, version=1):
         """Spawn a new PoB token, uses automatically the burn address of the network."""
 
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
 
-        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=startblock, endblock=endblock, version=version, locktime=locktime, verify=verify, sign=sign, send=send)
+        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=startblock, endblock=endblock, version=version, locktime=locktime, confirm=confirm, verify=verify, sign=sign, send=send)
 
-    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, confirm: bool=True, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address."""
 
-        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, verify=verify, debug=debug)
+        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, silent=silent, debug=debug)
 
     def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, silent: bool=False, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
