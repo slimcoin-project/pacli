@@ -119,7 +119,7 @@ def store_address(label: str, network_name: str=Settings.network, address: str=N
         ext_label = full_label[len(keyring_prefix):]
 
     if not address:
-        address = label_to_kutil(full_label).address
+        address = ke.label_to_kutil(full_label).address
 
     ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name)
 

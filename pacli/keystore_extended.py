@@ -104,8 +104,11 @@ def get_labels_from_keyring(prefix: str=Settings.network):
     for item in collection.search_items({'application': 'Python keyring library', "service" : "pacli"}):
         # print(item.get_label())
         label = item.get_attributes()["username"]
-        if (not prefix) or (prefix in label):
-            labels.append(label)
+        try:
+            if (not prefix) or (label.split("_")[1] == prefix):
+                labels.append(label)
+        except IndexError:
+            continue
 
     return labels
 

@@ -27,15 +27,15 @@ class Tools:
         print("Storing all addresses of network", network_name, "from keyring into extended config file.")
         print("The config file will NOT store private keys. It only allows faster access to addresses.")
         labels = ke.get_labels_from_keyring(network_name)
-        print("Labels retrieved from keyring:", labels)
+        print("Labels (with prefixes) retrieved from keyring:", labels)
         # TODO: some legacy labels aren't correctly recognized as legacy,
         # and the algo tries to convert them to the new format.
         # e.g. case of key_bak_testslm02 => bak_testslm02, key_bak_tslm01 => bak_tslm01
-        return
         for label in labels:
             try:
                 ec.store_address(label, full=True)
             except ei.ValueExistsError:
+                print("Label {} already stored.".format("_".join(label.split("_")[2:])))
                 continue
 
     def show_address(self, label: str) -> str:
