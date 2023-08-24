@@ -65,23 +65,27 @@ def spinner(duration: int) -> None:
 def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
 
     if not silent:
-        print("Waiting for confirmation (this can take several minutes) ...", end='')
+        print("Transaction created and broadcasted. Confirmation can take several minutes.")
+        print("Waiting for first confirmation (abort waiting with CTRL-C) ...", end='')
     confirmations = 0
     while confirmations == 0:
         try:
-            tx = provider.getrawtransaction(orig_tx.txid, 1)
-        except KeyError:
-            raise PacliInputDataError("An unsigned transaction cannot be confirmed. Use --sign and --send to sign and broadcast the transaction.")
-        # this happens when the tx is unsigned.
-        #tx = provider.getrawtransaction(rawtx.txid, 1)
-        try:
-            confirmations = tx["confirmations"]
-            if not silent:
-                print("\nTransaction confirmed.")
-            break
-        except KeyError:
-            if not silent:
-                spinner(10)
+            try:
+                tx = provider.getrawtransaction(orig_tx.txid, 1)
+            except KeyError:
+                raise PacliInputDataError("An unsigned transaction cannot be confirmed. Use --sign and --send to sign and broadcast the transaction.")
+
+            try:
+                confirmations = tx["confirmations"]
+                if not silent:
+                    print("\nTransaction confirmed.")
+                break
+            except KeyError:
+                if not silent:
+                    spinner(10)
+        except KeyboardInterrupt:
+            print("\nConfirmation check aborted. Check confirmation manually.")
+            return
 
 # Exceptions
 

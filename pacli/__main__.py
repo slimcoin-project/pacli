@@ -163,10 +163,10 @@ class Address:
         else:
             print([ke.format_label(l) for l in labels])
 
-    def delete_label(self, label: str, keyring: bool=False, legacy: bool=False) -> None:
+    def delete_label(self, label: str, keyring: bool=False, legacy: bool=False, now: bool=False) -> None:
         '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
 
-        return ec.delete_label(label, legacy=legacy, keyring=keyring)
+        return ec.delete_label(label, legacy=legacy, keyring=keyring, now=now)
 
     def show_transactions(self, address: str=Settings.key.address, sent: bool=False, received: bool=False, advanced: bool=False):
         '''returns all transactions from or to that address in the wallet.'''
@@ -294,10 +294,6 @@ class Deck:
         pprint(
             {'combo': functools.reduce(operator.or_, *args)
              })
-
-    def init(self, deckid: str):
-        '''Initializes deck and imports its P2TH address into node.'''
-        eu.init_deck(Settings.network, deckid)
 
 
 class Card:

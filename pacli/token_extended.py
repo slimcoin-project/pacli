@@ -42,6 +42,15 @@ class Token:
             from pacli.__main__ import Card
             return Card().list(deckid)
 
+    def init_deck(self, deck: str, silent: bool=False):
+        """Initializes a standard, AT or PoB deck and imports its P2TH keys into node.
+           For dPoD tokens, use the 'pacli podtoken init_deck' command."""
+
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+        return ei.run_command(eu.init_deck, Settings.network, deckid, silent=silent)
+
+
+    # Enhanced transfer commands
 
     def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
         """Transfer tokens/cards to a single receiver.

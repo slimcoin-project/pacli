@@ -54,9 +54,17 @@ class ATToken(Token):
                     locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
                     confirm: bool=True, silent: bool=False, force: bool=False,
                     verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
-        '''Claims tokens for a transaction to a tracked address.'''
+        '''Claims tokens for a transaction to a tracked address.
+        The --payamount and --payto options enable a single payment
+        to another address in the same transaction.'''
         # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
+        if payamount:
+            if payto:
+                payto = ec.process_address(payto)
+            else:
+                print("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
+                return None
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         dec_payamount = Decimal(str(payamount)) if payamount else None

@@ -293,8 +293,12 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
 
     wallet_txids = set([t["txid"] for t in eu.get_wallet_transactions()]) if (only_wallet and not input_address) else None
 
-    cards = pa.find_all_valid_cards(provider, deck)
-    ds = pa.protocol.DeckState(cards)
+    try:
+        cards = pa.find_all_valid_cards(provider, deck)
+        ds = pa.protocol.DeckState(cards)
+    except KeyError:
+        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli token init_deck DECK'")
+
     claim_cards = []
     for card in ds.valid_cards:
         if card.type == "CardIssue":

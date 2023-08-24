@@ -49,15 +49,18 @@ def list_decks(identifier: str="dt"):
     at_type = { "at" : ID_AT, "dt" : ID_DT }
     return dmu.list_decks_by_at_type(provider, at_type[identifier])
 
-def init_deck(network, deckid, rescan=True):
+def init_deck(network: str, deckid: str, rescan: bool=True, silent: bool=False):
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if deckid not in provider.listaccounts():
         provider.importprivkey(deck.p2th_wif, deck.id, rescan)
-        print("Importing P2TH address from deck.")
+        if not silent:
+            print("Importing P2TH address from deck.")
     else:
-        print("P2TH address was already imported.")
+        if not silent:
+            print("P2TH address was already imported.")
     check_addr = provider.validateaddress(deck.p2th_address)
-    print("Output of validation tool:\n", check_addr)
+    if not silent:
+        print("Output of validation tool:\n", check_addr)
 
 def signtx_by_key(rawtx, label=None, key=None):
     # Allows to sign a transaction with a different than the main key.
