@@ -1,6 +1,5 @@
 # Basic tools for transaction creation
 
-# TODO: check which imports are needed.
 # from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, InvalidTrackedTransactionError
 # from pypeerassets.provider import Provider
 # from pypeerassets.at.dt_states import ProposalState, DonationState
@@ -24,7 +23,7 @@ from decimal import Decimal
 import pypeerassets as pa
 # import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
-import pacli.keystore_extended as ke
+import pacli.extended_commands as ec
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
@@ -65,7 +64,7 @@ def create_trackedtransaction(tx_type,
                               debug: bool=False) -> object:
     '''Generic tracked transaction creation.'''
 
-    change_address = ke.process_address(change)
+    change_address = ec.process_address(change)
     addresses, labels = (dest_address, reserve_address, change_address), (dest_label, reserve_label, change_label)
     # default values for params
     use_slot = False
@@ -146,7 +145,7 @@ def get_basic_tx_data(tx_type: str, proposal_id: str=None, input_address: str=No
 
     # step 1 (new): address/label synchronization
     if (addresses, labels) != (None, None):
-        [dest_address, reserve_address, change_address] = ke.show_addresses(addresses, labels, Settings.network)
+        [dest_address, reserve_address, change_address] = ec.show_addresses(addresses, labels, Settings.network)
 
     tx_data = {"dest_address" : dest_address, "reserve_address" : reserve_address, "change_address" : change_address }
 

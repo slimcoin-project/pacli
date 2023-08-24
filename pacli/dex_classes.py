@@ -1,7 +1,7 @@
 import pacli.dex_utils as dxu
 import pacli.extended_interface as ei
 import pypeerassets as pa
-import pacli.keystore_extended as ke
+import pacli.extended_commands as ec
 from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
@@ -9,12 +9,16 @@ from pacli.config import Settings
 class Dex:
 
     @classmethod
-    def create_offer(self, deck: str, amount: int, lock: int, lockaddr: str, addrtype: str="p2pkh", absolute: bool=False, change: str=Settings.change, confirm: bool=True, sign: bool=False, send: bool=False, silent: bool=False, txhex: bool=False):
-        """Locks the card on the same address than was used as the sender. Card receiver is the current main address."""
+    def create_offer(self, deck: str, amount: int, lock: int, lockaddr: str, receiver: str=None, addrtype: str="p2pkh", absolute: bool=False, change: str=Settings.change, confirm: bool=True, sign: bool=False, send: bool=False, silent: bool=False, txhex: bool=False):
+        """Locks the card on the receiving address. Card default receiver is the sender (the current main address)."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
-        change_address = ke.process_address(change)
-        return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lockaddr, addrtype=addrtype, absolute=absolute, change_address=change_address, sign=sign, send=send, confirm=confirm, txhex=txhex)
+        change_address = ec.process_address(change)
+        if receiver is None:
+            receiver_address = Settings.key.address
+        else:
+            receiver_address = ec.process_address(receiver)
+        return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lockaddr, addrtype=addrtype, absolute=absolute, change_address=change_address, receiver=receiver_address, sign=sign, send=send, confirm=confirm, txhex=txhex)
 
     @classmethod
     def new_exchange(self, deck: str, partner_address: str, partner_input: str, card_amount: str, coin_amount: str, coinseller_change_address: str=None, save: str=None, silent: bool=False, sign: bool=False):
@@ -45,6 +49,6 @@ class Dex:
     def select_coins(self, amount, address=Settings.key.address, utxo_type="pubkeyhash"):
         """Prints out all suitable utxos for an exchange transaction."""
 
-        addr = ke.process_address(address)
+        addr = ec.process_address(address)
         return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type)
 

@@ -4,6 +4,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 import pacli.config_extended as ce
 import pacli.keystore_extended as ke
+import pacli.extended_commands as ec
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 from prettyprinter import cpprint as pprint
@@ -13,13 +14,13 @@ class Tools:
     # Addresses
     def store_address(self, label: str, address: str, modify: bool=False) -> None:
         """Stores a label for an address in the extended config file."""
-        ke.store_address(label, address=address, modify=modify)
+        ec.store_address(label, address=address, modify=modify)
         print("Stored address {} with label {}.".format(address, label))
 
     def store_address_from_keyring(self, label: str) -> None:
         """Stores a label for an address previously stored in the keyring in the extended config file."""
         print("Searching for label label {} in keyring, and storing its address.".format(label))
-        ke.store_address(label)
+        ec.store_address(label)
 
     def store_addresses_from_keyring(self) -> None:
         """Stores all labels/addresses stored in the keyring in the extended config file."""
@@ -31,11 +32,11 @@ class Tools:
         # and the algo tries to convert them to the new format.
         # e.g. case of key_bak_testslm02 => bak_testslm02, key_bak_tslm01 => bak_tslm01
         for label in labels:
-            ke.store_address(label, full=True)
+            ec.store_address(label, full=True)
 
     def show_address(self, label: str) -> str:
         """Shows stored address given its label."""
-        return ke.get_address(label)
+        return ec.get_address(label)
 
     def show_address_label(self, address: str) -> str:
         """Shows label(s) of a stored address (can have multiple values)."""
@@ -69,7 +70,8 @@ class Tools:
 
     def get_legacy_address_labels(self, prefix: str=provider.network) -> None:
         """For debugging only."""
-        print(ke.get_all_labels(prefix))
+        # TODO: probably obsolete, see other commands.
+        print(ec.get_all_labels(prefix))
 
     # Checkpoints and reorg tests
 
@@ -93,6 +95,7 @@ class Tools:
         """Delete all old checkpoints.
         Depth parameter indicates the block depth where checkpoints are to be kept.
         By default, the checkpoints of the 2000 most recent blocks are kept."""
+        # TODO: this command is quite slow, optimize it.
         eu.prune_old_checkpoints(depth=depth, silent=silent)
 
     def reorg_check(self) -> None:
@@ -174,7 +177,7 @@ class Tools:
         """Deletes an item from the extended config file.
            Specify category and label.
            Use --now to delete really."""
-        ce.delete_item(category, label, now)
+        return ei.run_command(ce.delete_item, category, label, now)
 
     def show_config(self) -> list:
         """Shows current contents of the extended configuration file."""

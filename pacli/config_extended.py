@@ -90,7 +90,11 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
         config = get_config(configfilename)
         print("New config:", config)
     if not silent:
-        print("Stored {}:\nLabel: {}\nValue: {}".format(category, key, value))
+        if category == "address":
+            key_shown = "_".join(key.split("_")[1:])
+        else:
+            key_shown = key
+        print("Stored {}:\nLabel: {}\nValue: {}".format(category, key_shown, value))
 
 def write_config(config, configfilename: str=EXT_CONFIGFILE):
     with open(configfilename, "w") as configfile:
@@ -109,7 +113,7 @@ def delete_item(category: str, key: str, now: bool=False, configfilename: str=EX
 
         del config[category][key]
     except KeyError:
-        raise PacliInputDataError("No item with this key. Nothing was deleted.")
+        raise ei.PacliInputDataError("No item with this key. Nothing was deleted.")
 
     if not now:
         print("This is a dry run. Use --now to delete irrecoverabily.")

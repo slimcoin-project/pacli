@@ -68,10 +68,12 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
         set_key('key', key)
 
 
-def get_key_prefix(network_name: str=None, legacy: bool=False): ### NEW FEATURE ###
+def get_key_prefix(network_name: str=Settings.network, legacy: bool=False, extconf: bool=False):
     # The key prefix determines the network, and separates private keys from possible other uses.
     if legacy:
         return "key_bak_"
+    elif extconf:
+        return network_name + "_"
     else:
         return "key_" + network_name + "_"
 
@@ -86,7 +88,7 @@ def set_key(full_label: str, key: str) -> None:
     '''set new key, simple way'''
     keyring.set_password("pacli", full_label, key)
 
-def get_labels_from_keyring(prefix: str=None):
+def get_labels_from_keyring(prefix: str=Settings.network):
     # returns all labels corresponding to a network shortname (the prefix)
     # does currently NOT support Windows Credential Locker nor KDE.
     # Should work with Gnome Keyring, KeepassXC, and KSecretsService.
@@ -136,75 +138,23 @@ def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool
     else:
         return key.address
 
-def show_stored_address(label: str, network_name: str=Settings.network, extconf: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False):
-    # Safer mode for show_stored_key.
-    if extconf:
-        return get_address(str(label), network_name, noprefix=noprefix)
-    else:
-        return show_stored_key(str(label), network_name=network_name, noprefix=noprefix, raise_if_invalid_label=raise_if_invalid_label)
-
-def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
-    # This function "synchronizes" labels and addresses given as lists.
-    # Useful if we have an option where we can alternatively input addresses and labels.
-    if len(addrlist) != len(label_list):
-        raise ValueError("Both lists must have the same length.")
-    result = []
-    for lpos in range(len(label_list)):
-        if addrlist[lpos] == None:
-            if label_list[lpos] is None: # if both values are None, they stay None.
-                adr = None
-            else:
-                adr = show_stored_address(label_list[lpos], network_name=network)
-                if debug: print("Address", adr, "got from label", label_list[lpos])
-        else:
-            adr = addrlist[lpos]
-        result.append(adr)
-    return result
-
-def process_address(addr_string: str) -> str:
-    """Allows to use a label or an address; you'll get an address back."""
-    try:
-        address = show_stored_address(addr_string, raise_if_invalid_label=True)
-    except TypeError:
-        try:
-            address = show_stored_address(addr_string, extconf=True)
-            assert address is not None
-        except AssertionError:
-            return addr_string
-    return address
-
-def show_label(address: str, extconf: bool=False, set_main: bool=False) -> dict:
+def show_label(address: str, set_main: bool=False) -> dict:
     # Needs secretstorage or extended config.
-    if extconf:
-        # extended_config address category has only one entry per value
-        # so we can pick the first item.
+
+    labels = get_labels_from_keyring(Settings.network)
+    for fulllabel in labels:
+        legacy = is_legacy_label(fulllabel)
         try:
-            fulllabel = ce.search_value("address", address)[0]
+            label = format_label(fulllabel)
         except IndexError:
-            print("No label is assigned to that address.")
-            return
-        # label is differently stored in extconf than in keyring.
-        label = "_".join(fulllabel.split("_")[1:])
-
+            continue
+        if address == show_stored_key(label, Settings.network, legacy=legacy):
+            break
     else:
-        labels = get_labels_from_keyring(Settings.network)
-        for fulllabel in labels:
-            legacy = is_legacy_label(fulllabel)
-            try:
-                label = format_label(fulllabel)
-            except IndexError:
-                continue
-            if address == show_stored_key(label, Settings.network, legacy=legacy):
-                break
-        else:
-            ei.print_red("Error: No label was stored for address {}.".format(address))
-            return None
+        ei.print_red("Error: No label was stored for address {}.".format(address))
+        return None
 
-    if set_main:
-        print("This address is now the main address (--set_main option).")
-        set_main_key(label)
-
-    return {"label" : label, "address" : address}
+    return label
 
 def format_label(fulllabel: str):
 
@@ -246,7 +196,7 @@ def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, le
 
     return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address
 
-def fresh_address(label: str, backup: str=None, show: bool=True, set_main: bool=False, legacy: bool=False):
+def fresh_address(label: str, backup: str=None, set_main: bool=False, legacy: bool=False, silent: bool=False):
     # NOTE: This command does not assign the address an account name or label in the wallet.
 
     label = str(label)
@@ -255,24 +205,17 @@ def fresh_address(label: str, backup: str=None, show: bool=True, set_main: bool=
     privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
     privkey = privk_kutil.privkey
 
-    fulllabel = get_key_prefix(Settings.network, legacy) + label
+    fulllabel = get_key_prefix(Settings.network, legacy=legacy) + label
 
     try:
-        if fulllabel in get_all_labels(Settings.network):
+        if fulllabel in get_labels_from_keyring(): # get_all_labels(Settings.network):
             return "ERROR: Label already used. Please choose another one."
     except ImportError:
         print("NOTE: If you do not use SecretStorage, which is likely if you use Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
 
     set_key(fulllabel, privkey)
 
-    if show:
-        print("New address created:", privk_kutil.address, "with label (name):", label)
-        print("Address already is saved in your wallet and in your keyring, ready to use.")
-    if set_main:
-        set_new_key(new_key=privkey, backup_id=backup, label=label, network_name=Settings.network, legacy=legacy)
-        Settings.key = privk_kutil
-        return Settings.key.address
-
+    return privk_kutil.address
 
 def show_all_keys(debug: bool=False, legacy: bool=False):
 
@@ -296,7 +239,6 @@ def show_all_keys(debug: bool=False, legacy: bool=False):
             if debug: print("ERROR:", label, e)
             continue
 
-
 def set_main_key(label: str, backup: str=None, legacy: bool=False) -> str:
 
     try:
@@ -307,7 +249,6 @@ def set_main_key(label: str, backup: str=None, legacy: bool=False) -> str:
 
     Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(k.load_key()))
     return Settings.key.address
-
 
 def import_key_to_wallet(accountname: str, label: str=None, legacy: bool=False):
 
@@ -322,8 +263,8 @@ def import_key_to_wallet(accountname: str, label: str=None, legacy: bool=False):
     else:
         provider.importprivkey(wif, account_name=accountname)
 
-def delete_key_from_keyring(label: str, legacy: bool=False):
-    prefix = get_key_prefix(Settings.network, legacy)
+def delete_key_from_keyring(label: str, network_name: str=Settings.network, legacy: bool=False):
+    prefix = get_key_prefix(network_name, legacy=legacy)
     try:
        delete_key(prefix + label)
        print("Key", label, "successfully deleted.")
@@ -334,76 +275,7 @@ def label_to_kutil(full_label: str) -> pa.Kutil:
     raw_key = bytearray.fromhex(get_key(full_label))
     return pa.Kutil(network=Settings.network, privkey=raw_key)
 
-# extended config
-def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False):
-    keyring_prefix = "key_"
-    if not full:
-        ext_label = network_name + "_" + label
-        full_label = keyring_prefix + ext_label
-    else:
-        full_label = label
-        ext_label = full_label[len(keyring_prefix):]
-    if not address:
-        address = label_to_kutil(full_label).address
-    try:
-        ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name)
-    except ce.ValueExistsError:
-        print("Value already exists. Config file not changed.")
 
-def get_address(label: str, network_name: str=Settings.network, noprefix: bool=False) -> str:
-    ext_label = network_name + "_" + label
-    return ce.read_item(category="address", key=ext_label)
-
-def get_all_labels(prefix: str, extconf: bool=False) -> list:
-    if extconf:
-        labels = ce.get_config()["address"]
-        # TODO: investigate reason for the following lines
-        #labels_in_legacy_format = [ "key_" + l for l in labels ]
-        #return labels_in_legacy_format
-        return labels
-    else:
-        return get_labels_from_keyring(prefix)
-
-def get_addresses_and_labels(prefix: str=Settings.network, extconf: bool=False) -> dict:
-    if extconf:
-        return ce.get_config()["address"]
-    labels = get_all_labels(prefix)
-    result = {}
-    for label in labels:
-        address = show_stored_address(label=label, noprefix=True)
-        result.update({label: address})
-    return result
-
-
-def get_address_transactions(address: str=None, label: str=None, send: bool=False, receive: bool=False, advanced: bool=False) -> list:
-
-    if label:  # label overrides address
-        address = show_stored_address(label, network_name=Settings.network)
-    if not address:
-        ei.print_red("Error: You must provide either a valid address or a valid label.")
-
-    all_txes = True if (not send) and (not receive) else False
-    all_txids = set([t["txid"] for t in eu.get_wallet_transactions()])
-    all_wallet_txes = [provider.getrawtransaction(txid, 1) for txid in all_txids]
-    result = []
-
-    for tx in all_wallet_txes:
-        if send or all_txes:
-            for sender_dict in eu.find_tx_senders(tx):
-                if address in sender_dict["sender"]:
-                    txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"]}
-                    result.append(txdict)
-        if receive or all_txes:
-            for output in tx["vout"]:
-                out_addresses = output["scriptPubKey"].get("addresses")
-                try:
-                    if address in out_addresses:
-                        txdict = tx if advanced else {"txid" : tx["txid"], "type" : "receive", "value": output["value"]}
-                        result.append(txdict)
-                except TypeError:
-                    continue
-
-    return result
 
 
 

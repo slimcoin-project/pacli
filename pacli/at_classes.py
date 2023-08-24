@@ -8,9 +8,9 @@ from pacli.provider import provider
 from pacli.config import Settings
 from pacli.tui import print_deck_list
 import pacli.extended_utils as eu
-import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
 import pacli.at_utils as au
+import pacli.extended_commands as ec
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 from pacli.token_extended import Token
 
@@ -20,7 +20,7 @@ class ATToken(Token):
     def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.'''
 
-        change_address = ke.process_address(change)
+        change_address = ec.process_address(change)
 
         dec_amount = Decimal(str(amount))
         rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, change_address=change_address, debug=debug)
@@ -37,12 +37,12 @@ class ATToken(Token):
         txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, silent=silent, debug=debug)
         pprint(txes)
 
-    def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, silent: bool=False, debug: bool=False) -> None:
+    def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False) -> None:
         '''Shows all transactions from your wallet to the tracked address.'''
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
         sender = Settings.key.address if not wallet else None
-        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, silent=silent, debug=debug)
+        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
 
         if not silent:
             pprint(txes)
@@ -60,7 +60,7 @@ class ATToken(Token):
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         dec_payamount = Decimal(str(payamount)) if payamount else None
-        change_address = ke.process_address(change)
+        change_address = ec.process_address(change)
 
         asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data, deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=dec_payamount, debug=debug, force=force)
 
@@ -83,7 +83,7 @@ class ATToken(Token):
               confirm: bool=True, sign: bool=False, send: bool=False) -> None:
         '''Spawns a new AT deck.'''
 
-        change_address = ke.process_address(change)
+        change_address = ec.process_address(change)
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
@@ -139,11 +139,11 @@ class PoBToken(ATToken):
 
         return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, silent=silent, debug=debug)
 
-    def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, silent: bool=False, debug: bool=False) -> None:
+    def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 
-        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, silent=silent, debug=debug)
+        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
 
 
     @classmethod

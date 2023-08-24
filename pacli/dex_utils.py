@@ -22,7 +22,6 @@ from decimal import Decimal
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 import pacli.extended_utils as eu
 import pacli.dt_interface as di
-import pacli.keystore_extended as ke
 from pypeerassets.pa_constants import param_query
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction

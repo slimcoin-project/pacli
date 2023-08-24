@@ -6,7 +6,7 @@ from pacli.config import Settings
 from pacli.tui import print_card_list
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
-import pacli.keystore_extended as ke
+import pacli.extended_commands as ec
 import pacli.config_extended as ce
 
 
@@ -50,7 +50,7 @@ class Token:
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        change_address = ke.process_address(change)
+        change_address = ec.process_address(change)
 
         return ei.run_command(eu.advanced_card_transfer, deck,
                                  amount=[Decimal(str(amount))],
@@ -76,7 +76,7 @@ class Token:
         transfers = transferlist.split(";")
         receivers = [transfer.split(":")[0] for transfer in transfers]
         amounts = [Decimal(str(transfer.split(":")[1])) for transfer in transfers]
-        change_address = ke.process_address(change)
+        change_address = ec.process_address(change)
 
         if not silent:
             print("Sending tokens to the following receivers:", receivers)
@@ -96,22 +96,23 @@ class Token:
 
     # more general Token commands
 
-    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, silent: bool=False, extconf: bool=False, no_labels: bool=False, debug: bool=False):
+    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, silent: bool=False, keyring: bool=False, no_labels: bool=False, debug: bool=False):
         """Shows all token/card balances on this address.
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
+        # TODO: recheck the replacement of extconf/keyring.
 
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
         balances = {}
 
-        if extconf and (not no_labels):
+        if (not keyring) and (not no_labels):
             deck_labels = ce.get_config()["deck"]
         else:
             deck_labels = None
 
         if wallet:
-            addrdict = ke.get_addresses_and_labels(extconf=extconf)
+            addrdict = ec.get_addresses_and_labels(keyring=keyring)
 
         for deck in decks:
             if debug:
@@ -140,7 +141,7 @@ class Token:
             pprint(balances)
 
 
-    def my_balance(self, deck: str, address: str=Settings.key.address, wallet: bool=False, extconf: bool=False, no_labels: bool=False, silent: bool=False):
+    def my_balance(self, deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, silent: bool=False):
         """Shows the balance of a single token (deck) on the current main address or another address.
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
@@ -149,7 +150,7 @@ class Token:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
         if wallet:
-            addrdict = ke.get_addresses_and_labels(extconf=extconf)
+            addrdict = ec.get_addresses_and_labels(keyring=keyring)
             balances = eu.get_wallet_token_balances(deck, addrdict, use_addresses=no_labels)
 
             if silent:

@@ -12,6 +12,7 @@ from pypeerassets.networks import net_query
 from pypeerassets.exceptions import UnsupportedNetwork
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
+import pacli.extended_commands as ec
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -33,8 +34,9 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
             raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
-def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, silent: bool=False, debug: bool=False) -> list:
+def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, silent: bool=False, no_labels: bool=False, keyring: bool=False, debug: bool=False) -> list:
 
+    # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         if unclaimed:
@@ -49,9 +51,9 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     else:
         deck = None
         if unclaimed:
-            raise ei.PacliInputDataError("You need to provide a Deck ID to show unclaimed transactions.")
+            raise ei.PacliInputDataError("You need to provide a Deck to show unclaimed transactions.")
         if not tracked_address:
-            raise ei.PacliInputDataError("You need to provide a tracked address or a Deck ID for this command.")
+            raise ei.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
     raw_txes = eu.get_wallet_transactions()
 
@@ -81,6 +83,9 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         print("Showing only transactions sent from the following address:", sender)
 
     txes_to_address = []
+    if not sender:
+        labels = [] if no_labels else ec.get_addresses_and_labels(keyring=keyring)
+
     for tx in valid_txes:
 
         tx_sender = find_tx_sender(provider, tx)
@@ -101,7 +106,13 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
         tx_dict = {"txid" : tx["txid"], "value" : value, "outputs" : indexes, "height" : height}
         if not sender:
-            tx_dict.update({"sender" : tx_sender})
+            if not no_labels:
+                for full_label in labels:
+                    if labels[full_label] == tx_sender:
+                        label = "_".join(full_label.split("_")[1:])
+                        tx_dict.update({"sender_label" : label })
+                        break
+            tx_dict.update({"sender_address" : tx_sender})
         txes_to_address.append(tx_dict)
 
     return txes_to_address

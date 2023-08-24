@@ -14,6 +14,7 @@ import pacli.extended_utils as eu
 import pacli.dt_interface as di
 import pacli.dt_commands as dc
 import pacli.keystore_extended as ke
+import pacli.extended_commands as ec
 import pacli.extended_interface as ei
 import pacli.dt_txtools as dtx
 from pacli.token_extended import Token
@@ -26,7 +27,7 @@ class PoDToken(Token):
         '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
 
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
-        change_address = ke.process_address(change)
+        change_address = ec.process_address(change)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data,
@@ -294,7 +295,7 @@ class Proposal:
         pprint(str(dmu.sats_to_coins(Decimal(pstate.available_slot_amount[dist_round]), Settings.network)))
 
 
-    def my_donation_states(self, proposal: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, all: bool=False, unclaimed: bool=False, only_incomplete: bool=False, extconf: bool=False, debug: bool=False) -> None:
+    def my_donation_states(self, proposal: str, address: str=Settings.key.address, all_addresses: bool=False, all_matches: bool=False, all: bool=False, unclaimed: bool=False, only_incomplete: bool=False, keyring: bool=False, debug: bool=False) -> None:
         '''Shows the donation states involving a certain address (default: current active address).'''
         # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
 
@@ -302,8 +303,8 @@ class Proposal:
         if all_addresses:
 
             all_dstates = ei.run_command(dmu.get_donation_states, provider, proposal_id, debug=debug)
-            labels = ei.run_command(ke.get_all_labels, Settings.network, extconf=extconf)
-            my_addresses = [ke.show_stored_address(label, network_name=Settings.network, noprefix=True) for label in labels]
+            labels = ei.run_command(ec.get_all_labels, Settings.network, keyring=keyring)
+            my_addresses = [ec.show_stored_address(label, network_name=Settings.network, noprefix=True) for label in labels]
             # print(my_addresses)
             my_dstates = [d for d in all_dstates if d.donor_address in my_addresses]
             # print(my_dstates)
@@ -324,7 +325,7 @@ class Proposal:
             try:
                 # this will only work if the key corresponding to the address is in the user's keystore.
                 # We catch the exception to allow using it for others' addresses (no security issues involved).
-                pprint("Label: {}".format(ke.show_label(dstate.donor_address)["label"]))
+                pprint("Label: {}".format(ec.show_label(dstate.donor_address)["label"]))
             except:
                 pass
             pprint("Donation state ID: {}".format(dstate.id))
@@ -457,7 +458,7 @@ class Donation:
     def claim_reward(self, proposal: str, donor_address:str=None, payment: list=None, receiver: list=None, change: str=Settings.change, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=True, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
-        change_address = ke.process_address(change)
+        change_address = ec.process_address(change)
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         if donor_address is None:
             donor_address = Settings.key.address
@@ -568,6 +569,7 @@ class Donation:
         '''Shows if the address is entitled to participate in a slot distribution round.'''
         # Note: the donor address must be used as the origin address for the new signalling transaction.
         # TODO: could probably be reworked with the ProposalState methods.
+        # TODO: probably show_stored_key can be replaced with ce.process_address.
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         if label is not None:

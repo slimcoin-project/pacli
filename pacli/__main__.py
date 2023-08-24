@@ -33,6 +33,7 @@ from pacli.config import (write_default_config,
 
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
+import pacli.extended_commands as ec
 from pacli.token_extended import Token
 from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
@@ -106,69 +107,71 @@ class Address:
     ### Commands for the Extended Keystore (keystore_extended module)
     ### Allows to use more than one address/key
 
+    # Commands to store keys in the keyring and retrieve from it (deprecated)
+
     def new_privkey(self, label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False) -> str:
         '''import new private key, taking hex or wif format, or generate new key.
            You can assign a label, otherwise it will become the main key.'''
 
         return ke.new_privkey(label, key=key, backup=backup, wif=wif, legacy=legacy)
 
-    def fresh(self, label: str, show: bool=True, set_main: bool=False, backup: str=None, legacy: bool=False):
-        '''This function uses the standard client commands to create an address/key and assigns it a label.'''
-
-        return ke.fresh_address(label, show=show, set_main=set_main, backup=backup, legacy=legacy)
-
-    def set_main(self, label: str, backup: str=None, legacy: bool=False) -> str:
-        '''Declares a key identified by a label as the main one.'''
-
-        return ke.set_main_key(label, backup=backup, legacy=legacy)
-
-    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False) -> str:
-        '''Shows a stored alternative address or key.
-        WARNING: Can expose private keys. Try to use 'privkey' and 'wif' options only on testnet.'''
-
-        return ke.show_stored_key(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy)
-
     def show_all(self, debug: bool=False, legacy: bool=False):
         '''Shows all stored addresses and their balance (Unix only).'''
 
         return ke.show_all_keys(debug, legacy)
-
-    def show_label(self, address=Settings.key.address, extconf=False, set_main=False):
-        '''Shows the label of the current main address, or of another address.'''
-
-        return ke.show_label(address, extconf=extconf, set_main=set_main)
-
-    def set_label(self, label: str, address: str, set_main: bool=False, modify=False):
-        '''Assigns a label to an address and saves it in the keyring.'''
-
-        ke.set_new_key(label=label, new_address=address, modify=modify, network_name=Settings.network)
-
-        if set_main:
-            ke.set_main_key(label)
-
-    def show_all_labels(self, fulllabels: bool=False, prefix: str=None):
-        '''Shows all labels which were stored in the keyring. For debugging mainly.'''
-
-        labels = ke.get_labels_from_keyring(prefix=prefix)
-        if fulllabels:
-            print(labels)
-        else:
-            print([ke.format_label(l) for l in labels])
-
-    def delete_label(self, label: str, legacy: bool=False) -> None:
-        '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
-
-        return ke.delete_key_from_keyring(label, legacy=legacy)
 
     def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None:
         '''imports main key or any stored key to wallet managed by RPC node.'''
 
         return ke.import_key_to_wallet(accountname, label, legacy)
 
-    def get_transactions(self, address: str=Settings.key.address, label: str=None, send: bool=False, receive: bool=False, advanced: bool=False):
+    # Commands leading by default to the Tools interface
+
+    def fresh(self, label: str, set_main: bool=False, backup: str=None, keyring: bool=False, legacy: bool=False, silent: bool=False):
+        '''This function uses the standard client commands to create an address/key and assigns it a label.'''
+
+        return ec.fresh_address(label, set_main=set_main, backup=backup, legacy=legacy, keyring=keyring, silent=silent)
+
+    def set_main(self, label: str, backup: str=None, legacy: bool=False, keyring: bool=False, silent: bool=False) -> str:
+        '''Declares a key identified by a label as the main one.'''
+
+        return ec.set_main_key(label, backup=backup, legacy=legacy, keyring=keyring, silent=silent)
+
+    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, keyring: bool=False, legacy: bool=False) -> str:
+        '''Shows a stored alternative address or key.
+        --privkey, --pubkey and --wif options only work with --keyring.'''
+
+        return ec.show_stored_address(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy, keyring=keyring)
+
+
+    def show_label(self, address=Settings.key.address, set_main: bool=False, keyring: bool=False):
+        '''Shows the label of the current main address, or of another address.'''
+
+        return ec.show_label(address, keyring=keyring, set_main=set_main)
+
+    def set_label(self, label: str, address: str, set_main: bool=False, keyring: bool=False, modify=False, network_name=Settings.network):
+        '''Assigns a label to an address and saves it in the keyring.'''
+
+        ec.set_label(label, address, set_main=set_main, keyring=keyring, modify=modify, network_name=network_name)
+
+    def show_all_labels(self, prefix: str=Settings.network, full_labels: bool=False, keyring: bool=False):
+        '''Shows all labels which were stored in the keyring. For debugging mainly.'''
+
+        labels = ec.get_all_labels(keyring=keyring, prefix=prefix)
+        if full_labels:
+            print(labels)
+        else:
+            print([ke.format_label(l) for l in labels])
+
+    def delete_label(self, label: str, keyring: bool=False, legacy: bool=False) -> None:
+        '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
+
+        return ec.delete_label(label, legacy=legacy, keyring=keyring)
+
+    def show_transactions(self, address: str=Settings.key.address, sent: bool=False, received: bool=False, advanced: bool=False):
         '''returns all transactions from or to that address in the wallet.'''
 
-        for txdict in ke.get_address_transactions(address=address, label=label, send=send, receive=receive, advanced=advanced):
+        for txdict in ec.get_address_transactions(address, sent=sent, received=received, advanced=advanced):
             pprint(txdict)
 
 

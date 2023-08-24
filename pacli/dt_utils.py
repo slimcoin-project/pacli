@@ -15,7 +15,6 @@ from prettyprinter import cpprint as pprint
 import pypeerassets as pa
 import pypeerassets.at.dt_periods as dp
 import pacli.dt_interface as di
-import pacli.keystore_extended as ke
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
