@@ -50,14 +50,14 @@ class ATToken(Token):
             print(txes)
 
     @classmethod
-    def claim_reward(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
-                    locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
-                    confirm: bool=True, silent: bool=False, force: bool=False,
-                    verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
+    def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
+              locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
+              confirm: bool=True, silent: bool=False, force: bool=False,
+              verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
         '''Claims tokens for a transaction to a tracked address.
         The --payamount and --payto options enable a single payment
         to another address in the same transaction.'''
-        # NOTE: amount is always a list! It is for cases where the claimant wants to send tokens to different addresses.
+        # NOTE: amounts is always a list! It is for cases where the claimant wants to send tokens to different addresses.
 
         if payamount:
             if payto:

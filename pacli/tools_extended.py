@@ -42,7 +42,7 @@ class Tools:
         """Shows stored address given its label."""
         return ec.get_address(label)
 
-    def show_address_label(self, address: str) -> str:
+    def show_address_label(self, address: str=Settings.key.address) -> str:
         """Shows label(s) of a stored address (can have multiple values)."""
         return ce.search_value("address", address)[0]
 
@@ -67,15 +67,10 @@ class Tools:
             else:
                 print(label.ljust(16), networkname.ljust(6), balance.ljust(16), addr)
 
-    def delete_address(self, label: str, network: str=Settings.network, now: bool=False) -> None:
+    def delete_address_label(self, label: str, network: str=Settings.network, now: bool=False) -> None:
         """Deletes stored address (add --now to delete really)."""
         fulllabel = network + "_" + label
         self.delete_item("address", fulllabel, now=now)
-
-    def get_legacy_address_labels(self, prefix: str=provider.network) -> None:
-        """For debugging only."""
-        # TODO: probably obsolete, see other commands.
-        print(ec.get_all_labels(prefix))
 
     # Checkpoints and reorg tests
 
@@ -186,6 +181,40 @@ class Tools:
     def show_config(self) -> list:
         """Shows current contents of the extended configuration file."""
         return ce.get_config()
+
+    def show_label(self, category: str, value: str, silent: bool=False):
+        """Shows a label for a value."""
+        result = ei.run_command(ce.search_value, category, str(value))
+        if not result and not silent:
+            print("No label was found.")
+        elif silent:
+            return result
+        else:
+            print("Label(s) stored for value {}:".format(value))
+            pprint(result)
+
+
+    def find_label(self, category: str, content: str, silent: bool=False):
+        """Searches for labels if only a part of the value (content) is known."""
+        result = ei.run_command(ce.search_value_content, category, str(content))
+        if not result and not silent:
+            print("No label was found.")
+        elif silent:
+            return result
+        else:
+            print("Entries found with content {}:".format(content))
+            pprint(result)
+
+    # Other
+
+    def get_tx_structure(self, txid: str, silent: bool=False):
+        """Shows senders (looking at txids in inputs) and receivers of a tx."""
+        structure = eu.get_tx_structure(txid)
+
+        if not silent:
+            pprint(structure)
+        else:
+            return structure
 
     # Helper commands
     def __store(self, category: str, label: str, value: str, modify: bool=False, silent: bool=False):

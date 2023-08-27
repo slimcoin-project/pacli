@@ -443,3 +443,32 @@ def get_wallet_token_balances(deck: object, addrdict: dict, use_addresses: bool=
                     balances.update({label : exponent_to_amount(state.balances[i], deck.number_of_decimals)})
     return balances
 
+
+def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=None):
+    """Helper function showing values which are not part of the transaction,
+       like sender(s) and block height."""
+    tx = provider.getrawtransaction(txid, 1)
+    senders = find_tx_senders(tx)
+    outputs = []
+    if "blockhash" in tx:
+        height = provider.getblock(tx["blockhash"])["height"]
+    elif human_readable:
+        height = "unconfirmed"
+    else:
+        height = None
+    value, receivers = None, None
+    for output in tx["vout"]:
+        try:
+            value = output["value"]
+            receivers = output["scriptPubKey"]["addresses"]
+        except KeyError:
+            pass
+        outputs.append({"receivers" : receivers, "value" : value})
+    if tracked_address:
+        outputs_to_tracked = [o for o in outputs if (o.get("receivers") is not None and tracked_address in o["receivers"])]
+        return {"sender" : senders[0], "outputs" : outputs, "height" : height}
+    else:
+        return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
+
+
+

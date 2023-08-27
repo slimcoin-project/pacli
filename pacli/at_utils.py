@@ -57,13 +57,23 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     raw_txes = eu.get_wallet_transactions()
 
+    if debug:
+        print(len(raw_txes), "wallet transactions found.")
+
     valid_txes = []
+    processed_txids = []
     for tx in raw_txes:
         try:
-            assert tx["category"] == "send"
+            processed_txids.append(tx["txid"])
+            assert tx["category"] not in ("generate", "receive", "orphan")
             assert tx["address"] == tracked_address
+        except (AssertionError, KeyError):
+            #if debug:
+            #    print("No valid donation/burn tx: id: {} category {}, destination address {}".format(tx["txid"], tx["category"], tx.get("address")))
+            continue
+        try:
             if deck is not None:
-                full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=sender)
+                full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=sender, debug=debug)
                 assert full_tx is not None
             else:
                 full_tx = provider.getrawtransaction(tx["txid"], 1)
@@ -72,13 +82,14 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
             valid_txes.append(full_tx)
 
         except AssertionError:
+            if debug:
+                print("Transaction did not pass checks:", tx["txid"])
             continue
 
-    txids = set([t["txid"] for t in valid_txes])
     tx_type_msg = "unclaimed" if unclaimed else "sent"
 
     if not silent:
-        print("{} {} transactions to address {} in this wallet.".format(len(txids), tx_type_msg, tracked_address))
+        print("{} {} transactions to {} in this wallet.".format(len(valid_txes), tx_type_msg, tracked_address))
     if sender is not None:
         print("Showing only transactions sent from the following address:", sender)
 
@@ -88,8 +99,15 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     for tx in valid_txes:
 
-        tx_sender = find_tx_sender(provider, tx)
+        # TODO most of this can be replaced with eu.get_tx_structure(tx) after debugging
         try:
+            tx_sender = find_tx_sender(provider, tx)
+        except KeyError:
+            if debug:
+                print("Transaction without known sender (probably coinbase tx)")
+            continue
+        try:
+
             if sender is not None:
                 assert sender == tx_sender
             height = provider.getblock(tx["blockhash"])["height"]
@@ -100,9 +118,14 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
         value, indexes = 0, []
         for index, output in enumerate(tx["vout"]):
-            if output["scriptPubKey"]["addresses"][0] == tracked_address:
-                value += Decimal(str(output["value"]))
-                indexes.append(index)
+            try:
+                if output["scriptPubKey"]["addresses"][0] == tracked_address:
+                    value += Decimal(str(output["value"]))
+                    indexes.append(index)
+            except KeyError:
+                continue
+        if value == 0:
+            continue
 
         tx_dict = {"txid" : tx["txid"], "value" : value, "outputs" : indexes, "height" : height}
         if not sender:
@@ -200,7 +223,7 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
 def check_donation_tx_validity(txid: str, tracked_address: str, startblock: int=None, endblock: int=None, expected_sender: str=None, debug: bool=False):
     # checks the validity of a donation/burn transaction
     try:
-        raw_tx = ap.check_donation(provider, txid, tracked_address, startblock=startblock, endblock=endblock)
+        raw_tx = ap.check_donation(provider, txid, tracked_address, startblock=startblock, endblock=endblock, debug=debug)
         if expected_sender:
             if not expected_sender == find_tx_sender(provider, raw_tx):
                 if debug:

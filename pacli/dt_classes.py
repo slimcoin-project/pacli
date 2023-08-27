@@ -69,6 +69,23 @@ class PoDToken(Token):
         '''shows donation states involving this address, for all proposals of a deck.'''
         return ei.run_command(dc.show_donations_by_address, deckid, address)
 
+    def claim(self, proposal: str, donor_address:str=None, payment: list=None, receiver: list=None, change: str=Settings.change, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=True, debug: bool=False) -> str:
+        '''Issue Proof-of-donation tokens after a successful donation.'''
+
+        change_address = ec.process_address(change)
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
+        if donor_address is None:
+            donor_address = Settings.key.address
+        else:
+            print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
+            sign, send = False, False
+
+        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=txhex)
+
+
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=confirm, silent=txhex, sign=sign, send=send)
+        return ei.output_tx(tx, txhex=txhex)
+
 class Proposal:
 
     def get_votes(self, proposal: str, debug: bool=False) -> None:
@@ -455,22 +472,7 @@ class Donation:
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
 
-    def claim_reward(self, proposal: str, donor_address:str=None, payment: list=None, receiver: list=None, change: str=Settings.change, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=True, debug: bool=False) -> str:
-        '''Issue Proof-of-donation tokens after a successful donation.'''
 
-        change_address = ec.process_address(change)
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        if donor_address is None:
-            donor_address = Settings.key.address
-        else:
-            print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
-            sign, send = False, False
-
-        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=txhex)
-
-
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=confirm, silent=txhex, sign=sign, send=send)
-        return ei.output_tx(tx, txhex=txhex)
 
 
     def proceed(self, proposal: str=None, donation_state: str=None, amount: str=None, donor_label: str=None, send: bool=False):
@@ -523,7 +525,7 @@ class Donation:
             # (we don't need to check the locking tx because we checked the state already.)
             self.release(proposal_id, wait=True, sign=True, send=send)
         elif period in (("D", 50), ("E", 0)):
-            self.claim_reward(proposal_id)
+            PoDToken().claim_reward(proposal_id)
         else:
             print("""This command only works in a period corresponding to a step in the donation process,
                      or the periods inmediately before. Wait until the period for your step has been reached.""")

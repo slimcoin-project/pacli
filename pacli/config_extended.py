@@ -125,12 +125,23 @@ def delete_item(category: str, key: str, now: bool=False, configfilename: str=EX
         print("New config file content:", config)
 
 def search_value(category: str, value: str, configfilename: str=EXT_CONFIGFILE):
-    config = get_config(configfilename)
-    return [ key for key in config[category] if config[category][key] == value ]
+    try:
+        config = get_config(configfilename)
+        return [ key for key in config[category] if config[category][key] == value ]
+    except KeyError:
+        raise PacliInputDataError("Category does not exist.")
 
 def search_value_content(category: str, searchstring: str, configfilename: str=EXT_CONFIGFILE):
-    config = get_config(configfilename)
-    return [ key for key in config[category] if searchstring in config[category][key] ]
+    try:
+        config = get_config(configfilename)
+        result = []
+        for (key, value) in config[category].items():
+            if searchstring in value:
+                result.append({key : value})
+        return result
+        # key = [ key for key in config[category] if searchstring in config[category][key] ]
+    except KeyError:
+        raise PacliInputDataError("Category does not exist.")
 
 def process_fulllabel(fulllabel):
     # uses the network_label format.
