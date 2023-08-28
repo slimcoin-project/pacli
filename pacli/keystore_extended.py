@@ -89,7 +89,7 @@ def set_key(full_label: str, key: str) -> None:
     keyring.set_password("pacli", full_label, key)
 
 def get_labels_from_keyring(prefix: str=Settings.network):
-    # returns all labels corresponding to a network shortname (the prefix)
+    # returns all (full) labels corresponding to a network shortname (the prefix)
     # does currently NOT support Windows Credential Locker nor KDE.
     # Should work with Gnome Keyring, KeepassXC, and KSecretsService.
 
@@ -116,13 +116,13 @@ def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool
 
     label = str(label)
     if legacy:
-       fulllabel = "key_bak_" + label
+       full_label = "key_bak_" + label
     elif noprefix:
-       fulllabel = label
+       full_label = label
     else:
-       fulllabel = "key_" + network_name + "_" + label
+       full_label = "key_" + network_name + "_" + label
     try:
-        raw_key = bytearray.fromhex(get_key(fulllabel))
+        raw_key = bytearray.fromhex(get_key(full_label))
     except TypeError:
         if raise_if_invalid_label:
             raise
@@ -142,13 +142,13 @@ def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool
         return key.address
 
 def show_label(address: str, set_main: bool=False) -> dict:
-    # Needs secretstorage or extended config.
+    # Function is now reserved for usage with keyring.
 
     labels = get_labels_from_keyring(Settings.network)
-    for fulllabel in labels:
-        legacy = is_legacy_label(fulllabel)
+    for full_label in labels:
+        legacy = is_legacy_label(full_label)
         try:
-            label = format_label(fulllabel)
+            label = format_label(full_label, keyring=True)
         except IndexError:
             continue
         if address == show_stored_key(label, Settings.network, legacy=legacy):
@@ -159,17 +159,21 @@ def show_label(address: str, set_main: bool=False) -> dict:
 
     return label
 
-def format_label(fulllabel: str):
+def format_label(full_label: str, keyring: bool=False):
 
-    prefix = "_".join(fulllabel.split("_")[:2]) + "_"
-    label = fulllabel.replace(prefix, "")
+    if keyring:
+        prefix = "_".join(full_label.split("_")[:2]) + "_"
+    else:
+        prefix = full_label.split("_")[0] + "_"
+
+    label = full_label.replace(prefix, "")
     return label
 
-def is_legacy_label(fulllabel: str):
+def is_legacy_label(full_label: str):
     # The label format was originally less standardized
     # without this test, errors will be raised due to that.
 
-    label_elements = fulllabel.split("_")
+    label_elements = full_label.split("_")
     network_names = [ n.shortname for n in supported_networks ]
 
     # current labels have at least 3 elements, network is the second one,
@@ -189,8 +193,8 @@ def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, le
         new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key))
 
     set_new_key(new_key=key, backup_id=backup, label=label, network_name=Settings.network, legacy=legacy)
-    fulllabel = get_key_prefix(Settings.network, legacy) + label
-    key = get_key(fulllabel)
+    full_label = get_key_prefix(Settings.network, legacy) + label
+    key = get_key(full_label)
 
     if not label:
         if new_key is None:
@@ -208,15 +212,15 @@ def fresh_address(label: str, backup: str=None, set_main: bool=False, legacy: bo
     privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
     privkey = privk_kutil.privkey
 
-    fulllabel = get_key_prefix(Settings.network, legacy=legacy) + label
+    full_label = get_key_prefix(Settings.network, legacy=legacy) + label
 
     try:
-        if fulllabel in get_labels_from_keyring(): # get_all_labels(Settings.network):
+        if full_label in get_labels_from_keyring(): # get_all_labels(Settings.network):
             return "ERROR: Label already used. Please choose another one."
     except ImportError:
         print("NOTE: If you do not use SecretStorage, which is likely if you use Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
 
-    set_key(fulllabel, privkey)
+    set_key(full_label, privkey)
 
     return privk_kutil.address
 

@@ -1,0 +1,19 @@
+#!/bin/bash -i
+
+echo " Welcome to the PACLI shell! "
+
+while read -e -p 'pacli > ' line
+
+do
+
+if [[ $line == "exit" ]]; then exit 1; fi
+
+#MODIFY THE PATH TO YOUR PACLI COMMAND TO WHERE IS IT STORED ON YOUR COMPUTER:
+
+path_to_pacli="~/.local/bin/./pacli"
+
+line=$path_to_pacli" "$line
+
+eval "$line"
+
+done

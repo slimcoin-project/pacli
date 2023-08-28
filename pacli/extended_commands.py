@@ -106,22 +106,23 @@ def set_label(label: str, address: str, network_name: str=Settings.network, set_
     if set_main:
         return set_main_key(str(label), keyring=keyring)
 
-def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False):
+def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False, replace: bool=False):
     keyring_prefix = "key_"
     # ext_label is the extended config label, full_label includes the 'key_' prefix used in the keyring.
-    # full_label is only necessary if no address is given.
+    # full option means that full keyring labels are processed.
+    # full_label is only necessary if the full option is True or no address is given.
 
-    if not full:
-        ext_label = network_name + "_" + label
-        full_label = keyring_prefix + ext_label
-    else:
+    if full:
         full_label = label
         ext_label = full_label[len(keyring_prefix):]
+    else:
+        ext_label = network_name + "_" + label
+        full_label = keyring_prefix + ext_label
 
     if not address:
         address = ke.label_to_kutil(full_label).address
 
-    ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name)
+    ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name, replace=replace)
 
 
 def get_address(label: str, network_name: str=Settings.network, noprefix: bool=False) -> str:

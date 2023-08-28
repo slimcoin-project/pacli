@@ -154,14 +154,14 @@ class Address:
 
         ec.set_label(label, address, set_main=set_main, keyring=keyring, modify=modify, network_name=network_name)
 
-    def show_all_labels(self, prefix: str=Settings.network, full_labels: bool=False, keyring: bool=False):
+    def show_all_labels(self, prefix: str=Settings.network, full: bool=False, keyring: bool=False):
         '''Shows all labels which were stored in the keyring. For debugging mainly.'''
 
         labels = ec.get_all_labels(keyring=keyring, prefix=prefix)
-        if full_labels:
+        if full:
             print(labels)
         else:
-            print([ke.format_label(l) for l in labels])
+            print([ke.format_label(l, keyring=keyring) for l in labels])
 
     def delete_label(self, label: str, keyring: bool=False, legacy: bool=False, now: bool=False) -> None:
         '''deletes a key with an user-defined label. Cannot be used to delete main key.'''

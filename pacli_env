@@ -1,0 +1,2 @@
+#!/bin/bash
+rlwrap -a -N -w 40 ./pre_pacli_env
