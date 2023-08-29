@@ -116,11 +116,11 @@ def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool
 
     label = str(label)
     if legacy:
-       full_label = "key_bak_" + label
+        full_label = "key_bak_" + label
     elif noprefix:
-       full_label = label
+        full_label = label
     else:
-       full_label = "key_" + network_name + "_" + label
+        full_label = "key_" + network_name + "_" + label
     try:
         raw_key = bytearray.fromhex(get_key(full_label))
     except TypeError:
@@ -166,7 +166,8 @@ def format_label(full_label: str, keyring: bool=False):
     else:
         prefix = full_label.split("_")[0] + "_"
 
-    label = full_label.replace(prefix, "")
+    # label = full_label.replace(prefix, "")
+    label = full_label[len(prefix):]
     return label
 
 def is_legacy_label(full_label: str):
@@ -240,6 +241,8 @@ def show_all_keys(debug: bool=False, legacy: bool=False):
             key = pa.Kutil(network=Settings.network, privkey=raw_key)
             addr = key.address
             balance = str(provider.getbalance(addr))
+            if balance != "0":
+                balance = balance.rstrip("0")
             print(addr.ljust(35), balance.ljust(15), label.ljust(15))
 
         except Exception as e:

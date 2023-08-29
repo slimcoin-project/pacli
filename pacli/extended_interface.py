@@ -1,5 +1,6 @@
 import itertools, sys
 from time import sleep
+import pacli.tui as tui
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -109,6 +110,18 @@ def format_balances(balancedict, labeldict: dict, network_name: str=Settings.net
         else:
             balances.update({address : balance})
     return balances
+
+def address_line_item(address: dict):
+     return [address["label"],
+             address["address"],
+             address["network"],
+             address["balance"]]
+
+def print_address_list(addresses: list):
+      tui.print_table(
+      title="Addresses with labels in wallet:",
+      heading=("Label", "address", "network", "coin balance"),
+      data=map(address_line_item, addresses))
 
 # Exceptions
 

@@ -1,5 +1,6 @@
 # Tools class, for new pacli commands not directly related to a token type.
 
+from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.config_extended as ce
@@ -44,26 +45,33 @@ class Tools:
         """Shows label(s) of a stored address (can have multiple values)."""
         return ce.search_value("address", address)[0]
 
-    def show_stored_addresses(self, network: str=None, debug: bool=False) -> None:
+    def show_stored_addresses(self, network_name: str=None, debug: bool=False) -> None:
         """Show addresses and labels which were stored in the json config file.
         By default, all entries of the current network (blockchain) are shown."""
 
-        addresses = ce.get_config()["address"]
-        for fulllabel in addresses:
-            addr = addresses[fulllabel]
-            lparams = ce.process_fulllabel(fulllabel)
-            networkname, label = lparams[0], lparams[1] # lparams["label"], lparams["network"]
+        address_labels = ce.get_config()["address"]
+        addresses = []
+
+        for full_label, address in address_labels.items():
+            network, label = ce.process_fulllabel(full_label)
+
             try:
-                balance = str(provider.getbalance(addr))
+                balance = str(provider.getbalance(address))
             except TypeError:
                 balance = "0"
                 if debug:
                     print("No valid balance for address with label {}. Probably not a valid address.".format(label))
 
-            if network and (networkname == network):
-                print(label.ljust(16), balance.ljust(16), addr)
-            else:
-                print(label.ljust(16), networkname.ljust(6), balance.ljust(16), addr)
+            if balance != "0":
+                balance = balance.rstrip("0")
+
+            if (network_name is None) or (network == network_name):
+                addresses.append({"label": label,
+                                  "address" : address,
+                                  "network" : network,
+                                  "balance" : balance})
+        ei.print_address_list(addresses)
+
 
     def delete_address_label(self, label: str, network: str=Settings.network, now: bool=False) -> None:
         """Deletes stored address (add --now to delete really)."""
