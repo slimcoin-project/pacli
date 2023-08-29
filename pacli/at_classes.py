@@ -17,7 +17,7 @@ from pacli.token_extended import Token
 class ATToken(Token):
 
 
-    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
+    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=False, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.'''
 
         change_address = ec.process_address(change)
@@ -52,7 +52,7 @@ class ATToken(Token):
     @classmethod
     def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
               locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
-              confirm: bool=True, silent: bool=False, force: bool=False,
+              confirm: bool=False, silent: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
         '''Claims tokens for a transaction to a tracked address.
         The --payamount and --payto options enable a single payment
@@ -88,7 +88,7 @@ class ATToken(Token):
     @classmethod
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, change: str=Settings.change, version=1, locktime: int=0, verify: bool=False,
-              confirm: bool=True, sign: bool=False, send: bool=False) -> None:
+              confirm: bool=False, sign: bool=False, send: bool=False) -> None:
         '''Spawns a new AT deck.'''
 
         change_address = ec.process_address(change)
@@ -134,7 +134,7 @@ class PoBToken(ATToken):
 
     def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
-              confirm: bool=True, send: bool=True, locktime: int=0, version=1):
+              confirm: bool=False, send: bool=True, locktime: int=0, version=1):
         """Spawn a new PoB token, uses automatically the burn address of the network."""
 
         tracked_address = au.burn_address()
@@ -142,7 +142,7 @@ class PoBToken(ATToken):
 
         return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=startblock, endblock=endblock, version=version, locktime=locktime, confirm=confirm, verify=verify, sign=sign, send=send)
 
-    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, confirm: bool=True, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, confirm: bool=False, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address."""
 
         return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, silent=silent, debug=debug)

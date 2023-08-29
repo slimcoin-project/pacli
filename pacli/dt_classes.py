@@ -69,7 +69,7 @@ class PoDToken(Token):
         '''shows donation states involving this address, for all proposals of a deck.'''
         return ei.run_command(dc.show_donations_by_address, deckid, address)
 
-    def claim(self, proposal: str, donor_address:str=None, payment: list=None, receiver: list=None, change: str=Settings.change, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=True, debug: bool=False) -> str:
+    def claim(self, proposal: str, donor_address:str=None, payment: list=None, receiver: list=None, change: str=Settings.change, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=False, debug: bool=False) -> str:
         '''Issue Proof-of-donation tokens after a successful donation.'''
 
         change_address = ec.process_address(change)
@@ -421,7 +421,7 @@ class Proposal:
 
     # Tracked Transactions in Proposal class
 
-    def create(self, deck: str, req_amount: str, periods: int, description: str="", change: str=Settings.change, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False) -> None:
+    def create(self, deck: str, req_amount: str, periods: int, description: str="", change: str=Settings.change, tx_fee: str="0.01", confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False) -> None:
         '''Creates a new proposal.'''
 
         kwargs = locals()
@@ -429,7 +429,7 @@ class Proposal:
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
 
-    def modify(self, proposal: str, req_amount: str, periods: int, round_length: int=0, change: str=Settings.change, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False) -> None:
+    def modify(self, proposal: str, req_amount: str, periods: int, round_length: int=0, change: str=Settings.change, tx_fee: str="0.01", confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False) -> None:
         '''Modify an existing proposal.'''
 
         kwargs = locals()
@@ -437,7 +437,7 @@ class Proposal:
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
 
-    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=True, txhex: bool=False, security: int=1, debug: bool=False) -> None:
+    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=False, txhex: bool=False, security: int=1, debug: bool=False) -> None:
         '''Vote (with "yes" or "no") for a proposal'''
 
         kwargs = locals()
@@ -449,7 +449,7 @@ class Donation:
 
     # Tracked Transactions in Donation class
 
-    def signal(self, proposal: str, amount: str, dest_label: str=None, dest_address: str=None, change: str=Settings.change, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=True, debug: bool=False, txhex: bool=False, security: int=1, force: bool=False) -> None:
+    def signal(self, proposal: str, amount: str, dest_label: str=None, dest_address: str=None, change: str=Settings.change, tx_fee: str="0.01", confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=True, debug: bool=False, txhex: bool=False, security: int=1, force: bool=False) -> None:
         '''Creates a compliant signalling transaction for a proposal. The destination address becomes the donor address of the Donation State. It can be added as an address or as a label.'''
 
         kwargs = locals()
@@ -457,7 +457,7 @@ class Donation:
         return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
 
 
-    def lock(self, proposal: str, amount: str=None, change: str=Settings.change, dest_address: str=Settings.key.address, tx_fee: str="0.01", confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, force: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
+    def lock(self, proposal: str, amount: str=None, change: str=Settings.change, dest_address: str=Settings.key.address, tx_fee: str="0.01", confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, timelock: int=None, reserve: str=None, reserve_address: str=None, dest_label: str=None, reserve_label: str=None, force: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
         '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.'''
 
         kwargs = locals()
@@ -465,7 +465,7 @@ class Donation:
         return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
 
 
-    def release(self, proposal: str, amount: str=None, change: str=Settings.change, reserve_address: str=None, reserve_label: str=None, tx_fee: str="0.01", check_round: int=None, wait: bool=False, new_inputs: bool=False, force: bool=False, confirm: bool=True, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
+    def release(self, proposal: str, amount: str=None, change: str=Settings.change, reserve_address: str=None, reserve_label: str=None, tx_fee: str="0.01", check_round: int=None, wait: bool=False, new_inputs: bool=False, force: bool=False, confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
         '''Releases a donation and transfers the coins to the Proposer. This command can be used both in the release phase and in the donation rounds of the second distribution phase.'''
 
         kwargs = locals()

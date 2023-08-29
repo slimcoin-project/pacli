@@ -27,7 +27,7 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=True, sign: bool=False, send: bool=False, txhex: bool=False, silent: bool=False):
+def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=False, send: bool=False, txhex: bool=False, silent: bool=False):
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
     silent = True if True in (silent, txhex) else False
@@ -134,7 +134,7 @@ def build_input(input_txid: str, input_vout: int):
     return MutableTxIn(txid=input_txid, txout=input_vout, script_sig=ScriptSig.empty(), sequence=Sequence.max())
 
 
-def finalize_coin2card_exchange(txstr: str, confirm: bool=True, send: bool=False, txhex: bool=False):
+def finalize_coin2card_exchange(txstr: str, confirm: bool=False, send: bool=False, txhex: bool=False):
     silent = True if True in (silent, txhex) else False
     # this is signed by the coin vendor. Basically they add their input and solve it.
     network_params = net_query(provider.network)

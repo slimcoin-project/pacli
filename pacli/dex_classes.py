@@ -9,7 +9,7 @@ from pacli.config import Settings
 class Dex:
 
     @classmethod
-    def create_offer(self, deck: str, amount: int, lock: int, lockaddr: str, receiver: str=None, addrtype: str="p2pkh", absolute: bool=False, change: str=Settings.change, confirm: bool=True, sign: bool=False, send: bool=False, silent: bool=False, txhex: bool=False):
+    def create_offer(self, deck: str, amount: int, lock: int, lockaddr: str, receiver: str=None, addrtype: str="p2pkh", absolute: bool=False, change: str=Settings.change, confirm: bool=False, sign: bool=False, send: bool=False, silent: bool=False, txhex: bool=False):
         """Locks the card on the receiving address. Card default receiver is the sender (the current main address)."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
@@ -28,7 +28,7 @@ class Dex:
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save=save)
 
     @classmethod
-    def finalize_exchange(self, txstr: str, send: bool=True, confirm: bool=True):
+    def finalize_exchange(self, txstr: str, send: bool=True, confirm: bool=False):
         """Signs and broadcasts an exchange transaction."""
         return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, confirm=confirm)
 

@@ -59,7 +59,7 @@ def create_trackedtransaction(tx_type,
                               sign: bool=False,
                               send: bool=False,
                               wait: bool=False,
-                              confirm: bool=True,
+                              confirm: bool=False,
                               txhex: bool=False,
                               debug: bool=False) -> object:
     '''Generic tracked transaction creation.'''
