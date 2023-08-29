@@ -1,6 +1,7 @@
 import itertools, sys
 from time import sleep
 from pacli.provider import provider
+from pacli.config import Settings
 
 def output_tx(txdict: dict, txhex: bool=False) -> object:
 
@@ -86,6 +87,28 @@ def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
         except KeyboardInterrupt:
             print("\nConfirmation check aborted. Check confirmation manually.")
             return
+
+
+def format_balances(balancedict, labeldict: dict, network_name: str=Settings.network, suppress_addresses: bool=False):
+    # balancedict contains: { address : balance, ... }
+    balances = {}
+    for address, balance in balancedict.items():
+        for full_label, labeled_addr in labeldict.items():
+
+            if labeled_addr == address:
+                prefix = network_name + "_"
+                # workaround until keystore_extended is finally removed
+                # remove key_, but only if it's at the start.
+                if full_label[:4] == "key_":
+                    full_label = full_label[4:]
+                label = full_label.replace(prefix, "")
+                if not suppress_addresses:
+                    label = "{} ({})".format(label, address)
+                balances.update({label : balance})
+                break
+        else:
+            balances.update({address : balance})
+    return balances
 
 # Exceptions
 

@@ -105,23 +105,23 @@ class Token:
 
     # more general Token commands
 
-    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, silent: bool=False, keyring: bool=False, no_labels: bool=False, debug: bool=False):
+    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, silent: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, debug: bool=False):
         """Shows all token/card balances on this address.
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
-        # TODO: recheck the replacement of extconf/keyring.
 
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
         balances = {}
 
-        if (not keyring) and (not no_labels):
+        if (not no_labels) and (not silent):
             deck_labels = ce.get_config()["deck"]
         else:
             deck_labels = None
 
         if wallet:
-            addrdict = ec.get_addresses_and_labels(keyring=keyring)
+            if not no_labels:
+                labeldict = ec.get_labels_and_addresses(keyring=keyring)
 
         for deck in decks:
             if debug:
@@ -129,7 +129,9 @@ class Token:
             try:
                 if wallet:
                     # Note: returns a dict, structure of balances var is thus different.
-                    balance = eu.get_wallet_token_balances(deck, addrdict, use_addresses=no_labels)
+                    balance = eu.get_wallet_token_balances(deck)
+                    if (not no_labels) and (not silent):
+                        balance = ei.format_balances(balance, labeldict, suppress_addresses=only_labels)
                 else:
                     balance = eu.get_address_token_balance(deck, address)
             except KeyError:
@@ -140,12 +142,15 @@ class Token:
                 # support for deck labels
                 if (deck_labels) and (deck.id in deck_labels.values()):
                     deck_label = [l for l in deck_labels if deck_labels[l] == deck.id][0]
-                    balances.update({deck_label : balance})
+                    if only_labels:
+                        balances.update({deck_label : balance})
+                    else:
+                        balances.update({"{} ({})".format(deck_label, deck.id) : balance})
                 else:
                     balances.update({deck.id : balance})
 
         if silent:
-            return balances
+            print(balances)
         else:
             pprint(balances)
 
@@ -154,16 +159,22 @@ class Token:
         """Shows the balance of a single token (deck) on the current main address or another address.
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
+        # TODO: also affected by wallet issue.
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
         if wallet:
-            addrdict = ec.get_addresses_and_labels(keyring=keyring)
-            balances = eu.get_wallet_token_balances(deck, addrdict, use_addresses=no_labels)
+            wallet_addresses = list(eu.get_wallet_address_set())
+            # addrdict = { address : label for label, address in ec.get_labels_and_addresses(keyring=keyring).items() }
+            labeldict = ec.get_labels_and_addresses(keyring=keyring)
+            balances = eu.get_wallet_token_balances(deck)
+
+            if (not no_labels) and (not silent):
+                balances = ei.format_balances(balances, labeldict)
 
             if silent:
-                return balances
+                print(balances)
             else:
                 pprint(balances)
                 return
@@ -171,6 +182,6 @@ class Token:
             balance = eu.get_address_token_balance(deck, address)
 
             if silent:
-                return balance
+                print({address : balance})
             else:
                 pprint({address : balance})

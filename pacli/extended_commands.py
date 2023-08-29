@@ -168,15 +168,17 @@ def show_addresses(addrlist: list, label_list: list, network: str=Settings.netwo
         result.append(adr)
     return result
 
-def get_addresses_and_labels(prefix: str=Settings.network, keyring: bool=False) -> dict:
+def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False) -> dict:
+
     if not keyring:
         return ce.get_config()["address"]
 
-    labels = ke.get_labels_from_keyring(prefix)
     result = {}
-    for label in labels:
-        address = show_stored_address(label=label, noprefix=True)
-        result.update({label: address})
+
+    for label in  ke.get_labels_from_keyring(prefix):
+        address = show_stored_address(label=label, noprefix=True, keyring=True)
+        result.update({label : address})
+
     return result
 
 

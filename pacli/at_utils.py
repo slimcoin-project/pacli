@@ -95,7 +95,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     txes_to_address = []
     if not sender:
-        labels = [] if no_labels else ec.get_addresses_and_labels(keyring=keyring)
+        labels = {} if no_labels else ec.get_labels_and_addresses(keyring=keyring)
 
     for tx in valid_txes:
 

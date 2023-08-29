@@ -421,32 +421,23 @@ def get_address_token_balance(deck: object, address: str) -> Decimal:
     else:
         return 0
 
-def get_wallet_token_balances(deck: object, addrdict: dict, use_addresses: bool=True) -> dict:
+def get_wallet_token_balances(deck: object) -> dict:
 
     cards = pa.find_all_valid_cards(provider, deck)
     state = pa.protocol.DeckState(cards)
-
+    addresses = list(get_wallet_address_set())
     balances = {}
-    for i in state.balances:
-        for full_label in addrdict:
-            address = addrdict[full_label]
-            if i == address:
-                if use_addresses:
-                    balances.update({address : exponent_to_amount(state.balances[i], deck.number_of_decimals)})
-                else:
-                    prefix = Settings.network + "_"
-                    # workaround until keystore_extended is finally removed
-                    # remove key_, but only if it's at the start.
-                    if full_label[:4] == "key_":
-                        full_label = full_label[4:]
-                    label = full_label.replace(prefix, "")
-                    balances.update({label : exponent_to_amount(state.balances[i], deck.number_of_decimals)})
+    for address in state.balances:
+
+        if address in addresses:
+            balances.update({address : exponent_to_amount(state.balances[address], deck.number_of_decimals)})
+
     return balances
 
-
-def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=None):
-    """Helper function showing values which are not part of the transaction,
+def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=None) -> dict:
+    """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""
+
     tx = provider.getrawtransaction(txid, 1)
     senders = find_tx_senders(tx)
     outputs = []
@@ -470,5 +461,7 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
     else:
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
-
+def get_wallet_address_set() -> set:
+    addr_entries = provider.listreceivedbyaddress(0, True)
+    return set([e["address"] for e in addr_entries])
 
