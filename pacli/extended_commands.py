@@ -175,7 +175,9 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False) 
 
     result = {}
 
-    for label in  ke.get_labels_from_keyring(prefix):
+    keyring_labels = ke.get_labels_from_keyring(prefix)
+
+    for label in keyring_labels:
         address = show_stored_address(label=label, noprefix=True, keyring=True)
         result.update({label : address})
 

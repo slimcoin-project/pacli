@@ -68,7 +68,8 @@ def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
 
     if not silent:
         print("Transaction created and broadcasted. Confirmation can take several minutes.")
-        print("Waiting for first confirmation (abort waiting with CTRL-C) ...", end='')
+        print("Waiting for first confirmation (abort waiting with KeyboardInterrupt, e.g. CTRL-C) ...", end='')
+        print("(Note: Transactions should have several dozens of confirmations to be considered final.)")
     confirmations = 0
     while confirmations == 0:
         try:

@@ -12,8 +12,7 @@ import pacli.config_extended as ce
 
 class Token:
 
-    # wrappers around Card commands, with usability fixes.
-    # TODO: support address labels once the transition from keystore_extended to Tools is complete
+    # wrappers around Card commands, with usability fixes
 
     def balances(self, deck: str, silent: bool=False):
         """List all balances of a deck (with support for deck labels).
@@ -170,8 +169,10 @@ class Token:
             labeldict = ec.get_labels_and_addresses(keyring=keyring)
             balances = eu.get_wallet_token_balances(deck)
 
+
             if (not no_labels) and (not silent):
                 balances = ei.format_balances(balances, labeldict)
+
 
             if silent:
                 print(balances)
