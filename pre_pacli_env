@@ -1,5 +1,6 @@
 #!/bin/bash -i
-. pacli_config
+
+. pacli_env_config
 
 #silently starting slimcoind
 eval "$slm &>/dev/null" 
