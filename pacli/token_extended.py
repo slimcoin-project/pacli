@@ -111,6 +111,7 @@ class Token:
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
 
+
         # TODO deck_type is not userfriendly, perhaps increase friendlyness to allow calling that on CLI
         # with a human_readable type.
         if not advanced:
@@ -133,15 +134,20 @@ class Token:
         else:
             # coin balance
             coin_balances = {}
-            labeled_addresses = labeldict.values()
+            if wallet:
+                labeled_addresses = labeldict.values()
+            else:
+                labeled_addresses = [address]
+
 
             for addr in labeled_addresses:
-                balance = str(provider.getbalance(addr))
-                if balance != "0":
-                    balance = balance.rstrip("0")
+                balance = float(str(provider.getbalance(addr)))
                 coin_balances.update({addr: balance})
 
-            balances = { Settings.network : coin_balances }
+            if advanced and (not no_labels):
+                coin_balance = ei.format_balances(coin_balances, labeldict, suppress_addresses=only_labels)
+
+            balances = { Settings.network : coin_balance }
 
         # NOTE: default view needs no deck labels
         if (advanced and not no_labels) and (not silent):

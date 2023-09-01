@@ -91,7 +91,7 @@ def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
             return
 
 
-def format_balances(balancedict, labeldict: dict, network_name: str=Settings.network, suppress_addresses: bool=False):
+def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settings.network, suppress_addresses: bool=False):
     # balancedict contains: { address : balance, ... }
     balances = {}
     for address, balance in balancedict.items():
