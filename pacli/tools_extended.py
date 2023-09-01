@@ -182,7 +182,7 @@ class Tools:
         """Deletes an item from the extended config file.
            Specify category and label.
            Use --now to delete really."""
-        return ei.run_command(ce.delete_item, category, label, now)
+        return ei.run_command(ce.delete_item, category, label, now=now)
 
     def show_config(self) -> list:
         """Shows current contents of the extended configuration file."""

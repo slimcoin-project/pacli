@@ -1,7 +1,7 @@
 import json, os
 import pacli.extended_interface as ei
 from prettyprinter import cpprint as pprint
-from pacli.config import conf_dir
+from pacli.config import conf_dir, Settings
 
 # This stores some settings in an additional config file, for example short keys for addresses, proposals, decks etc.
 # An alternative for the future could be to use sqlite3 eventually.
@@ -104,12 +104,13 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
     return config[category].get(str(key))
 
-def delete_item(category: str, key: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, debug: bool=False, silent: bool=False):
+def delete_item(category: str, label: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, network_name: str=Settings.network, debug: bool=False, silent: bool=False):
     config = get_config(configfilename)
 
+    key = network_name + "_" + label if category == "address" else label
     try:
         if not silent:
-            print("WARNING: deleting item from category {}, key: {}, value: {}".format(category, key, config[category][key]))
+            print("WARNING: deleting item from category {}, label: {}, complete key: {}, value: {}".format(category, label, key, config[category][key]))
 
         del config[category][key]
     except KeyError:
