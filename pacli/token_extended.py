@@ -145,9 +145,9 @@ class Token:
                 coin_balances.update({addr: balance})
 
             if advanced and (not no_labels):
-                coin_balance = ei.format_balances(coin_balances, labeldict, suppress_addresses=only_labels)
+                coin_balances = ei.format_balances(coin_balances, labeldict, suppress_addresses=only_labels)
 
-            balances = { Settings.network : coin_balance }
+            balances = { Settings.network : coin_balances }
 
         # NOTE: default view needs no deck labels
         if (advanced and not no_labels) and (not silent):

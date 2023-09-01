@@ -114,20 +114,30 @@ class ATToken(Token):
     def show_claims(self, deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
         '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
 
+        params_names = {"txid" : "TX ID", "amount": "Amount", "blocknum" : "Block height"}
+
+        if type(self).__name__ == "PoBToken":
+            params_names.update({"donation_txid" : "Burn transaction"})
+        else:
+            params_names.update({"donation_txid" : "Referenced transaction"})
+
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         claims = ei.run_command(au.get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
+
         for claim in claims:
             if full:
                 pprint(claim.__dict__)
                 continue
             elif param:
-                params = [param] if type(param) == str else param # .split(",")
+                params = [param] if type(param) == str else param
             else:
                 params = ["txid", "donation_txid", "amount", "blocknum"]
 
-            pprint({p : claim.__dict__[p] for p in params})
-
+            try:
+                pprint({params_names[p] : claim.__dict__[p] for p in params})
+            except KeyError:
+                pprint({p : claim.__dict__[p] for p in params})
 
     def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, silent: bool=False, debug: bool=False):
         '''Shows all valid AT/PoB token balances. Faster than using tokens command.'''
