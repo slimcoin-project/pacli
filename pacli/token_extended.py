@@ -185,7 +185,7 @@ class Token:
 
         if silent:
             print(balances)
-        elif advanced:
+        elif advanced or (not wallet):
             pprint(balances)
         else:
             ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network)
