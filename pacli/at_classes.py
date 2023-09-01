@@ -114,34 +114,47 @@ class ATToken(Token):
     def show_claims(self, deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
         '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
 
-        params_names = {"txid" : "TX ID", "amount": "Amount", "blocknum" : "Block height"}
+        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
         if type(self).__name__ == "PoBToken":
-            params_names.update({"donation_txid" : "Burn transaction"})
+            param_names.update({"donation_txid" : "Burn transaction"})
         else:
-            params_names.update({"donation_txid" : "Referenced transaction"})
+            param_names.update({"donation_txid" : "Referenced transaction"})
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        claims = ei.run_command(au.get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
+        raw_claims = ei.run_command(au.get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
+        claim_txids = set([c.txid for c in raw_claims])
+        claims = []
+
+        for claim_txid in claim_txids:
+            bundle = [c for c in raw_claims if c.txid == claim_txid]
+            claim = bundle[0]
+            if len(bundle) > 1:
+                for b in bundle[1:]:
+                    claim.amount.append(b.amount[0])
+                    claim.receiver.append(b.receiver[0])
+            claims.append(claim)
 
         for claim in claims:
             if full:
                 pprint(claim.__dict__)
-                continue
+
             elif param:
-                params = [param] if type(param) == str else param
+                pprint({ claim.txid : claim.__dict__[param] })
             else:
-                params = ["txid", "donation_txid", "amount", "blocknum"]
 
-            try:
-                pprint({params_names[p] : claim.__dict__[p] for p in params})
-            except KeyError:
-                pprint({p : claim.__dict__[p] for p in params})
+                claim_dict = {param_names["txid"] : claim.txid,
+                              param_names["donation_txid"] : claim.donation_txid,
+                              param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
+                              param_names["receiver"] : claim.receiver,
+                              param_names["blocknum"] : claim.blocknum}
+                pprint(claim_dict)
 
-    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, silent: bool=False, debug: bool=False):
-        '''Shows all valid AT/PoB token balances. Faster than using tokens command.'''
-        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, only_labels=only_labels, silent=silent, debug=debug)
+    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, silent: bool=False, advanced: bool=False, debug: bool=False):
+        '''Shows all valid AT/PoB token balances, ignoring other deck types.'''
+
+        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, advanced=advanced, only_labels=only_labels, silent=silent, debug=debug)
 
 
 
