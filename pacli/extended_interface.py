@@ -68,7 +68,8 @@ def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
 
     if not silent:
         print("Transaction created and broadcasted. Confirmation can take several minutes.")
-        print("Waiting for first confirmation (abort waiting with CTRL-C) ...", end='')
+        print("Waiting for first confirmation (abort waiting with KeyboardInterrupt, e.g. CTRL-C) ...", end='')
+        print("(Note: Transactions should have several dozens of confirmations to be considered final.)")
     confirmations = 0
     while confirmations == 0:
         try:
@@ -111,6 +112,8 @@ def format_balances(balancedict, labeldict: dict, network_name: str=Settings.net
             balances.update({address : balance})
     return balances
 
+# Tables
+
 def address_line_item(address: dict):
      return [address["label"],
              address["address"],
@@ -122,6 +125,37 @@ def print_address_list(addresses: list):
       title="Addresses with labels in wallet:",
       heading=("Label", "address", "network", "coin balance"),
       data=map(address_line_item, addresses))
+
+def balances_line_item(address: dict):
+     return [address["label"],
+             address["address"],
+             address["coin"],
+             address["pob"],
+             address["pod"]]
+
+def print_default_balances_list(balances: dict, labeldict: dict, decks: list, network_name: str):
+      addr_balances = []
+      currencies = {"coin": network_name, "pob" : decks[0].id, "pod" : decks[1].id}
+      for full_label, address in labeldict.items():
+          balance = {}
+          label = "_".join(full_label.split("_")[1:])
+          balance.update({"label" : label })
+          balance.update({"address" : address})
+
+          for curr_header, curr_id in currencies.items():
+
+              if (curr_id in balances) and (address in balances[curr_id]):
+                  balance_value = balances[curr_id][address]
+              else:
+                  balance_value = 0
+              balance.update({curr_header : balance_value})
+
+          addr_balances.append(balance)
+
+      tui.print_table(
+      title="Balances of addresses with labels in wallet:",
+      heading=("Label", "Address", network_name, "PoB tokens", "dPoD tokens"),
+      data=map(balances_line_item, addr_balances))
 
 # Exceptions
 

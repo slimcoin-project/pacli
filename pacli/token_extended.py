@@ -1,4 +1,5 @@
 import pypeerassets as pa
+import pypeerassets.at.constants as c
 from prettyprinter import cpprint as pprint
 from decimal import Decimal
 from pacli.provider import provider
@@ -8,12 +9,12 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.config_extended as ce
+from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 
 class Token:
 
-    # wrappers around Card commands, with usability fixes.
-    # TODO: support address labels once the transition from keystore_extended to Tools is complete
+    # wrappers around Card commands, with usability fixes
 
     def balances(self, deck: str, silent: bool=False):
         """List all balances of a deck (with support for deck labels).
@@ -105,23 +106,48 @@ class Token:
 
     # more general Token commands
 
-    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, silent: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, debug: bool=False):
+    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, silent: bool=False, debug: bool=False):
         """Shows all token/card balances on this address.
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
 
-        decks = pa.find_all_valid_decks(provider, Settings.deck_version,
-                                        Settings.production)
-        balances = {}
+        # TODO deck_type is not userfriendly, perhaps increase friendlyness to allow calling that on CLI
+        # with a human_readable type.
+        if not advanced:
+            # the quick mode displays only default PoB and PoD decks
+            decks = [pa.find_deck(provider, "fb93cce7aceb9f7fda228bc0c0c2eca8c56c09c1d846a04bd6a59cae2a895974", Settings.deck_version, Settings.production),
+                     pa.find_deck(provider, "a2459e054ce0f600c90be458915af6bad36a6863a0ce0e33ab76086b514f765a", Settings.deck_version, Settings.production)]
 
-        if (not no_labels) and (not silent):
-            deck_labels = ce.get_config()["deck"]
+        elif deck_type is not None:
+            decks = list_decks_by_at_type(provider, deck_type)
         else:
-            deck_labels = None
+            decks = pa.find_all_valid_decks(provider, Settings.deck_version,
+                                            Settings.production)
 
         if wallet:
             if not no_labels:
                 labeldict = ec.get_labels_and_addresses(keyring=keyring)
+
+        if only_tokens:
+            balances = {}
+        else:
+            # coin balance
+            coin_balances = {}
+            labeled_addresses = labeldict.values()
+
+            for addr in labeled_addresses:
+                balance = str(provider.getbalance(addr))
+                if balance != "0":
+                    balance = balance.rstrip("0")
+                coin_balances.update({addr: balance})
+
+            balances = { Settings.network : coin_balances }
+
+        # NOTE: default view needs no deck labels
+        if (advanced and not no_labels) and (not silent):
+            deck_labels = ce.get_config()["deck"]
+        else:
+            deck_labels = None
 
         for deck in decks:
             if debug:
@@ -130,7 +156,8 @@ class Token:
                 if wallet:
                     # Note: returns a dict, structure of balances var is thus different.
                     balance = eu.get_wallet_token_balances(deck)
-                    if (not no_labels) and (not silent):
+
+                    if advanced and (not no_labels) and (not silent):
                         balance = ei.format_balances(balance, labeldict, suppress_addresses=only_labels)
                 else:
                     balance = eu.get_address_token_balance(deck, address)
@@ -138,6 +165,7 @@ class Token:
                 if debug:
                     print("Warning: Omitting not initialized deck:", deck.id)
                 continue
+
             if balance:
                 # support for deck labels
                 if (deck_labels) and (deck.id in deck_labels.values()):
@@ -151,8 +179,10 @@ class Token:
 
         if silent:
             print(balances)
-        else:
+        elif advanced:
             pprint(balances)
+        else:
+            ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network)
 
 
     def my_balance(self, deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, silent: bool=False):
@@ -170,8 +200,10 @@ class Token:
             labeldict = ec.get_labels_and_addresses(keyring=keyring)
             balances = eu.get_wallet_token_balances(deck)
 
+
             if (not no_labels) and (not silent):
                 balances = ei.format_balances(balances, labeldict)
+
 
             if silent:
                 print(balances)

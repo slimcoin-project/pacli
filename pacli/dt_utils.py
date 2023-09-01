@@ -56,8 +56,6 @@ def check_current_period(proposal_txid: str, deck: object, tx_type: int, dist_ro
             target_period = (period_phase, 10*(1 + rd) + offset)
     except ValueError as e:
         raise PacliInputDataError(e)
-        #print(e)
-        #return False
 
     if not silent:
         print("Target period: {}{}".format(target_period[0],str(target_period[1])))
@@ -262,22 +260,16 @@ def find_proposal_state_by_string(searchstring: str, advanced: bool=False, short
 ## Inputs, outputs and Transactions
 
 
-def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent=False) -> dict: #proposal_id=None, proposal_tx=None, previous_txid=None, dist_round=None, use_locking_slot=False,
-    # TODO: The previous_txid parameter seems to be unused, check if really needed, because it complicates the code.
+def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent=False) -> dict:
+    """Analyzes the donation state and provides the inputs for the transaction to create.
+       It provides also: slot, txid and vout of signalling or locking tx, value of input.
+       Only used if the transaction does not use --new_inputs."""
+       # Used only in dt_txtools.get_basic_tx_data
+
     # TODO: "txid" and "vout" could be changed better into "input_txid" and "input_vout", because later it is mixed with data of the actual tx (not only the input tx).
     # TODO: re-check what we really want to achieve with the "address" parameter. could it replaced by the donor address?
-    # MODIF: Donation state is now searched in main tx creation function, as it is needed for some other params.
 
-    # This function searches for the donation state and then provides the inputs for the transaction to create.
-    # provides the following data: slot, txid and vout of signalling or locking tx, value of input.
-    # starts the parser.
     inputdata = {}
-    # if not silent:
-    #     print("Searching for donation state for this transaction. Please wait.")
-    #dstates = dmu.get_donation_states(provider, proposal_tx=proposal_tx, tx_txid=previous_txid, donor_address=address, dist_round=dist_round, debug=debug)
-    #if not dstates:
-    #    raise PacliInputDataError("No donation states found.")
-    #dstate = select_donation_state(dstates, tx_type, debug=debug)
 
     if (tx_type == "donation") and (dstate.dist_round < 4):
 
@@ -295,13 +287,8 @@ def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent
             prev_tx = dstate.signalling_tx
 
     inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount})
-    # MODIF: slot dropped here, the slot we use is already added in get_basic_tx_data
-    # inputdata.update({ "txid" : prev_tx.txid, "vout" : 2, "value" : prev_tx.amount, "slot" : dstate.slot })
-    #if use_locking_slot and dstate.dist_round < 4:
-    #    inputdata.update({ "locking_slot" : dstate.effective_locking_slot })
 
     # Output type. This should be always P2PKH or P2SH.
-    # if prev_tx: # MODIF: don't need if here.
     inputdata.update({ "inp_type" : [prev_tx.outs[2].script_pubkey.type] })
 
     if not previous_input_unspent(prev_tx.txid, 2 , silent=silent, redeem_script=redeem_script):
@@ -310,7 +297,8 @@ def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent
     return inputdata
 
 
-def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: int, network_name: str, new_inputs: bool=False, force: bool=False, silent: bool=False):
+def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: int, network_name: str, new_inputs: bool=False, force: bool=False, silent: bool=False) -> int:
+    """Selects the amount which will be locked or donated."""
 
     raw_slot = sats_to_coins(Decimal(slot), network_name=network_name)
     raw_amount = sats_to_coins(Decimal(chosen_amount), network_name=network_name) if chosen_amount is not None else None
@@ -351,14 +339,6 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
         print("FORCING custom amount {} higher than the assigned slot.".format(raw_amount))
 
     return amount
-
-def calculate_timelock(proposal_id):
-    # returns the number of the block where the working period of the Proposal ends.
-
-    first_proposal_tx = find_proposal(proposal_id, provider)
-    # print("first tx info", first_proposal_tx.blockheight, first_proposal_tx.epoch, first_proposal_tx.deck.epoch_length, first_proposal_tx.epoch_number)
-    cltv_timelock = (first_proposal_tx.epoch + first_proposal_tx.epoch_number + 1) * first_proposal_tx.deck.epoch_length
-    return cltv_timelock
 
 
 def create_trackedtx(txid=None, txhex=None):

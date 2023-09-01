@@ -129,6 +129,13 @@ class ATToken(Token):
             pprint({p : claim.__dict__[p] for p in params})
 
 
+    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, silent: bool=False, debug: bool=False):
+        '''Shows all valid AT/PoB token balances. Faster than using tokens command.'''
+        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, only_labels=only_labels, silent=silent, debug=debug)
+
+
+
+
 class PoBToken(ATToken):
     # bundles all PoB-specific functions.
 
