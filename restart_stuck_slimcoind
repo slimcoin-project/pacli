@@ -1,0 +1,15 @@
+#!/bin/bash
+block_number=$(eval "$1 getblockcount")
+sleep 120
+i=1
+while [[ "$block_number" -eq "$block_number1" ]] 
+    do
+        eval "$1 stop &>/dev/null && wait && sleep 1 && $1 &>/dev/null"
+        sleep 120
+        block_number1=$(eval "$1 getblockcount")
+        if [[ $1==5 ]]; then
+            echo "Warning: slimcoind stuck for 10 minutes. The utility restart_stuck_slimcoind has given up."
+            break
+        fi
+        ((i++))
+    done
