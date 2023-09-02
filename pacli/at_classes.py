@@ -65,6 +65,7 @@ class ATToken(Token):
             else:
                 print("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
                 return None
+
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         dec_payamount = Decimal(str(payamount)) if payamount else None

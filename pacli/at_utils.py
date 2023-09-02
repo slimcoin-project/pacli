@@ -242,8 +242,12 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
 
         spending_tx = provider.getrawtransaction(donation_txid, 1) # changed from txid
 
-        if sender != find_tx_sender(provider, spending_tx):
+        try:
+            assert sender == find_tx_sender(provider, spending_tx)
+        except AssertionError:
             raise ei.PacliInputDataError("You cannot claim coins for another sender.")
+        except KeyError:
+            raise ei.PacliInputDataError("The transaction you referenced is invalid.")
 
         if donation_txid in get_claimed_txes(deck, sender):
             raise ei.PacliInputDataError("Duplicate. You already have claimed the coins from this transaction successfully.")
@@ -286,8 +290,12 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
         if not amounts:
             amounts = [claimable_amount]
 
+        if debug:
+           print("Amount(s) to send:", amounts)
+           print("Receiver(s):", receivers)
+
         if len(amounts) != len(receivers):
-            raise ei.PacliInputDataError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amount)))
+            raise ei.PacliInputDataError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amounts)))
 
         if (sum(amounts) != claimable_amount) and (not force): # force option overcomplicates things.
             raise ei.PacliInputDataError("Amount of cards does not correspond to the spent coins. Use --force to override.")
