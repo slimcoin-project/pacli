@@ -14,6 +14,11 @@ from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class Token:
 
+    # default tokens (currently only testnet)
+
+    POB_DEFAULT = {"tslm" : "fb93cce7aceb9f7fda228bc0c0c2eca8c56c09c1d846a04bd6a59cae2a895974"}
+    POD_DEFAULT = {"tslm" : "a2459e054ce0f600c90be458915af6bad36a6863a0ce0e33ab76086b514f765a"}
+
     # wrappers around Card commands, with usability fixes
 
     def balances(self, deck: str, silent: bool=False):
@@ -116,8 +121,8 @@ class Token:
         # with a human_readable type.
         if not advanced:
             # the quick mode displays only default PoB and PoD decks
-            decks = [pa.find_deck(provider, "fb93cce7aceb9f7fda228bc0c0c2eca8c56c09c1d846a04bd6a59cae2a895974", Settings.deck_version, Settings.production),
-                     pa.find_deck(provider, "a2459e054ce0f600c90be458915af6bad36a6863a0ce0e33ab76086b514f765a", Settings.deck_version, Settings.production)]
+            decks = [pa.find_deck(provider, self.POB_DEFAULT[Settings.network], Settings.deck_version, Settings.production),
+                     pa.find_deck(provider, self.POD_DEFAULT[Settings.network], Settings.deck_version, Settings.production)]
 
         elif deck_type is not None:
             decks = list_decks_by_at_type(provider, deck_type)
