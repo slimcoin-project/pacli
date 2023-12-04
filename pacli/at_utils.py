@@ -319,7 +319,7 @@ def at_deckinfo(deckid):
     for deck_param in deck.__dict__.keys():
         pprint("{}: {}".format(deck_param, deck.__dict__[deck_param]))
 
-def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
+"""def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
     # NOTE: Sender no longer necessary.
 
     wallet_txids = set([t["txid"] for t in eu.get_wallet_transactions()]) if (only_wallet and not input_address) else None
@@ -337,7 +337,7 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
             or (wallet_txids and (card.txid in wallet_txids)) \
             or ((input_address is None) and not wallet_txids):
                 claim_cards.append(card)
-    return claim_cards
+    return claim_cards""" # Moved to extended_utils
 
 def get_claimed_txes(deck: object, input_address: str, only_wallet: bool=False) -> set:
     # returns TXIDs of already claimed txes.
@@ -350,5 +350,41 @@ def burn_address():
         return "mmSLiMCoinTestnetBurnAddress1XU5fu"
     else:
         return "SfSLMCoinMainNetworkBurnAddr1DeTK5"
+
+
+# API commands
+
+def show_txes(address: str=None, deck: str=None, start: int=0, end: int=None, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
+    '''Show all transactions to a tracked address between two block heights (very slow!).'''
+
+    if burns:
+         if not silent:
+             print("Using burn address.")
+         address = burn_address()
+
+    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+    txes = ei.run_command(show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, silent=silent, debug=debug)
+
+    if not silent:
+        pprint(txes)
+    else:
+        print(txes)
+
+def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
+    '''Shows all transactions from your wallet to the tracked address.'''
+
+    if burns:
+         if not silent:
+             print("Using burn address.")
+         address = burn_address()
+
+    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+    sender = Settings.key.address if not wallet else None
+    txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
+
+    if not silent:
+        pprint(txes)
+    else:
+        print(txes)
 
 

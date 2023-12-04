@@ -34,14 +34,19 @@ from pacli.config import (write_default_config,
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
 import pacli.extended_commands as ec
+from pacli.extended_main import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtTransaction
 from pacli.token_extended import Token
 from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import PoDToken, Proposal, Donation
 from pacli.dex_classes import Dex
-from pacli.tools_extended import Tools
+from pacli.extended_checkpoints import Checkpoint
 
-class Config:
+# NOTE: pacli-extended overrides some vanilla methods due to its usage of an extended config file.
+# These methods are commented out here and were placed in extended_main.py.
+# The idea is to keep the original pacli files clean and pack the extensions in their own files.
+
+class Config(ExtConfig):
 
     '''dealing with configuration'''
 
@@ -50,20 +55,20 @@ class Config:
 
         write_default_config(conf_file)
 
-    def set(self, key: str, value: Union[str, bool]) -> None:
+    """def set(self, key: str, value: Union[str, bool]) -> None:
         '''change settings'''
 
         if key not in default_conf.keys():
             raise({'error': 'Invalid setting key.'})
 
-        write_settings(key, value)
+        write_settings(key, value)""" # disabled due to ExtConfig conflict
 
 
-class Address:
+class Address(ExtAddress):
 
     '''my personal address'''
 
-    def show(self, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str:
+    """def show(self, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str:
         '''print address, pubkey or privkey'''
 
         if pubkey:
@@ -73,14 +78,14 @@ class Address:
         if wif:
             return Settings.key.wif
 
-        return Settings.key.address
+        return Settings.key.address""" # disabled due to ExtAddress conflict.
 
-    @classmethod
+    """@classmethod
     def balance(self) -> float:
 
         pprint(
             {'balance': float(provider.getbalance(Settings.key.address))}
-            )
+            )""" # disabled due to ExtAddress conflict.
 
     def derive(self, key: str) -> str:
         '''derive a new address from <key>'''
@@ -104,87 +109,17 @@ class Address:
         except KeyError:
             pprint({'error': 'No UTXOs ;('})
 
-    ### Commands for the Extended Keystore (keystore_extended module)
-    ### Allows to use more than one address/key
 
-    # Commands to store keys in the keyring and retrieve from it (deprecated)
+class Deck(ExtDeck):
 
-    def new_privkey(self, label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False) -> str:
-        '''import new private key, taking hex or wif format, or generate new key.
-           You can assign a label, otherwise it will become the main key.'''
-
-        return ke.new_privkey(label, key=key, backup=backup, wif=wif, legacy=legacy)
-
-    def show_all(self, debug: bool=False, legacy: bool=False):
-        '''Shows all stored addresses and their balance (Unix only).'''
-
-        return ke.show_all_keys(debug, legacy)
-
-    def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None:
-        '''imports main key or any stored key to wallet managed by RPC node.'''
-
-        return ke.import_key_to_wallet(accountname, label, legacy)
-
-    # Commands leading by default to the Tools interface
-
-    def fresh(self, label: str, set_main: bool=False, backup: str=None, keyring: bool=False, legacy: bool=False, silent: bool=False):
-        '''This function uses the standard client commands to create an address/key and assigns it a label.'''
-
-        return ec.fresh_address(label, set_main=set_main, backup=backup, legacy=legacy, keyring=keyring, silent=silent)
-
-    def set_main(self, label: str, backup: str=None, legacy: bool=False, keyring: bool=False, silent: bool=False) -> str:
-        '''Declares a key identified by a label as the main one.'''
-
-        return ec.set_main_key(label, backup=backup, legacy=legacy, keyring=keyring, silent=silent)
-
-    def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, keyring: bool=False, legacy: bool=False) -> str:
-        '''Shows a stored alternative address or key.
-        --privkey, --pubkey and --wif options only work with --keyring.'''
-
-        return ec.show_stored_address(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy, keyring=keyring)
-
-
-    def show_label(self, address=Settings.key.address, set_main: bool=False, keyring: bool=False):
-        '''Shows the label of the current main address, or of another address.'''
-
-        return ec.show_label(address, keyring=keyring, set_main=set_main)
-
-    def set_label(self, label: str, address: str, set_main: bool=False, keyring: bool=False, modify=False, network_name=Settings.network):
-        '''Assigns a label to an address and saves it in the keyring.'''
-
-        ec.set_label(label, address, set_main=set_main, keyring=keyring, modify=modify, network_name=network_name)
-
-    def show_all_labels(self, prefix: str=Settings.network, full: bool=False, keyring: bool=False):
-        '''Shows all labels which were stored in the keyring. For debugging mainly.'''
-
-        labels = ec.get_all_labels(keyring=keyring, prefix=prefix)
-        if full:
-            print(labels)
-        else:
-            print([ke.format_label(l, keyring=keyring) for l in labels])
-
-    def delete_label(self, label: str, keyring: bool=False, legacy: bool=False, now: bool=False) -> None:
-        '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
-
-        return ec.delete_label(label, legacy=legacy, keyring=keyring, now=now)
-
-    def show_transactions(self, address: str=Settings.key.address, sent: bool=False, received: bool=False, advanced: bool=False):
-        '''returns all transactions from or to that address in the wallet.'''
-
-        for txdict in ec.get_address_transactions(address, sent=sent, received=received, advanced=advanced):
-            pprint(txdict)
-
-
-class Deck:
-
-    @classmethod
+    """@classmethod
     def list(self):
         '''find all valid decks and list them.'''
 
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
 
-        print_deck_list(decks)
+        print_deck_list(decks)""" # disabled due to ExtDeck conflict.
 
     @classmethod
     def find(self, key):
@@ -296,7 +231,7 @@ class Deck:
              })
 
 
-class Card:
+class Card(ExtCard):
 
     '''card information and manipulation'''
 
@@ -323,13 +258,13 @@ class Card:
         return {'cards': list(cards),
                 'deck': deck}
 
-    @classmethod
+    """@classmethod
     def list(self, deckid: str):
         '''list the valid cards on this deck'''
 
         cards = self.__list(deckid)['cards']
 
-        print_card_list(cards)
+        print_card_list(cards)""" # disabled due to conflict with ExtCard class
 
     def balances(self, deckid: str):
         '''list card balances on this deck'''
@@ -482,7 +417,7 @@ class Card:
         for i in cards:
             pprint(i.to_json())
 
-class Transaction:
+class Transaction(ExtTransaction):
 
     def raw(self, txid: str) -> None:
         '''fetch raw tx and display it'''
@@ -517,7 +452,7 @@ def main():
         'pobtoken' : PoBToken(),
         'podtoken' : PoDToken(),
         'dex' : Dex(),
-        'tools' : Tools()
+        'checkpoint' : Checkpoint()
         })
 
 

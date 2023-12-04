@@ -146,8 +146,7 @@ def delete_label(label: str, network_name: str=Settings.network, keyring: bool=F
         else:
             print("Dry run: label {} of network {} to delete. Delete with --now.".format(label, network_name))
     else:
-        full_label = network_name + "_" + str(label)
-        ce.delete_item("address", full_label, now=now)
+        ce.delete("address", label, now=now)
 
 
 def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
@@ -214,3 +213,21 @@ def get_address_transactions(addr_string: str, sent: bool=False, received: bool=
                     continue
 
     return result
+
+
+def store_addresses_from_keyring(self, network_name: str=Settings.network, replace: bool=False) -> None:
+    """Stores all labels/addresses stored in the keyring in the extended config file."""
+    print("Storing all addresses of network", network_name, "from keyring into extended config file.")
+    print("The config file will NOT store private keys. It only allows faster access to addresses.")
+    keyring_labels = ke.get_labels_from_keyring(network_name)
+    print("Labels (with prefixes) retrieved from keyring:", keyring_labels)
+
+    for full_label in keyring_labels:
+        try:
+            ec.store_address(full_label, full=True, replace=replace)
+        except ei.ValueExistsError:
+            print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
+            continue
+
+
+

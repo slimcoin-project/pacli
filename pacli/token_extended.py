@@ -9,29 +9,45 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.config_extended as ce
+import pacli.token_commands as tc
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 
 class Token:
 
-    # default tokens (currently only testnet)
-
-    POB_DEFAULT = {"tslm" : "fb93cce7aceb9f7fda228bc0c0c2eca8c56c09c1d846a04bd6a59cae2a895974"}
-    POD_DEFAULT = {"tslm" : "a2459e054ce0f600c90be458915af6bad36a6863a0ce0e33ab76086b514f765a"}
-
-    # wrappers around Card commands, with usability fixes
-
-    def balances(self, deck: str, silent: bool=False):
+    def balance(self,
+                deck: str=None,
+                label_or_address: str=Settings.key.address,
+                token_type: str=None,
+                holders: bool=False,
+                wallet: bool=False,
+                keyring: bool=False,
+                no_labels: bool=False,
+                only_labels: bool=False,
+                advanced: bool=False,
+                silent: bool=False):
         """List all balances of a deck (with support for deck labels).
         --silent suppresses information about the deck when a label is used."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+        address = ec.process_address(label_or_address)
 
-        from pacli.__main__ import Card
-        return Card().balances(deckid)
+        # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
+        # allowed are: "at" / "pob", "dt" / "pod" (in all capitalizations)
+        deck_type = c.get_deck_type(token_type.lower())
+
+        if holders:
+            from pacli.__main__ import Card
+            return Card().balances(deckid)
+        elif deck:
+            return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, silent=silent)
+        elif address:
+            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=only_labels, deck_type=deck_type, silent=silent, debug=debug)
+        else:
+            ei.print_red("You have to provide a deck or an address for this command.")
 
 
-    def list(self, deck: str, silent: bool=False, valid: bool=False):
+    '''def list(self, deck: str, silent: bool=False, valid: bool=False):
         """List all cards of a deck (with support for deck labels).
         --silent suppresses information about the deck when a label is used.
         --valid only shows valid cards according to Proof-of-Timeline rules,
@@ -46,7 +62,7 @@ class Token:
             print_card_list(valid_cards)
         else:
             from pacli.__main__ import Card
-            return Card().list(deckid)
+            return Card().list(deckid)''' # OK, moved to ExtCard / extended_main
 
     def init_deck(self, deck: str, silent: bool=False):
         """Initializes a standard, AT or PoB deck and imports its P2TH keys into node.
@@ -58,10 +74,10 @@ class Token:
 
     # Enhanced transfer commands
 
-    def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
+    '''def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
         """Transfer tokens/cards to a single receiver.
         --sign and --send are set true by default."""
-        # Not a wrapper, so the signature errors from P2PK are also fixed.
+
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -75,29 +91,42 @@ class Token:
                                  sign=sign,
                                  send=send,
                                  debug=debug
-                                 )
+                                 )''' # OK, integrated into transfer (ex multi_transfer)
 
 
-    def multi_transfer(self, deck: str, transferlist: str, change: str=Settings.change, locktime: int=0, asset_specific_data: bytes=None, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False):
+    def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False):
         """Transfer tokens/cards to multiple receivers in a single transaction.
         The second argument, the transfer list, contains addresses and amounts.
         Individual transfers are separated by a semicolon (;).
         Address and amount are separated by a colon (:).
         The transfer list has to be put between quotes.
         --sign and --send are true by default."""
+        # NOTE: In the 12/23 overhaul the syntax for lists was changed back to the vanilla syntax,
+        # while the receiver/amount can also be entered as strings.
+        # NOTE 2: This is not a wrapper of card transfer, so the signature errors from P2PK are also fixed.
+
+        if type(receiver) == str:
+            receiver = [receiver]
+        if type(amount) != list:
+            amount = [Decimal(str(amount))]
+        try:
+            assert (type(receiver), type(amount)) == (list, list)
+        except AssertionError:
+            ei.print_red("The receiver and amount parameters have to be strings/numbers or lists.")
+
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        transfers = transferlist.split(";")
-        receivers = [transfer.split(":")[0] for transfer in transfers]
-        amounts = [Decimal(str(transfer.split(":")[1])) for transfer in transfers]
+        #transfers = transferlist.split(";")
+        #receivers = [transfer.split(":")[0] for transfer in transfers]
+        #amounts = [Decimal(str(transfer.split(":")[1])) for transfer in transfers]
         change_address = ec.process_address(change)
 
         if not silent:
             print("Sending tokens to the following receivers:", receivers)
 
         return ei.run_command(eu.advanced_card_transfer, deck,
-                                 amount=amounts,
+                                 amount=amount,
                                  receiver=receivers,
                                  change_address=change_address,
                                  locktime=locktime,
@@ -111,7 +140,8 @@ class Token:
 
     # more general Token commands
 
-    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, silent: bool=False, debug: bool=False):
+
+    '''def _all_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, silent: bool=False, debug: bool=False):
         """Shows all token/card balances on this address.
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
@@ -193,10 +223,10 @@ class Token:
         elif advanced or (not wallet):
             pprint(balances)
         else:
-            ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network)
+            ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network)'''
 
 
-    def my_balance(self, deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, silent: bool=False):
+    '''def __single_balance(self, deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, silent: bool=False):
         """Shows the balance of a single token (deck) on the current main address or another address.
         --wallet flag allows to show all balances of addresses
         which are part of the wallet."""
@@ -227,4 +257,4 @@ class Token:
             if silent:
                 print({address : balance})
             else:
-                pprint({address : balance})
+                pprint({address : balance})'''

@@ -27,7 +27,7 @@ class ATToken(Token):
 
         return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=confirm, silent=silent, debug=debug)
 
-    def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
+    """def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
         '''Show all transactions to a tracked address between two block heights (very slow!).'''
 
         if burns:
@@ -47,7 +47,7 @@ class ATToken(Token):
         if not silent:
             pprint(txes)
         else:
-            print(txes)
+            print(txes)""" # moved to at_utils
 
     @classmethod
     def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
@@ -112,7 +112,8 @@ class ATToken(Token):
 
         ei.run_command(print_deck_list, list_decks_by_at_type(provider, c.ID_AT))
 
-    def show_claims(self, deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
+    # Moved to extended_utils, is called from Transaction class (transaction list --claims)
+    """def show_claims(self, deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
         '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
 
         param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
@@ -124,7 +125,7 @@ class ATToken(Token):
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        raw_claims = ei.run_command(au.get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
+        raw_claims = ei.run_command(eu.get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
         claim_txids = set([c.txid for c in raw_claims])
         claims = []
 
@@ -155,7 +156,7 @@ class ATToken(Token):
     def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, silent: bool=False, advanced: bool=False, debug: bool=False):
         '''Shows all valid AT/PoB token balances, ignoring other deck types.'''
 
-        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, advanced=advanced, only_labels=only_labels, silent=silent, debug=debug)
+        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, advanced=advanced, only_labels=only_labels, silent=silent, debug=debug)"""
 
 
 
@@ -178,11 +179,11 @@ class PoBToken(ATToken):
 
         return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, silent=silent, debug=debug)
 
-    def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False) -> None:
+    '''def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 
-        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
+        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)'''
 
 
     @classmethod
@@ -191,6 +192,6 @@ class PoBToken(ATToken):
 
         ei.run_command(print_deck_list, [d for d in list_decks_by_at_type(provider, c.ID_AT) if d.at_address == au.burn_address()])
 
-    def show_all_burns(self, start: int=0, end: int=None, deckid: str=None, silent: bool=False, debug: bool=False):
+    """def show_all_burns(self, start: int=0, end: int=None, deckid: str=None, silent: bool=False, debug: bool=False):
         '''Show all burn transactions of all users. Very slow, use of --start and --end highly recommended.'''
-        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, silent=silent, debug=debug)
+        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, silent=silent, debug=debug)"""

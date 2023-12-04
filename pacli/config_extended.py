@@ -172,3 +172,35 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
     write_config(config, backupfilename)
 
+### Extended helper tools (api)
+
+def list(category: str, silent: bool=False):
+    cfg = ei.run_command(get_config, silent=silent)
+    if silent:
+        print(cfg[category])
+    else:
+        pprint(cfg[category])
+
+def set(category: str, label: str, value: str, modify: bool=False, replace: bool=False, silent: bool=False):
+    return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, silent=silent)
+
+def show(category: str, label: str):
+    return ei.run_command(read_item, category=category, key=label)
+
+def find(category: str, content: str, silent: bool=False):
+    """Searches for labels if only a part of the value (content) is known."""
+    result = ei.run_command(search_value_content, category, str(content))
+    if not result and not silent:
+        print("No label was found.")
+    elif silent:
+        return result
+    else:
+        print("Entries found with content {}:".format(content))
+        pprint(result)
+
+def delete(category: str, label: str, now: bool=False) -> None:
+    """Deletes an item from the extended config file.
+       Specify category and label.
+       Use --now to delete really."""
+    return ei.run_command(delete_item, category, str(label), now=now)
+

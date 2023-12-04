@@ -9,7 +9,7 @@ from pacli.config import Settings
 class Dex:
 
     @classmethod
-    def create_offer(self, deck: str, amount: int, lock: int, lockaddr: str, receiver: str=None, addrtype: str="p2pkh", absolute: bool=False, change: str=Settings.change, confirm: bool=False, sign: bool=False, send: bool=False, silent: bool=False, txhex: bool=False):
+    def lock(self, deck: str, amount: int, lock: int, lockaddr: str, receiver: str=None, addrtype: str="p2pkh", absolute: bool=False, change: str=Settings.change, confirm: bool=False, sign: bool=False, send: bool=False, silent: bool=False, txhex: bool=False):
         """Locks the card on the receiving address. Card default receiver is the sender (the current main address)."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
@@ -21,7 +21,16 @@ class Dex:
         return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lockaddr, addrtype=addrtype, absolute=absolute, change_address=change_address, receiver=receiver_address, sign=sign, send=send, confirm=confirm, txhex=txhex)
 
     @classmethod
-    def new_exchange(self, deck: str, partner_address: str, partner_input: str, card_amount: str, coin_amount: str, coinseller_change_address: str=None, save: str=None, silent: bool=False, sign: bool=False):
+    def exchange(self,
+                 deck: str,
+                 partner_address: str,
+                 partner_input: str,
+                 card_amount: str,
+                 coin_amount: str,
+                 coinseller_change_address: str=None,
+                 save: str=None,
+                 silent: bool=False,
+                 sign: bool=False):
         """Creates a new exchange transaction, signs it partially and outputs it in hex format to be submitted to the exchange partner."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
@@ -33,7 +42,7 @@ class Dex:
         return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, confirm=confirm)
 
     @classmethod
-    def show_locks(self, deck: str, raw: bool=False, silent: bool=False):
+    def list_locks(self, deck: str, raw: bool=False, silent: bool=False):
         """Shows all current locks of a deck."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)

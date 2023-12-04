@@ -239,7 +239,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, send=send)
 
 
-def store_checkpoint(height: int=None, silent: bool=False) -> None:
+"""def store_checkpoint(height: int=None, silent: bool=False) -> None:
     if height is None:
         height = provider.getblockcount()
     blockhash = provider.getblockhash(height)
@@ -325,7 +325,7 @@ def reorg_check(silent: bool=False) -> None:
             print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
             print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
             print("Make sure you check token balances and other states.")
-        return 1
+        return 1"""
 
 def confirm_continuation() -> bool:
     print("Enter 'yes' to confirm to continue")
@@ -465,3 +465,85 @@ def get_wallet_address_set() -> set:
     addr_entries = provider.listreceivedbyaddress(0, True)
     return set([e["address"] for e in addr_entries])
 
+
+# This has been moved here as it's for AT/PoB and DT, not only AT-specific.
+def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
+    '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
+
+    param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
+
+    ## TODO this has to me changed, ideally it would recognize the type of the deck (AT, PoB or PoD).
+    # if type(self).__name__ == "PoBToken":
+    #    param_names.update({"donation_txid" : "Burn transaction"})
+    #else:
+    param_names.update({"donation_txid" : "Referenced transaction"})
+
+    deckid = ei.run_command(search_for_stored_tx_label, "deck", deck_str)
+    # address = ec.process_address(address) # here not possible due to circular import
+
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    raw_claims = ei.run_command(get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
+    claim_txids = set([c.txid for c in raw_claims])
+    claims = []
+
+    for claim_txid in claim_txids:
+        bundle = [c for c in raw_claims if c.txid == claim_txid]
+        claim = bundle[0]
+        if len(bundle) > 1:
+            for b in bundle[1:]:
+                claim.amount.append(b.amount[0])
+                claim.receiver.append(b.receiver[0])
+        claims.append(claim)
+
+    for claim in claims:
+        if full:
+            pprint(claim.__dict__)
+
+        elif param:
+            pprint({ claim.txid : claim.__dict__[param] })
+        else:
+
+            claim_dict = {param_names["txid"] : claim.txid,
+                          param_names["donation_txid"] : claim.donation_txid,
+                          param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
+                          param_names["receiver"] : claim.receiver,
+                          param_names["blocknum"] : claim.blocknum}
+            pprint(claim_dict)
+
+
+def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
+    # NOTE: Sender no longer necessary.
+
+    wallet_txids = set([t["txid"] for t in get_wallet_transactions()]) if (only_wallet and not input_address) else None
+
+    try:
+        cards = pa.find_all_valid_cards(provider, deck)
+        ds = pa.protocol.DeckState(cards)
+    except KeyError:
+        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli token init_deck DECK'")
+
+    claim_cards = []
+    for card in ds.valid_cards:
+        if card.type == "CardIssue":
+            if (input_address and (card.sender == input_address)) \
+            or (wallet_txids and (card.txid in wallet_txids)) \
+            or ((input_address is None) and not wallet_txids):
+                claim_cards.append(card)
+    return claim_cards
+
+
+def get_deckinfo(deckid, p2th: bool=False):
+    d = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    d_dict = d.__dict__
+    if p2th:
+        print("Showing P2TH addresses.")
+        # the following code generates the addresses, so it's not necessary to add them to the dict.
+        # TODO shouldn't it be possible simply to use a list?
+        p2th_dict = {"p2th_main": d.p2th_address,
+                      "p2th_proposal" : d.derived_p2th_address("proposal"),
+                      "p2th_signalling" : d.derived_p2th_address("signalling"),
+                      "p2th_locking" : d.derived_p2th_address("locking"),
+                      "p2th_donation" : d.derived_p2th_address("donation"),
+                      "p2th_voting" : d.derived_p2th_address("voting")}
+        # d_dict.update(p2th_dict)
+    return d_dict
