@@ -1,26 +1,57 @@
 # checkpoint functions
+import time
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
 from pacli.provider import provider
 
 class Checkpoint:
 
-    def set(self, height: int=None, delete: bool=False, depth: int=2000, silent: bool=False) -> None:
-        """Store a checkpoint (block hash), height is optional."""
+    def set(self,
+            height: int=None,
+            delete: bool=False,
+            depth: int=2000,
+            prune: bool=False,
+            silent: bool=False,
+            now: bool=False) -> None:
+        """Store a checkpoint (block hash) for a given height or the current height (default).
+
+        Usage:
+
+        pacli checkpoint set [HEIGHT]
+
+        Stores a checkpoint, the height becomes the label. If no height is given, the most recent block is used.
+
+        pacli checkpoint set HEIGHT --delete [--now]
+
+        Deletes a checkpoint corresponding to blockheight HEIGHT. Use --now to delete really.
+
+        pacli checkpoint set --prune [--depth=DEPTH]
+
+        Prunes several checkpoints. Depth parameter indicates the block depth where checkpoints are to be kept.
+        By default, the checkpoints of the 2000 most recent blocks are kept.
+
+        Other flags:
+
+        --silent: Suppress output."""
+
         if delete:
-            """Delete a checkpoint, by height (use --now to delete really)."""
             return ce.delete_item("checkpoint", str(height), now=now)
         if prune:
-            """Delete all old checkpoints.
-               Depth parameter indicates the block depth where checkpoints are to be kept.
-               By default, the checkpoints of the 2000 most recent blocks are kept."""
+
+
             # TODO: this command is quite slow, optimize it.
             return prune_old_checkpoints(depth=depth, silent=silent)
         else:
             return store_checkpoint(height=height)
 
     def show(self, height: int=None) -> str:
-        """Show a checkpoint (block hash), by default the most recent."""
+        """Show a checkpoint (block hash), by default the most recent.
+
+        Usage:
+
+        pacli checkpoint show [--height=HEIGHT]
+
+        HEIGHT is the blockheight to lookup the checkpoint."""
         return retrieve_checkpoint(height=height)
 
     def list(self) -> list:
@@ -29,7 +60,14 @@ class Checkpoint:
 
     def reorg_check(self, silent: bool=False) -> None:
         """Performs a chain reorganization check:
-        checks if the most recent checkpoint corresponds to the stored block hash."""
+        checks if the most recent checkpoint corresponds to the stored block hash.
+
+        Usage:
+
+        pacli checkpoint reorg_check [--silent]
+
+        Flags:
+        --silent: Script friendly output: 0 for passed and 1 for failed check."""
         return reorg_check(silent=silent)
 
 
@@ -73,7 +111,8 @@ def retrieve_checkpoint(height: int=None, silent: bool=False) -> dict:
 
 def retrieve_all_checkpoints() -> dict:
     config = ce.get_config()
-    return config["checkpoint"]
+    checkpoints = sorted(config["checkpoint"].items())
+    return checkpoints
 
 def prune_old_checkpoints(depth: int=2000, silent: bool=False) -> None:
     checkpoints = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
@@ -81,6 +120,8 @@ def prune_old_checkpoints(depth: int=2000, silent: bool=False) -> None:
     # print(checkpoints)
     current_block = provider.getblockcount()
     index = 0
+    if not silent:
+        print("Pruning checkpoints up to block {} ({} blocks before the current block {}).".format(current_block - depth, depth, current_block))
     while len(ce.get_config()["checkpoint"]) > 5: # leave at least 5 checkpoints intact
        c = checkpoints[index]
        if c < current_block - depth:

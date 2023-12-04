@@ -23,8 +23,6 @@ from pacli.tui import print_deck_list, print_card_list
 # of the __main__ classes. So it seems to be necessary to comment
 # out the methods in __main__ if there's a conflict.
 
-# TODO: dex functions.
-# TODO in other files: proposal/donation/token etc. overhaul.
 # NOTE: checkpoint functions went into own file (extended_checkpoints.py).
 
 
