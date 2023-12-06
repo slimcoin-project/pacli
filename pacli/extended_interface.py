@@ -133,9 +133,19 @@ def balances_line_item(address: dict):
              address["pob"],
              address["pod"]]
 
-def print_default_balances_list(balances: dict, labeldict: dict, decks: list, network_name: str):
+def balances_line_item_onlytokens(address: dict):
+     return [address["label"],
+             address["address"],
+             address["pob"],
+             address["pod"]]
+
+def print_default_balances_list(balances: dict, labeldict: dict, decks: list, network_name: str, only_tokens: bool=False) -> None:
       addr_balances = []
-      currencies = {"coin": network_name, "pob" : decks[0].id, "pod" : decks[1].id}
+      if only_tokens:
+          currencies = {"pob" : decks[0].id, "pod" : decks[1].id}
+      else:
+          currencies = {"coin": network_name, "pob" : decks[0].id, "pod" : decks[1].id}
+
       for full_label, address in labeldict.items():
           balance = {}
           label = "_".join(full_label.split("_")[1:])
@@ -152,10 +162,17 @@ def print_default_balances_list(balances: dict, labeldict: dict, decks: list, ne
 
           addr_balances.append(balance)
 
+      if only_tokens:
+          table_data = map(balances_line_item_onlytokens, addr_balances)
+          table_heading = ("Label", "Address", "PoB tokens", "dPoD tokens")
+      else:
+          table_data = map(balances_line_item, addr_balances)
+          table_heading = ("Label", "Address", network_name, "PoB tokens", "dPoD tokens")
+
       tui.print_table(
       title="Balances of addresses with labels in wallet:",
-      heading=("Label", "Address", network_name, "PoB tokens", "dPoD tokens"),
-      data=map(balances_line_item, addr_balances))
+      heading=table_heading,
+      data=table_data)
 
 # Exceptions
 

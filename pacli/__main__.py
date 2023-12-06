@@ -34,8 +34,8 @@ from pacli.config import (write_default_config,
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
 import pacli.extended_commands as ec
-from pacli.extended_main import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtTransaction
-from pacli.token_extended import Token
+from pacli.extended_classes import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtTransaction
+from pacli.token_classes import Token
 from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import PoDToken, Proposal, Donation
@@ -43,7 +43,7 @@ from pacli.dex_classes import Dex
 from pacli.extended_checkpoints import Checkpoint
 
 # NOTE: pacli-extended overrides some vanilla methods due to its usage of an extended config file.
-# These methods are commented out here and were placed in extended_main.py.
+# These methods are commented out here and the extended classes are placed in extended_classes.py.
 # The idea is to keep the original pacli files clean and pack the extensions in their own files.
 
 class Config(ExtConfig):
@@ -264,7 +264,7 @@ class Card(ExtCard):
 
         cards = self.__list(deckid)['cards']
 
-        print_card_list(cards)""" # disabled due to conflict with ExtCard class
+        print_card_list(cards)""" # disabled due to ExtCard conflict
 
     def balances(self, deckid: str):
         '''list card balances on this deck'''

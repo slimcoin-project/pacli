@@ -149,10 +149,9 @@ def dt_state(deckid: str, debug: bool=False, debug_voting: bool=False, debug_don
     pprint(pst_dict)
 
 # Card
-# TODO coordinate with "new" Donation claim command.
 # Reward data seems to be missing in the "new" function ATM.
 
-def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, donation_txid: str=None, proposer: bool=False, force: bool=False, debug: bool=False, silent: bool=False) -> tuple:
+def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, proposer: bool=False, force: bool=False, debug: bool=False, silent: bool=False) -> tuple:
 
     if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
         receiver = [donor_address]

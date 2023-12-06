@@ -12,13 +12,29 @@ import pacli.extended_interface as ei
 import pacli.at_utils as au
 import pacli.extended_commands as ec
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
-from pacli.token_extended import Token
+from pacli.token_classes import Token
 
 class ATToken(Token):
 
 
     def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=False, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
-        '''Creates a simple transaction from an address (default: current main address) to another one.'''
+        '''Creates a simple transaction from an address (default: current main address) to another one.
+        The purpose of this command is to be able to use the address labels from Pacli,
+        above all to make fast transactions to a tracked address of an AT token.
+
+        Usage:
+        pacli attoken create_tx ADDRESS AMOUNT
+
+        Options and flags:
+        --tx_fee: Specify a transaction fee.
+        --change: Specify a change address.
+        --sign: Sign the transaction (True by default).
+        --send: Send the transaction (True by default).
+        --confirm: Wait and display a message until the transaction is confirmed.
+        --verify: Verify transaction with Cointoolkit.
+        --silent: Suppress output and print it out in a script-friendly way.
+        --debug: Show additional debug information.'''
+        # TODO: this could benefit from a deck parameter, so you could automatically send to the deck's tracked address.
 
         change_address = ec.process_address(change)
 
@@ -54,10 +70,34 @@ class ATToken(Token):
               locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
               confirm: bool=False, silent: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
-        '''Claims tokens for a transaction to a tracked address.
-        The --payamount and --payto options enable a single payment
-        to another address in the same transaction.'''
-        # NOTE: amounts is always a list! It is for cases where the claimant wants to send tokens to different addresses.
+        '''Claims the token reward for a burn transaction (PoB tokens) or a transaction to a tracked address (AT tokens) referenced by a transaction ID.
+
+        Usage options:
+
+        pacli [pobtoken|attoken] claim DECK TXID
+
+        Claim the tokens and store them on the current main address, which has to be the sender of the rewarded transaction.
+        TXID is the transaction ID to reference the rewarded transaction (e.g. burn transaction, donation or ICO payment).
+
+        pacli [pobtoken|attoken] claim DECK TXID --payto=ADDRESS --payamount=AMOUNT
+
+        Claim the tokens and make a payment with the issued tokens in the same transaction to one specific address.
+
+        pacli [pobtoken|attoken] claim DECK TXID --receivers=[ADDR1, ADDR2, ...] --amounts=[AM1, AM2, ...]
+
+        Claim the tokens and make a payment with the issued tokens to multiple receivers (put the lists into brackets)
+
+        Options and flags:
+        --locktime: Lock the transaction until a block or a time.
+        --tx_fee: Specify a transaction fee.
+        --change: Specify a change address.
+        --sign: Sign the transaction (True by default).
+        --send: Send the transaction (True by default).
+        --confirm: Wait and display a message until the transaction is confirmed.
+        --verify: Verify transaction with Cointoolkit.
+        --silent: Suppress output and print it out in a script-friendly way.
+        --debug: Show additional debug information.
+        --force: Create the transaction even if the reward does not match the transaction (only for debugging!).'''
 
         if payamount:
             if payto:
@@ -90,7 +130,24 @@ class ATToken(Token):
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, change: str=Settings.change, version=1, locktime: int=0, verify: bool=False,
               confirm: bool=False, sign: bool=False, send: bool=False) -> None:
-        '''Spawns a new AT deck.'''
+        '''Spawns a new AT deck.
+
+        Usage:
+
+        pacli attoken deck_spawn NAME TRACKED_ADDRESS
+
+        Options and flags:
+        --multiplier: Specify a multiplier for the reward..
+        --number_of_decimals: Specify the number of decimals of the token.
+        --startblock: Specify a start block to track transactions from.
+        --endblock: Specify an end block to track transactions.
+        --tx_fee: Specify a transaction fee.
+        --change: Specify a change address.
+        --sign: Sign the transaction (True by default).
+        --send: Send the transaction (True by default).
+        --confirm: Wait and display a message until the transaction is confirmed.
+        --verify: Verify transaction with Cointoolkit.'''
+
 
         change_address = ec.process_address(change)
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
@@ -100,17 +157,17 @@ class ATToken(Token):
                confirm=confirm, verify=verify, sign=sign, send=send)
 
 
-    def deck_info(self, deck: str) -> None:
+    """def deck_info(self, deck: str) -> None:
         '''Prints AT-specific deck info.'''
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck)
-        ei.run_command(au.at_deckinfo, deckid)
+        ei.run_command(au.at_deckinfo, deckid)""" # part of deck show now
 
-    @classmethod
+    """@classmethod
     def deck_list(self) -> None:
         '''Prints list of AT decks'''
 
-        ei.run_command(print_deck_list, list_decks_by_at_type(provider, c.ID_AT))
+        ei.run_command(print_deck_list, list_decks_by_at_type(provider, c.ID_AT))""" # part of deck list now
 
     # Moved to extended_utils, is called from Transaction class (transaction list --claims)
     """def show_claims(self, deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
@@ -159,15 +216,29 @@ class ATToken(Token):
         return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, advanced=advanced, only_labels=only_labels, silent=silent, debug=debug)"""
 
 
-
-
 class PoBToken(ATToken):
     # bundles all PoB-specific functions.
 
     def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
               endblock: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
               confirm: bool=False, send: bool=True, locktime: int=0, version=1):
-        """Spawn a new PoB token, uses automatically the burn address of the network."""
+        """Spawn a new PoB token, uses automatically the burn address of the network.
+
+        Usage:
+
+        pacli pobtoken deck_spawn NAME TRACKED_ADDRESS
+
+        Options and flags:
+        --multiplier: Specify a multiplier for the reward..
+        --number_of_decimals: Specify the number of decimals of the token.
+        --startblock: Specify a start block to track transactions from.
+        --endblock: Specify an end block to track transactions.
+        --tx_fee: Specify a transaction fee.
+        --change: Specify a change address.
+        --sign: Sign the transaction (True by default).
+        --send: Send the transaction (True by default).
+        --confirm: Wait and display a message until the transaction is confirmed.
+        --verify: Verify transaction with Cointoolkit."""
 
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
@@ -175,7 +246,21 @@ class PoBToken(ATToken):
         return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=startblock, endblock=endblock, version=version, locktime=locktime, confirm=confirm, verify=verify, sign=sign, send=send)
 
     def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, confirm: bool=False, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
-        """Burn coins with a controlled transaction from the current main address."""
+        """Burn coins with a controlled transaction from the current main address.
+
+        Usage:
+
+        pacli pobtoken burn_coins AMOUNT
+
+        Options and flags:
+        --tx_fee: Specify a transaction fee.
+        --change: Specify a change address.
+        --sign: Sign the transaction (True by default).
+        --send: Send the transaction (True by default).
+        --confirm: Wait and display a message until the transaction is confirmed.
+        --verify: Verify transaction with Cointoolkit.
+        --silent: Suppress output and print it out in a script-friendly way.
+        --debug: Show additional debug information."""
 
         return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, silent=silent, debug=debug)
 
@@ -183,14 +268,14 @@ class PoBToken(ATToken):
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 
-        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)'''
+        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)''' # part of transaction list
 
 
-    @classmethod
+    """@classmethod
     def deck_list(self):
         '''Prints list of AT decks'''
 
-        ei.run_command(print_deck_list, [d for d in list_decks_by_at_type(provider, c.ID_AT) if d.at_address == au.burn_address()])
+        ei.run_command(print_deck_list, [d for d in list_decks_by_at_type(provider, c.ID_AT) if d.at_address == au.burn_address()])"""
 
     """def show_all_burns(self, start: int=0, end: int=None, deckid: str=None, silent: bool=False, debug: bool=False):
         '''Show all burn transactions of all users. Very slow, use of --start and --end highly recommended.'''

@@ -18,28 +18,69 @@ import pacli.extended_commands as ec
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.dt_txtools as dtx
-from pacli.token_extended import Token
+from pacli.token_classes import Token
 
 
 class PoDToken(Token):
 
     @classmethod
-    def deck_spawn(self, name: str, dp_length: int, dp_reward: int, min_vote: int=0, sdp_periods: int=None, sdp_deck: str=None, change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, number_of_decimals=2) -> None:
-        '''Wrapper to facilitate addresstrack DT spawns without having to deal with asset_specific_data.'''
+    def deck_spawn(self,
+                   name: str,
+                   epoch_length: int,
+                   reward: int,
+                   min_vote: int=0,
+                   sdp_periods: int=None,
+                   sdp_deck: str=None,
+                   number_of_decimals=2,
+                   change: str=Settings.change,
+                   confirm: bool=False,
+                   verify: bool=False,
+                   sign: bool=False,
+                   send: bool=False,
+                   locktime: int=0) -> None:
+        """Spawns a new DT deck.
 
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, dp_length, dp_reward, min_vote, sdp_periods, sdp_deck)
+        Usage:
+
+        pacli podtoken deck_spawn NAME EPOCHLENGTH REWARD [options]
+
+        Options and flags:
+        --min_vote: Voting threshold to approve a proposal (default: 0).
+        --sdp_periods: Number of Special Distribution Periods.
+        --sdp_deck: Deck for the Special Distribution Periods.
+        --number_of_decimals: Number of decimals of the token (default: 2).
+        --tx_fee: Specify a transaction fee.
+        --change: Specify a change address.
+        --sign: Sign the transaction (False by default).
+        --send: Send the transaction (False by default).
+        --confirm: Wait and display a message until the transaction is confirmed.
+        --verify: Verify transaction with Cointoolkit."""
+
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, sdp_periods, sdp_deck)
         change_address = ec.process_address(change)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data,
-                             verify=verify, sign=sign, send=send)
+                             confirm=confirm, verify=verify, sign=sign, send=send)
 
-    def init_deck(self, deckid: str, store_label: str=None) -> None:
-        '''Initializes DT deck and imports all P2TH addresses into node.'''
+    def init_deck(self, deck: str, store_label: str=None) -> None:
+        """Initializes DT deck and imports all P2TH addresses into node.
 
+        Usage options:
+
+        pacli podtoken init_deck DECK
+
+        Only initialize the deck (DECK can be a deck ID or a label if it was already stored).
+
+        pacli podtoken init_deck DECK LABEL
+
+        Initialize deck DECK and store a label LABEL for it.
+        """
+
+        deckid = eu.search_for_stored_tx_label("deck", deck)
         ei.run_command(dc.init_dt_deck, Settings.network, deckid, store_label=store_label)
 
-    def deck_info(self, deck: str, p2th: bool=False, param: str=None) -> None: ### GOES TO extended_main
+    """def deck_info(self, deck: str, p2th: bool=False, param: str=None) -> None: ### GOES TO extended_main
         '''Prints DT-specific deck info.'''
 
         deckid = eu.search_for_stored_tx_label("deck", deck)
@@ -47,34 +88,91 @@ class PoDToken(Token):
         if param:
             print(deckinfo.get(param))
         else:
-            pprint(deckinfo)
+            pprint(deckinfo)"""
 
-    def deck_list(self) -> None: ### GOES TO extended_main
+    """def deck_list(self) -> None:
         '''List all DT decks.'''
 
         dt_decklist = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
-        ei.run_command(print_deck_list, dt_decklist)
+        ei.run_command(print_deck_list, dt_decklist)""" # now in extended_classes
 
     def deck_state(self, deck: str, debug: bool=False) -> None:
-        '''Prints the DT deck state.'''
+        '''Prints the DT deck state (the current state of the deck variables).
+
+        Usage:
+
+        pacli podtoken deck_state DECK
+
+        Options:
+        --debug: Shows debug information.
+
+        '''
         deckid = eu.search_for_stored_tx_label("deck", deck)
         ei.run_command(dc.dt_state, deckid, debug)
 
-    def claim(self, proposal: str, donor_address:str=None, payment: list=None, receiver: list=None, change: str=Settings.change, locktime: int=0, donation_txid: str=None, donation_state: str=None, proposer: bool=False, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, txhex: bool=False, confirm: bool=False, debug: bool=False) -> str:
-        '''Issue Proof-of-donation tokens after a successful donation.'''
+
+    def claim(self,
+              proposal: str,
+              receivers: list=None,
+              amounts: list=None,
+              change: str=Settings.change,
+              locktime: int=0,
+              donation_state: str=None,
+              donor_address:str=None,
+              proposer: bool=False,
+              verify: bool=False,
+              sign: bool=True,
+              send: bool=True,
+              force: bool=False,
+              silent: bool=False,
+              txhex: bool=False,
+              confirm: bool=False,
+              debug: bool=False) -> str:
+        '''Issue Proof-of-donation tokens as a reward after a successful donation.
+
+        Usage options:
+
+        pacli podtoken claim PROPOSAL
+
+        Claim the tokens and store them on the current main address, which has to be the donor.
+        PROPOSAL is the proposal that was donated to.
+        Note: as there can be only one donation per proposal and donor address, there is no possible ambiguity.
+
+        pacli podtoken claim DECK TXID --receivers=[ADDR1, ADDR2, ...] --amounts=[AM1, AM2, ...]
+
+        Claim the tokens and make a payment with the issued tokens to multiple receivers (put the lists into brackets)
+
+        Options and flags:
+        --proposer: Claim the proposer reward.
+        --donation_state: Allows to specify a donation state (TXID of signalling transaction) if there are any ambiguities, for example if an incomplete donation was made from the same address.
+        --donor_address: Allows to specify a different donor address to check if a claim from there is possible (--sign and --send are disabled).
+        --locktime: Lock the transaction until a block or a time.
+        --change: Specify a change address.
+        --sign: Sign the transaction (True by default).
+        --send: Send the transaction (True by default).
+        --confirm: Wait and display a message until the transaction is confirmed.
+        --verify: Verify transaction with Cointoolkit.
+        --silent: Suppress output.
+        --txhex: Print out the transaction as a HEX string.
+        --debug: Show additional debug information.
+        --force: Create the transaction even if the reward does not match the transaction (only for debugging!).
+        '''
 
         change_address = ec.process_address(change)
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
+
         if donor_address is None:
             donor_address = Settings.key.address
         else:
             print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
             sign, send = False, False
 
-        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=payment, receiver=receiver, donation_txid=donation_txid, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=txhex)
+        if txhex:
+            silent = True
 
+        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=silent)
 
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receiver, amount=payment, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=confirm, silent=txhex, sign=sign, send=send)
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=confirm, silent=silent, sign=sign, send=send)
         return ei.output_tx(tx, txhex=txhex)
 
 
@@ -105,15 +203,31 @@ class PoDToken(Token):
         return ei.run_command(dc.show_votes_by_address, deckid, address)
 
     def votes(self,
-              deck: str=None,
-              proposal: str=None,
+              deck_or_proposal: str=None,
               address: str=Settings.key.address,
+              my: bool=False,
               debug: bool=False):
+        """Shows votes, either of the current address, or of a specific proposal.
 
-        if proposal:
-            return self.__get_votes(proposal, debug=debug)
+        Usage options:
+
+        pacli podtoken votes PROPOSAL
+
+        Shows all votes from all users on the proposal PROPOSAL.
+
+        pacli podtoken votes DECK [--my|ADDRESS]
+
+        Shows all votes cast from the current address (--my) or another ADDRESS for the specified deck DECK.
+
+        Other options and flags:
+        --debug: prints debug information
+
+        """
+
+        if my or (address is not None):
+            return self.__my_votes(deck_or_proposal, address=address)
         else:
-            return self.__my_votes(deck, address=address)
+            return self.__get_votes(deck_or_proposal, debug=debug)
 
 
 class Proposal:
@@ -178,7 +292,11 @@ class Proposal:
             di.prepare_dict(pdict)
             pprint(pdict)
 
-    def set(self, label: str, proposal_id: str, modify: bool=False, silent: bool=False) -> None:
+    def set(self,
+            label: str,
+            proposal_id: str,
+            modify: bool=False,
+            silent: bool=False) -> None:
         """Stores a proposal with label and proposal id (TXID). Use --modify to change the label."""
         return ce.set("proposal", label, value=proposal_id, silent=silent, modify=modify)
 
@@ -206,13 +324,14 @@ class Proposal:
         return ce.show("proposal", proposal)
 
     def list(self,
-             deck,
+             deck: str=None,
              block: int=False,
              only_active: bool=False,
              all: bool=False,
              simple: bool=False,
              silent: bool=False,
-             named: bool=False) -> None:
+             named: bool=False,
+             debug: bool=False) -> None:
         """Shows all stored proposal IDs and their labels."""
 
         if named:

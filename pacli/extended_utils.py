@@ -95,6 +95,7 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
 
     if not ignore_checkpoint:
         # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
+        from pacli.extended_checkpoints import reorg_check, store_checkpoint
         if reorg_check(silent=silent) and not confirm_continuation():
             return
         store_checkpoint(silent=silent)

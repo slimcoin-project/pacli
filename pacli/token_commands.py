@@ -17,6 +17,7 @@ def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring:
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
+    # TODO: re-check if addresses without labels are shown (simply send tokens to a random non-label address)
 
 
     # TODO deck_type is not userfriendly, perhaps increase friendlyness to allow calling that on CLI
@@ -74,6 +75,7 @@ def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring:
                     balance = ei.format_balances(balance, labeldict, suppress_addresses=only_labels)
             else:
                 balance = eu.get_address_token_balance(deck, address)
+                print(address, balance)
         except KeyError:
             if debug:
                 print("Warning: Omitting not initialized deck:", deck.id)
@@ -95,9 +97,9 @@ def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring:
     elif advanced or (not wallet):
         pprint(balances)
     else:
-        ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network)
+        ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network, only_tokens=only_tokens)
 
-def single_balance(self, deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, silent: bool=False):
+def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, silent: bool=False):
     """Shows the balance of a single token (deck) on the current main address or another address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
