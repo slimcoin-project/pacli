@@ -285,8 +285,8 @@ def select_utxos(minvalue: Decimal, address: str=None, minconf: int=1, maxconf: 
         pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
         print("Amount: {} coins".format(utxo.get("amount")))
 
-def prettyprint_locks(locks: dict):
-    print("Current locks:")
+def prettyprint_locks(locks: dict, blockheight: int):
+    print("Locks at blockheight {}:".format(blockheight))
     for address in locks.keys():
         pprint("Address: {}".format(address))
         for lock in locks.get(address):
