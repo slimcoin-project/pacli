@@ -383,7 +383,7 @@ def search_for_stored_tx_label(category: str, identifier: str, silent: bool=Fals
             else:
                 raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
         else:
-            raise ei.PacliInputDataError("Label not found.")
+            raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
 
 def is_possible_txid(txid: str) -> bool:
     try:

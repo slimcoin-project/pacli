@@ -176,19 +176,24 @@ def get_proposal_info(proposal_txid):
     return proposal_tx.__dict__
 
 
-def get_slot(proposal_id, donor_address, dist_round=None):
+def get_slot(proposal_id: str, donor_address: str, dist_round: int=None, silent: bool=False):
     dstates = dmu.get_donation_states(provider=provider, proposal_id=proposal_id, donor_address=donor_address)
+
     if dist_round:
         for state in dstates:
             if state.dist_round == dist_round:
                 raw_slot = state.slot
-                break
+                return {"round" : dist_round, "slot" : raw_slot}
         else:
-            raise PacliInputDataError("No slot found in round {}".format(dist_round))
+            if silent:
+                return {"round" : dist_round, "slot" : None}
+            else:
+                raise PacliInputDataError("No slot found in round {}".format(dist_round))
 
     else:
         try:
-            return dstates[0].slot
+            return {"round" :dstates[0].dist_round, "slot" : dstates[0].slot}
+
         except IndexError:
             raise PacliInputDataError("No valid donation process found.")
 

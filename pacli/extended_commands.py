@@ -71,6 +71,7 @@ def process_address(addr_string: str) -> str:
             address = show_stored_address(addr_string, keyring=False)
             assert address is not None
         except AssertionError:
+            # TODO: we don't check here if the addr_string is a valid address.
             return addr_string
     return address
 
@@ -126,7 +127,7 @@ def store_address(label: str, network_name: str=Settings.network, address: str=N
 
 
 def get_address(label: str, network_name: str=Settings.network, noprefix: bool=False) -> str:
-    ext_label = network_name + "_" + label
+    ext_label = label if noprefix else network_name + "_" + label
     return ce.read_item(category="address", key=ext_label)
 
 def get_all_labels(prefix: str=Settings.network, keyring: bool=False) -> list:

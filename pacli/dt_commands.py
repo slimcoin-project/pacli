@@ -53,7 +53,7 @@ def show_votes_by_address(deckid: str, address: str) -> None:
                     pprint("Weight: " + str(vtx.weight))
 
 
-def show_donations_by_address(deckid: str, address: str) -> None:
+def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None:
     # shows all valid donation transactions from a specific address, for all proposals.
 
     pprint("Donations realized from address: " + address)
@@ -77,13 +77,7 @@ def show_donations_by_address(deckid: str, address: str) -> None:
             for dstate in rdlist.values():
                 # print(dstate.__dict__)
                 if (dstate.donor_address == address) and (dstate.donation_tx is not None):
-                    pprint("-----------------------------------------")
-                    pprint("Proposal: " + proposal)
-                    pprint("Round: " + str(rd))
-                    pprint("Amount: " + str(dstate.donated_amount))
-                    pprint("Donation txid: " + dstate.donation_tx.txid)
-
-
+                    di.display_donation_state(dstate, mode=mode)
 
 # Deck
 
@@ -198,7 +192,11 @@ def list_current_proposals(deck: str, block: int=None, only_active: bool=False, 
     # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
     # TODO ensure that the simple mode also takes into account Proposal Modifications
 
-    deckid = eu.search_for_stored_tx_label("deck", deck)
+    try:
+        deckid = eu.search_for_stored_tx_label("deck", deck)
+    except (ValueError, TypeError):
+        raise ei.PacliInputDataError("No deck provided.")
+
     statelist, advanced = ["active"], True
     if not only_active:
         statelist.append("completed")

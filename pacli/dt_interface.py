@@ -1,4 +1,5 @@
 from time import sleep
+from prettyprinter import cpprint as pprint
 from decimal import Decimal
 from pypeerassets.at.dt_entities import TrackedTransaction
 from pypeerassets.at.dt_states import DonationState
@@ -258,3 +259,40 @@ def signalling_info(amount: str, check_round: int, basic_tx_data: dict, dest_lab
     print("Take into account that releasing the donation requires {} coins for fees.".format(total_tx_fee))
     if (check_round is not None) and (check_round < 4): # TODO this is not good, as it will only appear if check_round is used. Refactor!
         print("Additionally, locking the transaction requires {} coins, so total fees sum up to {}.".format(total_tx_fee, total_tx_fee * 2))
+
+def display_donation_state(dstate: object, mode: str="basic"):
+
+    pprint("ID: {}".format(dstate.id))
+    ds_dict = dstate.__dict__
+
+    if mode == "basic":
+        for item in ds_dict:
+            try:
+                value = ds_dict[item].txid
+            except AttributeError:
+                value = ds_dict[item]
+            print(item + ":", value)
+
+    elif mode == "simplified":
+
+        pprint("------------------------------------------------------------")
+        print("Proposal: " + dstate.proposal_id)
+        print("Round: " + str(dstate.dist_round))
+        print("Amount: " + str(dstate.donated_amount))
+        print("Donation txid: " + dstate.donation_tx.txid)
+
+    elif mode == "short":
+
+        pprint("Donor address: {}".format(dstate.donor_address))
+        pprint("-" * 16)
+
+    else:
+
+        for item in ds_dict:
+            if issubclass(type(ds_dict[item]), TrackedTransaction):
+                value = ds_dict[item].txid
+            else:
+                value = ds_dict[item]
+
+            print("{}: {}".format(item, value))
+
