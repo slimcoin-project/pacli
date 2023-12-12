@@ -81,25 +81,28 @@ def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None
 
 # Deck
 
-def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, store_label: str=False) -> None:
+def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, silent: bool=False, store_label: str=False) -> None:
     # MODIFIED: added support for legacy blockchains
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     legacy = is_legacy_blockchain(network_name)
 
     if "sdp_deckid" not in deck.__dict__.keys():
-        print("No SDP (voting) token found for this deck. This is probably not a proof-of-donation deck!")
+        if not silent:
+            print("No SDP (voting) token found for this deck. This is probably not a proof-of-donation deck!")
         return
 
     if deck.id not in provider.listaccounts():
-        print("Importing main key from deck.")
+        if not silent:
+            print("Importing main key from deck.")
         load_deck_p2th_into_local_node(provider, deck)
 
     for tx_type in ("proposal", "signalling", "locking", "donation", "voting"):
         p2th_addr = deck.derived_p2th_address(tx_type)
-        print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
+        if not silent:
+            print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
         if legacy:
             p2th_wif = deck.derived_p2th_wif(tx_type)
-            legacy_import(provider, p2th_addr, p2th_wif, rescan)
+            legacy_import(provider, p2th_addr, p2th_wif, rescan, silent=silent)
         else:
             dmu.import_p2th_address(provider, p2th_addr)
 
@@ -109,19 +112,22 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, store_label:
         p2th_sdp_addr = pa.Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
 
-        print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
+        if not silent:
+            print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
 
         if legacy:
             p2th_sdp_wif = pa.Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).wif
-            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan)
+            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan, silent=silent)
         else:
             dmu.import_p2th_address(provider, p2th_sdp_addr)
 
     if rescan:
         if not legacy:
-            print("Rescanning ...")
             provider.rescanblockchain()
+            if not silent:
+                print("Rescanning ...")
+
 
     if store_label:
          try:
@@ -129,7 +135,8 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, store_label:
          except ce.ValueExistsError:
              raise PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
 
-    print("Done.")
+    if not silent:
+        print("Done.")
 
 
 def dt_state(deckid: str, debug: bool=False, debug_voting: bool=False, debug_donations: bool=False):
@@ -260,6 +267,4 @@ def list_current_proposals(deck: str, block: int=None, only_active: bool=False, 
 
         pmsg = "" if all else "active and/or completed "
         print("No {}proposal states found for deck {}.".format(pmsg, deckid))
-
-
 

@@ -30,6 +30,27 @@ def run_command(c, *args, **kwargs) -> object:
             raise
         sys.exit()
 
+    except (TypeError, AttributeError):
+
+        # a TypeError complaining is often raised if a deck wasn't initialized:
+        # TypeError: argument of type 'NoneType' is not iterable
+        err_str = """\n        Error raised by PeerAssets.
+
+        Probably the deck you specified didn't exist, or you need to initialize a deck.
+
+        To initialize the default decks, use:
+
+        pacli deck init
+
+        To initialize a single deck, use:
+
+        pacli deck init DECKID [--podtoken]
+        """
+        print_red(err_str)
+        if "debug" in kwargs.keys() and kwargs["debug"]:
+            raise
+        sys.exit()
+
 def spinner(duration: int) -> None:
     '''Prints a "spinner" for a defined duration in seconds.'''
 

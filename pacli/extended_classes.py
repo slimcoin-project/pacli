@@ -5,6 +5,7 @@ from pprint import pprint as alt_pprint
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 
+import pacli.extended_constants as pc
 import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
 import pacli.at_utils as au
@@ -12,6 +13,7 @@ import pacli.extended_commands as ec
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.token_commands as tc
+import pacli.dt_commands as dc
 
 from pacli.provider import provider
 from pacli.config import Settings, default_conf
@@ -172,12 +174,28 @@ class ExtAddress:
         # NOTE: --set_main in --new will be trashed. It's logical that it should be change to this address.
         # NOTE: --backup options could be trashed. This option is now very unlikely to be used. Setting it to None for now.
 
+        kwargs = locals()
+        del kwargs["self"]
+        ei.run_command(self.__set_label, **kwargs)
+
+
+    def __set_label(self,
+            label: str=None,
+            address: str=None,
+            account: str=None,
+            new: bool=False,
+            delete: bool=False,
+            modify: bool=False,
+            silent: bool=False,
+            keyring: bool=False,
+            now: bool=False,
+            import_all_keyring_addresses: bool=False):
+
         if not label:
             if import_all_keyring_addresses:
-                """"""
                 return ec.store_addresses_from_keyring(modify=modify)
             else:
-                raise ei.PacliInputDataError("No label provided.")
+                raise ei.PacliInputDataError("No label provided. See -h for options.")
 
         elif new:
             return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, silent=silent)
@@ -298,7 +316,7 @@ class ExtAddress:
         Debugging options:
 
         --debug: Show debug information.
-        --full_labels: Shows labels with
+        --full_labels: Shows labels with prefix.
 
         """
 
@@ -380,87 +398,6 @@ class ExtAddress:
         pprint(
             {'balance': float(provider.getbalance(address))}
             )
-
-    # OLD COMMANDS
-    ### Commands for the Extended Keystore (keystore_extended module)
-    ### Allows to use more than one address/key
-    # Commands to store keys in the keyring and retrieve from it (deprecated)
-
-
-    """def new_privkey(self, label: str, key: str=None, backup: str=None, wif: bool=False, legacy: bool=False) -> str:
-        '''import new private key, taking hex or wif format, or generate new key.
-           You can assign a label, otherwise it will become the main key.'''
-
-        return ke.new_privkey(label, key=key, backup=backup, wif=wif, legacy=legacy)""" # obsolete due to address set LABEL --new (ex "address fresh")
-
-
-    """def show_all(self, debug: bool=False, legacy: bool=False):
-        '''Shows all stored addresses and their balance (Unix only).'''
-
-        return ke.show_all_keys(debug, legacy)""" # ok, obsolete; we now use another table format with address list --coinbalances
-
-
-    """def import_to_wallet(self, accountname: str, label: str=None, legacy: bool=False) -> None:
-        '''imports main key or any stored key to wallet managed by RPC node.'''
-
-        return ke.import_key_to_wallet(accountname, label, legacy)""" # ok, address set LABEL --account ACCOUNT
-
-    # Commands leading by default to the Tools interface
-
-
-    """def fresh(self, label: str, set_main: bool=False, backup: str=None, keyring: bool=False, legacy: bool=False, silent: bool=False):
-        '''This function uses the standard client commands to create an address/key and assigns it a label.'''
-
-        return ec.fresh_address(label, set_main=set_main, backup=backup, legacy=legacy, keyring=keyring, silent=silent)""" # ok, address set LABEL --new
-
-
-    """def set_main(self, label: str, backup: str=None, legacy: bool=False, keyring: bool=False, silent: bool=False) -> str:
-        '''Declares a key identified by a label as the main one.'''
-
-        return ec.set_main_key(label, backup=backup, legacy=legacy, keyring=keyring, silent=silent)""" # ok, address set LABEL
-
-
-    """def show_stored(self, label: str, pubkey: bool=False, privkey: bool=False, wif: bool=False, keyring: bool=False, legacy: bool=False) -> str:
-        '''Shows a stored alternative address or key.
-        --privkey, --pubkey and --wif options only work with --keyring.'''
-
-        return ec.show_stored_address(label, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, legacy=legacy, keyring=keyring)""" # ok, address show LABEL
-
-
-    """def show_label(self, address=Settings.key.address, set_main: bool=False, keyring: bool=False):
-        '''Shows the label of the current main address, or of another address.'''
-
-        return ec.show_label(address, keyring=keyring, set_main=set_main)""" # ok, address show [ADDRESS] --label
-
-
-    """def set_label(self, label: str, address: str, set_main: bool=False, keyring: bool=False, modify=False, network_name=Settings.network):
-        '''Assigns a label to an address and saves it in the keyring.'''
-
-        ec.set_label(label, address, set_main=set_main, keyring=keyring, modify=modify, network_name=network_name)""" # ok, address set
-
-
-    """def show_all_labels(self, prefix: str=Settings.network, full: bool=False, keyring: bool=False):
-        '''Shows all labels which were stored in the keyring. For debugging mainly.'''
-
-        labels = ec.get_all_labels(keyring=keyring, prefix=prefix)
-        if full:
-            print(labels)
-        else:
-            print([ke.format_label(l, keyring=keyring) for l in labels])""" # ok, address list --labels
-
-    """def delete_label(self, label: str, keyring: bool=False, legacy: bool=False, now: bool=False) -> None:
-        '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
-
-        return ec.delete_label(label, legacy=legacy, keyring=keyring, now=now)""" # ok, address set --delete
-
-
-    """def show_transactions(self, address: str=Settings.key.address, sent: bool=False, received: bool=False, advanced: bool=False):
-        '''returns all transactions from or to that address in the wallet.'''
-        # TODO: goes to transaction list.
-
-        for txdict in ec.get_address_transactions(address, sent=sent, received=received, advanced=advanced):
-            pprint(txdict)""" # ok, transaction list
-
 
 
 class ExtDeck:
@@ -579,6 +516,49 @@ class ExtDeck:
             return ce.find("deck", deckstr, silent=silent)
         else:
             return ce.show("deck", deckstr) # branch to tools show_deck
+
+    def init(self,
+             deck: str=None,
+             podtoken: bool=False,
+             defaults: bool=False,
+             store_label: bool=False,
+             silent: bool=False,
+             debug: bool=False) -> None:
+        """Initializes a deck (token).
+        This is mandatory to be able to use a token with pacli.
+
+        Usage:
+
+        pacli deck init
+
+        Initialize the default PoB and dPoD tokens of this network.
+
+        pacli deck init DECK
+
+        Initialize a single deck. DECK can be a Deck ID or a label.
+
+        Flags:
+
+        --podtoken: Initialize a dPoD token.
+        --store_label LABEL: Store a label for the deck in the extended configuration file.
+            Does only work if a deck is given.
+        --silent: Suppress output.
+        """
+
+        netw = Settings.network
+
+        if deck is None:
+            pob_deck = pc.DEFAULT_POB_DECK[netw]
+            pod_deck = pc.DEFAULT_POD_DECK[netw]
+
+            ei.run_command(eu.init_deck, netw, pob_deck, silent=silent, store_label=store_label)
+            ei.run_command(dc.init_dt_deck, netw, pod_deck, silent=silent, store_label=store_label)
+        else:
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
+            if podtoken:
+                ei.run_command(dc.init_dt_deck, netw, deckid, silent=silent, store_label=store_label)
+            else:
+                ei.run_command(eu.init_deck, netw, deckid, silent=silent)
 
 
 

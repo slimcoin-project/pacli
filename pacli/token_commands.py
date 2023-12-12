@@ -131,3 +131,4 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
             print({address : balance})
         else:
             pprint({address : balance})
+

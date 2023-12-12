@@ -49,7 +49,7 @@ def list_decks(identifier: str="dt"):
     at_type = { "at" : ID_AT, "dt" : ID_DT }
     return dmu.list_decks_by_at_type(provider, at_type[identifier])
 
-def init_deck(network: str, deckid: str, rescan: bool=True, silent: bool=False):
+def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=True, silent: bool=False, debug: bool=False):
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if deckid not in provider.listaccounts():
         provider.importprivkey(deck.p2th_wif, deck.id, rescan)
@@ -59,8 +59,18 @@ def init_deck(network: str, deckid: str, rescan: bool=True, silent: bool=False):
         if not silent:
             print("P2TH address was already imported.")
     check_addr = provider.validateaddress(deck.p2th_address)
-    if not silent:
+
+    if debug:
         print("Output of validation tool:\n", check_addr)
+
+    if store_label:
+        try:
+            ce.write_item("deck", store_label, deckid)
+        except ce.ValueExistsError:
+            raise ei.PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
+
+    if not silent:
+        print("Done.")
 
 def signtx_by_key(rawtx, label=None, key=None):
     # Allows to sign a transaction with a different than the main key.

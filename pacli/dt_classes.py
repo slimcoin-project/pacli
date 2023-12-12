@@ -63,7 +63,7 @@ class PoDToken(Token):
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data,
                              confirm=confirm, verify=verify, sign=sign, send=send)
 
-    def init_deck(self, deck: str, store_label: str=None) -> None:
+    '''def init_deck(self, deck: str, store_label: str=None) -> None:
         """Initializes DT deck and imports all P2TH addresses into node.
 
         Usage options:
@@ -78,7 +78,7 @@ class PoDToken(Token):
         """
 
         deckid = eu.search_for_stored_tx_label("deck", deck)
-        ei.run_command(dc.init_dt_deck, Settings.network, deckid, store_label=store_label)
+        ei.run_command(dc.init_dt_deck, Settings.network, deckid, store_label=store_label)'''
 
     """def deck_info(self, deck: str, p2th: bool=False, param: str=None) -> None: ### GOES TO extended_main
         '''Prints DT-specific deck info.'''
