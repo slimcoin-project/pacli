@@ -157,6 +157,10 @@ class ExtAddress:
 
         Without flags, sets the LABEL as the main address.
 
+        pacli address set NEW_LABEL OLD_LABEL --modify
+
+        Modifies a label (OLD_LABEL is replaced by NEW_LABEL).
+
         Options and flags:
 
         --new: Creates an address/key with the wallet software and assigns it a label.
@@ -164,7 +168,7 @@ class ExtAddress:
         --modify: Replaces the label for an address by another one.
         --keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
         --account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
-        --import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file.
+        --import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
         --silent: Suppress output, printout in script-friendly way.
         """
 
@@ -193,7 +197,7 @@ class ExtAddress:
 
         if not label:
             if import_all_keyring_addresses:
-                return ec.store_addresses_from_keyring(modify=modify)
+                return ec.store_addresses_from_keyring(silent=silent, replace=modify)
             else:
                 raise ei.PacliInputDataError("No label provided. See -h for options.")
 
@@ -323,7 +327,7 @@ class ExtAddress:
         if coinbalances or labels or full_labels:
             # TODO: doesn't seem towork with keyring.
             # ex tools show_addresses
-            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring)
+            address_labels = ei.run_command(ec.get_labels_and_addresses, prefix=network, keyring=keyring)
             # address_labels = ce.get_config()["address"]
 
             if labels or full_labels:
@@ -361,14 +365,15 @@ class ExtAddress:
             # __allbalances parameters:
             # (address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, silent: bool=False, debug: bool=False)
 
-            return tc.all_balances(wallet=True,
-                                   keyring=keyring,
-                                   no_labels=no_labels,
-                                   only_tokens=False,
-                                   advanced=advanced,
-                                   only_labels=only_labels,
-                                   silent=silent,
-                                   debug=debug)
+            return ei.run_command(tc.all_balances,
+                                  wallet=True,
+                                  keyring=keyring,
+                                  no_labels=no_labels,
+                                  only_tokens=False,
+                                  advanced=advanced,
+                                  only_labels=only_labels,
+                                  silent=silent,
+                                  debug=debug)
 
     def balance(self, label: str=None, address: str=None):
         """Shows the balance of an address, by default of the current main address.

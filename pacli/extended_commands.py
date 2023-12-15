@@ -216,18 +216,21 @@ def get_address_transactions(addr_string: str, sent: bool=False, received: bool=
     return result
 
 
-def store_addresses_from_keyring(self, network_name: str=Settings.network, replace: bool=False) -> None:
+def store_addresses_from_keyring(network_name: str=Settings.network, replace: bool=False, silent: bool=False, debug: bool=False) -> None:
     """Stores all labels/addresses stored in the keyring in the extended config file."""
-    print("Storing all addresses of network", network_name, "from keyring into extended config file.")
-    print("The config file will NOT store private keys. It only allows faster access to addresses.")
+    if not silent:
+        print("Storing all addresses of network", network_name, "from keyring into extended config file.")
+        print("The config file will NOT store private keys. It only allows faster access to addresses.")
     keyring_labels = ke.get_labels_from_keyring(network_name)
-    print("Labels (with prefixes) retrieved from keyring:", keyring_labels)
+    if debug:
+        print("Labels (with prefixes) retrieved from keyring:", keyring_labels)
 
     for full_label in keyring_labels:
         try:
-            ec.store_address(full_label, full=True, replace=replace)
+            store_address(full_label, full=True, replace=replace)
         except ei.ValueExistsError:
-            print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
+            if not silent:
+                print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
             continue
 
 

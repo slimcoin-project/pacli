@@ -19,10 +19,18 @@ def print_red(text: str) -> None:
     print("\033[91m {}\033[00m" .format(text))
 
 def run_command(c, *args, **kwargs) -> object:
-    # Unified exception handling for PacliInputDataError.
+    # Unified exception handling for PacliInputDataError and other exceptions.
+
+    try:
+        warnings.filterwarnings("ignore")
+    except UnboundLocalError:
+        import warnings
+        warnings.filterwarnings("ignore") # NOT working
+
     try:
         result = c(*args, **kwargs)
         return result
+
     except (PacliInputDataError, ValueExistsError) as e:
 
         print_red("\nError: {}".format(e.args[0]))
@@ -50,6 +58,10 @@ def run_command(c, *args, **kwargs) -> object:
         if "debug" in kwargs.keys() and kwargs["debug"]:
             raise
         sys.exit()
+        raise
+
+    except ConnectionError:
+        print_red("Error: {} daemon is not running. Please start your client.".format(Settings.network.upper()))
 
 def spinner(duration: int) -> None:
     '''Prints a "spinner" for a defined duration in seconds.'''
