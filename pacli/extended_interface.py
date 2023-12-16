@@ -21,11 +21,11 @@ def print_red(text: str) -> None:
 def run_command(c, *args, **kwargs) -> object:
     # Unified exception handling for PacliInputDataError and other exceptions.
 
-    try:
-        warnings.filterwarnings("ignore")
-    except UnboundLocalError:
-        import warnings
-        warnings.filterwarnings("ignore") # NOT working
+    #try:
+    #    warnings.filterwarnings("ignore")
+    #except UnboundLocalError:
+    #    import warnings
+    #    warnings.filterwarnings("ignore") # NOT working
 
     try:
         result = c(*args, **kwargs)
@@ -181,6 +181,7 @@ def print_default_balances_list(balances: dict, labeldict: dict, decks: list, ne
 
       for full_label, address in labeldict.items():
           balance = {}
+          # NOTE: this has the effect that labels without _ are not shown correctly.
           label = "_".join(full_label.split("_")[1:])
           balance.update({"label" : label })
           balance.update({"address" : address})

@@ -168,18 +168,43 @@ def show_addresses(addrlist: list, label_list: list, network: str=Settings.netwo
         result.append(adr)
     return result
 
-def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False) -> dict:
+def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
+    """Returns a dict of all labels and addresses which were stored.
+       Addresses without label are not included if "named" is True."""
 
     if not keyring:
-        return ce.get_config()["address"]
+        result = ce.get_config()["address"]
 
-    result = {}
+    else:
+        result = {}
 
-    keyring_labels = ke.get_labels_from_keyring(prefix)
+        keyring_labels = ke.get_labels_from_keyring(prefix)
 
-    for label in keyring_labels:
-        address = show_stored_address(label=label, noprefix=True, keyring=True)
-        result.update({label : address})
+        for label in keyring_labels:
+            address = show_stored_address(label=label, noprefix=True, keyring=True)
+            label = label[4:] # wipes key_ out.
+            result.update({label : address})
+
+    if mark_duplicates:
+       result2 = {}
+       for l, a in result.items():
+           if a in result2.values():
+               l = l + "[D]"
+           result2.update({l : a})
+       result = result2
+
+    if not named:
+        counter = 0
+        wallet_addresses = eu.get_wallet_address_set()
+        for address in wallet_addresses:
+            if address not in result.values():
+                if not empty:
+                    if provider.getbalance(address) == 0:
+                        continue
+                label = "(unlabeled{})".format(str(counter))
+
+                result.update({ label : address })
+                counter += 1
 
     return result
 
