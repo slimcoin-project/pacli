@@ -155,35 +155,6 @@ def create_params(tx_type: str, **kwargs) -> dict:
 def get_donation_state_data(tx_type: str, proposal_tx: object, dist_round: int=None, input_address: str=None, new_inputs: bool=False, silent: bool=False, debug: bool=False) -> dict:
     """Gets basic data for a new LockingTransaction or DonationTransaction"""
 
-    """# step 1 (new): address/label synchronization
-    if (addresses, labels) != (None, None):
-        [dest_address, reserve_address, change_address] = ec.show_addresses(addresses, labels, Settings.network)
-
-    tx_data = {"dest_address" : dest_address, "reserve_address" : reserve_address, "change_address" : change_address }
-
-    if amount:
-       tx_data.update({"raw_amount": str(amount)})
-    if reserve:
-       tx_data.update({"reserve": str(reserve)})
-    if tx_fee:
-       tx_data.update({"tx_fee": str(tx_fee)})
-
-    # step 2: proposal and deck data
-    if proposal_id is not None:
-        proposal_tx = dmu.find_proposal(proposal_id, provider)
-        deck = proposal_tx.deck
-        tx_data.update({ "proposal_tx" : proposal_tx })
-    else:
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-
-    tx_data.update({"deck" : deck, "input_address" : input_address, "tx_type": tx_type, "provider" : provider })
-
-    # step 3: check period (all except proposals.)
-    if (check_round is not None) or wait:
-        if not du.check_current_period(proposal_id, deck, tx_type, dist_round=check_round, wait=wait, security_level=security_level):
-            raise PacliInputDataError("Transaction created in wrong period.")
-    """
-
     if not silent:
         print("Searching for donation state for this transaction. Please wait.")
     try:
@@ -191,8 +162,11 @@ def get_donation_state_data(tx_type: str, proposal_tx: object, dist_round: int=N
     except KeyError:
         raise PacliInputDataError("Proposal not found. Deck is probably not correctly initialized. Initialize it with 'pacli podtoken init_deck {}'.".format(deck.id))
 
-    dstates = dmu.get_dstates_from_donor_address(input_address, proposal_state)
-    dstate = du.select_donation_state(dstates, tx_type, debug=debug)
+    # TODO: re-check if this change is consistent with the rules
+    # (oldest valid donation state is always the only valid one per donor address, including abandoned ones)
+    dstate = dmu.get_dstates_from_donor_address(input_address, proposal_state)[0]
+    # dstates = dmu.get_dstates_from_donor_address(input_address, proposal_state)
+    # dstate = du.select_donation_state(dstates, tx_type, debug=debug)
 
     if tx_type == "donation" and dstate.dist_round in range(4):
         used_slot = dstate.effective_locking_slot

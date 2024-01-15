@@ -237,8 +237,8 @@ class Proposal:
         '''Get basic info of a proposal.'''
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        info = du.get_proposal_info(proposal_id)
-        pprint(info)
+        proposal_tx = du.find_proposal(proposal_id, provider)
+        pprint(proposal_tx.__dict__)
 
     def __find(self, searchstring: str, advanced: bool=False, shortid: bool=False) -> None:
         '''finds a proposal based on its description string or short id'''
@@ -905,10 +905,6 @@ class Donation:
             di.display_donation_state(dstate, mode)
 
 
-    def __all_my_donations(self, deckid: str, address: str=Settings.key.address, mode: str=None) -> None:
-        '''shows donation states involving this address, for all proposals of a deck.'''
-        return ei.run_command(dc.show_donations_by_address, deckid, address, mode=mode)
-
     def list(self,
              deck_or_proposal: str=None,
              address: str=Settings.key.address,
@@ -941,7 +937,7 @@ class Donation:
         Show all donation states made from that address.
 
         Other options and flags:
-        --wallet: In combination with --my, show all donations made from the wallet.
+        --wallet: In combination with --my and --proposal, show all donations made from the wallet.
         --address: In combination with --my, specify another donor address.
         --all: In combination with --my, printout all donation states (also abandoned ones).
         --incomplete: In combination with --my, only show incomplete states.
@@ -951,16 +947,18 @@ class Donation:
         --mode: Printout in a specific mode (allowed options: 'short', 'simplified').
         --debug: Show debug information.
         """
+        # TODO: an option --wallet for the variant with DECK would be useful.
 
         if my:
              if proposal:
-                 return self.__my_donation_states(proposal, address=address, wallet=wallet, all_matches=all_matches, incomplete=incomplete, unclaimed=unclaimed, all=all, keyring=keyring, mode=mode, debug=debug)
+                 return ei.run_command(self.__my_donation_states, proposal, address=address, wallet=wallet, all_matches=all_matches, incomplete=incomplete, unclaimed=unclaimed, all=all, keyring=keyring, mode=mode, debug=debug)
              else:
                  deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_or_proposal)
-                 return self.__all_my_donations(deckid, address=address, mode=mode)
+                 return ei.run_command(dc.show_donations_by_address, deckid, address, mode=mode)
+
         elif deck_or_proposal is not None:
              proposal = deck_or_proposal
-             return self.__all_donation_states(proposal, incomplete=incomplete, unclaimed=unclaimed, all=all, mode=mode, debug=debug)
+             return ei.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all=all, mode=mode, debug=debug)
         else:
              ei.print_red("Invalid option, you have to provide a proposal or a deck.")
 
@@ -990,7 +988,7 @@ class Donation:
             proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
             return ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
 
-        tx = ei.run_command(du.create_trackedtx, txid=txid, txhex=txhex)
+        tx = ei.run_command(du.get_trackedtx, txid=txid, txhex=txhex)
         pprint("Type: " + str(type(tx)))
         pprint(tx.__dict__)
 

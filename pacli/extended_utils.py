@@ -10,6 +10,7 @@ from pypeerassets.at.constants import ID_AT, ID_DT
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
+import pacli.extended_constants as c
 import pacli.extended_interface as ei
 from pacli.provider import provider
 from pacli.config import Settings
@@ -18,9 +19,11 @@ from pacli.utils import (sendtx, cointoolkit_verify)
 # Utils which are used by both at and dt (and perhaps normal) tokens.
 
 def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None):
+    """Creates a Protobuf datastring with the deck metadata."""
 
     # note: we use an additional identifier only for this function, to avoid having to import extension
     # data into __main__.
+    # TODO: this note is obsolete as we now have extended_classes. Can be refactored.
 
     if identifier == ID_DT:
 
@@ -43,13 +46,9 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
     data = serialize_deck_extended_data(net_query(provider.network), params=params)
     return data
 
-
-def list_decks(identifier: str="dt"):
-    # quick workaround for the problem that we don't want too much extension stuff in __main__.
-    at_type = { "at" : ID_AT, "dt" : ID_DT }
-    return dmu.list_decks_by_at_type(provider, at_type[identifier])
-
 def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=True, silent: bool=False, debug: bool=False):
+    """Initializes a 'common' deck (also AT/PoB). dPoD decks need further initialization of more P2TH addresses."""
+
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if deckid not in provider.listaccounts():
         provider.importprivkey(deck.p2th_wif, deck.id, rescan)
@@ -73,7 +72,7 @@ def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=Tru
         print("Done.")
 
 def signtx_by_key(rawtx, label=None, key=None):
-    # Allows to sign a transaction with a different than the main key.
+    """Allows to sign a transaction with a different than the main key."""
 
     if not key:
         try:
@@ -84,9 +83,9 @@ def signtx_by_key(rawtx, label=None, key=None):
     return sign_transaction(provider, rawtx, key)
 
 def get_input_types(rawtx):
-    # gets the types of ScriptPubKey inputs of a transaction.
-    # Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,
-    # because it manages input selection (RpcNode.select_inputs)
+    """Gets the types of ScriptPubKey inputs of a transaction.
+       Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,
+       because it manages input selection (RpcNode.select_inputs)"""
     input_types = []
     try:
         for inp in rawtx.ins:
@@ -101,12 +100,13 @@ def get_input_types(rawtx):
 
 
 def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, confirm: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, save: bool=False, debug: bool=False, silent: bool=False) -> object:
+    """Final steps of a transaction creation. Checks, verifies, signs and sends the transaction, and waits for confirmation if the 'confirm' option is used."""
     # Important function called by all AT, DT and Dex transactions and groups several checks and the last steps (signing) together.
 
     if not ignore_checkpoint:
         # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
         from pacli.extended_checkpoints import reorg_check, store_checkpoint
-        if reorg_check(silent=silent) and not confirm_continuation():
+        if reorg_check(silent=silent) and not ei.confirm_continuation():
             return
         store_checkpoint(silent=silent)
 
@@ -135,6 +135,7 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
         elif (key is not None) or (label is not None): # sign with a different key
             tx = signtx_by_key(rawtx, label=label, key=key)
             # we need to check the type of the input, as the Kutil method cannot sign P2PK
+            # TODO: do we really want to preserve this option? Re-check DEX
         else:
             if input_types is None:
                 input_types = get_input_types(rawtx)
@@ -180,6 +181,7 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
 
 
 def get_wallet_transactions(fburntx: bool=False):
+    """Gets all transactions stored in the wallet."""
     start = 0
     raw_txes = []
     while True:
@@ -192,17 +194,19 @@ def get_wallet_transactions(fburntx: bool=False):
     return raw_txes
 
 def find_transaction_by_string(searchstring: str, only_start: bool=False):
+    """Returns transactions where the TXID matches a string."""
 
     wallet_txids = set([tx.txid for tx in get_wallet_transactions()])
+    matches = []
     for txid in wallet_txids:
        if (only_start and txid.startswith(searchstring)) or (searchstring in txid and not only_start):
-           break
-    return txid
+           matches.append(txid)
+    return matches
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
                  sign: bool=False, send: bool=False, debug: bool=False, silent: bool=False, confirm: bool=False) -> Optional[dict]:
-    # allows some more options, and to use P2PK inputs.
+    """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
 
     if not deck:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -232,7 +236,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
                         confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
-    # idem card transfer, allows p2pk inputs.
+    """Alternative function for deck spawns. Allows p2pk inputs."""
 
     network = Settings.network
     production = Settings.production
@@ -338,23 +342,25 @@ def reorg_check(silent: bool=False) -> None:
             print("Make sure you check token balances and other states.")
         return 1"""
 
-def confirm_continuation() -> bool:
+'''def confirm_continuation() -> bool:
+    """UX element to confirm continuation entering 'yes'."""
     print("Enter 'yes' to confirm to continue")
     cont = input()
     if cont == "yes":
         return True
     else:
-        return False
+        return False''' # to extended_interface
 
 
 def get_safe_block_timeframe(period_start, period_end, security_level=1):
-    # looks for a safe blockheight to make attacks less likely.
-    # security_level:
-    # 0 is very risky (5 to 95%, no minimum distance in blocks to period border)
-    # 1 is default (10 to 90%, 25 blocks minimum, equivalent to the recommended number of confirmations)
-    # 2 is safe (20 to 80%, 50 blocks minimum)
-    # 3 is very safe (30 to 70%, 100 blocks minimum)
-    # 4 is optimal (50%), always in the block closest to the middle of each period
+    """Returns a safe blockheight for TrackedTransactions to make reorg attacks less likely.
+    Security levels:
+
+    0 is very risky (5 to 95%, no minimum distance in blocks to period border)
+    1 is default (10 to 90%, 25 blocks minimum, equivalent to the recommended number of confirmations)
+    2 is safe (20 to 80%, 50 blocks minimum)
+    3 is very safe (30 to 70%, 100 blocks minimum)
+    4 is optimal (50%), always in the block closest to the middle of each period"""
     security_levels = [(5, 0),
                        (10, 25),
                        (20, 50),
@@ -368,7 +374,8 @@ def get_safe_block_timeframe(period_start, period_end, security_level=1):
     return (safe_start, safe_end)
 
 def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
-    # partly indicates partly signed transactions, which will be stored in the txhex category.
+    """Stores transaction in configuration file.
+    'partly' indicates that it's a partly signed transaction"""
     # the identifier can be a txid or (in the case of partly signed transactions) an arbitrary string.
     cat = "txhex" if partly else "transaction"
     ce.write_item(cat, identifier, tx_hex)
@@ -376,7 +383,7 @@ def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
         print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
 
 def search_for_stored_tx_label(category: str, identifier: str, silent: bool=False) -> str:
-    # if the identifier is a label stored in the extended config file, return the associated txid.
+    """If the identifier is a label stored in the extended config file, return the associated txid."""
     # the try-except clause returns the identifier if it's already in txid format.
 
     if is_possible_txid(identifier):
@@ -396,6 +403,7 @@ def search_for_stored_tx_label(category: str, identifier: str, silent: bool=Fals
             raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
 
 def is_possible_txid(txid: str) -> bool:
+    """Very simple TXID format verification."""
     try:
 
         assert len(txid) == 64
@@ -406,6 +414,7 @@ def is_possible_txid(txid: str) -> bool:
         return False
 
 def find_tx_senders(tx: dict) -> list:
+    """Finds all known senders of a transaction."""
     # find_tx_sender from pypeerassets only finds the first sender.
     # this variant returns a list of all input senders.
 
@@ -422,6 +431,7 @@ def find_tx_senders(tx: dict) -> list:
     return senders
 
 def get_address_token_balance(deck: object, address: str) -> Decimal:
+    """Gets token balance of a single deck of an address, as a Decimal value."""
 
     cards = pa.find_all_valid_cards(provider, deck)
     state = pa.protocol.DeckState(cards)
@@ -433,6 +443,7 @@ def get_address_token_balance(deck: object, address: str) -> Decimal:
         return 0
 
 def get_wallet_token_balances(deck: object) -> dict:
+    """Gets token balances of a single deck, of all wallet addresses, as a Decimal value."""
 
     cards = pa.find_all_valid_cards(provider, deck)
     state = pa.protocol.DeckState(cards)
@@ -473,26 +484,28 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 def get_wallet_address_set() -> set:
+    """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
     addr_entries = provider.listreceivedbyaddress(0, True)
     return set([e["address"] for e in addr_entries])
 
 
-# This has been moved here as it's for AT/PoB and DT, not only AT-specific.
 def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
     '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
 
     param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
-    ## TODO this has to me changed, ideally it would recognize the type of the deck (AT, PoB or PoD).
-    # if type(self).__name__ == "PoBToken":
-    #    param_names.update({"donation_txid" : "Burn transaction"})
-    #else:
-    param_names.update({"donation_txid" : "Referenced transaction"})
-
     deckid = ei.run_command(search_for_stored_tx_label, "deck", deck_str)
     # address = ec.process_address(address) # here not possible due to circular import
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+
+    if deck.donation_address == c.BURN_ADDRESS[provider.network]:
+        param_names.update({"donation_txid" : "Burn transaction"})
+    else:
+        param_names.update({"donation_txid" : "Referenced transaction"})
+
+
+
     raw_claims = ei.run_command(get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
     claim_txids = set([c.txid for c in raw_claims])
     claims = []
@@ -523,6 +536,7 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
 
 
 def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
+    """Gets all valid CardIssues of a deck."""
     # NOTE: Sender no longer necessary.
 
     wallet_txids = set([t["txid"] for t in get_wallet_transactions()]) if (only_wallet and not input_address) else None
@@ -544,6 +558,7 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
 
 
 def get_deckinfo(deckid, p2th: bool=False):
+    """Returns basic deck info dictionary, optionally with P2TH addresses for dPoD tokens."""
     d = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     d_dict = d.__dict__
     if p2th:

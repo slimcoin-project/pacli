@@ -224,7 +224,11 @@ def get_address_transactions(addr_string: str, sent: bool=False, received: bool=
 
     for tx in all_wallet_txes:
         if sent or all_txes:
-            for sender_dict in eu.find_tx_senders(tx):
+            try:
+                senders = eu.find_tx_senders(tx)
+            except KeyError: # coinbase tx or error
+                continue
+            for sender_dict in senders:
                 if address in sender_dict["sender"]:
                     txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"]}
                     result.append(txdict)

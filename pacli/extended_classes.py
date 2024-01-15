@@ -375,7 +375,7 @@ class ExtAddress:
                                   silent=silent,
                                   debug=debug)
 
-    def balance(self, label: str=None, address: str=None):
+    def balance(self, label: str=None, address: str=None, keyring: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
         Usage:
@@ -391,6 +391,9 @@ class ExtAddress:
         pacli address balance --address=ADDRESS
 
         Shows balance of address. Does only work with addresses stored in your wallet file.
+
+        Flags:
+        --keyring: Use an address stored in the keyring of your operating system.
         """
 
         # REPLACES address balance

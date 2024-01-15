@@ -208,6 +208,16 @@ def print_default_balances_list(balances: dict, labeldict: dict, decks: list, ne
       heading=table_heading,
       data=table_data)
 
+
+def confirm_continuation() -> bool:
+    """UX element to confirm continuation entering 'yes'."""
+    print("Enter 'yes' to confirm to continue")
+    cont = input()
+    if cont == "yes":
+        return True
+    else:
+        return False
+
 # Exceptions
 
 class PacliInputDataError(Exception):

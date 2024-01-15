@@ -13,6 +13,7 @@ from pypeerassets.exceptions import UnsupportedNetwork
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
+import pacli.extended_constants as c
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -346,10 +347,7 @@ def get_claimed_txes(deck: object, input_address: str, only_wallet: bool=False) 
 def burn_address():
     if not provider.network.endswith("slm"):
         raise UnsupportedNetwork("Unsupported network for burn tokens.")
-    if provider.network[0] == "t":
-        return "mmSLiMCoinTestnetBurnAddress1XU5fu"
-    else:
-        return "SfSLMCoinMainNetworkBurnAddr1DeTK5"
+    return c.BURN_ADDRESS[provider.network]
 
 
 # API commands

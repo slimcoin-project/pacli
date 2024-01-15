@@ -55,6 +55,7 @@ def show_votes_by_address(deckid: str, address: str) -> None:
 
 def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None:
     # shows all valid donation transactions from a specific address, for all proposals.
+    # TODO it should be easy to add a --wallet mode here.
 
     pprint("Donations realized from address: " + address)
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)

@@ -27,6 +27,7 @@ from pacli.config import Settings
 # Decks
 
 def deck_from_ttx_txid(txid: str, tx_type: str, provider: object, debug: bool=False) -> object:
+    """Returns a deck object, given a TrackedTransaction TXID."""
     try:
         ttx = provider.getrawtransaction(txid, 1)
         return dmu.deck_from_p2th(ttx, tx_type, provider)
@@ -36,6 +37,7 @@ def deck_from_ttx_txid(txid: str, tx_type: str, provider: object, debug: bool=Fa
 # Proposal states and periods
 
 def check_current_period(proposal_txid: str, deck: object, tx_type: int, dist_round: int=None, phase: int=None, release: bool=False, wait: bool=False, security_level: int=1, silent: bool=False) -> None:
+    """Checks the current period of a proposal, and waits until a target period is reached if used with the 'wait' flag."""
 
     # TODO: Re-check side effects of get_period change. => Seems OK, but take the change into account.
 
@@ -68,6 +70,8 @@ def check_current_period(proposal_txid: str, deck: object, tx_type: int, dist_ro
     return di.wait_for_block(target, end_target, provider, wait, silent=silent)
 
 def get_next_suitable_period(tx_type, period, dist_round=None):
+    """Takes a TrackedTransaction type and a period and calculates the next period
+       this type of transaction can be released."""
     # TODO: maybe it would be simpler to assign all suitable periods to all tx types,
     # and then iterate over the index.
     if tx_type in ("donation", "signalling", "locking"):
@@ -100,7 +104,9 @@ def get_next_suitable_period(tx_type, period, dist_round=None):
         raise PacliInputDataError("No suitable period left for this transaction type.")
 
 def find_basic_proposal_state_data(proposal_id, deck):
-    # This gets a basic proposal state
+    """Gets a basic proposal state given the ID and the deck.
+    The parser is called to create the list of states."""
+
     pstates = get_proposal_states(provider, deck)
     try:
         return pstates[proposal_id]
@@ -109,7 +115,7 @@ def find_basic_proposal_state_data(proposal_id, deck):
 
 
 def get_period(proposal_id: str, deck: object, blockheight=None):
-    """Provides an user-friendly description of the current period."""
+    """Provides the period of a proposal, given a block height (default: next block to current block)."""
     # MODIFIED. if blockheight not given, query the period corresponding to the next block, not the last recorded block.
     if not blockheight:
         blockheight = provider.getblockcount() + 1
@@ -119,7 +125,7 @@ def get_period(proposal_id: str, deck: object, blockheight=None):
 
 
 def get_dist_round(proposal_id: str, deck: object, blockheight: int=None, period: tuple=None):
-    """Provides the current dist round if blockheight is inside one."""
+    """Provides the dist round for a blockheight, if it corresponds to one."""
 
     if not period:
         period = get_period(proposal_id, deck, blockheight=blockheight)
@@ -134,15 +140,13 @@ def get_dist_round(proposal_id: str, deck: object, blockheight: int=None, period
 
 
 def get_all_periods(proposal_id: str, deck: object) -> dict:
-    # Returns a dict of all periods from the current proposal, according to the last modification.
+    """Returns a dict of all periods from a given proposal, according to the last modification."""
     ps = find_basic_proposal_state_data(proposal_id, deck)
     return dp.get_period_dict(ps)
 
-
-# Proposal and donation states
-
-
-def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
+def get_proposal_state_periods(deckid: str, block: int, advanced: bool=False, debug: bool=False) -> dict:
+    """Returns all proposals of a deck (with data of the proposal state) and the period they're in.
+      Used mainly in 'proposal list' command."""
     # Advanced mode calls the parser, thus much slower, and shows other parts of the state.
 
     result = {}
@@ -170,13 +174,11 @@ def get_proposal_state_periods(deckid, block, advanced=False, debug=False):
     return result
 
 
-def get_proposal_info(proposal_txid):
-    # MODIFIED: state removed, get_proposal_state should be used.
-    proposal_tx = find_proposal(proposal_txid, provider)
-    return proposal_tx.__dict__
-
+# Donation states and slots
 
 def get_slot(proposal_id: str, donor_address: str, dist_round: int=None, silent: bool=False):
+    """Given a proposal, a donor address, and the dist_round, returns the slot.
+       If no dist_round is given, show the slot of the first Donation state the donor address participated.."""
     dstates = dmu.get_donation_states(provider=provider, proposal_id=proposal_id, donor_address=donor_address)
 
     if dist_round:
@@ -197,11 +199,15 @@ def get_slot(proposal_id: str, donor_address: str, dist_round: int=None, silent:
         except IndexError:
             raise PacliInputDataError("No valid donation process found.")
 
-def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
-    # this creates a robust hierarchy to select the correct donation state for a locking/donation transaction.
-    # first, sorted by blockheight and blockseq
-    # second, distinct assertions exclude certain transactions.
+# TODO: removed from only use case (dt_txtools.get_donation_state_data) but re-check.
+# Should be possible to be removed, becuase there is only 1 state per donor address/proposal allowed.
+'''def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
+    """Creates a hierarchy to select the correct donation state for a locking/donation transaction.
+    first, sorted by blockheight and blockseq
+    second, distinct assertions exclude certain transactions."""
     # TODO: isn't that obsolete after the protocol overhaul?
+    # Should be possible to be removed, becuase there is only 1 state per donor address/proposal allowed.
+
     for dstate in sorted(dstates, key=lambda x: (x.origin_tx.blockheight, x.origin_tx.blockseq)):
         if debug: print("Donation state found:", dstate.id)
         if debug and (dstate.signalling_tx is not None): print("Signalling tx:", dstate.signalling_tx.txid)
@@ -228,18 +234,19 @@ def select_donation_state(dstates: list, tx_type: str, debug: bool=False):
             continue
 
 
-    return dstate
+    return dstate'''
 
 def find_donation_state_by_string(searchstring: str, only_start: bool=False):
+    """Returns a list of donation states including a certain string in its txid."""
 
     try:
-        txid = eu.find_transaction_by_string(searchstring, only_start=only_start)
-        return dmu.get_dstate_from_origin_tx(txid, provider)
-    except Exception as e:
-        raise PacliInputDataError("Donation state not found.")
-        # print("ERROR", e)
+        txids = eu.find_transaction_by_string(searchstring, only_start=only_start)
+        return [dmu.get_dstate_from_origin_tx(txid, provider) for txid in txids]
+    except Exception:
+        raise PacliInputDataError("No matching donation state found.")
 
 def find_proposal_state_by_string(searchstring: str, advanced: bool=False, shortid: bool=False, require_state: bool=False):
+    """Returns proposal states including a certain string in its txid or description."""
 
     matching_proposals = []
 
@@ -261,30 +268,45 @@ def find_proposal_state_by_string(searchstring: str, advanced: bool=False, short
         raise PacliInputDataError("Proposal state not found.")
     return matching_proposals
 
+## Selection and processing of inputs of previous transactions in the same DonationState
 
-## Inputs, outputs and Transactions
-
+def previous_input_unspent(input_txid: str, input_vout: int, redeem_script: object=None, silent: bool=False) -> bool:
+    """Returns a bool to know if an input was spent."""
+    # P2SH is treated as always unspent.
+    if redeem_script is not None:
+        if not silent:
+            print("Getting data from P2SH locking transaction.")
+        return True
+    # checks if previous input in listunspent.
+    for inp in provider.listunspent():
+        if inp["txid"] == input_txid: # basic_tx_data["txid"]:
+            if inp["vout"] == input_vout: # basic_tx_data["vout"]:
+                if not silent:
+                    print("Selected input unspent.")
+                return True
+    return False
 
 def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent=False) -> dict:
     """Analyzes the donation state and provides the inputs for the transaction to create.
-       It provides also: slot, txid and vout of signalling or locking tx, value of input.
+       It provides also: slot, type of input, and redeem script of locking tx.
        Only used if the transaction does not use --new_inputs."""
        # Used only in dt_txtools.get_basic_tx_data
-
-    # TODO: "txid" and "vout" could be changed better into "input_txid" and "input_vout", because later it is mixed with data of the actual tx (not only the input tx).
-    # TODO: re-check what we really want to achieve with the "address" parameter. could it replaced by the donor address?
 
     inputdata = {}
 
     if (tx_type == "donation") and (dstate.dist_round < 4):
 
-        prev_tx = dstate.locking_tx
-        # TODO: this seems to raise an error sometimes when donating in later rounds ...
-        # This can in reality only happen if there is an incorrect donation state found.
-        redeem_script = prev_tx.redeem_script
+        try:
+            # An error can appear when donating in later rounds,
+            # can probably only happen if there is an incorrect donation state found.
+            prev_tx = dstate.locking_tx
+            redeem_script = prev_tx.redeem_script
+        except Exception:
+            raise PacliInputDataError("Error during the input selection. The donation state is probably invalid due to corrupted data in the previous transaction.\nYou can try to save the donation state using the command with the --new_inputs flag.")
         inputdata.update({"redeem_script" : redeem_script})
     else:
         # reserve tx has always priority in the case a signalling tx also exists in the same donation state.
+        # TODO: maybe this not always makes sense. It could make sense to add an option for this.
         redeem_script = None
         if dstate.reserve_tx is not None:
             prev_tx = dstate.reserve_tx
@@ -301,9 +323,8 @@ def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent
 
     return inputdata
 
-
 def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: int, network_name: str, new_inputs: bool=False, force: bool=False, silent: bool=False) -> int:
-    """Selects the amount which will be locked or donated."""
+    """Calculates the amount which will be locked or donated."""
 
     raw_slot = sats_to_coins(Decimal(slot), network_name=network_name)
     raw_amount = sats_to_coins(Decimal(chosen_amount), network_name=network_name) if chosen_amount is not None else None
@@ -345,8 +366,9 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
 
     return amount
 
+# Transaction information (check_tx command)
 
-def create_trackedtx(txid=None, txhex=None):
+def get_trackedtx(txid=None, txhex=None):
     """Creates a TrackedTransaction object from a raw transaction or txid."""
     # TODO: improve the visualization of metadata. Probably a new protobuf_to_dict method or so is needed.
     if txid:
@@ -367,29 +389,9 @@ def create_trackedtx(txid=None, txhex=None):
     if txident == c.ID_PROPOSAL: return ProposalTransaction.from_json(raw_tx, provider)
 
 
-def previous_input_unspent(input_txid, input_vout, redeem_script=None, silent=False):
-    # P2SH is treated as always unspent.
-    # if basic_tx_data.get("redeem_script") is not None:
-    if redeem_script is not None:
-        if not silent:
-            print("Getting data from P2SH locking transaction.")
-        return True
-    # checks if previous input in listunspent.
-    # print(basic_tx_data)
-    # provider = basic_tx_data["provider"]
-    for inp in provider.listunspent():
-        if inp["txid"] == input_txid: # basic_tx_data["txid"]:
-            if inp["vout"] == input_vout: # basic_tx_data["vout"]:
-                if not silent:
-                    print("Selected input unspent.")
-                return True
-    #if not silent: # MODIF: we raise an error here.
-    #    print("Selected input spent, searching for another one.")
-    return False
-
 def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
-    # This gets all tracked transactions and displays them, without checking validity.
-    # An advanced mode could even detect those with wrong format.
+    """Gets all tracked transactions and displays them, without checking validity."""
+    # An advanced mode could detect those with wrong format.
 
     for tx_type in ("voting", "signalling", "locking", "donation"):
         ptx = find_proposal(proposal_id, provider)
@@ -419,7 +421,7 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
 
 def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: object=None, proposer: bool=False, debug: bool=False, silent: bool=False, network_name: str=Settings.network) -> dict:
     """Returns a dict with the amount of the reward and the deckid."""
-    # coin = coin_value(network_name=network_name)
+
     ptx = find_proposal(proposal_id, provider) # ptx is given directly to get_donation_state
     deckid = ptx.deck.id
     decimals = ptx.deck.number_of_decimals
@@ -474,8 +476,10 @@ def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: ob
     result.update({"deckid" : deckid, "reward" : formatted_reward})
     return result
 
-def donor_address_used(donor_address: str, proposal_id: str):
-   # checks if the donor address was already used.
+def donor_address_used(donor_address: str, proposal_id: str) -> bool:
+   """Checks if a donor address was already used for a proposal (only once is allowed)."""
+   # TODO: could go into pypeerassets?
+
    used_donor_addresses = [d.donor_address for d in dmu.get_donation_states(provider, proposal_id)]
    return (donor_address in used_donor_addresses)
 
