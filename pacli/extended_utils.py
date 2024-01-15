@@ -459,9 +459,15 @@ def get_wallet_token_balances(deck: object) -> dict:
 def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=None) -> dict:
     """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""
+    # TODO: could see an usability improvement for coinbase txes.
+    # However, this could lead to side effects.
 
     tx = provider.getrawtransaction(txid, 1)
-    senders = find_tx_senders(tx)
+    try:
+        senders = find_tx_senders(tx)
+    except KeyError:
+        raise ei.PacliInputDataError("Transaction does not exist or is corrupted.")
+
     outputs = []
     if "blockhash" in tx:
         height = provider.getblock(tx["blockhash"])["height"]
@@ -477,9 +483,12 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         except KeyError:
             pass
         outputs.append({"receivers" : receivers, "value" : value})
+
     if tracked_address:
         outputs_to_tracked = [o for o in outputs if (o.get("receivers") is not None and tracked_address in o["receivers"])]
-        return {"sender" : senders[0], "outputs" : outputs, "height" : height}
+        sender = senders[0] if len(senders) > 0 else "" # fix for coinbase txes
+        return {"sender" : sender, "outputs" : outputs, "height" : height}
+
     else:
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 

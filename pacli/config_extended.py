@@ -185,7 +185,8 @@ def set(category: str, label: str, value: str, modify: bool=False, replace: bool
     return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, silent=silent)
 
 def show(category: str, label: str):
-    return ei.run_command(read_item, category=category, key=label)
+    result = ei.run_command(read_item, category=category, key=label)
+    return result
 
 def find(category: str, content: str, silent: bool=False):
     """Searches for labels if only a part of the value (content) is known."""

@@ -674,7 +674,7 @@ class ExtTransaction:
         """
 
         if structure:
-            structure = eu.get_tx_structure(txid_or_label)
+            structure = ei.run_command(eu.get_tx_structure, txid_or_label)
 
             if not silent:
                 pprint(structure)
@@ -683,7 +683,10 @@ class ExtTransaction:
 
         else:
 
-            return ce.show("transaction", txid_or_label)
+            result = ce.show("transaction", txid_or_label)
+            if (result is None) and (not silent):
+                print("No transaction with this label or TXID was stored.")
+            return result
 
 
     def list(self,
