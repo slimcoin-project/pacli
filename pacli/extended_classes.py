@@ -230,12 +230,10 @@ class ExtAddress:
              pubkey: bool=False,
              wif: bool=False,
              keyring: bool=False,
-             set_main: bool=False,
              label: bool=False):
         # This one has to REPLACE the Address command, and integrate more options. Thus the address show command in __main__ must be always commented out.
         # (unchanged from vanilla, but would now integrate also the commands `address show_label` and `tools show_address_label` if used with a label)
         # NOTE: it would be cool to have the --pubkey... option also for labeled addresses, but that may be quite difficult.
-        # NOTE: evaluate if set_main is necessary.
         """Shows the address corresponding to a label, or the main address.
 
         Usage options:
@@ -244,7 +242,7 @@ class ExtAddress:
 
         Shows current main address.
 
-        pacli address show LABEL [--set_main]
+        pacli address show LABEL
 
         Shows address corresponding to label LABEL.
 
@@ -255,7 +253,6 @@ class ExtAddress:
 
         Options and flags:
         --label: Shows label for an address (see Usage options)
-        --set_main: Change to the label/address that was indicated.
         --keyring: Use the keyring of your operating system (Linux/Unix only)
         --privkey: Shows private key. Only with --keyring option. (WARNING: exposes private key!)
         --wif: Show private key in Wallet Interchange Format (WIF). Only with --keyring option. (WARNING: exposes private key!)
@@ -268,7 +265,7 @@ class ExtAddress:
             # TODO: evaluate if the output should really include label AND address, like in the old command.
             if not addr_id:
                 addr_id = Settings.key.address
-            return ec.show_label(addr_id, keyring=keyring, set_main=set_main)
+            return ec.show_label(addr_id, keyring=keyring)
 
         elif addr_id is not None:
             '''Shows a stored alternative address or key.
