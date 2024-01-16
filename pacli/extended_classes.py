@@ -246,7 +246,7 @@ class ExtAddress:
 
         Shows address corresponding to label LABEL.
 
-        pacli address show ADDRESS --label
+        pacli address show [ADDRESS] --label
 
         Shows label and address corresponding to address.
 
@@ -265,13 +265,13 @@ class ExtAddress:
             # TODO: evaluate if the output should really include label AND address, like in the old command.
             if not addr_id:
                 addr_id = Settings.key.address
-            return ec.show_label(addr_id, keyring=keyring)
+            return ei.run_command(ec.show_label, addr_id, keyring=keyring)
 
         elif addr_id is not None:
             '''Shows a stored alternative address or key.
             --privkey, --pubkey and --wif options only work with --keyring.'''
 
-            return ec.show_stored_address(addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
+            return ei.run_command(ec.show_stored_address, addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
 
         else:
             if pubkey:

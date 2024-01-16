@@ -56,7 +56,8 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
     if label:
         if modify:
             try:
-                old_label = kprefix + show_label(new_address)["label"]
+                raw_old_label = show_label(new_address)["label"]
+                old_label = kprefix + raw_old_label
                 delete_key(old_label)
             except ImportError:
                 ei.print_red("Error: Feature --modify not available, secretstorage missing (probably not supported by your operating system)")
@@ -154,8 +155,7 @@ def show_label(address: str, set_main: bool=False) -> dict:
         if address == show_stored_key(label, Settings.network, legacy=legacy):
             break
     else:
-        ei.print_red("Error: No label was stored for address {}.".format(address))
-        return None
+        raise ei.PacliInputDataError("No label was stored for address {}.".format(address))
 
     return label
 

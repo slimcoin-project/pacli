@@ -79,15 +79,16 @@ def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
     if keyring:
         label = ke.show_label(address)
 
-    # extended_config address category has only one entry per value
-    # so we can pick the first item.
-    try:
-        fulllabel = ce.search_value("address", address)[0]
-    except IndexError:
-        print("No label is assigned to that address.")
-        return
-    # label is differently stored in extconf than in keyring.
-    label = "_".join(fulllabel.split("_")[1:])
+    else:
+        # extended_config address category has only one entry per value
+        # so we can pick the first item.
+        try:
+            fulllabel = ce.search_value("address", address)[0]
+        except IndexError:
+            print("No label is assigned to that address.")
+            return
+        # label is differently stored in extconf than in keyring.
+        label = "_".join(fulllabel.split("_")[1:])
 
     if set_main:
         print("This address is now the main address (--set_main option).")
