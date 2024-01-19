@@ -632,19 +632,36 @@ class ExtTransaction:
            --silent: suppress output, printout in script-friendly way.
 
         """
+
+        return ei.run_command(self.__set, label_or_tx, tx=tx, modify=modify, delete=delete, now=now, silent=silent)
+
+    def __set(self, label_or_tx: str,
+            tx: str=None,
+            modify: bool=False,
+            delete: bool=False,
+            now: bool=False,
+            silent: bool=False) -> None:
+
         if delete:
             return ce.delete("transaction", label=label_or_tx, now=now)
 
-        elif tx is None:
-            tx_hex = label_or_tx
-            label = provider.decoderawtransaction(tx_hex)["txid"]
+        if tx is None:
+            value = label_or_tx
             if not silent:
-                print("No label provided, TXID is used as label:", label)
+                print("No label provided, TXID is used as label.")
         else:
-            label = label_or_tx
-            tx_hex = tx
+            value = tx
 
-        return ce.set("transaction", label, value=tx_hex, silent=silent, modify=modify)
+        if not modify:
+            # we can't do this check with modify enabled, as the value here isn't a TXHEX
+            try:
+                txid = provider.decoderawtransaction(value)["txid"]
+            except KeyError:
+                raise ei.PacliInputDataError("Invalid transaction hex string.")
+
+        label = txid if tx is None else label_or_tx
+
+        return ce.set("transaction", label, value=value, silent=silent, modify=modify)
 
 
     def show(self, txid_or_label: str, silent: bool=False, anatomy: bool=False, decode: bool=False):
@@ -694,11 +711,19 @@ class ExtTransaction:
                     if not silent:
                         raise ei.PacliInputDataError("Unknown transaction identifier. Label wasn't stored or transaction doesn't exist on the blockchain.")
 
+            try:
+                tx_decoded = provider.decoderawtransaction(result)
+                assert tx_decoded["txid"] is not None
+            except:
+                if not silent:
+                    print("WARNING: Transaction was not stored correctly.")
+                tx_decoded = {}
+
             if decode:
                 if silent:
-                    print(provider.decoderawtransaction(result))
+                    print(tx_decoded)
                 else:
-                    pprint(provider.decoderawtransaction(result))
+                    pprint(tx_decoded)
             elif silent:
                 return result
             else:
