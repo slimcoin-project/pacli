@@ -647,43 +647,62 @@ class ExtTransaction:
         return ce.set("transaction", label, value=tx_hex, silent=silent, modify=modify)
 
 
-    def show(self, txid_or_label: str, silent: bool=False, structure: bool=False):
+    def show(self, txid_or_label: str, silent: bool=False, anatomy: bool=False, decode: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
         Usage:
 
-           show LABEL
+           pacli transaction show LABEL [-d]
 
-           Shows the transaction stored in the extended config file, by label.
+           Shows a transaction stored in the extended config file, by label, as HEX or JSON string.
 
-           show TXID
+           pacli transaction show TXID [-d]
 
-           Shows a transaction stored in the extended config file, by txid.
+           Shows any transaction's content, as HEX or JSON string.
 
-           show TXID --structure
+           pacli transaction show TXID -a
 
-           Shows senders and receivers of a transaction. Only works with TXIDs (not labels), but the transacion doesn't have to be stored.
+           Shows senders and receivers of any transaction.
 
         Flags:
 
-           --silent: Suppress output, printout in script-friendly way.
+           --silent / -s: Suppress output, printout in script-friendly way.
+           --decode / -d: Show transaction in JSON format (default: hex format).
+           --anatomy / -a: Show senders and receivers.
         """
+        return ei.run_command(self.__show, txid_or_label, silent=silent, anatomy=anatomy, decode=decode)
 
-        if structure:
-            structure = ei.run_command(eu.get_tx_structure, txid_or_label)
+    def __show(self, txid_or_label: str, silent: bool=False, anatomy: bool=False, decode: bool=False):
 
-            if not silent:
-                pprint(structure)
+        if anatomy:
+
+            tx_anatomy = ei.run_command(eu.get_tx_structure, txid_or_label)
+
+            if silent:
+                return tx_anatomy
             else:
-                return structure
+                pprint(tx_anatomy)
 
         else:
-
             result = ce.show("transaction", txid_or_label)
-            if (result is None) and (not silent):
-                print("No transaction with this label or TXID was stored.")
-            return result
+            if result is None:
+                try:
+                    result = provider.getrawtransaction(txid_or_label)
+                    assert type(result) == str
+                except AssertionError:
+                    if not silent:
+                        raise ei.PacliInputDataError("Unknown transaction identifier. Label wasn't stored or transaction doesn't exist on the blockchain.")
+
+            if decode:
+                if silent:
+                    print(provider.decoderawtransaction(result))
+                else:
+                    pprint(provider.decoderawtransaction(result))
+            elif silent:
+                return result
+            else:
+                pprint(result)
 
 
     def list(self,
