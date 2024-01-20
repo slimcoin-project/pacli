@@ -503,19 +503,19 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
 
     param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
-    deckid = ei.run_command(search_for_stored_tx_label, "deck", deck_str)
+    deckid = search_for_stored_tx_label("deck", deck_str)
     # address = ec.process_address(address) # here not possible due to circular import
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
-    if deck.donation_address == c.BURN_ADDRESS[provider.network]:
+    try:
+        assert deck.donation_address == c.BURN_ADDRESS[provider.network]
         param_names.update({"donation_txid" : "Burn transaction"})
-    else:
+    except (AssertionError, AttributeError):
+        # AssertionError gets thrown by a non-PoB AT token, AttributeError by dPoD token
         param_names.update({"donation_txid" : "Referenced transaction"})
 
-
-
-    raw_claims = ei.run_command(get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
+    raw_claims = get_valid_cardissues(deck, input_address=address, only_wallet=wallet)
     claim_txids = set([c.txid for c in raw_claims])
     claims = []
 

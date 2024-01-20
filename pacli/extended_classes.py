@@ -295,7 +295,6 @@ class ExtAddress:
              silent: bool=False,
              network: str=Settings.network,
              debug: bool=False):
-        # (replaces: `token all_my_balances`, `tools show_stored_addresses` and `address show_all`, `address show_all_labels, but shows coin and default PoB/PoD token balances, has main --wallet and --advanced flags and a new option --nobalances to show only the addresses)
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
         By default, shows a table of all stored addresses and those which contain coins, PoD and PoB tokens.
 
@@ -321,10 +320,24 @@ class ExtAddress:
 
         """
 
+        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=no_labels, only_labels=only_labels, silent=silent, network=network, debug=debug)
+
+    def __list(self,
+               advanced: bool=False,
+               keyring: bool=False,
+               coinbalances: bool=False,
+               labels: bool=False,
+               full_labels: bool=False,
+               no_labels: bool=False,
+               only_labels: bool=False,
+               silent: bool=False,
+               network: str=Settings.network,
+               debug: bool=False):
+
         if coinbalances or labels or full_labels:
             # TODO: doesn't seem towork with keyring.
             # ex tools show_addresses
-            address_labels = ei.run_command(ec.get_labels_and_addresses, prefix=network, keyring=keyring)
+            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring)
             # address_labels = ce.get_config()["address"]
 
             if labels or full_labels:
@@ -362,8 +375,7 @@ class ExtAddress:
             # __allbalances parameters:
             # (address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, silent: bool=False, debug: bool=False)
 
-            return ei.run_command(tc.all_balances,
-                                  wallet=True,
+            return tc.all_balances(wallet=True,
                                   keyring=keyring,
                                   no_labels=no_labels,
                                   only_tokens=False,
@@ -396,7 +408,7 @@ class ExtAddress:
         # REPLACES address balance
         # (unchanged from vanilla, but with wrapper for labels)
         if label:
-            address = ec.show_stored_address(label, keyring=keyring)
+            address = ei.run_command(ec.show_stored_address, label, keyring=keyring)
         elif address is None:
             address = Settings.key.address
 
@@ -473,8 +485,7 @@ class ExtDeck:
             """Shows all stored deck IDs and their labels."""
             return ce.list("deck", silent=silent)
         else:
-            # TODO This is not compatible to vanilla, as without --all only stored decks are shown.
-            decks = pa.find_all_valid_decks(provider, Settings.deck_version,
+            decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production)
             print_deck_list(decks)
 
@@ -582,18 +593,24 @@ class ExtCard:
         i.e. where no double spend has been recorded."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+        return ei.run_command(self.__listext, deckid, silent=silent, valid=valid)
+
+    def __listext(self, deckid: str, silent: bool=False, valid: bool=False):
+
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+
         try:
             cards = pa.find_all_valid_cards(provider, deck)
         except pa.exceptions.EmptyP2THDirectory as err:
-            return err
+            # return err
+            raise PacliInputDataError(err)
 
         if valid:
-            valid_cards = pa.protocol.DeckState(cards).valid_cards
+            result = pa.protocol.DeckState(cards).valid_cards
         else:
-            valid_cards = cards
+            result = cards
 
-        print_card_list(list(valid_cards))
+        print_card_list(list(result))
 
 
 
@@ -807,7 +824,7 @@ class ExtTransaction:
             return au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=False)
 
         elif claims:
-            return eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
+            return ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
         elif named:
             """Shows all stored transactions and their labels."""
             return ce.list("transaction", silent=silent)
