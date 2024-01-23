@@ -363,10 +363,11 @@ def show_txes(address: str=None, deck: str=None, start: int=0, end: int=None, si
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
     txes = ei.run_command(show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, silent=silent, debug=debug)
 
-    if not silent:
-        pprint(txes)
-    else:
-        print(txes)
+    #if not silent:
+    #    pprint(txes)
+    #else:
+    #    print(txes)
+    return txes
 
 def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Shows all transactions from your wallet to the tracked address.'''
@@ -380,9 +381,9 @@ def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bo
     sender = Settings.key.address if not wallet else None
     txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
 
-    if not silent:
-        pprint(txes)
-    else:
-        print(txes)
-
+    #if not silent:
+    #    pprint(txes)
+    #else:
+    #    print(txes)
+    return txes
 

@@ -210,7 +210,7 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
     return result
 
 
-def get_address_transactions(addr_string: str, sent: bool=False, received: bool=False, advanced: bool=False) -> list:
+def get_address_transactions(addr_string: str, sent: bool=False, received: bool=False, advanced: bool=False, sort: bool=False) -> list:
 
     address = process_address(addr_string)
     #if label:  # label overrides address
@@ -224,6 +224,10 @@ def get_address_transactions(addr_string: str, sent: bool=False, received: bool=
     result = []
 
     for tx in all_wallet_txes:
+        try:
+            confs = tx["confirmations"]
+        except KeyError:
+            confs = 0
         if sent or all_txes:
             try:
                 senders = eu.find_tx_senders(tx)
@@ -231,17 +235,19 @@ def get_address_transactions(addr_string: str, sent: bool=False, received: bool=
                 continue
             for sender_dict in senders:
                 if address in sender_dict["sender"]:
-                    txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"]}
+                    txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"], "confirmations": confs}
                     result.append(txdict)
         if received or all_txes:
             for output in tx["vout"]:
                 out_addresses = output["scriptPubKey"].get("addresses")
                 try:
                     if address in out_addresses:
-                        txdict = tx if advanced else {"txid" : tx["txid"], "type" : "receive", "value": output["value"]}
+                        txdict = tx if advanced else {"txid" : tx["txid"], "type" : "receive", "value": output["value"], "confirmations": confs}
                         result.append(txdict)
                 except TypeError:
                     continue
+    if sort:
+        result.sort(key=lambda x: x["confirmations"])
 
     return result
 

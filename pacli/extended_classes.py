@@ -627,11 +627,11 @@ class ExtTransaction:
 
            Usage:
 
-           pacli transaction set LABEL TX
+           pacli transaction set LABEL TX_HEX
 
-           Stores hex string of transaction TX together with label LABEL.
+           Stores hex string of transaction (TX_HEX) together with label LABEL.
 
-           pacli transaction set TX
+           pacli transaction set TX_HEX
 
            Stores hex string of transaction TX with the transaction ID (TXID) as label. Do not use for partially signed transactions!
 
@@ -764,6 +764,8 @@ class ExtTransaction:
              keyring: bool=False,
              start: bool=False,
              end: bool=False,
+             sort: bool=False,
+             count: bool=False,
              silent: bool=False,
              debug: bool=False) -> None:
         """Lists transactions of an address or of a specific type (burn transactions and claim transactions).
@@ -772,7 +774,7 @@ class ExtTransaction:
 
         pacli transaction list [ADDRESS] [options]
 
-            Lists transactions of a specific address (default: current main address).
+            Lists transactions of a specific address (default: current main address). Can be slow if used on wallets with many transactions.
 
         pacli transaction list --named
 
@@ -800,10 +802,13 @@ class ExtTransaction:
         --param: Show the result of a specific parameter of the transaction (only --claims)
         --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified)
         --keyring: Use an address/label stored in the keyring (only --burns and --reftxes).
+        --sort: Sort transactions by number of confirmations (only needed if command is used without flags).
+        --count: Only count transactions (if used without other flags)
         --silent: Suppress output, printout in script-friendly way.
         --debug: Provide debugging information.
 
         """
+        # TODO add variant for ALL txes in the wallet.
 
         # deck_str, wallet, full, unclaimed, debug and param currently only supported for claims, reftxes and burns!
         # --start and --end only supported for all_burns and all_reftxes
@@ -813,30 +818,43 @@ class ExtTransaction:
 
         if address:
             address = ec.process_address(address)
+        if (not named) and (not silent):
+            print("Searching transactions (this can take several minutes) ...")
 
         if all and burns:
-            return au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=True)
+            #return au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=True)
+            txes = au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=True)
         elif all and reftxes:
-            return au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=False)
+            #return au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=False)
+            txes = au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=False)
         elif burns:
-            return au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=True)
+            #return au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=True)
+            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=True)
         elif reftxes:
-            return au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=False)
-
+            #return au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=False)
+            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=False)
         elif claims:
-            return ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
+            #return ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
+            txes = ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
         elif named:
             """Shows all stored transactions and their labels."""
-            return ce.list("transaction", silent=silent)
+            #return ce.list("transaction", silent=silent)
+            txes = ce.list("transaction", silent=silent)
         else:
             """returns all transactions from or to that address in the wallet."""
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
+            txes = ei.run_command(ec.get_address_transactions, address, sent=sent, received=received, advanced=advanced, sort=sort)
 
-            for txdict in ec.get_address_transactions(address, sent=sent, received=received, advanced=advanced):
+        if count:
+            return len(txes)
+        elif silent:
+            return txes
+        else:
+            for txdict in txes:
                 pprint(txdict)
 
-    # these are perhaps subject to be integrated into the normal transaction commands as flags.
+    # the following commands are perhaps subject to be integrated into the normal transaction commands as flags.
 
     def set_utxo(self,
                  label: str,
