@@ -764,7 +764,6 @@ class ExtTransaction:
              keyring: bool=False,
              start: bool=False,
              end: bool=False,
-             sort: bool=False,
              count: bool=False,
              silent: bool=False,
              debug: bool=False) -> None:
@@ -798,17 +797,16 @@ class ExtTransaction:
         --sent: Only show sent transactions (not in combination with --named, --claims, --burns or --reftxes)
         --received: Only show received transactions (not in combination with --named, --claims, --burns or --reftxes)
         --advanced: Show additional info per transaction (slow, not in combination with --named, --burns or --reftxes)
-        --wallet: Show all specified transactions of all addresses in the wallet (only --claims, --burns and --reftxes)
-        --param: Show the result of a specific parameter of the transaction (only --claims)
-        --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified)
+        --wallet: Show all specified transactions of all addresses in the wallet.
+        --param: Show the result of a specific parameter of the transaction (only --claims).
+        --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified).
         --keyring: Use an address/label stored in the keyring (only --burns and --reftxes).
-        --sort: Sort transactions by number of confirmations (only needed if command is used without flags).
-        --count: Only count transactions (if used without other flags)
-        --silent: Suppress output, printout in script-friendly way.
+        --count: Only count transactions, do not display them.
+        --silent: Suppress additional output, printout in script-friendly way.
         --debug: Provide debugging information.
 
         """
-        # TODO add variant for ALL txes in the wallet.
+        # TODO add --wallet variant for option without --burns etc.
 
         # deck_str, wallet, full, unclaimed, debug and param currently only supported for claims, reftxes and burns!
         # --start and --end only supported for all_burns and all_reftxes
@@ -822,29 +820,25 @@ class ExtTransaction:
             print("Searching transactions (this can take several minutes) ...")
 
         if all and burns:
-            #return au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=True)
             txes = au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=True)
         elif all and reftxes:
-            #return au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=False)
             txes = au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=False)
         elif burns:
-            #return au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=True)
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=True)
         elif reftxes:
-            #return au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=False)
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=False)
         elif claims:
-            #return ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
             txes = ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
         elif named:
             """Shows all stored transactions and their labels."""
-            #return ce.list("transaction", silent=silent)
             txes = ce.list("transaction", silent=silent)
+        elif wallet:
+            txes = ei.run_command(ec.get_address_transactions, sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet)
         else:
             """returns all transactions from or to that address in the wallet."""
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
-            txes = ei.run_command(ec.get_address_transactions, address, sent=sent, received=received, advanced=advanced, sort=sort)
+            txes = ei.run_command(ec.get_address_transactions, addr_string=address, sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet)
 
         if count:
             return len(txes)

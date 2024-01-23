@@ -210,13 +210,12 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
     return result
 
 
-def get_address_transactions(addr_string: str, sent: bool=False, received: bool=False, advanced: bool=False, sort: bool=False) -> list:
+def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, sort: bool=False, wallet: bool=False) -> list:
 
-    address = process_address(addr_string)
-    #if label:  # label overrides address
-    #    address = show_stored_address(label, network_name=Settings.network)
-    if not address:
-        ei.print_red("Error: You must provide either a valid address or a valid label.")
+    if not wallet:
+        address = process_address(addr_string)
+        if not address:
+            ei.print_red("Error: You must provide either a valid address or a valid label.")
 
     all_txes = True if (not sent) and (not received) else False
     all_txids = set([t["txid"] for t in eu.get_wallet_transactions()])
@@ -228,20 +227,23 @@ def get_address_transactions(addr_string: str, sent: bool=False, received: bool=
             confs = tx["confirmations"]
         except KeyError:
             confs = 0
+            if advanced: # more usable and needed for sorting
+                tx.update({"confirmations" : 0})
+
         if sent or all_txes:
             try:
                 senders = eu.find_tx_senders(tx)
             except KeyError: # coinbase tx or error
                 continue
             for sender_dict in senders:
-                if address in sender_dict["sender"]:
+                if wallet or (address in sender_dict["sender"]):
                     txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"], "confirmations": confs}
                     result.append(txdict)
         if received or all_txes:
             for output in tx["vout"]:
                 out_addresses = output["scriptPubKey"].get("addresses")
                 try:
-                    if address in out_addresses:
+                    if wallet or (address in out_addresses):
                         txdict = tx if advanced else {"txid" : tx["txid"], "type" : "receive", "value": output["value"], "confirmations": confs}
                         result.append(txdict)
                 except TypeError:
