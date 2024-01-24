@@ -320,25 +320,6 @@ def at_deckinfo(deckid):
     for deck_param in deck.__dict__.keys():
         pprint("{}: {}".format(deck_param, deck.__dict__[deck_param]))
 
-"""def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
-    # NOTE: Sender no longer necessary.
-
-    wallet_txids = set([t["txid"] for t in eu.get_wallet_transactions()]) if (only_wallet and not input_address) else None
-
-    try:
-        cards = pa.find_all_valid_cards(provider, deck)
-        ds = pa.protocol.DeckState(cards)
-    except KeyError:
-        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli token init_deck DECK'")
-
-    claim_cards = []
-    for card in ds.valid_cards:
-        if card.type == "CardIssue":
-            if (input_address and (card.sender == input_address)) \
-            or (wallet_txids and (card.txid in wallet_txids)) \
-            or ((input_address is None) and not wallet_txids):
-                claim_cards.append(card)
-    return claim_cards""" # Moved to extended_utils
 
 def get_claimed_txes(deck: object, input_address: str, only_wallet: bool=False) -> set:
     # returns TXIDs of already claimed txes.
@@ -363,10 +344,6 @@ def show_txes(address: str=None, deck: str=None, start: int=0, end: int=None, si
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
     txes = ei.run_command(show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, silent=silent, debug=debug)
 
-    #if not silent:
-    #    pprint(txes)
-    #else:
-    #    print(txes)
     return txes
 
 def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
@@ -381,9 +358,5 @@ def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bo
     sender = Settings.key.address if not wallet else None
     txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
 
-    #if not silent:
-    #    pprint(txes)
-    #else:
-    #    print(txes)
     return txes
 

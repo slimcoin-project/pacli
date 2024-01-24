@@ -816,6 +816,7 @@ class ExtTransaction:
 
         if address:
             address = ec.process_address(address)
+
         if (not named) and (not silent):
             print("Searching transactions (this can take several minutes) ...")
 
@@ -831,7 +832,7 @@ class ExtTransaction:
             txes = ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
         elif named:
             """Shows all stored transactions and their labels."""
-            txes = ce.list("transaction", silent=silent)
+            txes = ce.list("transaction", silent=silent, prettyprint=False, return_list=True)
         elif wallet:
             txes = ei.run_command(ec.get_address_transactions, sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet)
         else:

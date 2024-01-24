@@ -174,12 +174,15 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
 
 ### Extended helper tools (api)
 
-def list(category: str, silent: bool=False):
+def list(category: str, silent: bool=False, prettyprint: bool=True, return_list: bool=False):
     cfg = ei.run_command(get_config, silent=silent)
-    if silent:
-        print(cfg[category])
+    result = cfg[category]
+    if return_list:
+        return [{k : result[k]} for k in result]
+    elif silent or (not prettyprint):
+        return result
     else:
-        pprint(cfg[category])
+        pprint(result)
 
 def set(category: str, label: str, value: str, modify: bool=False, replace: bool=False, silent: bool=False):
     return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, silent=silent)
@@ -188,8 +191,8 @@ def show(category: str, label: str):
     result = ei.run_command(read_item, category=category, key=label)
     return result
 
-def find(category: str, content: str, silent: bool=False):
-    """Searches for labels if only a part of the value (content) is known."""
+def find(category: str, content: str, silent: bool=False, prettyprint: bool=True):
+    """Returns a list of matching labels if only a part of the value (content) is known."""
     result = ei.run_command(search_value_content, category, str(content))
     if not result and not silent:
         print("No label was found.")
@@ -197,7 +200,10 @@ def find(category: str, content: str, silent: bool=False):
         return result
     else:
         print("Entries found with content {}:".format(content))
-        pprint(result)
+        if prettyprint:
+            pprint(result)
+        else:
+            return result
 
 def delete(category: str, label: str, now: bool=False) -> None:
     """Deletes an item from the extended config file.
