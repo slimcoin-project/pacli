@@ -35,7 +35,8 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
             raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
-def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, silent: bool=False, no_labels: bool=False, keyring: bool=False, debug: bool=False) -> list:
+def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, silent: bool=False, no_labels: bool=False, advanced: bool=False, keyring: bool=False, debug: bool=False) -> list:
+    """Shows donation/burn/payment transactions made from the user's wallet."""
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     if deckid:
@@ -100,7 +101,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     for tx in valid_txes:
 
-        # TODO most of this can be replaced with eu.get_tx_structure(tx) after debugging
+        # TODO most of this can be replaced with bx.get_tx_structure(tx) after debugging
         try:
             tx_sender = find_tx_sender(provider, tx)
         except KeyError:
@@ -128,21 +129,25 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         if value == 0:
             continue
 
-        tx_dict = {"txid" : tx["txid"], "value" : value, "outputs" : indexes, "height" : height}
-        if not sender:
-            if not no_labels:
-                for full_label in labels:
-                    if labels[full_label] == tx_sender:
-                        label = "_".join(full_label.split("_")[1:])
-                        tx_dict.update({"sender_label" : label })
-                        break
-            tx_dict.update({"sender_address" : tx_sender})
+        if advanced:
+            tx_dict = tx
+        else:
+            tx_dict = {"txid" : tx["txid"], "value" : value, "outputs" : indexes, "height" : height}
+
+            if not sender:
+                if not no_labels:
+                    for full_label in labels:
+                        if labels[full_label] == tx_sender:
+                            label = "_".join(full_label.split("_")[1:])
+                            tx_dict.update({"sender_label" : label })
+                            break
+                tx_dict.update({"sender_address" : tx_sender})
         txes_to_address.append(tx_dict)
 
     return txes_to_address
 
-
-def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=None, startblock: int=0, silent: bool=False, debug: bool=False) -> list:
+'''# def show_txes_by_block(tracked_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, silent: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, silent: bool=False, debug: bool=False) -> list:
     # VERY SLOW. When watchaddresses are available this should be replaced.
 
     if not endblock:
@@ -162,6 +167,7 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     tracked_txes = []
+    # all_txes = True if tracked_address is None else False
 
     for bh in range(startblock, endblock + 1):
         try:
@@ -177,11 +183,34 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
                 return tracked_txes
 
             for txid in block_txes:
-                tx = provider.getrawtransaction(txid, 1)
+                print("TXID", txid)
+                try:
+                    tx_struct = eu.get_tx_structure(txid)
+                except Exception as e:
+                    print("Error", e)
+                    continue
+                print(tx_struct)
+                recv = receiving_address in [r for o in tx_struct["outputs"] for r in o["receivers"]]
+                send = sending_address in tx_struct["inputs"]
+                #print(recv, send, sending_address, receiving_address)
+                #print([o["receivers"] for o in tx_struct["outputs"]])
+                if (recv and send) or (recv and sending_address is None) or (send and receiving_address is None) or (sending_address is None and receiving_address is None):
+                    tx_dict = {"txid" : txid}
+                    tx_dict.update(tx_struct)
+                    tracked_txes.append(tx_dict)
+
+
+                """
                 total_amount_to_address = Decimal(0)
+                try:
+                    origin = [(inp["txid"], inp["vout"]) for inp in tx["vin"]]
+                except KeyError:
+                    origin = [("coinbase", inp["coinbase"]) for inp in tx["vin"]]
                 try:
                     vouts = tx["vout"]
                 except KeyError:
+                    if all_txes:
+                        tracked_txes.append({"height": bh, "txid": txid})
                     if debug:
                         print("Transaction not considered:", txid)
                     continue
@@ -205,21 +234,17 @@ def show_txes_by_block(tracked_address: str, deckid: str=None, endblock: int=Non
 
                 if debug:
                     print("TX {} added, value {}.".format(txid, total_amount_to_address))
-                try:
-                    origin = [(inp["txid"], inp["vout"]) for inp in tx["vin"]]
-                except KeyError:
-                    origin = [("coinbase", inp["coinbase"]) for inp in tx["vin"]]
 
 
                 tracked_txes.append({"height" : bh,
                                      "txid" : txid,
                                      "origin" : origin,
                                      "amount" : total_amount_to_address
-                                     })
+                                     })"""
         except KeyboardInterrupt:
             break
 
-    return tracked_txes
+    return tracked_txes'''
 
 def check_donation_tx_validity(txid: str, tracked_address: str, startblock: int=None, endblock: int=None, expected_sender: str=None, debug: bool=False):
     # checks the validity of a donation/burn transaction
@@ -333,20 +358,7 @@ def burn_address():
 
 # API commands
 
-def show_txes(address: str=None, deck: str=None, start: int=0, end: int=None, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
-    '''Show all transactions to a tracked address between two block heights (very slow!).'''
-
-    if burns:
-         if not silent:
-             print("Using burn address.")
-         address = burn_address()
-
-    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
-    txes = ei.run_command(show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, silent=silent, debug=debug)
-
-    return txes
-
-def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
+def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Shows all transactions from your wallet to the tracked address.'''
 
     if burns:
@@ -356,7 +368,7 @@ def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bo
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
     sender = Settings.key.address if not wallet else None
-    txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
+    txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, silent=silent, debug=debug)
 
     return txes
 

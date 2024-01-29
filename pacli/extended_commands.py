@@ -4,6 +4,7 @@ import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.config_extended as ce
+import pacli.blockexp as bx
 from pacli.config import Settings
 from pacli.provider import provider
 
@@ -210,7 +211,7 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
     return result
 
 
-def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, sort: bool=False, wallet: bool=False) -> list:
+def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, sort: bool=False, wallet: bool=False, debug: bool=False) -> list:
 
     if not wallet:
         address = process_address(addr_string)
@@ -232,7 +233,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
         if sent or all_txes:
             try:
-                senders = eu.find_tx_senders(tx)
+                senders = bx.find_tx_senders(tx)
             except KeyError: # coinbase tx or error
                 continue
             for sender_dict in senders:
@@ -240,7 +241,13 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                     txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"], "confirmations": confs}
                     result.append(txdict)
         if received or all_txes:
-            for output in tx["vout"]:
+            try:
+                outputs = tx["vout"]
+            except KeyError:
+                if debug:
+                    print("WARNING: Invalid transaction. TXID:", tx.get("txid"))
+                continue
+            for output in outputs:
                 out_addresses = output["scriptPubKey"].get("addresses")
                 try:
                     if wallet or (address in out_addresses):

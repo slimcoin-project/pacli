@@ -14,6 +14,7 @@ import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.token_commands as tc
 import pacli.dt_commands as dc
+import pacli.blockexp as bx
 
 from pacli.provider import provider
 from pacli.config import Settings, default_conf
@@ -681,7 +682,7 @@ class ExtTransaction:
         return ce.set("transaction", label, value=value, silent=silent, modify=modify)
 
 
-    def show(self, txid_or_label: str, silent: bool=False, anatomy: bool=False, decode: bool=False):
+    def show(self, txid_or_label: str, silent: bool=False, layout: bool=False, decode: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
@@ -703,20 +704,20 @@ class ExtTransaction:
 
            --silent / -s: Suppress output, printout in script-friendly way.
            --decode / -d: Show transaction in JSON format (default: hex format).
-           --anatomy / -a: Show senders and receivers.
+           --layout / -l: Show senders and receivers.
         """
-        return ei.run_command(self.__show, txid_or_label, silent=silent, anatomy=anatomy, decode=decode)
+        return ei.run_command(self.__show, txid_or_label, silent=silent, layout=layout, decode=decode)
 
-    def __show(self, txid_or_label: str, silent: bool=False, anatomy: bool=False, decode: bool=False):
+    def __show(self, txid_or_label: str, silent: bool=False, layout: bool=False, decode: bool=False):
 
-        if anatomy:
+        if layout:
 
-            tx_anatomy = ei.run_command(eu.get_tx_structure, txid_or_label)
+            tx_layout = ei.run_command(bx.get_tx_structure, txid_or_label)
 
             if silent:
-                return tx_anatomy
+                return tx_layout
             else:
-                pprint(tx_anatomy)
+                pprint(tx_layout)
 
         else:
             result = ce.show("transaction", txid_or_label)
@@ -750,6 +751,7 @@ class ExtTransaction:
     def list(self,
              address_or_deck: str=None,
              address: str=None,
+             sender: str=None,
              burns: bool=None,
              reftxes: bool=None,
              claims: bool=None,
@@ -757,9 +759,11 @@ class ExtTransaction:
              named: bool=False,
              sent: bool=False,
              received: bool=False,
+             coinbase: bool=False,
              advanced: bool=False,
              wallet: bool=False,
              param: str=None,
+             receiver: str=None,
              unclaimed: bool=False,
              keyring: bool=False,
              start: bool=False,
@@ -771,9 +775,9 @@ class ExtTransaction:
 
         Usage:
 
-        pacli transaction list [ADDRESS] [options]
+        pacli transaction list [ADDRESS] [options] [--sent] [--received]
 
-            Lists transactions of a specific address (default: current main address). Can be slow if used on wallets with many transactions.
+            Lists transactions sent and/or received by a specific address of the wallet (default: current main address). Can be slow if used on wallets with many transactions.
 
         pacli transaction list --named
 
@@ -787,32 +791,31 @@ class ExtTransaction:
 
             List token claim transactions.
 
-        pacli transaction list --all [--burns | --reftxes] --start=STARTBLOCK --end=ENDBLOCK
+        pacli transaction list --all [--burns | --reftxes] [--sender=SENDER] [--receiver=RECEIVER] --start=STARTBLOCK --end=ENDBLOCK
 
-            List all burn transactions or referenced TXes between two block heights. WARNING: VERY SLOW!
+            Block explorer mode: List all transactions between two block heights. WARNING: VERY SLOW if used with large block height ranges!
+            Note: In this mode, --sender and --receiver can be any address, not only wallet addresses.
 
 
         Other options and flags:
 
         --sent: Only show sent transactions (not in combination with --named, --claims, --burns or --reftxes)
         --received: Only show received transactions (not in combination with --named, --claims, --burns or --reftxes)
-        --advanced: Show additional info per transaction (slow, not in combination with --named, --burns or --reftxes)
+        --advanced: Show complete transaction JSON or card transfer dictionary.
         --wallet: Show all specified transactions of all addresses in the wallet.
-        --param: Show the result of a specific parameter of the transaction (only --claims).
+        --param=PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
         --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified).
-        --keyring: Use an address/label stored in the keyring (only --burns and --reftxes).
+        --coinbase: Show coinbase transactions (not in combination with --burns, --reftxes, --named or --claims).
+        --sender: Show transactions sent by a specific sender address (only in combination with --all).
+        --receiver: Show transactions received by a specific receiver address (only in combination with --all).
+        --keyring: Use an address/label stored in the keyring (only with --burns and --reftxes).
         --count: Only count transactions, do not display them.
         --silent: Suppress additional output, printout in script-friendly way.
         --debug: Provide debugging information.
 
         """
-        # TODO add --wallet variant for option without --burns etc.
-
-        # deck_str, wallet, full, unclaimed, debug and param currently only supported for claims, reftxes and burns!
-        # --start and --end only supported for all_burns and all_reftxes
-        # --burns (replaces `pobtoken my_burns` and `pobtoken show_all_burns` with --all flag )
-        # --claims` (replaces `pobtoken show_claims`)
-        # NOTE: --no_labels was erased. Seems not an important option at all.
+        # TODO: keyring should also be supported for the other modes.
+        # also PARAM should be supported by the other modes.
 
         if address:
             address = ec.process_address(address)
@@ -820,26 +823,28 @@ class ExtTransaction:
         if (not named) and (not silent):
             print("Searching transactions (this can take several minutes) ...")
 
-        if all and burns:
-            txes = au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=True)
-        elif all and reftxes:
-            txes = au.show_txes(address=address, deck=address_or_deck, start=start, end=end, silent=silent, debug=debug, burns=False)
+        if all and (burns or reftxes):
+            txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, silent=silent, advanced=advanced, debug=debug, burns=burns)
+        elif all:
+            txes = bx.show_txes(sending_address=sender, receiving_address=receiver, start=start, end=end, coinbase=coinbase, advanced=advanced, silent=silent, debug=debug, burns=False)
         elif burns:
-            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=True)
+            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, silent=silent, debug=debug, burns=True)
         elif reftxes:
-            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, silent=silent, debug=debug, burns=False)
+            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, silent=silent, debug=debug, burns=False)
         elif claims:
             txes = ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
         elif named:
             """Shows all stored transactions and their labels."""
             txes = ce.list("transaction", silent=silent, prettyprint=False, return_list=True)
+            if advanced:
+                txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet:
-            txes = ei.run_command(ec.get_address_transactions, sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet)
+            txes = ei.run_command(ec.get_address_transactions, sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug)
         else:
             """returns all transactions from or to that address in the wallet."""
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
-            txes = ei.run_command(ec.get_address_transactions, addr_string=address, sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet)
+            txes = ei.run_command(ec.get_address_transactions, addr_string=address, sent=sent, received=received, advanced=advanced, sort=True, debug=debug)
 
         if count:
             return len(txes)

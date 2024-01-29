@@ -315,7 +315,7 @@ def is_possible_txid(txid: str) -> bool:
     except (ValueError, AssertionError):
         return False
 
-def find_tx_senders(tx: dict) -> list:
+'''def find_tx_senders(tx: dict) -> list:
     """Finds all known senders of a transaction."""
     # find_tx_sender from pypeerassets only finds the first sender.
     # this variant returns a list of all input senders.
@@ -330,7 +330,7 @@ def find_tx_senders(tx: dict) -> list:
             senders.append({"sender" : sender, "value" : value})
         except KeyError: # coinbase transactions
             continue
-    return senders
+    return senders'''
 
 def get_address_token_balance(deck: object, address: str) -> Decimal:
     """Gets token balance of a single deck of an address, as a Decimal value."""
@@ -357,42 +357,6 @@ def get_wallet_token_balances(deck: object) -> dict:
             balances.update({address : exponent_to_amount(state.balances[address], deck.number_of_decimals)})
 
     return balances
-
-def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=None) -> dict:
-    """Helper function showing useful values which are not part of the transaction,
-       like sender(s) and block height."""
-    # TODO: could see an usability improvement for coinbase txes.
-    # However, this could lead to side effects.
-
-    tx = provider.getrawtransaction(txid, 1)
-    try:
-        senders = find_tx_senders(tx)
-    except KeyError:
-        raise ei.PacliInputDataError("Transaction does not exist or is corrupted.")
-
-    outputs = []
-    if "blockhash" in tx:
-        height = provider.getblock(tx["blockhash"])["height"]
-    elif human_readable:
-        height = "unconfirmed"
-    else:
-        height = None
-    value, receivers = None, None
-    for output in tx["vout"]:
-        try:
-            value = output["value"]
-            receivers = output["scriptPubKey"]["addresses"]
-        except KeyError:
-            pass
-        outputs.append({"receivers" : receivers, "value" : value})
-
-    if tracked_address:
-        outputs_to_tracked = [o for o in outputs if (o.get("receivers") is not None and tracked_address in o["receivers"])]
-        sender = senders[0] if len(senders) > 0 else "" # fix for coinbase txes
-        return {"sender" : sender, "outputs" : outputs, "height" : height}
-
-    else:
-        return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 def get_wallet_address_set() -> set:
     """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
@@ -432,7 +396,7 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
 
     #result = []
     if full:
-        result = claims
+        result = [c.__dict__ for c in claims]
     elif param:
         result = [{ claim.txid : claim.__dict__[param] } for claim in claims]
     else:
@@ -441,20 +405,7 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
                    param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
                    param_names["receiver"] : claim.receiver,
                    param_names["blocknum"] : claim.blocknum} for claim in claims]
-    """
-    for claim in claims:
-        if full:
-            pprint(claim.__dict__)
-        elif param:
-            pprint({ claim.txid : claim.__dict__[param] })
-        else:
 
-            claim_dict = {param_names["txid"] : claim.txid,
-                          param_names["donation_txid"] : claim.donation_txid,
-                          param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
-                          param_names["receiver"] : claim.receiver,
-                          param_names["blocknum"] : claim.blocknum}
-            pprint(claim_dict)"""
     return result
 
 
