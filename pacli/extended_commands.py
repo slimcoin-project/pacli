@@ -225,6 +225,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     all_txids = set([t["txid"] for t in eu.get_wallet_transactions()])
     all_wallet_txes = [provider.getrawtransaction(txid, 1) for txid in all_txids]
     result = []
+    processing = None
 
     for tx in all_wallet_txes:
         try:
@@ -243,6 +244,11 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                 if wallet or (address in sender_dict["sender"]):
                     txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"], "confirmations": confs}
                     result.append(txdict)
+                    processing = tx["txid"]
+                    break
+            else:
+                processing = None
+
         if received or all_txes:
             try:
                 outputs = tx["vout"]
@@ -255,7 +261,11 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                 try:
                     if wallet or (address in out_addresses):
                         txdict = tx if advanced else {"txid" : tx["txid"], "type" : "receive", "value": output["value"], "confirmations": confs}
+                        if advanced:
+                            if processing != tx["txid"]:
+                                break
                         result.append(txdict)
+                        break
                 except TypeError:
                     continue
     if sort:

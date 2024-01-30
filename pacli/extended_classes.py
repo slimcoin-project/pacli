@@ -808,10 +808,13 @@ class ExtTransaction:
         --sender: Show transactions sent by a specific sender address (only in combination with --all).
         --receiver: Show transactions received by a specific receiver address (only in combination with --all).
         --keyring: Use an address/label stored in the keyring (not supported by --all mode).
-        --param=PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
         --count: Only count transactions, do not display them.
         --silent: Suppress additional output, printout in script-friendly way.
         --debug: Provide debugging information.
+        --param PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
+              Possible parameters are all first-level keys of the dictionaries output by the distinct modes of this command.
+              If used together with --advanced, the possible parametes are the first-level keys of the transaction JSON string,
+              with the exception of --claims mode, where the attributes of a CardTransfer object can be used.
 
         """
         kwargs = locals()
