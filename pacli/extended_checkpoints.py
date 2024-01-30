@@ -7,10 +7,9 @@ from pacli.provider import provider
 class Checkpoint:
 
     def set(self,
-            height: int=None,
+            blockheight: int=None,
             delete: bool=False,
-            depth: int=2000,
-            prune: bool=False,
+            prune: int=None,
             silent: bool=False,
             now: bool=False) -> None:
         """Store a checkpoint (block hash) for a given height or the current height (default).
@@ -25,9 +24,9 @@ class Checkpoint:
 
         Deletes a checkpoint corresponding to blockheight HEIGHT. Use --now to delete really.
 
-        pacli checkpoint set --prune [--depth=DEPTH]
+        pacli checkpoint set --prune [DEPTH]
 
-        Prunes several checkpoints. Depth parameter indicates the block depth where checkpoints are to be kept.
+        Prunes several checkpoints. DEPTH indicates the block depth where checkpoints are to be kept.
         By default, the checkpoints of the 2000 most recent blocks are kept.
 
         Other flags:
@@ -35,28 +34,28 @@ class Checkpoint:
         --silent: Suppress output."""
 
         if delete:
-            return ce.delete_item("checkpoint", str(height), now=now)
+            return ce.delete_item("checkpoint", str(blockheight), now=now)
         if prune:
-
-
+            if type(prune) != int:
+                prune = 2000 # default value
             # TODO: this command is quite slow, optimize it.
-            return prune_old_checkpoints(depth=depth, silent=silent)
+            return ei.run_command(prune_old_checkpoints, depth=prune, silent=silent)
         else:
-            return store_checkpoint(height=height)
+            return ei.run_command(store_checkpoint, height=blockheight)
 
     def show(self, height: int=None) -> str:
         """Show a checkpoint (block hash), by default the most recent.
 
         Usage:
 
-        pacli checkpoint show [--height=HEIGHT]
+        pacli checkpoint show [BLOCKHEIGHT]
 
-        HEIGHT is the blockheight to lookup the checkpoint."""
-        return retrieve_checkpoint(height=height)
+        BLOCKHEIGHT is the blockheight to lookup the checkpoint."""
+        return ei.run_command(retrieve_checkpoint, height=height)
 
     def list(self) -> list:
         """Show all checkpoints (block hashes)."""
-        return retrieve_all_checkpoints()
+        return ei.run_command(retrieve_all_checkpoints)
 
     def reorg_check(self, silent: bool=False) -> None:
         """Performs a chain reorganization check:
@@ -68,7 +67,7 @@ class Checkpoint:
 
         Flags:
         --silent: Script friendly output: 0 for passed and 1 for failed check."""
-        return reorg_check(silent=silent)
+        return ei.run_command(reorg_check, silent=silent)
 
 
 # Checkpoint utils
@@ -76,6 +75,9 @@ class Checkpoint:
 def store_checkpoint(height: int=None, silent: bool=False) -> None:
     if height is None:
         height = provider.getblockcount()
+    elif type(height) != int:
+        raise ei.PacliInputDataError("You can only save a checkpoint block height as a integer number. Please provide a valid block height.")
+
     blockhash = provider.getblockhash(height)
     if not silent:
         print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
@@ -145,7 +147,8 @@ def reorg_check(silent: bool=False) -> None:
         if not silent:
             print("A reorg check was never performed on this node.")
             print("Saving first checkpoint.")
-        return 0
+        else:
+            return 0
 
     stored_bhash = config["checkpoint"][str(last_height)]
 
@@ -155,11 +158,13 @@ def reorg_check(silent: bool=False) -> None:
     if checked_bhash == stored_bhash:
         if not silent:
             print("No reorganization found. Everything seems to be ok.")
-        return 0
+        else:
+            return 0
     else:
         if not silent:
             print("WARNING! Chain reorganization found.")
             print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
             print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
             print("Make sure you check token balances and other states.")
-        return 1
+        else:
+            return 1
