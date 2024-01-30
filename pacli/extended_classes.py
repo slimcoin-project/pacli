@@ -882,10 +882,13 @@ class ExtTransaction:
         elif silent:
             return txes
         elif param and not claims:
-            if silent:
-                return [{t["txid"] : t[param]} for t in txes]
-            else:
-                pprint([{t["txid"] : t[param]} for t in txes])
+            try:
+                if silent:
+                    return [{t["txid"] : t[param]} for t in txes]
+                else:
+                    pprint([{t["txid"] : t[param]} for t in txes])
+            except KeyError:
+                raise ei.PacliInputDataError("This parameter does not exist in the JSON output of this mode.")
         else:
             for txdict in txes:
                 pprint(txdict)
