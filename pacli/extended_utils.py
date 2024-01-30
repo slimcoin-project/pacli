@@ -367,6 +367,9 @@ def get_wallet_address_set() -> set:
 def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
     '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
 
+    if deck_str is None:
+        raise ei.PacliInputDataError("No deck given, for --claim options the deck is mandatory.")
+
     param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
     deckid = search_for_stored_tx_label("deck", deck_str)
@@ -394,10 +397,11 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
                 claim.receiver.append(b.receiver[0])
         claims.append(claim)
 
-    #result = []
     if full:
         result = [c.__dict__ for c in claims]
     elif param:
+        # TODO: this now is unnecessary based on the transaction list command
+        # re-check other commands
         result = [{ claim.txid : claim.__dict__[param] } for claim in claims]
     else:
         result = [{param_names["txid"] : claim.txid,

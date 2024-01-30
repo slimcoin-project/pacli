@@ -63,15 +63,18 @@ def show_stored_address(label: str, network_name: str=Settings.network, keyring:
     else:
         return get_address(str(label), network_name=network_name, noprefix=noprefix)
 
-def process_address(addr_string: str) -> str:
+def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=True) -> str:
     """Allows to use a label or an address; you'll get an address back."""
+    # TODO: once all commands are equipped with --keyring flag put try_alternative to False.
     try:
-        address = show_stored_address(addr_string, keyring=True, raise_if_invalid_label=True)
-    except TypeError:
+        address = show_stored_address(addr_string, keyring=keyring, raise_if_invalid_label=True)
+        assert address is not None
+    except (TypeError, AssertionError):
         try:
-            address = show_stored_address(addr_string, keyring=False)
+            assert (not keyring) and try_alternative
+            address = show_stored_address(addr_string, keyring=True, raise_if_invalid_label=True)
             assert address is not None
-        except AssertionError:
+        except (TypeError, AssertionError):
             # TODO: we don't check here if the addr_string is a valid address.
             return addr_string
     return address
@@ -211,12 +214,12 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
     return result
 
 
-def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, sort: bool=False, wallet: bool=False, debug: bool=False) -> list:
+def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, sort: bool=False, wallet: bool=False, debug: bool=False) -> list:
 
     if not wallet:
-        address = process_address(addr_string)
+        address = process_address(addr_string, keyring=keyring, try_alternative=False)
         if not address:
-            ei.print_red("Error: You must provide either a valid address or a valid label.")
+            raise ei.PacliInputDataError("You must provide either a valid address or a valid label.")
 
     all_txes = True if (not sent) and (not received) else False
     all_txids = set([t["txid"] for t in eu.get_wallet_transactions()])

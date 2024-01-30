@@ -771,7 +771,7 @@ class ExtTransaction:
              count: bool=False,
              silent: bool=False,
              debug: bool=False) -> None:
-        """Lists transactions of an address or of a specific type (burn transactions and claim transactions).
+        """Lists transactions, optionally of a specific type (burn transactions and claim transactions).
 
         Usage:
 
@@ -803,22 +803,52 @@ class ExtTransaction:
         --received: Only show received transactions (not in combination with --named, --claims, --burns or --reftxes)
         --advanced: Show complete transaction JSON or card transfer dictionary.
         --wallet: Show all specified transactions of all addresses in the wallet.
-        --param=PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
         --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified).
         --coinbase: Show coinbase transactions (not in combination with --burns, --reftxes, --named or --claims).
         --sender: Show transactions sent by a specific sender address (only in combination with --all).
         --receiver: Show transactions received by a specific receiver address (only in combination with --all).
-        --keyring: Use an address/label stored in the keyring (only with --burns and --reftxes).
+        --keyring: Use an address/label stored in the keyring (not supported by --all mode).
+        --param=PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
         --count: Only count transactions, do not display them.
         --silent: Suppress additional output, printout in script-friendly way.
         --debug: Provide debugging information.
 
         """
-        # TODO: keyring should also be supported for the other modes.
-        # also PARAM should be supported by the other modes.
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(self.__list, **kwargs)
+
+    def __list(self,
+             address_or_deck: str=None,
+             address: str=None,
+             sender: str=None,
+             burns: bool=None,
+             reftxes: bool=None,
+             claims: bool=None,
+             all: str=None,
+             named: bool=False,
+             sent: bool=False,
+             received: bool=False,
+             coinbase: bool=False,
+             advanced: bool=False,
+             wallet: bool=False,
+             param: str=None,
+             receiver: str=None,
+             unclaimed: bool=False,
+             keyring: bool=False,
+             start: bool=False,
+             end: bool=False,
+             count: bool=False,
+             silent: bool=False,
+             debug: bool=False) -> None:
+        # TODO: Further harmonization: Results are now:
+        # --all: tx_structure or tx JSON
+        # --burns/--reftxes: custom dict with sender_label and sender_address
+        # --advanced: always tx JSON
+        # without any label:
 
         if address:
-            address = ec.process_address(address)
+            address = ec.process_address(address, keyring=keyring, try_alternative=False)
 
         if (not named) and (not silent):
             print("Searching transactions (this can take several minutes) ...")
@@ -832,24 +862,30 @@ class ExtTransaction:
         elif reftxes:
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, silent=silent, debug=debug, burns=False)
         elif claims:
-            txes = ei.run_command(eu.show_claims, deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
+            # TODO: error message isn't helpful if deck is not given
+            txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param)
         elif named:
             """Shows all stored transactions and their labels."""
             txes = ce.list("transaction", silent=silent, prettyprint=False, return_list=True)
             if advanced:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet:
-            txes = ei.run_command(ec.get_address_transactions, sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug)
+            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, keyring=keyring)
         else:
             """returns all transactions from or to that address in the wallet."""
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
-            txes = ei.run_command(ec.get_address_transactions, addr_string=address, sent=sent, received=received, advanced=advanced, sort=True, debug=debug)
+            txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, sort=True, debug=debug)
 
         if count:
             return len(txes)
         elif silent:
             return txes
+        elif param and not claims:
+            if silent:
+                return [{t["txid"] : t[param]} for t in txes]
+            else:
+                pprint([{t["txid"] : t[param]} for t in txes])
         else:
             for txdict in txes:
                 pprint(txdict)
