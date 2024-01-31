@@ -36,13 +36,13 @@ def deck_from_ttx_txid(txid: str, tx_type: str, provider: object, debug: bool=Fa
 
 # Proposal states and periods
 
-def check_current_period(proposal_txid: str, deck: object, tx_type: int, dist_round: int=None, phase: int=None, release: bool=False, wait: bool=False, security_level: int=1, silent: bool=False) -> None:
+def check_current_period(proposal_txid: str, deck: object, tx_type: int, dist_round: int=None, phase: int=None, release: bool=False, wait: bool=False, security_level: int=1, quiet: bool=False) -> None:
     """Checks the current period of a proposal, and waits until a target period is reached if used with the 'wait' flag."""
 
     # TODO: Re-check side effects of get_period change. => Seems OK, but take the change into account.
 
     current_period, blocks = get_period(proposal_txid, deck)
-    if not silent:
+    if not quiet:
         print("Current period:", di.printout_period(current_period, blocks))
     try:
         if dist_round is None:
@@ -59,7 +59,7 @@ def check_current_period(proposal_txid: str, deck: object, tx_type: int, dist_ro
     except ValueError as e:
         raise PacliInputDataError(e)
 
-    if not silent:
+    if not quiet:
         print("Target period: {}{}".format(target_period[0],str(target_period[1])))
     proposal_tx = find_proposal(proposal_txid, provider)
     ps = ProposalState(first_ptx=proposal_tx, valid_ptx=proposal_tx)
@@ -67,7 +67,7 @@ def check_current_period(proposal_txid: str, deck: object, tx_type: int, dist_ro
     # MODIF: security level, added targetblock
     target, end_target = eu.get_safe_block_timeframe(startblock, endblock, security_level)
 
-    return di.wait_for_block(target, end_target, provider, wait, silent=silent)
+    return di.wait_for_block(target, end_target, provider, wait, quiet=quiet)
 
 def get_next_suitable_period(tx_type, period, dist_round=None):
     """Takes a TrackedTransaction type and a period and calculates the next period
@@ -176,7 +176,7 @@ def get_proposal_state_periods(deckid: str, block: int, advanced: bool=False, de
 
 # Donation states and slots
 
-def get_slot(proposal_id: str, donor_address: str, dist_round: int=None, silent: bool=False):
+def get_slot(proposal_id: str, donor_address: str, dist_round: int=None, quiet: bool=False):
     """Given a proposal, a donor address, and the dist_round, returns the slot.
        If no dist_round is given, show the slot of the first Donation state the donor address participated.."""
     dstates = dmu.get_donation_states(provider=provider, proposal_id=proposal_id, donor_address=donor_address)
@@ -187,7 +187,7 @@ def get_slot(proposal_id: str, donor_address: str, dist_round: int=None, silent:
                 raw_slot = state.slot
                 return {"round" : dist_round, "slot" : raw_slot}
         else:
-            if silent:
+            if quiet:
                 return {"round" : dist_round, "slot" : None}
             else:
                 raise PacliInputDataError("No slot found in round {}".format(dist_round))
@@ -270,23 +270,23 @@ def find_proposal_state_by_string(searchstring: str, advanced: bool=False, short
 
 ## Selection and processing of inputs of previous transactions in the same DonationState
 
-def previous_input_unspent(input_txid: str, input_vout: int, redeem_script: object=None, silent: bool=False) -> bool:
+def previous_input_unspent(input_txid: str, input_vout: int, redeem_script: object=None, quiet: bool=False) -> bool:
     """Returns a bool to know if an input was spent."""
     # P2SH is treated as always unspent.
     if redeem_script is not None:
-        if not silent:
+        if not quiet:
             print("Getting data from P2SH locking transaction.")
         return True
     # checks if previous input in listunspent.
     for inp in provider.listunspent():
         if inp["txid"] == input_txid: # basic_tx_data["txid"]:
             if inp["vout"] == input_vout: # basic_tx_data["vout"]:
-                if not silent:
+                if not quiet:
                     print("Selected input unspent.")
                 return True
     return False
 
-def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent=False) -> dict:
+def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, quiet=False) -> dict:
     """Analyzes the donation state and provides the inputs for the transaction to create.
        It provides also: slot, type of input, and redeem script of locking tx.
        Only used if the transaction does not use --new_inputs."""
@@ -318,18 +318,18 @@ def get_previous_tx_input_data(tx_type: str, dstate: object, debug=False, silent
     # Output type. This should be always P2PKH or P2SH.
     inputdata.update({ "inp_type" : [prev_tx.outs[2].script_pubkey.type] })
 
-    if not previous_input_unspent(prev_tx.txid, 2 , silent=silent, redeem_script=redeem_script):
+    if not previous_input_unspent(prev_tx.txid, 2 , quiet=quiet, redeem_script=redeem_script):
         raise PacliInputDataError("Input of previous transaction was already spent. Use --new_inputs to create the transaction.")
 
     return inputdata
 
-def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: int, network_name: str, new_inputs: bool=False, force: bool=False, silent: bool=False) -> int:
+def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: int, network_name: str, new_inputs: bool=False, force: bool=False, quiet: bool=False) -> int:
     """Calculates the amount which will be locked or donated."""
 
     raw_slot = sats_to_coins(Decimal(slot), network_name=network_name)
     raw_amount = sats_to_coins(Decimal(chosen_amount), network_name=network_name) if chosen_amount is not None else None
 
-    if not silent:
+    if not quiet:
         print("Assigned slot:", raw_slot)
 
     # You should only be able to use an amount greater than your slot if you use --force.
@@ -347,7 +347,7 @@ def calculate_donation_amount(slot: int, chosen_amount: int, available_amount: i
         raise PacliInputDataError("If you don't use the parent transaction, you must provide an amount and new_inputs.")
 
     # Interface
-    if silent:
+    if quiet:
         return amount
 
     if amount == slot:
@@ -419,7 +419,7 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
 
 # Reward calculation
 
-def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: object=None, proposer: bool=False, debug: bool=False, silent: bool=False, network_name: str=Settings.network) -> dict:
+def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: object=None, proposer: bool=False, debug: bool=False, quiet: bool=False, network_name: str=Settings.network) -> dict:
     """Returns a dict with the amount of the reward and the deckid."""
 
     ptx = find_proposal(proposal_id, provider) # ptx is given directly to get_donation_state
@@ -427,7 +427,7 @@ def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: ob
     decimals = ptx.deck.number_of_decimals
     if proposer:
         if donor_address == ptx.donation_address:
-            if not silent:
+            if not quiet:
                 print("Claiming tokens for the Proposer for missing donations ...")
             pstate = get_proposal_state(provider, proposal_id)
             reward = pstate.proposer_reward
@@ -451,7 +451,7 @@ def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: ob
         else:
             raise PacliInputDataError("No valid donation state found.")
 
-        if not silent:
+        if not quiet:
             print("Your donation:", sats_to_coins(Decimal(ds.donated_amount), network_name=network_name), "coins")
             if ds.donated_amount != ds.effective_slot:
                 print("Your effective slot value is different:", sats_to_coins(Decimal(ds.effective_slot), network_name=network_name))
@@ -464,12 +464,12 @@ def get_pod_reward_data(proposal_id: str, donor_address: str, donation_state: ob
     if reward < 1:
        raise PacliInputDataError("Reward is zero or lower than one token unit.")
 
-    if not silent:
+    if not quiet:
         print("Token reward by distribution period:", ptx.deck.epoch_quantity)
 
     if (proposer and pstate.dist_factor) or (ds.reward is not None):
         formatted_reward = Decimal(reward) / 10 ** decimals
-        if not silent:
+        if not quiet:
             print("Your reward:", formatted_reward, "PoD tokens")
     else:
         raise PacliInputDataError("Proposal still not processed completely. Claim your reward when the current distribution period has ended.")

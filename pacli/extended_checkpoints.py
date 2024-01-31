@@ -10,7 +10,7 @@ class Checkpoint:
             blockheight: int=None,
             delete: bool=False,
             prune: int=None,
-            silent: bool=False,
+            quiet: bool=False,
             now: bool=False) -> None:
         """Store a checkpoint (block hash) for a given height or the current height (default).
 
@@ -31,17 +31,17 @@ class Checkpoint:
 
         Other flags:
 
-        --silent: Suppress output."""
+        -q / --quiet: Suppress output."""
 
         if delete:
-            return ce.delete_item("checkpoint", str(blockheight), now=now)
+            return ce.delete_item("checkpoint", str(blockheight), now=now, quiet=quiet)
         if prune:
             if type(prune) != int:
                 prune = 2000 # default value
             # TODO: this command is quite slow, optimize it.
-            return ei.run_command(prune_old_checkpoints, depth=prune, silent=silent)
+            return ei.run_command(prune_old_checkpoints, depth=prune, quiet=quiet)
         else:
-            return ei.run_command(store_checkpoint, height=blockheight)
+            return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet)
 
     def show(self, height: int=None) -> str:
         """Show a checkpoint (block hash), by default the most recent.
@@ -57,37 +57,37 @@ class Checkpoint:
         """Show all checkpoints (block hashes)."""
         return ei.run_command(retrieve_all_checkpoints)
 
-    def reorg_check(self, silent: bool=False) -> None:
+    def reorg_check(self, quiet: bool=False) -> None:
         """Performs a chain reorganization check:
         checks if the most recent checkpoint corresponds to the stored block hash.
 
         Usage:
 
-        pacli checkpoint reorg_check [--silent]
+        pacli checkpoint reorg_check [--quiet]
 
         Flags:
-        --silent: Script friendly output: 0 for passed and 1 for failed check."""
-        return ei.run_command(reorg_check, silent=silent)
+        -q, --quiet: Script friendly output: 0 for passed and 1 for failed check."""
+        return ei.run_command(reorg_check, quiet=quiet)
 
 
 # Checkpoint utils
 
-def store_checkpoint(height: int=None, silent: bool=False) -> None:
+def store_checkpoint(height: int=None, quiet: bool=False) -> None:
     if height is None:
         height = provider.getblockcount()
     elif type(height) != int:
         raise ei.PacliInputDataError("You can only save a checkpoint block height as a integer number. Please provide a valid block height.")
 
     blockhash = provider.getblockhash(height)
-    if not silent:
+    if not quiet:
         print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
     try:
-        ce.write_item(category="checkpoint", key=height, value=blockhash)
+        ce.set("checkpoint", label=height, value=blockhash, quiet=quiet)
     except ei.ValueExistsError:
-        if not silent:
+        if not quiet:
             print("Checkpoint already stored (probably node block height has not changed).")
 
-def retrieve_checkpoint(height: int=None, silent: bool=False) -> dict:
+def retrieve_checkpoint(height: int=None, quiet: bool=False) -> dict:
     config = ce.get_config()
     bheights = sorted([ int(h) for h in config["checkpoint"] ])
     if height is None:
@@ -105,7 +105,7 @@ def retrieve_checkpoint(height: int=None, silent: bool=False) -> dict:
                 # if the highest checkpoint is below the required height, use it
                 new_height = bheights[-1]
 
-            if not silent:
+            if not quiet:
                 print("No checkpoint for height {}, closest (lower) checkpoint is: {}".format(height, new_height))
             height = new_height
 
@@ -116,27 +116,27 @@ def retrieve_all_checkpoints() -> dict:
     checkpoints = sorted(config["checkpoint"].items())
     return checkpoints
 
-def prune_old_checkpoints(depth: int=2000, silent: bool=False) -> None:
+def prune_old_checkpoints(depth: int=2000, quiet: bool=False) -> None:
     checkpoints = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
     checkpoints.sort()
     # print(checkpoints)
     current_block = provider.getblockcount()
     index = 0
-    if not silent:
+    if not quiet:
         print("Pruning checkpoints up to block {} ({} blocks before the current block {}).".format(current_block - depth, depth, current_block))
     while len(ce.get_config()["checkpoint"]) > 5: # leave at least 5 checkpoints intact
        c = checkpoints[index]
        if c < current_block - depth:
-           if not silent:
+           if not quiet:
                print("Deleting checkpoint", c)
-           ce.delete_item("checkpoint", str(c), now=True, silent=True)
+           ce.delete_item("checkpoint", str(c), now=True, quiet=True)
            time.sleep(1)
        else:
            break # as checkpoints are sorted, we break out.
        index += 1
 
-def reorg_check(silent: bool=False) -> None:
-    if not silent:
+def reorg_check(quiet: bool=False) -> None:
+    if not quiet:
         print("Looking for chain reorganizations ...")
     config = ce.get_config()
 
@@ -144,7 +144,7 @@ def reorg_check(silent: bool=False) -> None:
         bheights = sorted([ int(h) for h in config["checkpoint"] ])
         last_height = bheights[-1]
     except IndexError: # first reorg check
-        if not silent:
+        if not quiet:
             print("A reorg check was never performed on this node.")
             print("Saving first checkpoint.")
         else:
@@ -152,16 +152,16 @@ def reorg_check(silent: bool=False) -> None:
 
     stored_bhash = config["checkpoint"][str(last_height)]
 
-    if not silent:
+    if not quiet:
         print("Last checkpoint found: height {} hash {}".format(last_height, stored_bhash))
     checked_bhash = provider.getblockhash(last_height)
     if checked_bhash == stored_bhash:
-        if not silent:
+        if not quiet:
             print("No reorganization found. Everything seems to be ok.")
         else:
             return 0
     else:
-        if not silent:
+        if not quiet:
             print("WARNING! Chain reorganization found.")
             print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
             print("This is not necessarily an attack, it can also occur due to orphaned blocks.")

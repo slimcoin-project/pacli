@@ -96,12 +96,12 @@ class Tools:
         """Delete a checkpoint, by height (use --now to delete really)."""
         ce.delete_item("checkpoint", str(height), now=now)
 
-    def prune_old_checkpoints(self, depth: int=2000, silent: bool=False) -> None:
+    def prune_old_checkpoints(self, depth: int=2000, quiet: bool=False) -> None:
         """Delete all old checkpoints.
         Depth parameter indicates the block depth where checkpoints are to be kept.
         By default, the checkpoints of the 2000 most recent blocks are kept."""
         # TODO: this command is quite slow, optimize it.
-        eu.prune_old_checkpoints(depth=depth, silent=silent)
+        eu.prune_old_checkpoints(depth=depth, quiet=quiet)
 
     def reorg_check(self) -> None:
         """Performs a chain reorganization check:
@@ -111,50 +111,50 @@ class Tools:
     # Decks, proposals, transactions, UTXOs
     # Use the __store, __show, and __show_stored protected methods.
 
-    '''def store_deck(self, label: str, deckid: str, modify: bool=False, silent: bool=False) -> None: ### DONE
+    '''def store_deck(self, label: str, deckid: str, modify: bool=False, quiet: bool=False) -> None: ### DONE
         """Stores a deck with label and deckid. Use --modify to change the label."""
-        return self.__store("deck", label, value=deckid, silent=silent, modify=modify)''' # ok, deck store
+        return self.__store("deck", label, value=deckid, quiet=quiet, modify=modify)''' # ok, deck store
 
     '''def show_deck(self, label: str) -> str: ### DONE
         """Shows a stored deck ID by label."""
         return self.__show("deck", label)''' # ok, deck show
 
-    '''def show_stored_decks(self, silent: bool=False) -> None: ### DONE
+    '''def show_stored_decks(self, quiet: bool=False) -> None: ### DONE
         """Shows all stored deck IDs and their labels."""
-        return self.__show_stored("deck", silent=silent)''', # ok, deck list
+        return self.__show_stored("deck", quiet=quiet)''', # ok, deck list
 
-    '''def store_proposal(self, label: str, proposal_id: str, modify: bool=False, silent: bool=False) -> None:
+    '''def store_proposal(self, label: str, proposal_id: str, modify: bool=False, quiet: bool=False) -> None:
         """Stores a proposal with label and proposal id (TXID). Use --modify to change the label."""
-        return self.__store("proposal", label, value=proposal_id, silent=silent, modify=modify)
+        return self.__store("proposal", label, value=proposal_id, quiet=quiet, modify=modify)
 
     def show_proposal(self, label: str) -> str:
         """Shows a stored proposal ID (its txid) by label."""
         return self.__show("proposal", label)
 
-    def show_stored_proposals(self, silent: bool=False) -> None:
+    def show_stored_proposals(self, quiet: bool=False) -> None:
         """Shows all stored proposal IDs and their labels."""
-        return self.__show_stored("proposal", silent=silent)''' # ok, these three went to dt_classes
+        return self.__show_stored("proposal", quiet=quiet)''' # ok, these three went to dt_classes
 
-    '''def store_transaction(self, label: str, tx_hex: str, modify: bool=False, silent: bool=False) -> None:
+    '''def store_transaction(self, label: str, tx_hex: str, modify: bool=False, quiet: bool=False) -> None:
         """Stores a transaction with label and hex string. Use --modify to change the label."""
-        return self.__store("transaction", label, value=tx_hex, silent=silent, modify=modify)
+        return self.__store("transaction", label, value=tx_hex, quiet=quiet, modify=modify)
 
     def show_transaction(self, label) -> str:
         """Shows a stored transaction hex by label."""
         return self.__show("transaction", label)
 
-    def show_stored_transactions(self, silent: bool=False) -> None:
+    def show_stored_transactions(self, quiet: bool=False) -> None:
         """Shows all stored transactions and their labels."""
-        return self.__show_stored("transaction", silent=silent)''' # to extended_main
+        return self.__show_stored("transaction", quiet=quiet)''' # to extended_main
 
-    '''def store_tx_by_txid(self, tx_hex: str, silent: bool=False) -> None:
+    '''def store_tx_by_txid(self, tx_hex: str, quiet: bool=False) -> None:
         """Stores a transaction's hex string. The TXID is used as label."""
         txid = provider.decoderawtransaction(tx_hex)["txid"]
-        if not silent:
+        if not quiet:
             print("TXID used as label:", txid)
-        return self.__store("transaction", txid, value=tx_hex, silent=silent)''' # to extended_main
+        return self.__store("transaction", txid, value=tx_hex, quiet=quiet)''' # to extended_main
 
-    '''def store_utxo(self, label: str, txid_or_oldlabel: str, output: int=None, modify: bool=False, silent: bool=False) -> None:
+    '''def store_utxo(self, label: str, txid_or_oldlabel: str, output: int=None, modify: bool=False, quiet: bool=False) -> None:
         """Stores an UTXO with label, txid and output number (vout).
         Use --modify to change the label.
         If changing a label directly, omit the output."""
@@ -162,15 +162,15 @@ class Tools:
             utxo = txid_or_oldlabel
         else:
             utxo = "{}:{}".format(txid_or_oldlabel, str(output))
-        return self.__store("utxo", label, value=utxo, silent=silent, modify=modify)
+        return self.__store("utxo", label, value=utxo, quiet=quiet, modify=modify)
 
     def show_utxo(self, label: str) -> str:
         """Shows a stored UTXO by its label."""
         return self.__show("utxo", label)
 
-    def show_stored_utxos(self, silent: bool=False) -> None:
+    def show_stored_utxos(self, quiet: bool=False) -> None:
         """Shows all stored UTXOs and their labels."""
-        return self.__show_stored("utxo", silent=silent)''' # to extended_main, in transaction class
+        return self.__show_stored("utxo", quiet=quiet)''' # to extended_main, in transaction class
 
     # General commands
 
@@ -188,24 +188,24 @@ class Tools:
         """Shows current contents of the extended configuration file."""
         return ce.get_config()''' # ok, config show
 
-    '''def show_label(self, category: str, value: str, silent: bool=False):
+    '''def show_label(self, category: str, value: str, quiet: bool=False):
         """Shows a label for a value."""
         result = ei.run_command(ce.search_value, category, str(value))
-        if not result and not silent:
+        if not result and not quiet:
             print("No label was found.")
-        elif silent:
+        elif quiet:
             return result
         else:
             print("Label(s) stored for value {}:".format(value))
             pprint(result)''' # ok, config show LABEL
 
 
-    '''def find_label(self, category: str, content: str, silent: bool=False):
+    '''def find_label(self, category: str, content: str, quiet: bool=False):
         """Searches for labels if only a part of the value (content) is known."""
         result = ei.run_command(ce.search_value_content, category, str(content))
-        if not result and not silent:
+        if not result and not quiet:
             print("No label was found.")
-        elif silent:
+        elif quiet:
             return result
         else:
             print("Entries found with content {}:".format(content))
@@ -213,25 +213,25 @@ class Tools:
 
     # Other
 
-    '''def get_tx_structure(self, txid: str, silent: bool=False):
+    '''def get_tx_structure(self, txid: str, quiet: bool=False):
         """Shows senders (looking at txids in inputs) and receivers of a tx."""
         structure = eu.get_tx_structure(txid)
 
-        if not silent:
+        if not quiet:
             pprint(structure)
         else:
             return structure''' # ok, transaction show [--structure, eventually]
 
     '''# Helper commands
-    def __store(self, category: str, label: str, value: str, modify: bool=False, silent: bool=False):
-        return ei.run_command(ce.write_item, category=category, key=label, value=value, modify=modify, silent=silent)
+    def __store(self, category: str, label: str, value: str, modify: bool=False, quiet: bool=False):
+        return ei.run_command(ce.write_item, category=category, key=label, value=value, modify=modify, quiet=quiet)
 
     def __show(self, category: str, label: str):
         return ei.run_command(ce.read_item, category=category, key=label)
 
-    def __show_stored(self, category: str, silent: bool=False): ### went to main_extended. DONE
-        cfg = ei.run_command(ce.get_config, silent=silent)
-        if silent:
+    def __show_stored(self, category: str, quiet: bool=False): ### went to main_extended. DONE
+        cfg = ei.run_command(ce.get_config, quiet=quiet)
+        if quiet:
             print(cfg[category])
         else:
             pprint(cfg[category])''' # ok, all (under different names) in extended_main

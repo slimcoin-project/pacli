@@ -82,28 +82,28 @@ def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None
 
 # Deck
 
-def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, silent: bool=False, store_label: str=False) -> None:
+def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=False, store_label: str=False) -> None:
     # MODIFIED: added support for legacy blockchains
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     legacy = is_legacy_blockchain(network_name)
 
     if "sdp_deckid" not in deck.__dict__.keys():
-        if not silent:
+        if not quiet:
             print("No SDP (voting) token found for this deck. This is probably not a proof-of-donation deck!")
         return
 
     if deck.id not in provider.listaccounts():
-        if not silent:
+        if not quiet:
             print("Importing main key from deck.")
         load_deck_p2th_into_local_node(provider, deck)
 
     for tx_type in ("proposal", "signalling", "locking", "donation", "voting"):
         p2th_addr = deck.derived_p2th_address(tx_type)
-        if not silent:
+        if not quiet:
             print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
         if legacy:
             p2th_wif = deck.derived_p2th_wif(tx_type)
-            legacy_import(provider, p2th_addr, p2th_wif, rescan, silent=silent)
+            legacy_import(provider, p2th_addr, p2th_wif, rescan, silent=quiet)
         else:
             dmu.import_p2th_address(provider, p2th_addr)
 
@@ -113,20 +113,20 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, silent: bool
         p2th_sdp_addr = pa.Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
 
-        if not silent:
+        if not quiet:
             print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
 
         if legacy:
             p2th_sdp_wif = pa.Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).wif
-            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan, silent=silent)
+            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan, silent=quiet)
         else:
             dmu.import_p2th_address(provider, p2th_sdp_addr)
 
     if rescan:
         if not legacy:
             provider.rescanblockchain()
-            if not silent:
+            if not quiet:
                 print("Rescanning ...")
 
 
@@ -136,7 +136,7 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, silent: bool
          except ce.ValueExistsError:
              raise PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
 
-    if not silent:
+    if not quiet:
         print("Done.")
 
 
@@ -153,20 +153,20 @@ def dt_state(deckid: str, debug: bool=False, debug_voting: bool=False, debug_don
 # Card
 # Reward data seems to be missing in the "new" function ATM.
 
-def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, proposer: bool=False, force: bool=False, debug: bool=False, silent: bool=False) -> tuple:
+def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, proposer: bool=False, force: bool=False, debug: bool=False, quiet: bool=False) -> tuple:
 
     if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
         receiver = [donor_address]
 
     # enable using labels for proposals
-    proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id, silent=silent)
+    proposal_id = eu.search_for_stored_tx_label("proposal", proposal_id, quiet=quiet)
 
     if not force:
         beneficiary = "proposer" if proposer else "donor {}".format(donor_address)
-        if not silent:
+        if not quiet:
             print("Calculating reward for {} ...".format(beneficiary))
 
-        reward_data = du.get_pod_reward_data(proposal_id, donor_address, donation_state=donation_state, proposer=proposer, debug=debug, silent=silent)
+        reward_data = du.get_pod_reward_data(proposal_id, donor_address, donation_state=donation_state, proposer=proposer, debug=debug, quiet=quiet)
         deckid = reward_data.get("deckid")
         max_payment = reward_data.get("reward")
         donation_txid = reward_data.get("donation_txid")
@@ -176,7 +176,7 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
 
     elif payment is not None:
         max_payment = sum(payment)
-        if not silent:
+        if not quiet:
             print("WARNING: Overriding reward calculation. If you calculated your payment incorrectly, the transaction will be invalid.")
     else:
         raise PacliInputDataError("No payment data provided.")

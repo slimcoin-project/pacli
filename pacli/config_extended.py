@@ -17,7 +17,7 @@ CAT_INIT = {c : {} for c in CATEGORIES}
 # "protect" : only allows additions of new labels, no modifications (default)
 MODES = ["replace", "modify", "add", "protect"]
 
-def get_config(configfilename: str=EXT_CONFIGFILE, silent: bool=False) -> dict:
+def get_config(configfilename: str=EXT_CONFIGFILE, quiet: bool=False) -> dict:
 
     try:
         with open(configfilename, "r") as configfile:
@@ -25,18 +25,18 @@ def get_config(configfilename: str=EXT_CONFIGFILE, silent: bool=False) -> dict:
                 return json.load(configfile)
             except json.JSONDecodeError as e:
                 if len(configfile.read()) == 0:
-                    if not silent:
+                    if not quiet:
                         print("Empty file. Returning default config.")
                     return CAT_INIT
                 else:
                     raise json.JSONDecodeError(e)
     except FileNotFoundError:
-        if not silent:
+        if not quiet:
             print("File does not exist. Returning default config.")
         return CAT_INIT
 
 
-def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, network_name: str=None, modify: bool=False, add: bool=False, replace: bool=False, silent: bool=False, debug: bool=False) -> None:
+def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, network_name: str=None, modify: bool=False, add: bool=False, replace: bool=False, quiet: bool=False, debug: bool=False) -> None:
 
     # to allow simple command line arguments and avoid additional per-command processing,
     # this listcomp generates the mode from the add and modify bool variables.
@@ -89,7 +89,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     if debug:
         config = get_config(configfilename)
         print("New config:", config)
-    if not silent:
+    if not quiet:
         if category == "address":
             key_shown = "_".join(key.split("_")[1:])
         else:
@@ -104,12 +104,12 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
     return config[category].get(str(key))
 
-def delete_item(category: str, label: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, network_name: str=Settings.network, debug: bool=False, silent: bool=False):
+def delete_item(category: str, label: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, network_name: str=Settings.network, debug: bool=False, quiet: bool=False):
     config = get_config(configfilename)
 
     key = network_name + "_" + label if category == "address" else label
     try:
-        if not silent:
+        if not quiet:
             print("WARNING: deleting item from category {}, label: {}, complete key: {}, value: {}".format(category, label, key, config[category][key]))
 
         del config[category][key]
@@ -174,29 +174,29 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
 
 ### Extended helper tools (api)
 
-def list(category: str, silent: bool=False, prettyprint: bool=True, return_list: bool=False):
-    cfg = ei.run_command(get_config, silent=silent)
+def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False):
+    cfg = ei.run_command(get_config, quiet=quiet)
     result = cfg[category]
     if return_list:
         return [{k : result[k]} for k in result]
-    elif silent or (not prettyprint):
+    elif quiet or (not prettyprint):
         return result
     else:
         pprint(result)
 
-def set(category: str, label: str, value: str, modify: bool=False, replace: bool=False, silent: bool=False):
-    return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, silent=silent)
+def set(category: str, label: str, value: str, modify: bool=False, replace: bool=False, quiet: bool=False):
+    return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet)
 
 def show(category: str, label: str):
     result = ei.run_command(read_item, category=category, key=label)
     return result
 
-def find(category: str, content: str, silent: bool=False, prettyprint: bool=True):
+def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True):
     """Returns a list of matching labels if only a part of the value (content) is known."""
     result = ei.run_command(search_value_content, category, str(content))
-    if not result and not silent:
+    if not result and not quiet:
         print("No label was found.")
-    elif silent:
+    elif quiet:
         return result
     else:
         print("Entries found with content {}:".format(content))

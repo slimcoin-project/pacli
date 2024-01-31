@@ -22,7 +22,7 @@ class Dex:
             confirm: bool=False,
             sign: bool=False,
             send: bool=False,
-            silent: bool=False,
+            quiet: bool=False,
             txhex: bool=False):
         """Locks a number of tokens on the receiving address.
         By default, you specify the number of blocks to lock the tokens; with --height you specify the final block height.
@@ -44,7 +44,7 @@ class Dex:
         --txhex: Output only the transaction in hexstring format.
          """
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
         change_address = ec.process_address(change)
         if receiver is None:
             receiver_address = Settings.key.address
@@ -61,7 +61,7 @@ class Dex:
                  coin_amount: str,
                  coinseller_change_address: str=None,
                  save: str=None,
-                 silent: bool=False,
+                 quiet: bool=False,
                  sign: bool=False):
         """Creates a new exchange transaction, signs it partially and outputs it in hex format to be submitted to the exchange partner.
 
@@ -75,10 +75,10 @@ class Dex:
         --sign: Sign the transaction.
         --coinseller_change_address: Specify a change address of the coin seller (default: sender address)
         --save: Specify a label to save the transaction hex string with.
-        --silent: Suppress output.
+        --quiet: Suppress output.
         """
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save=save)
 
     @classmethod
@@ -98,7 +98,7 @@ class Dex:
         return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, confirm=confirm)
 
     @classmethod
-    def list_locks(self, deck: str, blockheight: int=None, raw: bool=False, silent: bool=False):
+    def list_locks(self, deck: str, blockheight: int=None, raw: bool=False, quiet: bool=False):
         """Shows all current locks of a deck.
 
         Usage:
@@ -108,12 +108,12 @@ class Dex:
         Options and flags:
         --blockheight: Specify a block height to show locks at (BUGGY).
         --raw: Don't prettyprint the lock dictionary
-        --silent: Suppress output.
+        --quiet: Suppress output.
         """
         # TODO: blockheight seems not to work.
 
         blockheight = provider.getblockcount() if blockheight is None else blockheight
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         cards = pa.find_all_valid_cards(dxu.provider, deck)
         state = pa.protocol.DeckState(cards, cleanup_height=blockheight)

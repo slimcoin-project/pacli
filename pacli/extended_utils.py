@@ -46,16 +46,16 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
     data = serialize_deck_extended_data(net_query(provider.network), params=params)
     return data
 
-def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=True, silent: bool=False, debug: bool=False):
+def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=True, quiet: bool=False, debug: bool=False):
     """Initializes a 'common' deck (also AT/PoB). dPoD decks need further initialization of more P2TH addresses."""
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if deckid not in provider.listaccounts():
         provider.importprivkey(deck.p2th_wif, deck.id, rescan)
-        if not silent:
+        if not quiet:
             print("Importing P2TH address from deck.")
     else:
-        if not silent:
+        if not quiet:
             print("P2TH address was already imported.")
     check_addr = provider.validateaddress(deck.p2th_address)
 
@@ -68,7 +68,7 @@ def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=Tru
         except ce.ValueExistsError:
             raise ei.PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
 
-    if not silent:
+    if not quiet:
         print("Done.")
 
 def signtx_by_key(rawtx, label=None, key=None):
@@ -99,23 +99,23 @@ def get_input_types(rawtx):
         raise ei.PacliInputDataError("Transaction data not correctly given.")
 
 
-def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, confirm: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, save: bool=False, debug: bool=False, silent: bool=False) -> object:
+def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, confirm: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, save: bool=False, debug: bool=False, quiet: bool=False) -> object:
     """Final steps of a transaction creation. Checks, verifies, signs and sends the transaction, and waits for confirmation if the 'confirm' option is used."""
     # Important function called by all AT, DT and Dex transactions and groups several checks and the last steps (signing) together.
 
     if not ignore_checkpoint:
         # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
         from pacli.extended_checkpoints import reorg_check, store_checkpoint
-        if reorg_check(silent=silent) and not ei.confirm_continuation():
+        if reorg_check(quiet=quiet) and not ei.confirm_continuation():
             return
-        store_checkpoint(silent=silent)
+        store_checkpoint(quiet=quiet)
 
     if verify:
         print(
             cointoolkit_verify(rawtx.hexlify())
              )  # link to cointoolkit - verify
 
-    if (False in (sign, send)) and (not silent):
+    if (False in (sign, send)) and (not quiet):
         print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
 
     dict_key = 'hex' # key of dict returned to the user.
@@ -146,12 +146,12 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
                 tx = dmu.sign_mixed_transaction(provider, rawtx, Settings.key, input_types)
 
         if send:
-            if not silent:
+            if not quiet:
                 pprint({'txid': sendtx(tx)})
             else:
                 sendtx(tx)
             if confirm:
-                ei.confirm_tx(tx, silent=silent)
+                ei.confirm_tx(tx, quiet=quiet)
 
         tx_hex = tx.hexlify()
 
@@ -161,7 +161,7 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
         tx_hex = rawtx.hexlify()
 
         if confirm:
-            ei.confirm_tx(tx, silent=silent)
+            ei.confirm_tx(tx, quiet=quiet)
 
     else:
         dict_key = 'raw hex'
@@ -205,7 +205,7 @@ def find_transaction_by_string(searchstring: str, only_start: bool=False):
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
-                 sign: bool=False, send: bool=False, debug: bool=False, silent: bool=False, confirm: bool=False) -> Optional[dict]:
+                 sign: bool=False, send: bool=False, debug: bool=False, quiet: bool=False, confirm: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
 
     if not deck:
@@ -231,7 +231,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
                                  locktime=locktime
                                  )
 
-    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, silent=silent, confirm=confirm, debug=debug)
+    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, confirm=confirm, debug=debug)
 
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
@@ -281,10 +281,10 @@ def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
     # the identifier can be a txid or (in the case of partly signed transactions) an arbitrary string.
     cat = "txhex" if partly else "transaction"
     ce.write_item(cat, identifier, tx_hex)
-    if not silent:
+    if not quiet:
         print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
 
-def search_for_stored_tx_label(category: str, identifier: str, silent: bool=False) -> str:
+def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False) -> str:
     """If the identifier is a label stored in the extended config file, return the associated txid."""
     # the try-except clause returns the identifier if it's already in txid format.
 
@@ -296,7 +296,7 @@ def search_for_stored_tx_label(category: str, identifier: str, silent: bool=Fals
 
         if result is not None:
             if is_possible_txid(result):
-                if not silent:
+                if not quiet:
                     print("Using {} stored with label {} and ID {}.".format(category, identifier, result))
                 return result
             else:

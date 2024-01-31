@@ -58,11 +58,11 @@ def create_trackedtransaction(tx_type,
     use_slot = False
     lockhash_type, public_address, rscript, proposal_tx = None, None, None, None
 
-    silent = True if txhex else False
+    quiet = True if txhex else False
 
     # enable using own labels for decks and proposals
-    proposal_id = eu.search_for_stored_tx_label("proposal", proposal, silent=silent) if proposal else None
-    deckid = eu.search_for_stored_tx_label("deck", deck, silent=silent) if deck else None
+    proposal_id = eu.search_for_stored_tx_label("proposal", proposal, quiet=quiet) if proposal else None
+    deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
 
     if tx_type == "proposal":
         if proposal_id is not None: # modifications (refactor better)
@@ -106,9 +106,9 @@ def create_trackedtransaction(tx_type,
         if not du.check_current_period(proposal_id, deck, tx_type, dist_round=check_round, wait=wait, security_level=security):
             raise PacliInputDataError("Transaction created in wrong period.")
 
-    # basic_tx_data.update(get_basic_tx_data(tx_type, proposal_id=proposal_id, deckid=deckid, input_address=Settings.key.address, amount=amount, reserve=reserve, tx_fee=tx_fee, new_inputs=new_inputs, check_round=check_round, wait=wait, security_level=security, silent=silent)) # removed addresses and labels
+    # basic_tx_data.update(get_basic_tx_data(tx_type, proposal_id=proposal_id, deckid=deckid, input_address=Settings.key.address, amount=amount, reserve=reserve, tx_fee=tx_fee, new_inputs=new_inputs, check_round=check_round, wait=wait, security_level=security, quiet=quiet)) # removed addresses and labels
     if tx_type in ("donation", "locking"):
-        basic_tx_data.update(get_donation_state_data(tx_type, proposal_tx=proposal_tx, new_inputs=new_inputs, silent=silent)) # removed addresses and labels
+        basic_tx_data.update(get_donation_state_data(tx_type, proposal_tx=proposal_tx, new_inputs=new_inputs, quiet=quiet)) # removed addresses and labels
 
     if tx_type == "locking":
         # timelock = int(timelock) if timelock is not None else du.calculate_timelock(proposal_id)
@@ -128,7 +128,7 @@ def create_trackedtransaction(tx_type,
         else:
             rscript = basic_tx_data["input_data"].get("redeem_script")
 
-    elif tx_type == "signalling" and not silent:
+    elif tx_type == "signalling" and not quiet:
 
         di.signalling_info(amount, check_round, basic_tx_data, dest_label=dest_label, donor_address_used=donor_address_used, force=force)
 
@@ -137,9 +137,9 @@ def create_trackedtransaction(tx_type,
     # TODO: address is only added to params originally in locking_tx. Is this a problem? (if yes, we can create a different "address" parameter only for locking txes)
     params = create_params(tx_type, proposal_id=proposal_id, deckid=deckid, req_amount=req_amount, epoch_number=periods, description=description, vote=vote, address=public_address, lockhash_type=lockhash_type, timelock=timelock)
 
-    rawtx = create_unsigned_trackedtx(params, basic_tx_data, force=force, silent=silent, debug=debug)
+    rawtx = create_unsigned_trackedtx(params, basic_tx_data, force=force, quiet=quiet, debug=debug)
 
-    return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, silent=txhex, confirm=confirm), txhex=txhex)
+    return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, quiet=txhex, confirm=confirm), txhex=txhex)
 
 
 def create_params(tx_type: str, **kwargs) -> dict:
@@ -152,10 +152,10 @@ def create_params(tx_type: str, **kwargs) -> dict:
     return params
 
 
-def get_donation_state_data(tx_type: str, proposal_tx: object, dist_round: int=None, input_address: str=None, new_inputs: bool=False, silent: bool=False, debug: bool=False) -> dict:
+def get_donation_state_data(tx_type: str, proposal_tx: object, dist_round: int=None, input_address: str=None, new_inputs: bool=False, quiet: bool=False, debug: bool=False) -> dict:
     """Gets basic data for a new LockingTransaction or DonationTransaction"""
 
-    if not silent:
+    if not quiet:
         print("Searching for donation state for this transaction. Please wait.")
     try:
         proposal_state = dmu.get_proposal_state(provider, proposal_tx=proposal_tx, debug_donations=debug)
@@ -177,7 +177,7 @@ def get_donation_state_data(tx_type: str, proposal_tx: object, dist_round: int=N
 
     try:
         if (not new_inputs):
-            input_data = du.get_previous_tx_input_data(tx_type, dstate, debug=debug, silent=silent)
+            input_data = du.get_previous_tx_input_data(tx_type, dstate, debug=debug, quiet=quiet)
             tx_data.update({"input_data" : input_data})
     except ValueError:
         raise PacliInputDataError("No valid signalling/reserve transactions found.")
@@ -185,7 +185,7 @@ def get_donation_state_data(tx_type: str, proposal_tx: object, dist_round: int=N
     return tx_data
 
 
-def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, force: bool=False, debug: bool=False, silent: bool=False) -> object:
+def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, force: bool=False, debug: bool=False, quiet: bool=False) -> object:
 
     # This function first prepares a transaction, creating the protobuf string and calculating fees in an unified way,
     # then creates transaction with pypeerassets method.
@@ -237,7 +237,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, forc
 
         try:
             # used_slot = b["slot"] if not use_locking_slot else b["locking_slot"] # MODIF: this switch is in basic_tx_data
-            amount = du.calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force, silent=silent)
+            amount = du.calculate_donation_amount(used_slot, chosen_amount, available_amount, network_name, new_inputs, force, quiet=quiet)
         except KeyError:
             amount = chosen_amount
     else:
@@ -255,7 +255,7 @@ def create_unsigned_trackedtx(params: dict, basic_tx_data: dict, version=1, forc
     cltv_timelock = params.get("timelock")
 
 
-    return dmu.create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=Settings.network, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=redeem_script, silent=silent)
+    return dmu.create_unsigned_tx(b["deck"], b["provider"], b["tx_type"], proposal_txid=proposal_txid, input_address=b["input_address"], amount=amount, data=data, address=dest_address, network_name=Settings.network, change_address=change_address, tx_fee=tx_fee, p2th_fee=p2th_fee, input_txid=input_txid, input_vout=input_vout, cltv_timelock=cltv_timelock, reserved_amount=reserved_amount, reserve_address=reserve_address, input_redeem_script=redeem_script, quiet=quiet)
 
 
 def process_vote(vote: str) -> bool:

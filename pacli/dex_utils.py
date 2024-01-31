@@ -27,10 +27,10 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=False, send: bool=False, txhex: bool=False, silent: bool=False):
+def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=False, send: bool=False, txhex: bool=False, quiet: bool=False):
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
-    silent = True if True in (silent, txhex) else False
+    quiet = True if True in (quiet, txhex) else False
     current_blockheight = provider.getblockcount()
     if absolute:
         locktime = lock
@@ -38,7 +38,7 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
              print("ERROR: Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
     else:
         locktime = lock + current_blockheight
-    if not silent:
+    if not quiet:
         print("Locking tokens until block {} (current blockheight: {})".format(locktime, current_blockheight))
     try:
         lockhash_type = henc.HASHTYPE.index(addrtype)
@@ -77,7 +77,7 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
 # - change of coinseller input must go to coinseller address.
 
 def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, sign: bool=False):
-    # TODO: this should also get a silent option, with the TXHEX stored in the extended config file.
+    # TODO: this should also get a quiet option, with the TXHEX stored in the extended config file.
     # the card seller builds the transaction
     my_key = Settings.key
     my_address = my_key.address
@@ -135,14 +135,14 @@ def build_input(input_txid: str, input_vout: int):
 
 
 def finalize_coin2card_exchange(txstr: str, confirm: bool=False, send: bool=False, txhex: bool=False):
-    silent = True if True in (silent, txhex) else False
+    quiet = True if True in (quiet, txhex) else False
     # this is signed by the coin vendor. Basically they add their input and solve it.
     network_params = net_query(provider.network)
     tx = MutableTransaction.unhexlify(txstr, network=network_params)
 
     my_input = tx.ins[-1] # the coin seller's input is the last one
     my_input_index = len(tx.ins) - 1
-    if not silent:
+    if not quiet:
         print(my_input_index)
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])

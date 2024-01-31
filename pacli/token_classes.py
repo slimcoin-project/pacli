@@ -26,7 +26,7 @@ class Token:
                 keyring: bool=False,
                 no_labels: bool=False,
                 only_labels: bool=False,
-                silent: bool=False,
+                quiet: bool=False,
                 debug: bool=False):
         """List the token balances of an address, the whole wallet or all users.
 
@@ -52,7 +52,7 @@ class Token:
         --only_labels: In combination with the first or second option, don't show the addresses, only the labels.
         --no_labels: In combination with the first or second option, don't show the labels, only the addresses.
         --keyring: In combination with the first or second option, use an address stored in the keyring.
-        --silent: Suppresses information about the deck when a label is used.
+        --quiet: Suppresses information about the deck when a label is used.
         --debug: Display debug info."""
 
         # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
@@ -61,7 +61,7 @@ class Token:
 
         if holders and param1:
             from pacli.__main__ import Card
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, silent=silent)
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
             return Card().balances(deckid)
         elif (all or common):
             if (wallet, param1) == (None, None):
@@ -70,23 +70,23 @@ class Token:
             # with --common flag, advanced mode is set to False (table output similar to address balances)
             address = ec.process_address(param1)
             deck_type = c.get_deck_type(token_type.lower()) if token_type is not None else None
-            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=all, only_labels=only_labels, deck_type=deck_type, silent=silent, debug=debug)
+            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=all, only_labels=only_labels, deck_type=deck_type, quiet=quiet, debug=debug)
         elif param1:
             address = ec.process_address(param2) if param2 is not None else Settings.key.address
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, silent=silent)
-            return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, silent=silent)
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
+            return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, quiet=quiet)
 
         else:
             ei.print_red("You have to provide a deck for this command, or use the --all/--common option.")
 
 
-    '''def list(self, deck: str, silent: bool=False, valid: bool=False):
+    '''def list(self, deck: str, quiet: bool=False, valid: bool=False):
         """List all cards of a deck (with support for deck labels).
-        --silent suppresses information about the deck when a label is used.
+        --quiet suppresses information about the deck when a label is used.
         --valid only shows valid cards according to Proof-of-Timeline rules,
         i.e. where no double spend has been recorded."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
 
         if valid:
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -97,7 +97,7 @@ class Token:
             from pacli.__main__ import Card
             return Card().list(deckid)''' # OK, moved to ExtCard / extended_main
 
-    '''def init_deck(self, deck: str, silent: bool=False):
+    '''def init_deck(self, deck: str, quiet: bool=False):
         """Initializes a standard deck, an AT or a PoB deck and imports its P2TH keys into node.
            Mandatory to be able to use the deck with pacli.
            NOTE: dPoD decks have an own command `podtoken init_deck`
@@ -108,20 +108,20 @@ class Token:
 
            Flags:
 
-           --silent: Suppress output."""
+           --quiet: Suppress output."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
-        return ei.run_command(eu.init_deck, Settings.network, deckid, silent=silent)'''
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
+        return ei.run_command(eu.init_deck, Settings.network, deckid, quiet=quiet)'''
 
 
     # Enhanced transfer commands
 
-    '''def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, silent: bool=False, debug: bool=False):
+    '''def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, quiet: bool=False, debug: bool=False):
         """Transfer tokens/cards to a single receiver.
         --sign and --send are set true by default."""
 
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         change_address = ec.process_address(change)
 
@@ -136,7 +136,7 @@ class Token:
                                  )''' # OK, integrated into transfer (ex multi_transfer)
 
 
-    def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False):
+    def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens/cards to one or multiple receivers in a single transaction.
 
         Usage:
@@ -155,7 +155,7 @@ class Token:
         --sign: Signs the transaction (True by default, use --send=False for a dry run)
         --send: Sends the transaction (True by default, use --send=False for a dry run)
         --verify: Verify transaction with Cointoolkit.
-        --silent: Suppress output and printout in a script-friendly way.
+        --quiet: Suppress output and printout in a script-friendly way.
         --debug: Show additional debug info.
         """
         # NOTE: This is not a wrapper of card transfer, so the signature errors from P2PK are also fixed.
@@ -170,14 +170,14 @@ class Token:
             ei.print_red("The receiver and amount parameters have to be strings/numbers or lists.")
 
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         #transfers = transferlist.split(";")
         #receivers = [transfer.split(":")[0] for transfer in transfers]
         #amounts = [Decimal(str(transfer.split(":")[1])) for transfer in transfers]
         change_address = ec.process_address(change)
 
-        if not silent:
+        if not quiet:
             print("Sending tokens to the following receivers:", receiver)
 
         return ei.run_command(eu.advanced_card_transfer, deck,

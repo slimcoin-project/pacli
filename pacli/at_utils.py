@@ -35,7 +35,7 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
             raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
-def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, silent: bool=False, no_labels: bool=False, advanced: bool=False, keyring: bool=False, debug: bool=False) -> list:
+def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, quiet: bool=False, no_labels: bool=False, advanced: bool=False, keyring: bool=False, debug: bool=False) -> list:
     """Shows donation/burn/payment transactions made from the user's wallet."""
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
@@ -90,7 +90,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     tx_type_msg = "unclaimed" if unclaimed else "sent"
 
-    if not silent:
+    if not quiet:
         print("{} {} transactions to {} in this wallet.".format(len(valid_txes), tx_type_msg, tracked_address))
     if sender is not None:
         print("Showing only transactions sent from the following address:", sender)
@@ -146,13 +146,13 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     return txes_to_address
 
-'''# def show_txes_by_block(tracked_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, silent: bool=False, debug: bool=False) -> list:
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, silent: bool=False, debug: bool=False) -> list:
+'''# def show_txes_by_block(tracked_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, quiet: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, quiet: bool=False, debug: bool=False) -> list:
     # VERY SLOW. When watchaddresses are available this should be replaced.
 
     if not endblock:
         endblock = provider.getblockcount()
-    if (not silent) and ((endblock - startblock) > 10000):
+    if (not quiet) and ((endblock - startblock) > 10000):
         print("""
               NOTE: This commands cycles through all blocks and will take very long
               to finish. It's recommended to use it for block ranges of less than 10000 blocks.
@@ -171,7 +171,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
 
     for bh in range(startblock, endblock + 1):
         try:
-            if not silent and bh % 100 == 0:
+            if not quiet and bh % 100 == 0:
                 print("Processing block:", bh)
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)
@@ -358,17 +358,17 @@ def burn_address():
 
 # API commands
 
-def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
+def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Shows all transactions from your wallet to the tracked address.'''
 
     if burns:
-         if not silent:
+         if not quiet:
              print("Using burn address.")
          address = burn_address()
 
-    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
     sender = Settings.key.address if not wallet else None
-    txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, silent=silent, debug=debug)
+    txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug)
 
     return txes
 

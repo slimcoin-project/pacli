@@ -40,7 +40,7 @@ class ExtConfig:
             modify: bool=False,
             replace: bool=False,
             now: bool=False,
-            silent: bool=False) -> None:
+            quiet: bool=False) -> None:
         '''Changes configuration settings. It allows to modify the traditional and the extended config file.
 
            Usage:
@@ -49,13 +49,13 @@ class ExtConfig:
 
            Options and flags:
 
-           --value: Value to be edited. Mandatory except when --delete is used.
-           --category: Category of items to edit. Mandatory if used with the --extended flag.
-           --extended: Edit the extended configuration file.
-           --delete: Delete an item. Use --now to delete really.
-           --replace: Replace a value by indicating its label.
-           --modify: Modify a label (for the same value).
-           --silent: Suppress output, printout in script-friendly way.'''
+           -v, --value: Value to be edited. Mandatory except when --delete is used.
+           -c, --category: Category of items to edit. Mandatory if used with the --extended flag.
+           -e, --extended: Edit the extended configuration file.
+           -d, --delete: Delete an item. Use --now to delete really.
+           -r, --replace: Replace a value by indicating its label.
+           -m, --modify: Modify a label (for the same value).
+           -q, --quiet: Suppress output, printout in script-friendly way.'''
 
         if extended:
             if not category:
@@ -63,7 +63,7 @@ class ExtConfig:
             if delete:
                 return ce.delete(category, label=str(label), now=now)
             else:
-                return ce.set(category, label=label, value=value, modify=modify, replace=replace, silent=silent)
+                return ce.set(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
 
         else:
             if label not in default_conf.keys():
@@ -78,7 +78,7 @@ class ExtConfig:
              extended: bool=False,
              label: bool=False,
              find: bool=False,
-             silent: bool=False):
+             quiet: bool=False):
         ''''Shows a setting in the basic or extended configuration file.
 
         Usage options:
@@ -89,10 +89,10 @@ class ExtConfig:
 
         Options and flags:
 
-        --extended: Show a setting of the extended config file.
-        --label: Shows the label(s) stored for an existing value.
-        --find: Searches for a part of a value and if found, shows matching label(s).
-        --silent: Suppress output, printout in script-friendly way.'''
+        -e, --extended: Show a setting of the extended config file.
+        -l, --label: Shows the label(s) stored for an existing value.
+        -f, --find: Searches for a part of a value and if found, shows matching label(s).
+        -q, --quiet: Suppress output, printout in script-friendly way.'''
         # show --extended` (replaces `tools show_config`).
 
         if find:
@@ -103,9 +103,9 @@ class ExtConfig:
         else:
             result = ei.run_command(ce.show, category, label_or_value)
 
-        if result is None and not silent:
+        if result is None and not quiet:
             print("No label was found.")
-        elif silent:
+        elif quiet:
             return result
         else:
             print("Label(s) stored for value {}:".format(label_or_value))
@@ -116,7 +116,7 @@ class ExtConfig:
         """Shows current contents of the standard or extended configuration file.
 
         Flag:
-        --extended: Shows extended configuration file.
+        -e, --extended: Shows extended configuration file.
         """
         if extended:
             return ce.get_config()
@@ -141,7 +141,7 @@ class ExtAddress:
             new: bool=False,
             delete: bool=False,
             modify: bool=False,
-            silent: bool=False,
+            quiet: bool=False,
             keyring: bool=False,
             now: bool=False,
             import_all_keyring_addresses: bool=False):
@@ -164,13 +164,13 @@ class ExtAddress:
 
         Options and flags:
 
-        --new: Creates an address/key with the wallet software and assigns it a label.
-        --delete: Deletes the specified address label. Use --now to delete really.
-        --modify: Replaces the label for an address by another one.
-        --keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
-        --account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
-        --import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
-        --silent: Suppress output, printout in script-friendly way.
+        -n, --new: Creates an address/key with the wallet software and assigns it a label.
+        -d, --delete: Deletes the specified address label. Use --now to delete really.
+        -m, --modify: Replaces the label for an address by another one.
+        -k, --keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
+        -a, --account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
+        -i, --import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
+        -q, --quiet: Suppress output, printout in script-friendly way.
         """
 
         # (replaces: `address set_main`, `address fresh`, `tools store_address`, `address set_label`, `tools store_address_from_keyring`, `address delete_label`, `tools delete_address_label`,  `address import_to_wallet` and  `tools store_addresses_from_keyring`) (Without flag it would work like the old address set_main, flag --new will generate a new address, like the current "fresh" command, other options are implemented with new flags like --delete, --keyring, --from-keyring, --all-keyring-labels, --into-wallet)
@@ -191,19 +191,19 @@ class ExtAddress:
             new: bool=False,
             delete: bool=False,
             modify: bool=False,
-            silent: bool=False,
+            quiet: bool=False,
             keyring: bool=False,
             now: bool=False,
             import_all_keyring_addresses: bool=False):
 
         if not label:
             if import_all_keyring_addresses:
-                return ec.store_addresses_from_keyring(silent=silent, replace=modify)
+                return ec.store_addresses_from_keyring(quiet=quiet, replace=modify)
             else:
                 raise ei.PacliInputDataError("No label provided. See -h for options.")
 
         elif new:
-            return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, silent=silent)
+            return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, quiet=quiet)
 
         elif delete:
             '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
@@ -217,12 +217,12 @@ class ExtAddress:
             """Stores a label for an address in the extended config file."""
             # ec.store_address(label, address=address, modify=modify)
             ec.set_label(label, address, set_main=True, keyring=keyring, modify=modify, network_name=Settings.network)
-            if not silent:
+            if not quiet:
                 print("Stored address {} with label {}.".format(address, label))
 
         else: # set_main
             '''Declares a key identified by a label as the main one.'''
-            return ec.set_main_key(label, backup=None, keyring=keyring, silent=silent)
+            return ec.set_main_key(label, backup=None, keyring=keyring, quiet=quiet)
 
 
     def show(self,
@@ -253,10 +253,10 @@ class ExtAddress:
 
 
         Options and flags:
-        --label: Shows label for an address (see Usage options)
-        --keyring: Use the keyring of your operating system (Linux/Unix only)
+        -l, --label: Shows label for an address (see Usage options)
+        -k, --keyring: Use the keyring of your operating system (Linux/Unix only)
+        -w, --wif: Show private key in Wallet Interchange Format (WIF). Only with --keyring option. (WARNING: exposes private key!)
         --privkey: Shows private key. Only with --keyring option. (WARNING: exposes private key!)
-        --wif: Show private key in Wallet Interchange Format (WIF). Only with --keyring option. (WARNING: exposes private key!)
         --pubkey: Shows public key. Only with --keyring option.
         """
 
@@ -293,7 +293,7 @@ class ExtAddress:
              full_labels: bool=False,
              no_labels: bool=False,
              only_labels: bool=False,
-             silent: bool=False,
+             quiet: bool=False,
              network: str=Settings.network,
              debug: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
@@ -305,23 +305,23 @@ class ExtAddress:
 
         Options:
 
-        --advanced: Shows all token balances (in JSON format)
-        --keyring: Uses the keyring of your operating system.
-        --coinbalances: Only shows coin balances, not tokens (faster).
-        --labels: Shows the labels of the addresses.
+        -a, --advanced: Shows all token balances (in JSON format)
+        -k, --keyring: Uses the keyring of your operating system.
+        -c, --coinbalances: Only shows coin balances, not tokens (faster).
+        -l, --labels: Shows the labels of the addresses.
+        -o, --only_labels: Do not show addresses, only labels.
+        -q, --quiet: Suppress output, printout in script-friendly way.
         --no_labels: Do not show labels, only addresses.
-        --only_labels: Do not show addresses, only labels.
-        --silent: Suppress output, printout in script-friendly way.
-        --network: Limit the results to those for a specific network (e.g. testnet)
+        --network NETWORK: Limit the results to those for a specific network (e.g. tslm)
 
         Debugging options:
 
-        --debug: Show debug information.
-        --full_labels: Shows labels with prefix.
+        -d, --debug: Show debug information.
+        -f, --full_labels: Shows labels with prefix.
 
         """
 
-        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=no_labels, only_labels=only_labels, silent=silent, network=network, debug=debug)
+        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=no_labels, only_labels=only_labels, quiet=quiet, network=network, debug=debug)
 
     def __list(self,
                advanced: bool=False,
@@ -331,7 +331,7 @@ class ExtAddress:
                full_labels: bool=False,
                no_labels: bool=False,
                only_labels: bool=False,
-               silent: bool=False,
+               quiet: bool=False,
                network: str=Settings.network,
                debug: bool=False):
 
@@ -374,7 +374,7 @@ class ExtAddress:
         else:
 
             # __allbalances parameters:
-            # (address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, silent: bool=False, debug: bool=False)
+            # (address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, debug: bool=False)
 
             return tc.all_balances(wallet=True,
                                   keyring=keyring,
@@ -382,7 +382,7 @@ class ExtAddress:
                                   only_tokens=False,
                                   advanced=advanced,
                                   only_labels=only_labels,
-                                  silent=silent,
+                                  quiet=quiet,
                                   debug=debug)
 
     def balance(self, label: str=None, address: str=None, keyring: bool=False):
@@ -403,7 +403,7 @@ class ExtAddress:
         Shows balance of address. Does only work with addresses stored in your wallet file.
 
         Flags:
-        --keyring: Use an address stored in the keyring of your operating system.
+        -k, --keyring: Use an address stored in the keyring of your operating system.
         """
 
         # REPLACES address balance
@@ -425,7 +425,7 @@ class ExtDeck:
             deckid: str=None,
             modify: bool=False,
             delete: bool=False,
-            silent: bool=False,
+            quiet: bool=False,
             now: bool=False):
         """Sets, modifies or deletes a label for a deck.
 
@@ -442,9 +442,9 @@ class ExtDeck:
 
         Options and flags:
 
-        --modify: Modify the label for a value.
-        --delete: Delete the specified label. Use --now to delete really.
-        --silent: Suppress output, printout in script-friendly way.
+        -m, --modify: Modify the label for a value.
+        -d, --delete: Delete the specified label. Use --now to delete really.
+        -q, --quiet: Suppress output, printout in script-friendly way.
         """
 
         # (replaces `tools store_deck` - is a power user command because most users would be fine with the default PoB and PoD token)
@@ -452,15 +452,15 @@ class ExtDeck:
         if delete:
             return ce.delete("deck", label=str(label), now=now)
         else:
-            return ce.set("deck", label, deckid, modify=modify, silent=silent)
+            return ce.set("deck", label, deckid, modify=modify, quiet=quiet)
 
 
     def list(self,
              pobtoken: bool=False,
-             podtoken: bool=False,
+             dpodtoken: bool=False,
              attoken: bool=False,
              named: bool=False,
-             silent: bool=False):
+             quiet: bool=False):
         """Lists all decks (default), or those of a specified token type, or those with a stored label.
 
         Note: The deck's 'name' is not unique. To give a deck a (locally) unique identifier, store it with a label.
@@ -471,20 +471,22 @@ class ExtDeck:
 
         Options and flags:
 
-        --pobtoken: Only show PoB token decks.
-        --podtoken: Only show dPoD token decks.
-        --attoken: Only show AT token decks.
-        --named: Only show decks with a stored label.
-        --silent: Suppress output, printout in script-friendly way.
+        -n, --named: Only show decks with a stored label.
+        -q, --quiet: Suppress output, printout in script-friendly way.
+        -p, --pobtoken: Only show PoB token decks.
+        -d, --dpodtoken: Only show dPoD token decks.
+        -a, --attoken: Only show AT token decks.
+
         """
+        # TODO: --pobtoken and --attoken currently show exactly the same decks. --pobtoken should only show PoB decks.
         # (vanilla command, but extended it replaces: `tools show_stored_decks`, `deck list` with --all flag, `pobtoken list_decks` with --pobtoken flag, and `podtoken list_decks` with --podtoken flag)
         if pobtoken or attoken:
             ei.run_command(print_deck_list, dmu.list_decks_by_at_type(provider, c.ID_AT))
-        elif podtoken:
+        elif dpodtoken:
             ei.run_command(print_deck_list, dmu.list_decks_by_at_type(provider, c.ID_DT))
         elif named:
             """Shows all stored deck IDs and their labels."""
-            return ce.list("deck", silent=silent)
+            return ce.list("deck", quiet=quiet)
         else:
             decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production)
@@ -497,7 +499,7 @@ class ExtDeck:
              info: bool=False,
              find: bool=False,
              p2th: bool=False,
-             silent: bool=False):
+             quiet: bool=False):
         """Shows or searches a deck stored with a label.
 
         Usage:
@@ -512,12 +514,13 @@ class ExtDeck:
 
         Options and flags:
 
-        --info: Shows deck values.
+        -i, --info: Shows deck values.
+        -f, --find: Searches for a string in the Deck ID.
+        -q, --quiet: Suppress output, printout in script-friendly way.
         --param: Shows a specific parameter (only in combination with --info).
         --p2th: Shows P2TH addresses (in combination with --info, only dPoD tokens)
-        --find: Searches for a string in the Deck ID.
-        --silent: Suppress output, printout in script-friendly way.
         """
+
         #TODO: an option to search by name would be fine here.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
         if info:
@@ -530,17 +533,15 @@ class ExtDeck:
                 pprint(deckinfo)
 
         elif find:
-            return ce.find("deck", deckstr, silent=silent)
+            return ce.find("deck", deckstr, quiet=quiet)
         else:
             return ce.show("deck", deckstr) # branch to tools show_deck
 
     def init(self,
-             deck: str=None,
-             podtoken: bool=False,
-             defaults: bool=False,
+             idstr: str=None,
+             dpodtoken: bool=False,
              store_label: bool=False,
-             silent: bool=False,
-             debug: bool=False) -> None:
+             quiet: bool=False) -> None:
         """Initializes a deck (token).
         This is mandatory to be able to use a token with pacli.
 
@@ -556,31 +557,31 @@ class ExtDeck:
 
         Flags:
 
-        --podtoken: Initialize a dPoD token.
-        --store_label LABEL: Store a label for the deck in the extended configuration file.
+        -d, --dpodtoken: Initialize a dPoD token.
+        -s, --store_label LABEL: Store a label for the deck in the extended configuration file.
             Does only work if a deck is given.
-        --silent: Suppress output.
+        -q, --quiet: Suppress output.
         """
 
         netw = Settings.network
 
-        if deck is None:
+        if idstr is None:
             pob_deck = pc.DEFAULT_POB_DECK[netw]
-            pod_deck = pc.DEFAULT_POD_DECK[netw]
+            dpod_deck = pc.DEFAULT_POD_DECK[netw]
 
-            ei.run_command(eu.init_deck, netw, pob_deck, silent=silent, store_label=store_label)
-            ei.run_command(dc.init_dt_deck, netw, pod_deck, silent=silent, store_label=store_label)
+            ei.run_command(eu.init_deck, netw, pob_deck, quiet=quiet)
+            ei.run_command(dc.init_dt_deck, netw, dpod_deck, quiet=quiet)
         else:
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent)
-            if podtoken:
-                ei.run_command(dc.init_dt_deck, netw, deckid, silent=silent, store_label=store_label)
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
+            if dpodtoken:
+                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, store_label=store_label)
             else:
-                ei.run_command(eu.init_deck, netw, deckid, silent=silent)
+                ei.run_command(eu.init_deck, netw, deckid, quiet=quiet)
 
 
 
 class ExtCard:
-    def list(self, deck: str, silent: bool=False, valid: bool=False):
+    def list(self, deck: str, quiet: bool=False, valid: bool=False):
         """List all cards of a deck (with support for deck labels).
 
         Usage:
@@ -589,14 +590,14 @@ class ExtCard:
 
         Options and flags:
 
-        --silent: suppresses information about the deck when a label is used, printout in script-friendly way.
-        --valid: only shows valid cards according to Proof-of-Timeline rules,
+        -q, --quiet: suppresses information about the deck when a label is used, printout in script-friendly way.
+        -v, --valid: only shows valid cards according to Proof-of-Timeline rules,
         i.e. where no double spend has been recorded."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
-        return ei.run_command(self.__listext, deckid, silent=silent, valid=valid)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
+        return ei.run_command(self.__listext, deckid, quiet=quiet, valid=valid)
 
-    def __listext(self, deckid: str, silent: bool=False, valid: bool=False):
+    def __listext(self, deckid: str, quiet: bool=False, valid: bool=False):
 
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
@@ -623,7 +624,7 @@ class ExtTransaction:
             modify: bool=False,
             delete: bool=False,
             now: bool=False,
-            silent: bool=False) -> None:
+            quiet: bool=False) -> None:
         """Stores a transaction with label and hex string.
 
            Usage:
@@ -636,7 +637,7 @@ class ExtTransaction:
 
            Stores hex string of transaction TX with the transaction ID (TXID) as label. Do not use for partially signed transactions!
 
-           pacli transaction set LABEL --delete [--now]
+           pacli transaction set LABEL [-d|--delete] [--now]
 
            Deletes label (use --now to delete really).
 
@@ -646,26 +647,26 @@ class ExtTransaction:
 
            Options and flags:
 
-           --modify: changes the label.
-           --silent: suppress output, printout in script-friendly way.
+           -m, --modify: changes the label.
+           -q, --quiet: suppress output, printout in script-friendly way.
 
         """
 
-        return ei.run_command(self.__set, label_or_tx, tx=tx, modify=modify, delete=delete, now=now, silent=silent)
+        return ei.run_command(self.__set, label_or_tx, tx=tx, modify=modify, delete=delete, now=now, quiet=quiet)
 
     def __set(self, label_or_tx: str,
             tx: str=None,
             modify: bool=False,
             delete: bool=False,
             now: bool=False,
-            silent: bool=False) -> None:
+            quiet: bool=False) -> None:
 
         if delete:
             return ce.delete("transaction", label=label_or_tx, now=now)
 
         if tx is None:
             value = label_or_tx
-            if not silent:
+            if not quiet:
                 print("No label provided, TXID is used as label.")
         else:
             value = tx
@@ -679,10 +680,10 @@ class ExtTransaction:
 
         label = txid if tx is None else label_or_tx
 
-        return ce.set("transaction", label, value=value, silent=silent, modify=modify)
+        return ce.set("transaction", label, value=value, quiet=quiet, modify=modify)
 
 
-    def show(self, txid_or_label: str, silent: bool=False, layout: bool=False, decode: bool=False):
+    def show(self, txid_or_label: str, quiet: bool=False, structure: bool=False, decode: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
@@ -702,22 +703,27 @@ class ExtTransaction:
 
         Flags:
 
-           --silent / -s: Suppress output, printout in script-friendly way.
-           --decode / -d: Show transaction in JSON format (default: hex format).
-           --layout / -l: Show senders and receivers.
+           -s, --structure: Show senders and receivers (not supported in the mode with LABELs).
+           -q, --quiet: Suppress output, printout in script-friendly way.
+           -d, --decode: Show transaction in JSON format (default: hex format).
+
         """
-        return ei.run_command(self.__show, txid_or_label, silent=silent, layout=layout, decode=decode)
+        return ei.run_command(self.__show, txid_or_label, quiet=quiet, structure=structure, decode=decode)
 
-    def __show(self, txid_or_label: str, silent: bool=False, layout: bool=False, decode: bool=False):
+    def __show(self, txid_or_label: str, quiet: bool=False, structure: bool=False, decode: bool=False):
+        # TODO: would be nice to support --structure mode with Labels.
 
-        if layout:
+        if structure:
 
-            tx_layout = ei.run_command(bx.get_tx_structure, txid_or_label)
+            if not eu.is_possible_txid(txid_or_label):
+                raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s mode currently doesn't support labels.")
 
-            if silent:
-                return tx_layout
+            tx_structure = ei.run_command(bx.get_tx_structure, txid_or_label)
+
+            if quiet:
+                return tx_structure
             else:
-                pprint(tx_layout)
+                pprint(tx_structure)
 
         else:
             result = ce.show("transaction", txid_or_label)
@@ -726,23 +732,23 @@ class ExtTransaction:
                     result = provider.getrawtransaction(txid_or_label)
                     assert type(result) == str
                 except AssertionError:
-                    if not silent:
+                    if not quiet:
                         raise ei.PacliInputDataError("Unknown transaction identifier. Label wasn't stored or transaction doesn't exist on the blockchain.")
 
             try:
                 tx_decoded = provider.decoderawtransaction(result)
                 assert tx_decoded["txid"] is not None
             except:
-                if not silent:
+                if not quiet:
                     print("WARNING: Transaction was not stored correctly.")
                 tx_decoded = {}
 
             if decode:
-                if silent:
+                if quiet:
                     print(tx_decoded)
                 else:
                     pprint(tx_decoded)
-            elif silent:
+            elif quiet:
                 return result
             else:
                 pprint(result)
@@ -750,27 +756,27 @@ class ExtTransaction:
 
     def list(self,
              address_or_deck: str=None,
-             address: str=None,
-             sender: str=None,
-             burns: bool=None,
-             reftxes: bool=None,
-             claims: bool=None,
              all: str=None,
-             named: bool=False,
-             sent: bool=False,
-             received: bool=False,
-             coinbase: bool=False,
+             address: str=None,
              advanced: bool=False,
-             wallet: bool=False,
-             param: str=None,
-             receiver: str=None,
-             unclaimed: bool=False,
-             keyring: bool=False,
-             start: bool=False,
-             end: bool=False,
+             burns: bool=None,
+             claims: bool=None,
+             coinbase: bool=False,
              count: bool=False,
-             silent: bool=False,
-             debug: bool=False) -> None:
+             debug: bool=False,
+             end: bool=False,
+             keyring: bool=False,
+             named: bool=False,
+             param: str=None,
+             quiet: bool=False,
+             received: bool=False,
+             receiver: str=None,
+             reftxes: bool=None,
+             sender: str=None,
+             sent: bool=False,
+             start: bool=False,
+             unclaimed: bool=False,
+             wallet: bool=False) -> None:
         """Lists transactions, optionally of a specific type (burn transactions and claim transactions).
 
         Usage:
@@ -779,7 +785,7 @@ class ExtTransaction:
 
             Lists transactions sent and/or received by a specific address of the wallet (default: current main address). Can be slow if used on wallets with many transactions.
 
-        pacli transaction list --named
+        pacli transaction list [-n|--named]
 
             Lists transactions stored with a label (e.g. for DEX purposes).
 
@@ -802,16 +808,16 @@ class ExtTransaction:
         --sent: Only show sent transactions (not in combination with --named, --claims, --burns or --reftxes)
         --received: Only show received transactions (not in combination with --named, --claims, --burns or --reftxes)
         --advanced: Show complete transaction JSON or card transfer dictionary.
-        --wallet: Show all specified transactions of all addresses in the wallet.
-        --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified).
+        -w, --wallet: Show all specified transactions of all addresses in the wallet.
+        -u, --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified).
         --coinbase: Show coinbase transactions (not in combination with --burns, --reftxes, --named or --claims).
         --sender: Show transactions sent by a specific sender address (only in combination with --all).
         --receiver: Show transactions received by a specific receiver address (only in combination with --all).
-        --keyring: Use an address/label stored in the keyring (not supported by --all mode).
+        -k, --keyring: Use an address/label stored in the keyring (not supported by --all mode).
         --count: Only count transactions, do not display them.
-        --silent: Suppress additional output, printout in script-friendly way.
-        --debug: Provide debugging information.
-        --param PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
+        -q, --quiet: Suppress additional output, printout in script-friendly way.
+        -d, --debug: Provide debugging information.
+        -p, --param PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
               Possible parameters are all first-level keys of the dictionaries output by the distinct modes of this command.
               If used together with --advanced, the possible parametes are the first-level keys of the transaction JSON string,
               with the exception of --claims mode, where the attributes of a CardTransfer object can be used.
@@ -842,7 +848,7 @@ class ExtTransaction:
              start: bool=False,
              end: bool=False,
              count: bool=False,
-             silent: bool=False,
+             quiet: bool=False,
              debug: bool=False) -> None:
         # TODO: Further harmonization: Results are now:
         # --all: tx_structure or tx JSON
@@ -853,22 +859,22 @@ class ExtTransaction:
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
 
-        if (not named) and (not silent):
+        if (not named) and (not quiet):
             print("Searching transactions (this can take several minutes) ...")
 
         if all and (burns or reftxes):
-            txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, silent=silent, advanced=advanced, debug=debug, burns=burns)
+            txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, quiet=quiet, advanced=advanced, debug=debug, burns=burns)
         elif all:
-            txes = bx.show_txes(sending_address=sender, receiving_address=receiver, start=start, end=end, coinbase=coinbase, advanced=advanced, silent=silent, debug=debug, burns=False)
+            txes = bx.show_txes(sending_address=sender, receiving_address=receiver, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False)
         elif burns:
-            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, silent=silent, debug=debug, burns=True)
+            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
         elif reftxes:
-            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, silent=silent, debug=debug, burns=False)
+            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
         elif claims:
             txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param, debug=debug)
         elif named:
             """Shows all stored transactions and their labels."""
-            txes = ce.list("transaction", silent=silent, prettyprint=False, return_list=True)
+            txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
             if advanced:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet:
@@ -881,11 +887,11 @@ class ExtTransaction:
 
         if count:
             return len(txes)
-        elif silent:
+        elif quiet:
             return txes
         elif param and not claims:
             try:
-                if silent:
+                if quiet:
                     return [{t["txid"] : t[param]} for t in txes]
                 else:
                     pprint([{t["txid"] : t[param]} for t in txes])
@@ -904,7 +910,7 @@ class ExtTransaction:
                  modify: bool=False,
                  delete: bool=False,
                  now: bool=False,
-                 silent: bool=False) -> None:
+                 quiet: bool=False) -> None:
 
         """Stores a label for the transaction ID and output number (vout) of a specific UTXO. Use mostly for DEX purposes.
 
@@ -924,7 +930,7 @@ class ExtTransaction:
 
         Flags:
 
-        -- silent: Supresses output, printout in script-friendly way."""
+        -- quiet: Supresses output, printout in script-friendly way."""
 
         if delete:
             return ce.delete("utxo", str(label), now=now)
@@ -933,7 +939,7 @@ class ExtTransaction:
             utxo = txid_or_oldlabel
         else:
             utxo = "{}:{}".format(txid_or_oldlabel, str(output))
-        return ce.set("utxo", label, value=utxo, silent=silent, modify=modify)
+        return ce.set("utxo", label, value=utxo, quiet=quiet, modify=modify)
 
     def show_utxo(self, label: str) -> str:
         """Shows a stored UTXO by its label.
@@ -944,15 +950,15 @@ class ExtTransaction:
 
         return ce.show("utxo", label)
 
-    def list_utxos(self, silent: bool=False) -> None:
+    def list_utxos(self, quiet: bool=False) -> None:
         """Shows all stored UTXOs and their labels.
 
         Usage:
 
-        pacli transaction list_utxos [--silent]
+        pacli transaction list_utxos [--quiet]
 
         Flags:
 
-        --silent: Suppress output, printout in script-friendly way."""
-        return ce.list("utxo", silent=silent)
+        --quiet: Suppress output, printout in script-friendly way."""
+        return ce.list("utxo", quiet=quiet)
 

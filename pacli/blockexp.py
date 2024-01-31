@@ -49,11 +49,11 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, silent: bool=False, coinbase: bool=False, advanced: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, quiet: bool=False, coinbase: bool=False, advanced: bool=False, debug: bool=False) -> list:
 
     if not endblock:
         endblock = provider.getblockcount()
-    if (not silent) and ((endblock - startblock) > 10000):
+    if (not quiet) and ((endblock - startblock) > 10000):
         print("""
               NOTE: This commands cycles through all blocks and will take very long
               to finish. It's recommended to use it for block ranges of less than 10000 blocks.
@@ -72,7 +72,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
 
     for bh in range(startblock, endblock + 1):
         try:
-            if not silent and bh % 100 == 0:
+            if not quiet and bh % 100 == 0:
                 print("Processing block:", bh)
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)
@@ -132,16 +132,16 @@ def find_tx_senders(tx: dict) -> list:
     return senders
 
 
-def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: int=0, end: int=None, coinbase: bool=False, advanced: bool=False, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
+def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: int=0, end: int=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Show all transactions to a tracked address between two block heights (very slow!).'''
 
     if burns:
-         if not silent:
+         if not quiet:
              print("Using burn address.")
          receiving_address = au.burn_address()
 
-    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
-    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=start, endblock=end, coinbase=coinbase, silent=silent, debug=debug)
+    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
+    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=start, endblock=end, coinbase=coinbase, quiet=quiet, debug=debug)
 
     return txes
 

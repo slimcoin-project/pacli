@@ -204,7 +204,7 @@ def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, le
 
     return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address
 
-def fresh_address(label: str, backup: str=None, set_main: bool=False, legacy: bool=False, silent: bool=False):
+def fresh_address(label: str, backup: str=None, set_main: bool=False, legacy: bool=False, quiet: bool=False):
     # NOTE: This command does not assign the address an account name or label in the wallet.
 
     label = str(label)

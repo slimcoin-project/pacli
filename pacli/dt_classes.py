@@ -124,7 +124,7 @@ class PoDToken(Token):
               sign: bool=True,
               send: bool=True,
               force: bool=False,
-              silent: bool=False,
+              quiet: bool=False,
               txhex: bool=False,
               confirm: bool=False,
               debug: bool=False) -> str:
@@ -152,7 +152,7 @@ class PoDToken(Token):
         --send: Send the transaction (True by default).
         --confirm: Wait and display a message until the transaction is confirmed.
         --verify: Verify transaction with Cointoolkit.
-        --silent: Suppress output.
+        --quiet: Suppress output.
         --txhex: Print out the transaction as a HEX string.
         --debug: Show additional debug information.
         --force: Create the transaction even if the reward does not match the transaction (only for debugging!).
@@ -168,11 +168,11 @@ class PoDToken(Token):
             sign, send = False, False
 
         if txhex:
-            silent = True
+            quiet = True
 
-        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=donation_state, proposer=proposer, force=force, debug=debug, silent=silent)
+        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=donation_state, proposer=proposer, force=force, debug=debug, quiet=quiet)
 
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=confirm, silent=silent, sign=sign, send=send)
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=confirm, quiet=quiet, sign=sign, send=send)
         return ei.output_tx(tx, txhex=txhex)
 
 
@@ -296,9 +296,9 @@ class Proposal:
             label: str,
             proposal_id: str,
             modify: bool=False,
-            silent: bool=False) -> None:
+            quiet: bool=False) -> None:
         """Stores a proposal with label and proposal id (TXID). Use --modify to change the label."""
-        return ce.set("proposal", label, value=proposal_id, silent=silent, modify=modify)
+        return ce.set("proposal", label, value=proposal_id, quiet=quiet, modify=modify)
 
     def show(self,
              proposal: str,
@@ -329,7 +329,7 @@ class Proposal:
              only_active: bool=False,
              all: bool=False,
              simple: bool=False,
-             silent: bool=False,
+             quiet: bool=False,
              named: bool=False,
              debug: bool=False) -> None:
         """Shows a list of proposals.
@@ -348,13 +348,13 @@ class Proposal:
 
         Other options and flags:
         --simple: Like --all, but doesn't show proposals' state (much faster).
-        --silent: If used with --named, suppress additional output and printout list in a script-friendly way.
+        --quiet: If used with --named, suppress additional output and printout list in a script-friendly way.
         --blockheight: Block height to consider for the proposals' state (debugging option)
         --debug: Show debugging information.
         """
 
         if named:
-            return ce.list("proposal", silent=silent)
+            return ce.list("proposal", quiet=quiet)
         else:
             return ei.run_command(dc.list_current_proposals, deck, block=blockheight, only_active=only_active, all=all, simple=simple, debug=debug)
 
@@ -417,15 +417,15 @@ class Proposal:
             print(parser_state.enabled_voters)
 
     # TODO: the period methods could be simplified, much code redundance.
-    def __current_period(self, proposal: str, blockheight: int=None, show_blockheights: bool=True, mode: str=None, silent: bool=False, debug: bool=False) -> None:
+    def __current_period(self, proposal: str, blockheight: int=None, show_blockheights: bool=True, mode: str=None, quiet: bool=False, debug: bool=False) -> None:
         '''Shows the current period of the proposal lifecycle.'''
 
         if mode in ("start", "end"):
-            silent = True
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal, silent=silent)
+            quiet = True
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal, quiet=quiet)
         if blockheight is None:
             blockheight = provider.getblockcount() + 1
-            if not silent:
+            if not quiet:
                 pprint("Next block: {}".format(blockheight))
         deck = ei.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
         period, blockheights = ei.run_command(du.get_period, proposal_id, deck, blockheight)
@@ -1001,7 +1001,7 @@ class Donation:
         ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)""" # done, see check_tx
 
 
-    def __available_slot_amount(self, proposal_id: str, dist_round: int=None, current: bool=False, silent: bool=False, debug: bool=False):
+    def __available_slot_amount(self, proposal_id: str, dist_round: int=None, current: bool=False, quiet: bool=False, debug: bool=False):
         '''Shows the available slot amount in a slot distribution round, or show all of them. Default is the current round, if the current blockheight is inside one.'''
 
         # proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
@@ -1016,16 +1016,16 @@ class Donation:
         if dist_round is None:
             slots = []
             for rd, round_slot in enumerate(pstate.available_slot_amount):
-                if silent:
+                if quiet:
                     slots.append(round_slot)
                 else:
                     pprint("Round {}: {}".format(rd, str(dmu.sats_to_coins(Decimal(round_slot), Settings.network))))
 
-            if silent:
+            if quiet:
                 return slots
         else:
             slot = pstate.available_slot_amount[dist_round]
-            if silent:
+            if quiet:
                 return slot
             else:
                 pprint("Available slot amount for round {}:".format(dist_round))
@@ -1039,7 +1039,7 @@ class Donation:
              my: bool=False,
              current: bool=False,
              satoshi: bool=False,
-             silent: bool=False,
+             quiet: bool=False,
              debug: bool=False) -> None:
         '''Shows the available slots of a proposal.
 
@@ -1062,30 +1062,30 @@ class Donation:
         --dist_round: Specify a distribution round.
         --current: If used at a block height corresponding to a distribution round of the proposal, show the slot for this round.
         --satoshi: Shows the slot in satoshis (only in combination with --my).
-        --silent: Suppresses information and shows slots in script-friendly way. Slots are always displayed in satoshi.
+        --quiet: Suppresses information and shows slots in script-friendly way. Slots are always displayed in satoshi.
         --debug: Display additional debug information.'''
         # TODO: here a --wallet option would make sense.
 
-        proposal_id = ei.run_command(eu.search_for_stored_tx_label,"proposal", proposal, silent=silent)
+        proposal_id = ei.run_command(eu.search_for_stored_tx_label,"proposal", proposal, quiet=quiet)
         if (not my) and (not address):
-            return ei.run_command(self.__available_slot_amount, proposal_id, dist_round=dist_round, current=current, silent=silent, debug=debug)
+            return ei.run_command(self.__available_slot_amount, proposal_id, dist_round=dist_round, current=current, quiet=quiet, debug=debug)
 
         if not address:
             address = Settings.key.address
         else:
             address = ec.process_address(address)
 
-        result = ei.run_command(du.get_slot, proposal_id, donor_address=address, dist_round=dist_round, silent=silent)
+        result = ei.run_command(du.get_slot, proposal_id, donor_address=address, dist_round=dist_round, quiet=quiet)
 
-        if (dist_round is None) and (not silent):
+        if (dist_round is None) and (not quiet):
             print("Showing first slot where this address participated.")
 
-        if satoshi or silent:
+        if satoshi or quiet:
             slot = result["slot"]
         else:
             slot = du.sats_to_coins(result["slot"], Settings.network)
 
-        if silent:
+        if quiet:
             return result
         else:
             print("Distribution round:", result["round"])
@@ -1147,7 +1147,7 @@ class Donation:
                 return False
         return False
 
-    def check_address(self, proposal: str, donor_address: str=Settings.key.address, silent: bool=False):
+    def check_address(self, proposal: str, donor_address: str=Settings.key.address, quiet: bool=False):
         '''Shows if the donor address was already used for a Proposal.
 
         Usage:
@@ -1158,11 +1158,11 @@ class Donation:
         Note: a "False" means that the check was not passed, i.e. the donor address should not be used.
 
         Flag:
-        --silent: Suppress output.'''
+        --quiet: Suppress output.'''
 
-        proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal, silent=silent)
+        proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet)
         if du.donor_address_used(donor_address, proposal_id):
-            result = "Already used in this proposal, use another address." if not silent else False
+            result = "Already used in this proposal, use another address." if not quiet else False
         else:
-            result = "Not used in this proposal, you can freely use it." if not silent else True
+            result = "Not used in this proposal, you can freely use it." if not quiet else True
         return result

@@ -18,7 +18,7 @@ def get_default_tokens():
     return decks
 
 
-def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, silent: bool=False, debug: bool=False):
+def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, debug: bool=False):
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
@@ -60,7 +60,7 @@ def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring:
 
     # NOTE: default view needs no deck labels
     # NOTE2: Silent mode doesn't show labels.
-    if (advanced and not no_labels) and (not silent):
+    if (advanced and not no_labels) and (not quiet):
         deck_labels = ce.get_config()["deck"]
     else:
         deck_labels = None
@@ -73,7 +73,7 @@ def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring:
                 # Note: returns a dict, structure of balances var is thus different.
                 balance = eu.get_wallet_token_balances(deck)
 
-                if advanced and (not no_labels) and (not silent):
+                if advanced and (not no_labels) and (not quiet):
                     balance = ei.format_balances(balance, labeldict, suppress_addresses=only_labels)
             else:
                 balance = eu.get_address_token_balance(deck, address)
@@ -94,20 +94,20 @@ def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring:
             else:
                 balances.update({deck.id : balance})
 
-    if silent:
+    if quiet:
         print(balances)
     elif advanced or (not wallet):
         pprint(balances)
     else:
         ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network, only_tokens=only_tokens)
 
-def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, silent: bool=False):
+def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, quiet: bool=False):
     """Shows the balance of a single token (deck) on the current main address or another address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
     # TODO: also affected by wallet issue.
 
-    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if wallet:
@@ -117,11 +117,11 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
         balances = eu.get_wallet_token_balances(deck)
 
 
-        if (not no_labels) and (not silent):
+        if (not no_labels) and (not quiet):
             balances = ei.format_balances(balances, labeldict)
 
 
-        if silent:
+        if quiet:
             print(balances)
         else:
             pprint(balances)
@@ -129,7 +129,7 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
     else:
         balance = eu.get_address_token_balance(deck, address)
 
-        if silent:
+        if quiet:
             print({address : balance})
         else:
             pprint({address : balance})

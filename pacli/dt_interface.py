@@ -160,14 +160,14 @@ def update_2levels(d): # obsolete, will be replaced by the recursive function.
         elif issubclass(type(d[item]), Deck):
             d[item] = d[item].id
 
-def wait_for_block(startblock: int, endblock: int, provider: object, wait: bool=False, silent: bool=False):
+def wait_for_block(startblock: int, endblock: int, provider: object, wait: bool=False, quiet: bool=False):
     # This function enables the "wait" option. It loops each 15 sec until the target period is correctly reached.
     # It will terminate and launch the transaction creator when the start block has been reached,
     # or exit without launching if the end block has passed.
     # If "wait" is set to False, then if the blockheight is outside the target period, the function exits after one loop.
     startendvalues = "(between block: {}, and block: {}).".format(startblock, endblock)
     oldblock = 0
-    if not silent:
+    if not quiet:
         print("Waiting for target block height", startendvalues)
         print("The target timeframe is influenced by your selected security level.")
     while True:
@@ -180,14 +180,14 @@ def wait_for_block(startblock: int, endblock: int, provider: object, wait: bool=
 
 
         if startblock <= next_block <= endblock:
-            if not silent:
+            if not quiet:
                 print("Next block is inside the target timeframe", startendvalues)
                 print("Transaction will probably be included in block:", current_block + 1, "- last block:", current_block)
             return True
         else:
 
             if next_block < startblock:
-                if not silent:
+                if not quiet:
                    print("Current block height:", current_block)
                    # print("Period still not reached", startendvalues)
                    # print("Transaction would probably be included in block:", next_block, "- current block:", current_block)
@@ -197,7 +197,7 @@ def wait_for_block(startblock: int, endblock: int, provider: object, wait: bool=
                 oldblock = current_block
             else:
                 # MODIF: we raise an error here. So we ensure the transaction isn't processed.
-                #if not silent:
+                #if not quiet:
                 #    print("Target deadline has already passed", startendvalues)
                 #    print("Current block:", current_block)
                 raise PacliInputDataError("Target deadline has already passed {}. Current block: {}".format(startendvalues, current_block))

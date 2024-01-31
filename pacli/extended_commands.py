@@ -10,13 +10,13 @@ from pacli.provider import provider
 
 # Address "bifurcations": can be either used with the legacy keystore_extended module or with the new Tools module.
 
-def fresh_address(label: str, set_main: bool=False, backup: str=None, keyring: bool=False, legacy: bool=False, silent: bool=False):
+def fresh_address(label: str, set_main: bool=False, backup: str=None, keyring: bool=False, legacy: bool=False, quiet: bool=False):
 
     label = str(label)
     if keyring:
-        address = ke.fresh_address(label, backup=backup, legacy=legacy, silent=silent)
+        address = ke.fresh_address(label, backup=backup, legacy=legacy, quiet=quiet)
     elif legacy or backup:
-        if not silent:
+        if not quiet:
             print("--legacy and --backup are only supported when using --keyring.")
         return None
     else:
@@ -24,14 +24,14 @@ def fresh_address(label: str, set_main: bool=False, backup: str=None, keyring: b
         ei.run_command(store_address, label, address=address)
         # ei.run_command(ce.write_item, "address", label, address)
 
-    if not silent:
+    if not quiet:
         print("New address created:", address, "with label (name):", label)
         print("Address already is saved in your wallet, ready to use.")
 
     if set_main:
-        return set_main_key(label, keyring=keyring, legacy=legacy, silent=silent)
+        return set_main_key(label, keyring=keyring, legacy=legacy, quiet=quiet)
 
-def set_main_key(label: str, backup: str=None, keyring: bool=False, legacy: bool=False, silent: bool=False):
+def set_main_key(label: str, backup: str=None, keyring: bool=False, legacy: bool=False, quiet: bool=False):
     if keyring:
         return ke.set_main_key(label, backup=backup, legacy=legacy)
 
@@ -51,7 +51,7 @@ def set_main_key(label: str, backup: str=None, keyring: bool=False, legacy: bool
     ke.set_key("key", key) # Note that this function isn't present in the standard pacli keystore.
     Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(k.load_key()))
 
-    if not silent:
+    if not quiet:
         return Settings.key.address
 
 def show_stored_address(label: str, network_name: str=Settings.network, keyring: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False):
@@ -274,9 +274,9 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     return result
 
 
-def store_addresses_from_keyring(network_name: str=Settings.network, replace: bool=False, silent: bool=False, debug: bool=False) -> None:
+def store_addresses_from_keyring(network_name: str=Settings.network, replace: bool=False, quiet: bool=False, debug: bool=False) -> None:
     """Stores all labels/addresses stored in the keyring in the extended config file."""
-    if not silent:
+    if not quiet:
         print("Storing all addresses of network", network_name, "from keyring into extended config file.")
         print("The config file will NOT store private keys. It only allows faster access to addresses.")
     keyring_labels = ke.get_labels_from_keyring(network_name)
@@ -287,7 +287,7 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
         try:
             store_address(full_label, full=True, replace=replace)
         except ei.ValueExistsError:
-            if not silent:
+            if not quiet:
                 print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
             continue
 

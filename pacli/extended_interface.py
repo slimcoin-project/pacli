@@ -97,9 +97,9 @@ def spinner(duration: int) -> None:
         sleep(0.1)
 
 
-def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
+def confirm_tx(orig_tx: dict, quiet: bool=False) -> None:
 
-    if not silent:
+    if not quiet:
         print("Transaction created and broadcasted. Confirmation can take several minutes.")
         print("Waiting for first confirmation (abort waiting with KeyboardInterrupt, e.g. CTRL-C) ...", end='')
         print("(Note: Transactions should have several dozens of confirmations to be considered final.)")
@@ -113,11 +113,11 @@ def confirm_tx(orig_tx: dict, silent: bool=False) -> None:
 
             try:
                 confirmations = tx["confirmations"]
-                if not silent:
+                if not quiet:
                     print("\nTransaction confirmed.")
                 break
             except KeyError:
-                if not silent:
+                if not quiet:
                     spinner(10)
         except KeyboardInterrupt:
             print("\nConfirmation check aborted. Check confirmation manually.")

@@ -17,7 +17,7 @@ from pacli.token_classes import Token
 class ATToken(Token):
 
 
-    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=False, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
+    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
         The purpose of this command is to be able to use the address labels from Pacli,
         above all to make fast transactions to a tracked address of an AT token.
@@ -32,7 +32,7 @@ class ATToken(Token):
         --send: Send the transaction (True by default).
         --confirm: Wait and display a message until the transaction is confirmed.
         --verify: Verify transaction with Cointoolkit.
-        --silent: Suppress output and print it out in a script-friendly way.
+        --quiet: Suppress output and print it out in a script-friendly way.
         --debug: Show additional debug information.'''
         # TODO: this could benefit from a deck parameter, so you could automatically send to the deck's tracked address.
 
@@ -41,26 +41,26 @@ class ATToken(Token):
         dec_amount = Decimal(str(amount))
         rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, change_address=change_address, debug=debug)
 
-        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=confirm, silent=silent, debug=debug)
+        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=confirm, quiet=quiet, debug=debug)
 
-    """def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, silent: bool=False, debug: bool=False, burns: bool=False) -> None:
+    """def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
         '''Show all transactions to a tracked address between two block heights (very slow!).'''
 
         if burns:
              print("Using burn address.")
              address = burn_address(network_name=provider.network)
 
-        txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, silent=silent, debug=debug)
+        txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, quiet=quiet, debug=debug)
         pprint(txes)
 
-    def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False) -> None:
+    def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, quiet: bool=False, debug: bool=False) -> None:
         '''Shows all transactions from your wallet to the tracked address.'''
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, silent=silent) if deck else None
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
         sender = Settings.key.address if not wallet else None
-        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)
+        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, quiet=quiet, debug=debug)
 
-        if not silent:
+        if not quiet:
             pprint(txes)
         else:
             print(txes)""" # moved to at_utils
@@ -68,7 +68,7 @@ class ATToken(Token):
     @classmethod
     def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
               locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
-              confirm: bool=False, silent: bool=False, force: bool=False,
+              confirm: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
         '''Claims the token reward for a burn transaction (PoB tokens) or a transaction to a tracked address (AT tokens) referenced by a transaction ID.
 
@@ -95,7 +95,7 @@ class ATToken(Token):
         --send: Send the transaction (True by default).
         --confirm: Wait and display a message until the transaction is confirmed.
         --verify: Verify transaction with Cointoolkit.
-        --silent: Suppress output and print it out in a script-friendly way.
+        --quiet: Suppress output and print it out in a script-friendly way.
         --debug: Show additional debug information.
         --force: Create the transaction even if the reward does not match the transaction (only for debugging!).'''
 
@@ -210,10 +210,10 @@ class ATToken(Token):
                               param_names["blocknum"] : claim.blocknum}
                 pprint(claim_dict)
 
-    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, silent: bool=False, advanced: bool=False, debug: bool=False):
+    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, quiet: bool=False, advanced: bool=False, debug: bool=False):
         '''Shows all valid AT/PoB token balances, ignoring other deck types.'''
 
-        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, advanced=advanced, only_labels=only_labels, silent=silent, debug=debug)"""
+        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, advanced=advanced, only_labels=only_labels, quiet=quiet, debug=debug)"""
 
 
 class PoBToken(ATToken):
@@ -245,7 +245,7 @@ class PoBToken(ATToken):
 
         return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=startblock, endblock=endblock, version=version, locktime=locktime, confirm=confirm, verify=verify, sign=sign, send=send)
 
-    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, confirm: bool=False, sign: bool=True, send: bool=True, verify: bool=False, silent: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, confirm: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address.
 
         Usage:
@@ -259,16 +259,16 @@ class PoBToken(ATToken):
         --send: Send the transaction (True by default).
         --confirm: Wait and display a message until the transaction is confirmed.
         --verify: Verify transaction with Cointoolkit.
-        --silent: Suppress output and print it out in a script-friendly way.
+        --quiet: Suppress output and print it out in a script-friendly way.
         --debug: Show additional debug information."""
 
-        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, silent=silent, debug=debug)
+        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, quiet=quiet, debug=debug)
 
-    '''def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, silent: bool=False, debug: bool=False) -> None:
+    '''def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, quiet: bool=False, debug: bool=False) -> None:
         """List all burn transactions, of this address or the whole wallet (--wallet option).
            --unclaimed shows only transactions which haven't been claimed yet."""
 
-        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, silent=silent, debug=debug)''' # part of transaction list
+        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, quiet=quiet, debug=debug)''' # part of transaction list
 
 
     """@classmethod
@@ -277,6 +277,6 @@ class PoBToken(ATToken):
 
         ei.run_command(print_deck_list, [d for d in list_decks_by_at_type(provider, c.ID_AT) if d.at_address == au.burn_address()])"""
 
-    """def show_all_burns(self, start: int=0, end: int=None, deckid: str=None, silent: bool=False, debug: bool=False):
+    """def show_all_burns(self, start: int=0, end: int=None, deckid: str=None, quiet: bool=False, debug: bool=False):
         '''Show all burn transactions of all users. Very slow, use of --start and --end highly recommended.'''
-        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, silent=silent, debug=debug)"""
+        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, quiet=quiet, debug=debug)"""
