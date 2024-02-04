@@ -11,23 +11,27 @@ class Checkpoint:
             delete: bool=False,
             prune: int=None,
             quiet: bool=False,
-            now: bool=False) -> None:
+            now: bool=False,
+            above_block: bool=False) -> None:
         """Store a checkpoint (block hash) for a given height or the current height (default).
 
         Usage:
 
-        pacli checkpoint set [HEIGHT]
+        pacli checkpoint set [BLOCKHEIGHT]
 
-        Stores a checkpoint, the height becomes the label. If no height is given, the most recent block is used.
+        Stores a checkpoint, the block height becomes the label. If no height is given, the most recent block is used.
 
-        pacli checkpoint set HEIGHT --delete [--now]
+        pacli checkpoint set BLOCKHEIGHT -d/--delete [--now]
 
         Deletes a checkpoint corresponding to blockheight HEIGHT. Use --now to delete really.
 
-        pacli checkpoint set --prune [DEPTH]
+        pacli checkpoint set [BLOCKHEIGHT] -p/--prune [DEPTH] [-a/--above_block]
 
         Prunes several checkpoints. DEPTH indicates the block depth where checkpoints are to be kept.
         By default, the checkpoints of the 2000 most recent blocks are kept.
+        The 5 newest checkpoints are always kept (they can be manually deleted).
+        If BLOCKHEIGHT is given without -a/--above_block, checpoints until this block height are pruned.
+        If -a/--above_block is given, then checkpoints above the block height are pruned.
 
         Other flags:
 
@@ -39,7 +43,7 @@ class Checkpoint:
             if type(prune) != int:
                 prune = 2000 # default value
             # TODO: this command is quite slow, optimize it.
-            return ei.run_command(prune_old_checkpoints, depth=prune, quiet=quiet)
+            return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, above_block=above_block, quiet=quiet)
         else:
             return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet)
 
@@ -116,24 +120,45 @@ def retrieve_all_checkpoints() -> dict:
     checkpoints = sorted(config["checkpoint"].items())
     return checkpoints
 
-def prune_old_checkpoints(depth: int=2000, quiet: bool=False) -> None:
+def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: bool=False, quiet: bool=False) -> None:
     checkpoints = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
-    checkpoints.sort()
+    counter = 0
+
+    if above_block:
+        checkpoints.sort(reverse=True)
+    else:
+        checkpoints.sort()
     # print(checkpoints)
     current_block = provider.getblockcount()
     index = 0
+    if blockheight is None:
+        limit_block = current_block - depth
+    else:
+        limit_block = blockheight
+
     if not quiet:
-        print("Pruning checkpoints up to block {} ({} blocks before the current block {}).".format(current_block - depth, depth, current_block))
+        if above_block:
+            print("Pruning checkpoints above block {} (current block: {}).".format(limit_block, current_block))
+        else:
+            print("Pruning checkpoints up to block {} (current block: {}).".format(limit_block, current_block))
+            if not blockheight:
+                print("Depth: {} ".format(depth, current_block))
     while len(ce.get_config()["checkpoint"]) > 5: # leave at least 5 checkpoints intact
-       c = checkpoints[index]
-       if c < current_block - depth:
-           if not quiet:
-               print("Deleting checkpoint", c)
-           ce.delete_item("checkpoint", str(c), now=True, quiet=True)
-           time.sleep(1)
-       else:
-           break # as checkpoints are sorted, we break out.
-       index += 1
+        c = checkpoints[index]
+
+        if (above_block and c >= limit_block) or ((not above_block) and (c <= limit_block)):
+            if not quiet:
+                print("Deleting checkpoint", c)
+            ce.delete_item("checkpoint", str(c), now=True, quiet=True)
+            time.sleep(1)
+            counter += 1
+        else:
+            break # as checkpoints are sorted, we break out.
+        index += 1
+
+    if not quiet:
+        checkpoints_new = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
+        print("{} checkpoints deleted. {} checkpoints preserved (minimum: 5).".format(counter, len(checkpoints_new)))
 
 def reorg_check(quiet: bool=False) -> None:
     if not quiet:

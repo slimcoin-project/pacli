@@ -47,13 +47,13 @@ class Token:
 
         Other options and flags:
 
-        --token_type: In combination with the second option, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
-        --advanced: In combination with the second option, shows balances of all tokens in JSON format.
-        --only_labels: In combination with the first or second option, don't show the addresses, only the labels.
-        --no_labels: In combination with the first or second option, don't show the labels, only the addresses.
-        --keyring: In combination with the first or second option, use an address stored in the keyring.
-        --quiet: Suppresses information about the deck when a label is used.
-        --debug: Display debug info."""
+        -t, --token_type: In combination with the second option, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
+        -a, --advanced: In combination with the second option, shows balances of all tokens in JSON format.
+        -o, --only_labels: In combination with the first or second option, don't show the addresses, only the labels.
+        -n, --no_labels: In combination with the first or second option, don't show the labels, only the addresses.
+        -k, --keyring: In combination with the first or second option, use an address stored in the keyring.
+        -q, --quiet: Suppresses information about the deck when a label is used.
+        -d, --debug: Display debug info."""
 
         # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
         # allowed are: "at" / "pob", "dt" / "pod" (in all capitalizations)
@@ -78,40 +78,6 @@ class Token:
 
         else:
             ei.print_red("You have to provide a deck for this command, or use the --all/--common option.")
-
-
-    '''def list(self, deck: str, quiet: bool=False, valid: bool=False):
-        """List all cards of a deck (with support for deck labels).
-        --quiet suppresses information about the deck when a label is used.
-        --valid only shows valid cards according to Proof-of-Timeline rules,
-        i.e. where no double spend has been recorded."""
-
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-
-        if valid:
-            deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-            cards = pa.find_all_valid_cards(provider, deck)
-            valid_cards = pa.protocol.DeckState(cards).valid_cards
-            print_card_list(valid_cards)
-        else:
-            from pacli.__main__ import Card
-            return Card().list(deckid)''' # OK, moved to ExtCard / extended_main
-
-    '''def init_deck(self, deck: str, quiet: bool=False):
-        """Initializes a standard deck, an AT or a PoB deck and imports its P2TH keys into node.
-           Mandatory to be able to use the deck with pacli.
-           NOTE: dPoD decks have an own command `podtoken init_deck`
-
-           Usage:
-
-           pacli token init_deck DECK
-
-           Flags:
-
-           --quiet: Suppress output."""
-
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-        return ei.run_command(eu.init_deck, Settings.network, deckid, quiet=quiet)'''
 
 
     # Enhanced transfer commands
@@ -151,12 +117,12 @@ class Token:
         The brackets are mandatory, but they don't have to be escaped.
 
         Options and flags:
-        --change: Specify a change address.
+        -c, --change: Specify a change address.
+        -v, --verify: Verify transaction with Cointoolkit.
+        -q, --quiet: Suppress output and printout in a script-friendly way.
+        -d, --debug: Show additional debug info.
         --sign: Signs the transaction (True by default, use --send=False for a dry run)
         --send: Sends the transaction (True by default, use --send=False for a dry run)
-        --verify: Verify transaction with Cointoolkit.
-        --quiet: Suppress output and printout in a script-friendly way.
-        --debug: Show additional debug info.
         """
         # NOTE: This is not a wrapper of card transfer, so the signature errors from P2PK are also fixed.
 

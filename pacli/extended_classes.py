@@ -784,6 +784,7 @@ class ExtTransaction:
         pacli transaction list [ADDRESS] [options] [--sent] [--received]
 
             Lists transactions sent and/or received by a specific address of the wallet (default: current main address). Can be slow if used on wallets with many transactions.
+            ADDRESS can be a label or an address.
 
         pacli transaction list [-n|--named]
 
@@ -792,10 +793,12 @@ class ExtTransaction:
         pacli transaction list [--deck=DECK] [--burns | --reftxes]
 
             Lists burn transactions or referenced (e.g. donation/ICO) TXes for AT tokens stored in wallet. Deck is optional for burn transactions.
+            DECK can be a label or a deck ID.
 
         pacli transaction list DECK --claims
 
             List token claim transactions.
+            DECK can be a label or a deck ID.
 
         pacli transaction list --all [--burns | --reftxes] [--sender=SENDER] [--receiver=RECEIVER] --start=STARTBLOCK --end=ENDBLOCK
 

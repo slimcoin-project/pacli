@@ -26,14 +26,14 @@ class ATToken(Token):
         pacli attoken create_tx ADDRESS AMOUNT
 
         Options and flags:
-        --tx_fee: Specify a transaction fee.
+        -t, --tx_fee: Specify a transaction fee.
         --change: Specify a change address.
         --sign: Sign the transaction (True by default).
         --send: Send the transaction (True by default).
         --confirm: Wait and display a message until the transaction is confirmed.
-        --verify: Verify transaction with Cointoolkit.
-        --quiet: Suppress output and print it out in a script-friendly way.
-        --debug: Show additional debug information.'''
+        -v, --verify: Verify transaction with Cointoolkit.
+        -q, --quiet: Suppress output and print it out in a script-friendly way.
+        -d, --debug: Show additional debug information.'''
         # TODO: this could benefit from a deck parameter, so you could automatically send to the deck's tracked address.
 
         change_address = ec.process_address(change)

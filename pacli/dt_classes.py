@@ -29,8 +29,8 @@ class PoDToken(Token):
                    epoch_length: int,
                    reward: int,
                    min_vote: int=0,
-                   sdp_periods: int=None,
-                   sdp_deck: str=None,
+                   periods_sdp: int=None,
+                   deck_sdp: str=None,
                    number_of_decimals=2,
                    change: str=Settings.change,
                    confirm: bool=False,
@@ -45,18 +45,18 @@ class PoDToken(Token):
         pacli podtoken deck_spawn NAME EPOCHLENGTH REWARD [options]
 
         Options and flags:
-        --min_vote: Voting threshold to approve a proposal (default: 0).
-        --sdp_periods: Number of Special Distribution Periods.
-        --sdp_deck: Deck for the Special Distribution Periods.
-        --number_of_decimals: Number of decimals of the token (default: 2).
-        --tx_fee: Specify a transaction fee.
+        -m, --min_vote PERCENTAGE: Voting threshold to approve a proposal (default: 0).
+        -p, --periods_sdp PERIODS: Number of Special Distribution Periods.
+        -d, --deck_sdp DECK: Deck for the Special Distribution Periods (can be ID or label)
+        -n, --number_of_decimals NUMBER: Number of decimals of the token (default: 2).
+        -t, --tx_fee: Specify a transaction fee.
         --change: Specify a change address.
         --sign: Sign the transaction (False by default).
         --send: Send the transaction (False by default).
         --confirm: Wait and display a message until the transaction is confirmed.
         --verify: Verify transaction with Cointoolkit."""
 
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, sdp_periods, sdp_deck)
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, deck_sdp)
         change_address = ec.process_address(change)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
@@ -80,21 +80,6 @@ class PoDToken(Token):
         deckid = eu.search_for_stored_tx_label("deck", deck)
         ei.run_command(dc.init_dt_deck, Settings.network, deckid, store_label=store_label)'''
 
-    """def deck_info(self, deck: str, p2th: bool=False, param: str=None) -> None: ### GOES TO extended_main
-        '''Prints DT-specific deck info.'''
-
-        deckid = eu.search_for_stored_tx_label("deck", deck)
-        deckinfo = ei.run_command(dc.get_deckinfo, deckid, p2th)
-        if param:
-            print(deckinfo.get(param))
-        else:
-            pprint(deckinfo)"""
-
-    """def deck_list(self) -> None:
-        '''List all DT decks.'''
-
-        dt_decklist = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
-        ei.run_command(print_deck_list, dt_decklist)""" # now in extended_classes
 
     def deck_state(self, deck: str, debug: bool=False) -> None:
         '''Prints the DT deck state (the current state of the deck variables).
@@ -203,7 +188,7 @@ class PoDToken(Token):
         return ei.run_command(dc.show_votes_by_address, deckid, address)
 
     def votes(self,
-              deck_or_proposal: str=None,
+              proposal_or_deck: str=None,
               address: str=Settings.key.address,
               my: bool=False,
               debug: bool=False):
@@ -215,19 +200,19 @@ class PoDToken(Token):
 
         Shows all votes from all users on the proposal PROPOSAL.
 
-        pacli podtoken votes DECK [--my|ADDRESS]
+        pacli podtoken votes DECK [-m/--my|ADDRESS]
 
-        Shows all votes cast from the current address (--my) or another ADDRESS for the specified deck DECK.
+        Shows all votes cast from the current address (-m/--my) or another ADDRESS for the specified deck DECK.
 
         Other options and flags:
-        --debug: prints debug information
+        -d, --debug: prints debug information
 
         """
 
         if my or (address is not None):
-            return self.__my_votes(deck_or_proposal, address=address)
+            return self.__my_votes(proposal_or_deck, address=address)
         else:
-            return self.__get_votes(deck_or_proposal, debug=debug)
+            return self.__get_votes(proposal_or_deck, debug=debug)
 
 
 class Proposal:
@@ -252,7 +237,7 @@ class Proposal:
             if advanced:
                 pprint("State: {}".format(pstate.state))
 
-    def __state(self, proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, raw: bool=False, search: bool=False, debug: bool=False, ) -> None:
+    def __state(self, proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, quiet: bool=False, search: bool=False, debug: bool=False, ) -> None:
         '''Shows a single proposal state. You can search also for a short id (length 16 characters) or parts of the description.'''
 
         if search:
@@ -271,14 +256,14 @@ class Proposal:
         pdict = pstate.__dict__
         if param is not None:
             result = pdict.get(param)
-            if raw:
+            if quiet:
                 di.prepare_complete_collection(result)
                 print(result)
             else:
                 di.prepare_dict({"result" : result})
                 pprint("Value of parameter {} for proposal {}:".format(param, proposal_id))
                 pprint(result)
-        elif raw:
+        elif quiet:
             di.prepare_complete_collection(pdict)
             print(pdict)
         elif simple:
@@ -297,31 +282,72 @@ class Proposal:
             proposal_id: str,
             modify: bool=False,
             quiet: bool=False) -> None:
-        """Stores a proposal with label and proposal id (TXID). Use --modify to change the label."""
+        """Stores a proposal with label and proposal id (TXID). Use --modify to change the label.
+
+        Usage options:
+
+        pacli proposal set LABEL PROPOSAL_ID
+
+        Stores a new proposal.
+
+        pacli proposal set NEW_LABEL OLD_LABEL -m/--modify
+
+        Modifies the label of an already stored proposal.
+
+        Flags:
+        -q, --quiet: Suppress output.
+        """
         return ce.set("proposal", label, value=proposal_id, quiet=quiet, modify=modify)
 
     def show(self,
-             proposal: str,
+             label_or_id: str,
              param: str=None,
              state: bool=False,
              info: bool=False,
              find: bool=False,
              advanced: bool=False,
-             simple: bool=False,
-             raw: bool=False,
-             shortid: bool=False,
+             basic: bool=False,
+             quiet: bool=False,
+             miniid: bool=False,
              debug: bool=False) -> str:
-        """Shows a stored proposal ID (its txid) by label."""
+        """Shows information about a proposal.
+
+        Usage options:
+
+        pacli proposal show LABEL
+
+        Shows a proposal ID stored with a label LABEL.
+
+        pacli proposal show LABEL_OR_ID -i/--info
+
+        Shows basic information about a proposal.
+
+        pacli proposal show LABEL_OR_ID -s/--state [-p/--param PARAM] [-a/--advanced]
+
+        Shows a dictionary with the current state of a proposal.
+        If -p/--param is given, display only a specific parameter of the dictionary.
+        If -a/--advanced is given, show advanced information.
+
+        pacli proposal show STRING -f/--find [-m/--miniid]
+
+        Find a proposal containing STRING in its ID or description.
+        If -m/--miniid is given, the STRING must match the mini ID (first 8 characters) of the proposal.
+
+        Other options and flags:
+        -q, --quiet: Suppress addiitonal output, print information in raw format (script-friendly).
+        -d, --debug: Provide additional debug information.
+
+        """
 
         if info:
-            return self.__info(proposal)
+            return self.__info(label_or_id)
         elif state:
             # note: --state and --find can be together.
             # proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, raw: bool=False, search: bool=False, debug: bool=False, ) -> None:
-            return self.__state(proposal, param=param, complete=advanced, simple=simple, raw=raw, search=find, debug=debug)
+            return self.__state(label_or_id, param=param, complete=advanced, simple=basic, quiet=quiet, search=find, debug=debug)
         elif find:
-            return self.__find(proposal, advanced=advanced, shortid=shortid)
-        return ce.show("proposal", proposal)
+            return self.__find(label_or_id, advanced=advanced, shortid=miniid)
+        return ce.show("proposal", label_or_id)
 
     def list(self,
              deck: str=None,
@@ -339,18 +365,21 @@ class Proposal:
         pacli proposal list DECK [--only_active|--all]
 
         Shows proposals of DECK. By default, shows active and completed proposals.
-        --only_active shows only currently active ones.
-        --all, in addition to active and completed, shows also abandoned proposals.
 
-        pacli proposal list --named
+        Flags of this mode:
+        -o, --only_active: shows only currently active proposals.
+        -a, --all: in addition to active and completed, shows also abandoned proposals.
+        -s, --simple: Like --all, but doesn't show proposals' state (much faster).
+        -b, --blockheight: Block height to consider for the proposals' state (debugging option)
+
+        pacli proposal list -n/--named
 
         Shows proposals a label was assigned to.
 
         Other options and flags:
-        --simple: Like --all, but doesn't show proposals' state (much faster).
-        --quiet: If used with --named, suppress additional output and printout list in a script-friendly way.
-        --blockheight: Block height to consider for the proposals' state (debugging option)
-        --debug: Show debugging information.
+
+        -q, --quiet: If used with --named, suppress additional output and printout list in a script-friendly way.
+        -d, --debug: Show debugging information.
         """
 
         if named:
@@ -369,12 +398,12 @@ class Proposal:
         pacli proposal voters PROPOSAL [options]
 
         Options and flags:
-        --outputformat: Use a different output format.
+        -o, --outputformat FORMAT: Use a different output format.
             Allowed values:
                 'simpledict' prints out a script-friendly dict,
                 'voterlist' prints out only a list of voters.
-        --blockheight: Block height to consider for the voters' balances (mainly debugging command)
-        --debug: Show additional debug information.
+        -b, --blockheight: Block height to consider for the voters' balances (mainly debugging command)
+        -d, --debug: Show additional debug information.
         '''
         # TODO: if blockheight option is given, proposal isn't strictly necessary. But the code would have to be changed for that.
         # TODO: the voter weight is shown in scientific notation. Should be re-formatted.
