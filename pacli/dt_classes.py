@@ -350,7 +350,7 @@ class Proposal:
         return ce.show("proposal", label_or_id)
 
     def list(self,
-             deck: str=None,
+             id_or_label: str=None,
              blockheight: int=False,
              only_active: bool=False,
              all: bool=False,
@@ -365,6 +365,7 @@ class Proposal:
         pacli proposal list DECK [--only_active|--all]
 
         Shows proposals of DECK. By default, shows active and completed proposals.
+        DECK can be a deck ID or a label.
 
         Flags of this mode:
         -o, --only_active: shows only currently active proposals.
@@ -385,7 +386,7 @@ class Proposal:
         if named:
             return ce.list("proposal", quiet=quiet)
         else:
-            return ei.run_command(dc.list_current_proposals, deck, block=blockheight, only_active=only_active, all=all, simple=simple, debug=debug)
+            return ei.run_command(dc.list_current_proposals, id_or_label, block=blockheight, only_active=only_active, all=all, simple=simple, debug=debug)
 
     def voters(self,
                proposal: str,
@@ -513,7 +514,7 @@ class Proposal:
 
         Shows the current period of the proposal.
 
-        pacli proposal period --all
+        pacli proposal period -a/--all
 
         Shows info about all periods of the proposal.
 
@@ -530,9 +531,9 @@ class Proposal:
 
         Other options and flags:
 
-        --start: If used with a PERIOD, shows only the start block of the period (script-friendly).
-        --end: If used with a PERIOD, shows only the end block of the period (script-friendly).
-        --debug: Show debug information.
+        -s, --start: If used with a PERIOD, shows only the start block of the period (script-friendly).
+        -e, --end: If used with a PERIOD, shows only the end block of the period (script-friendly).
+        -d, --debug: Show debug information.
 
         NOTE: --end can give nothing as a result, if the last period (E) is chosen.
 
@@ -660,14 +661,6 @@ class Proposal:
             del kwargs["modify"]
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
-
-
-    """def modify(self, proposal: str, req_amount: str, periods: int, change: str=Settings.change, tx_fee: str="0.01", confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False) -> None:
-        '''Modify an existing proposal.'''
-
-        kwargs = locals()
-        del kwargs["self"]
-        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)"""
 
 
     def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=False, txhex: bool=False, security: int=1, debug: bool=False) -> None:
@@ -1121,7 +1114,7 @@ class Donation:
             print("Slot:", slot)
 
 
-    def qualified(self, proposal: str, dist_round: int, address: str=Settings.key.address, label: str=None, debug: bool=False) -> bool:
+    def qualified(self, proposal: str, round_dist: int, address: str=Settings.key.address, label: str=None, debug: bool=False) -> bool:
         '''Shows if the address is entitled to participate in a slot distribution round.
 
         Usage:
@@ -1146,10 +1139,10 @@ class Donation:
             # we don't use show_label here so it's also possible to use under Windows.
             address_label = address
 
-        print("Qualification status for address {} for distribution round {} in proposal {}:".format(address_label, dist_round, proposal_id))
+        print("Qualification status for address {} for distribution round {} in proposal {}:".format(address_label, round_dist, proposal_id))
 
         slot_fill_threshold = 0.95
-        if dist_round in (0, 3, 6, 7):
+        if round_dist in (0, 3, 6, 7):
             return True
 
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug, donor_address=address)
@@ -1161,15 +1154,15 @@ class Donation:
             if debug: print("Effective slot:", ds.effective_slot)
             if debug: print("Minimal qualifying amount (based on slot):", min_qualifying_amount)
             try:
-                if dist_round == ds.dist_round + 1:
-                    if dist_round in (1, 2) and (ds.state == "incomplete"):
+                if round_dist == ds.dist_round + 1:
+                    if round_dist in (1, 2) and (ds.state == "incomplete"):
                         if ds.effective_locking_slot >= min_qualifying_amount:
                             return True
                     # rd 4 is also rd 3 + 1
-                    elif dist_round in (4, 5) and (ds.state == "complete"):
+                    elif round_dist in (4, 5) and (ds.state == "complete"):
                         if ds.effective_slot >= min_qualifying_amount:
                             return True
-                elif (dist_round == 4) and (ds.state == "complete"):
+                elif (round_dist == 4) and (ds.state == "complete"):
                     if ds.effective_slot >= min_qualifying_amount:
                         return True
             except TypeError:
@@ -1187,7 +1180,7 @@ class Donation:
         Note: a "False" means that the check was not passed, i.e. the donor address should not be used.
 
         Flag:
-        --quiet: Suppress output.'''
+        -q, --quiet: Suppress output.'''
 
         proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet)
         if du.donor_address_used(donor_address, proposal_id):
