@@ -69,6 +69,7 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
     try:
         address = show_stored_address(addr_string, keyring=keyring, raise_if_invalid_label=True)
         assert address is not None
+        result = address
     except (TypeError, AssertionError):
         try:
             assert (not keyring) and try_alternative

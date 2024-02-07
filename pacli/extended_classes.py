@@ -299,7 +299,7 @@ class ExtAddress:
              debug: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
 
-        Usage options:
+        Usage modes:
 
         pacli address list [options]
 
@@ -307,28 +307,29 @@ class ExtAddress:
 
         pacli address list [-a/--advanced] [options]
 
-        Shows a JSON string of all stored addresses and all or some tokens
+        Shows a JSON string of all stored addresses and all or some tokens.
 
-        Options:
+        Exclusive flags for this mode:
+        -o, --only_labels: Do not show addresses, only labels.
+        -w, --without_labels: Do not show labels, only addresses.
+
+        pacli address list -l/--labels
+        pacli address list -f/-full_labels
+
+        Shows only the labels which were stored.
+        These modes only accept the -b/--blockchain and -k/--keyring additional flags.
+        -f/--full_labels shows the labels with the network prefix (useful mainly for debugging).
+
+        Common options or flags for all or most modes:
 
         -n, --named: Shows only addresses which were named with a label.
-        -a, --advanced: Shows all token balances (in JSON format)
         -k, --keyring: Uses the keyring of your operating system.
         -c, --coinbalances: Only shows coin balances, not tokens (faster).
-        -l, --labels: Shows the labels of the addresses.
-        -o, --only_labels: Do not show addresses, only labels.
         -q, --quiet: Suppress output, printout in script-friendly way.
-        -w, --without_labels: Do not show labels, only addresses.
         -b, --blockchain NETWORK: Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
-
-        Debugging options:
-
         -d, --debug: Show debug information.
-        -f, --full_labels: Shows labels with prefix.
-
         """
         # TODO: P2TH addresses should normally not be shown, implement a flag for them.
-        # TODO: Docstring is misleading, some options are only available for --advanced. Look which can be harmonized and which must be properly documented.
 
         return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, network=blockchain, debug=debug)
 
@@ -348,16 +349,20 @@ class ExtAddress:
         if coinbalances or labels or full_labels:
             # TODO: doesn't seem towork with keyring.
             # ex tools show_addresses
+            if labels or full_labels:
+                named = True
             address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named)
-            # address_labels = ce.get_config()["address"]
 
             if labels or full_labels:
                 if full_labels:
-                    print(labels)
+                    result = address_labels
                 else:
-                    print([ke.format_label(l, keyring=keyring) for l in labels])
-                return
-
+                    result = [{ke.format_label(l, keyring=keyring) : address_labels[l]} for l in address_labels]
+                if quiet:
+                    return result
+                else:
+                    pprint(result)
+                    return
 
             else:
                 addresses = []
@@ -383,9 +388,6 @@ class ExtAddress:
                 ei.print_address_list(addresses)
                 return
         else:
-
-            # __allbalances parameters:
-            # (address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, debug: bool=False)
 
             return tc.all_balances(wallet=True,
                                   keyring=keyring,
@@ -832,7 +834,7 @@ class ExtTransaction:
         --count: Only count transactions, do not display them.
         -q, --quiet: Suppress additional output, printout in script-friendly way.
         -d, --debug: Provide debugging information.
-        -p, --param PARAMETER: Show the result of a specific parameter of the transaction (only --claims).
+        -p, --param PARAMETER: Show the result of a specific parameter of the transaction.
               Possible parameters are all first-level keys of the dictionaries output by the distinct modes of this command.
               If used together with --advanced, the possible parametes are the first-level keys of the transaction JSON string,
               with the exception of --claims mode, where the attributes of a CardTransfer object can be used.

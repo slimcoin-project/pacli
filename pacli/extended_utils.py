@@ -426,7 +426,10 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
     elif param:
         # TODO: this now is unnecessary based on the transaction list command
         # re-check other commands
-        result = [{ claim.txid : claim.__dict__[param] } for claim in claims]
+        try:
+            result = [{ claim.txid : claim.__dict__[param] } for claim in claims]
+        except KeyError:
+            raise ei.PacliInputDataError("This parameter does not exist in the JSON output of this mode.")
     else:
         result = [{param_names["txid"] : claim.txid,
                    param_names["donation_txid"] : claim.donation_txid,
