@@ -7,7 +7,7 @@ from pacli.config import conf_dir, Settings
 # An alternative for the future could be to use sqlite3 eventually.
 
 EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
-CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo" ]
+CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo"]
 CAT_INIT = {c : {} for c in CATEGORIES}
 
 # modes:
@@ -159,14 +159,22 @@ def process_fulllabel(fulllabel):
     label = "_".join(label_split[1:])
     return (network, label)
 
-def update_categories(configfilename: str=EXT_CONFIGFILE, debug: bool=False):
+def update_categories(configfilename: str=EXT_CONFIGFILE, quiet: bool=False):
     # when a new category is added to the category list, this function adds it to the config file.
     config = get_config(configfilename)
+
+
+    if CAT_INIT.keys() == config.keys():
+        if not quiet:
+            print("Category list is up to date.")
+        return
+
     for cat in CAT_INIT:
         if cat not in config:
-            if debug:
+            if not quiet:
                 print("Adding new category:", cat)
             config.update({cat : {} })
+
     write_config(config, configfilename)
 
 def delete_category(category, configfilename: str=EXT_CONFIGFILE):
@@ -191,7 +199,7 @@ def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: 
     else:
         pprint(result)
 
-def set(category: str, label: str, value: str, modify: bool=False, replace: bool=False, quiet: bool=False):
+def setcfg(category: str, label: str, value: str, modify: bool=False, replace: bool=False, quiet: bool=False):
     return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet)
 
 def show(category: str, label: str):

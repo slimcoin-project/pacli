@@ -86,7 +86,7 @@ def store_checkpoint(height: int=None, quiet: bool=False) -> None:
     if not quiet:
         print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
     try:
-        ce.set("checkpoint", label=height, value=blockhash, quiet=quiet)
+        ce.setcfg("checkpoint", label=height, value=blockhash, quiet=quiet)
     except ei.ValueExistsError:
         if not quiet:
             print("Checkpoint already stored (probably node block height has not changed).")

@@ -297,7 +297,7 @@ class Proposal:
         Flags:
         -q, --quiet: Suppress output.
         """
-        return ce.set("proposal", label, value=proposal_id, quiet=quiet, modify=modify)
+        return ce.setcfg("proposal", label, value=proposal_id, quiet=quiet, modify=modify)
 
     def show(self,
              label_or_id: str,

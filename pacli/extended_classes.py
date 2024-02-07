@@ -55,7 +55,7 @@ class ExtConfig:
 
            pacli config set LABEL [-d/--delete] [-e/--extended -c/--category CATEGORY] [--now]
 
-           Deletes a setting (by default: in the basic config file, with -e and -c in the extended one).
+           Deletes a setting (by default: in the basic config file, with -e and -c in the extended config file).
            Use --now to really delete it, otherwise a dry run will be performed.
 
            pacli config set NEW_LABEL OLD_LABEL -m
@@ -85,7 +85,7 @@ class ExtConfig:
             if delete:
                 return ce.delete(category, label=str(label), now=now)
             else:
-                return ce.set(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
+                return ce.setcfg(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
 
         else:
             if value is None:
@@ -123,7 +123,7 @@ class ExtConfig:
         The -f/--find option allows to search for parts of the value string, while the -l/--label option only accepts exact matches.
 
         The CATEGORY value refers to a category in the extended config file.
-        Get all categories with:
+        Get all categories with: `pacli config list -e -c`
 
         Other flags:
 
@@ -172,7 +172,7 @@ class ExtConfig:
 
         Flags:
         -e, --extended: Shows extended configuration file.
-        -c, --categories: Shows list of available categories.
+        -c, --categories: Shows list of available categories (only in combination with -e/--extended).
         """
         if extended:
             if categories:
@@ -183,10 +183,15 @@ class ExtConfig:
             pprint(Settings.__dict__)
 
 
-    def update_extended_categories(self, debug: bool=False):
+    def update_extended_categories(self, quiet: bool=False):
         # (replaces `tools update_categories` -> this command will be used very seldom, so it's not problematic if it's long or unintuitive.)
-        """Update the category list of the extended config file."""
-        ce.update_categories(debug=debug)
+        """Update the category list of the extended config file.
+
+        Flags:
+        -q / --quiet: Suppress output.
+        """
+
+        ce.update_categories(quiet=quiet)
 
 
 
@@ -525,7 +530,7 @@ class ExtDeck:
         if delete:
             return ce.delete("deck", label=str(label), now=now)
         else:
-            return ce.set("deck", label, deckid, modify=modify, quiet=quiet)
+            return ce.setcfg("deck", label, deckid, modify=modify, quiet=quiet)
 
 
     def list(self,
@@ -753,7 +758,7 @@ class ExtTransaction:
 
         label = txid if tx is None else label_or_tx
 
-        return ce.set("transaction", label, value=value, quiet=quiet, modify=modify)
+        return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify)
 
 
     def show(self, txid_or_label: str, quiet: bool=False, structure: bool=False, decode: bool=False):
@@ -1015,7 +1020,7 @@ class ExtTransaction:
             utxo = txid_or_oldlabel
         else:
             utxo = "{}:{}".format(txid_or_oldlabel, str(output))
-        return ce.set("utxo", label, value=utxo, quiet=quiet, modify=modify)
+        return ce.setcfg("utxo", label, value=utxo, quiet=quiet, modify=modify)
 
     def show_utxo(self, label: str) -> str:
         """Shows a stored UTXO by its label.
