@@ -17,7 +17,7 @@ import pacli.dt_commands as dc
 import pacli.blockexp as bx
 
 from pacli.provider import provider
-from pacli.config import Settings, default_conf
+from pacli.config import Settings, default_conf, write_settings
 from pacli.tui import print_deck_list, print_card_list
 
 # extended_main contains extensions of the main pacli classes only
@@ -41,21 +41,43 @@ class ExtConfig:
             replace: bool=False,
             now: bool=False,
             quiet: bool=False) -> None:
-        '''Changes configuration settings. It allows to modify the traditional and the extended config file.
+        '''Changes configuration settings.
 
-           Usage:
+           Usage modes:
 
-           pacli config set LABEL [VALUE] [CATEGORY] [options]
+           pacli config set LABEL VALUE [-r/--replace] [options]
 
-           Options and flags:
+           Adds or replaces (with -r/--replace) a setting in the basic configuration file (by default: pacli.conf).
 
-           -v, --value: Value to be edited. Mandatory except when --delete is used.
-           -c, --category: Category of items to edit. Mandatory if used with the --extended flag.
-           -e, --extended: Edit the extended configuration file.
-           -d, --delete: Delete an item. Use --now to delete really.
-           -r, --replace: Replace a value by indicating its label.
-           -m, --modify: Modify a label (for the same value).
+           pacli config set LABEL VALUE CATEGORY -e/--extended [-r/--replace] [options]
+
+           Adds a or replaces (with -r/--replace) a setting in the extended configuration file.
+
+           pacli config set LABEL [-d/--delete] [-e/--extended -c/--category CATEGORY] [--now]
+
+           Deletes a setting (by default: in the basic config file, with -e and -c in the extended one).
+           Use --now to really delete it, otherwise a dry run will be performed.
+
+           pacli config set NEW_LABEL OLD_LABEL -m
+
+           Modifies a setting.
+
+           Other options and flags:
+
            -q, --quiet: Suppress output, printout in script-friendly way.'''
+
+        return ei.run_command(self.__set, label, value=value, category=category, extended=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
+
+    def __set(self,
+              label: str,
+              value: Union[str, bool]=None,
+              category: str=None,
+              extended: bool=False,
+              delete: bool=False,
+              modify: bool=False,
+              replace: bool=False,
+              now: bool=False,
+              quiet: bool=False) -> None:
 
         if extended:
             if not category:
@@ -66,8 +88,11 @@ class ExtConfig:
                 return ce.set(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
 
         else:
+            if value is None:
+                raise ei.PacliInputDataError("No value provided.")
             if label not in default_conf.keys():
-                raise ValueError({'error': 'Invalid setting key.'}) # ValueError added
+                # raise ValueError({'error': 'Invalid setting key.'}) # ValueError added # this was mainly for compatibility.
+                raise ei.PacliInputDataError("Invalid setting key. This key doesn't exist in the standard configuration file.")
 
             write_settings(label, value)
 
@@ -79,7 +104,7 @@ class ExtConfig:
              label: bool=False,
              find: bool=False,
              quiet: bool=False):
-        ''''Shows a setting in the basic or extended configuration file.
+        '''Shows a setting in the basic or extended configuration file.
 
         Usage options:
 
