@@ -1,4 +1,4 @@
-import time
+import time, re
 from decimal import Decimal
 import pypeerassets as pa
 from typing import Optional, Union
@@ -314,6 +314,25 @@ def is_possible_txid(txid: str) -> bool:
 
     except (ValueError, AssertionError):
         return False
+
+def is_possible_base58_address(address: str, network_name: str):
+    """Very simple address format validation, without checksum test."""
+
+    not_b58 = re.compile(r"[^123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]")
+    network = net_query(network_name)
+
+    if address[0] not in network.base58_prefixes:
+        return False
+    elif re.search(not_b58, address):
+        return False
+    else:
+        return True
+
+def is_possible_address(address: str, network_name: str=Settings.network):
+    try:
+        assert is_possible_base58_address(address, network_name)
+    except AssertionError:
+        raise ei.PacliInputDataError("No valid address string or non-existing label.")
 
 '''def find_tx_senders(tx: dict) -> list:
     """Finds all known senders of a transaction."""

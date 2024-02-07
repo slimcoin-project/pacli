@@ -291,28 +291,35 @@ class ExtAddress:
              coinbalances: bool=False,
              labels: bool=False,
              full_labels: bool=False,
-             no_labels: bool=False,
+             named: bool=False,
+             without_labels: bool=False,
              only_labels: bool=False,
              quiet: bool=False,
-             network: str=Settings.network,
+             blockchain: str=Settings.network,
              debug: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
-        By default, shows a table of all stored addresses and those which contain coins, PoD and PoB tokens.
 
-        Usage:
+        Usage options:
 
         pacli address list [options]
 
+        Shows a table of all stored addresses and those which contain coins, PoD and PoB tokens
+
+        pacli address list [-a/--advanced] [options]
+
+        Shows a JSON string of all stored addresses and all or some tokens
+
         Options:
 
+        -n, --named: Shows only addresses which were named with a label.
         -a, --advanced: Shows all token balances (in JSON format)
         -k, --keyring: Uses the keyring of your operating system.
         -c, --coinbalances: Only shows coin balances, not tokens (faster).
         -l, --labels: Shows the labels of the addresses.
         -o, --only_labels: Do not show addresses, only labels.
         -q, --quiet: Suppress output, printout in script-friendly way.
-        --no_labels: Do not show labels, only addresses.
-        --network NETWORK: Limit the results to those for a specific network (e.g. tslm)
+        -w, --without_labels: Do not show labels, only addresses.
+        -b, --blockchain NETWORK: Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
 
         Debugging options:
 
@@ -320,8 +327,10 @@ class ExtAddress:
         -f, --full_labels: Shows labels with prefix.
 
         """
+        # TODO: P2TH addresses should normally not be shown, implement a flag for them.
+        # TODO: Docstring is misleading, some options are only available for --advanced. Look which can be harmonized and which must be properly documented.
 
-        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=no_labels, only_labels=only_labels, quiet=quiet, network=network, debug=debug)
+        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, network=blockchain, debug=debug)
 
     def __list(self,
                advanced: bool=False,
@@ -331,6 +340,7 @@ class ExtAddress:
                full_labels: bool=False,
                no_labels: bool=False,
                only_labels: bool=False,
+               named: bool=False,
                quiet: bool=False,
                network: str=Settings.network,
                debug: bool=False):
@@ -338,7 +348,7 @@ class ExtAddress:
         if coinbalances or labels or full_labels:
             # TODO: doesn't seem towork with keyring.
             # ex tools show_addresses
-            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring)
+            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named)
             # address_labels = ce.get_config()["address"]
 
             if labels or full_labels:
@@ -369,6 +379,7 @@ class ExtAddress:
                                           "address" : address,
                                           "network" : network_name,
                                           "balance" : balance})
+
                 ei.print_address_list(addresses)
                 return
         else:
@@ -382,6 +393,7 @@ class ExtAddress:
                                   only_tokens=False,
                                   advanced=advanced,
                                   only_labels=only_labels,
+                                  named=named,
                                   quiet=quiet,
                                   debug=debug)
 

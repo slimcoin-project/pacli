@@ -63,7 +63,7 @@ def show_stored_address(label: str, network_name: str=Settings.network, keyring:
     else:
         return get_address(str(label), network_name=network_name, noprefix=noprefix)
 
-def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=True) -> str:
+def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=True, network_name: str=Settings.network) -> str:
     """Allows to use a label or an address; you'll get an address back."""
     # TODO: once all commands are equipped with --keyring flag put try_alternative to False.
     try:
@@ -74,10 +74,13 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
             assert (not keyring) and try_alternative
             address = show_stored_address(addr_string, keyring=True, raise_if_invalid_label=True)
             assert address is not None
+            result = address
         except (TypeError, AssertionError):
             # TODO: we don't check here if the addr_string is a valid address.
-            return addr_string
-    return address
+            result = addr_string
+
+    eu.is_possible_address(result, network_name)
+    return result
 
 def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
     if keyring:
@@ -206,7 +209,7 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
                 if not empty:
                     if provider.getbalance(address) == 0:
                         continue
-                label = "(unlabeled{})".format(str(counter))
+                label = "{}_(unlabeled{})".format(prefix, str(counter))
 
                 result.update({ label : address })
                 counter += 1

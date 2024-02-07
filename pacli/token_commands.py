@@ -18,13 +18,14 @@ def get_default_tokens():
     return decks
 
 
-def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, debug: bool=False):
+def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, named: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, debug: bool=False):
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
     # TODO: re-check if addresses without labels are shown (simply send tokens to a random non-label address)
-
     # TODO deck_type is not userfriendly, perhaps increase friendlyness to allow calling that on CLI
+
+
     # with a human_readable type.
     if not advanced:
         # the quick mode displays only default PoB and PoD decks
@@ -36,7 +37,7 @@ def all_balances(address: str=Settings.key.address, wallet: bool=False, keyring:
                                         Settings.production)
 
     if wallet and not no_labels:
-        labeldict = ec.get_labels_and_addresses(keyring=keyring)
+        labeldict = ec.get_labels_and_addresses(keyring=keyring, named=named)
 
     if only_tokens:
         balances = {}
