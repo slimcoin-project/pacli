@@ -102,19 +102,26 @@ def write_config(config, configfilename: str=EXT_CONFIGFILE):
 
 def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
-    return config[category].get(str(key))
+    try:
+        result = config[category].get(str(key))
+    except KeyError:
+        raise ei.PacliInputDataError("Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'.")
+    return result
+
 
 def delete_item(category: str, label: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, network_name: str=Settings.network, debug: bool=False, quiet: bool=False):
     config = get_config(configfilename)
 
     key = network_name + "_" + label if category == "address" else label
     try:
+        assert (category in config)
         if not quiet:
             print("WARNING: deleting item from category {}, label: {}, complete key: {}, value: {}".format(category, label, key, config[category][key]))
-
         del config[category][key]
     except KeyError:
         raise ei.PacliInputDataError("No item with this key. Nothing was deleted.")
+    except AssertionError:
+        raise ei.PacliInputDataError("Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'.")
 
     if not now:
         print("This is a dry run. Use --now to delete irrecoverabily.")

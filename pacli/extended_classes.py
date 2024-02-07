@@ -98,8 +98,8 @@ class ExtConfig:
 
 
     def show(self,
-             category,
-             label_or_value,
+             label_or_value: str,
+             category: str=None,
              extended: bool=False,
              label: bool=False,
              find: bool=False,
@@ -108,17 +108,47 @@ class ExtConfig:
 
         Usage options:
 
-        pacli config show CATEGORY LABEL [options]
-        pacli config show CATEGORY VALUE --find
-        pacli config show CATEGORY VALUE --label
+        pacli config show LABEL
 
-        Options and flags:
+        Shows setting in the basic configuration file.
 
-        -e, --extended: Show a setting of the extended config file.
-        -l, --label: Shows the label(s) stored for an existing value.
-        -f, --find: Searches for a part of a value and if found, shows matching label(s).
+        pacli config show LABEL CATEGORY [options] -e/--extended
+
+        Shows setting in the extended configuration file.
+
+        pacli config show VALUE CATEGORY -e/extended -f/--find
+        pacli config show VALUE CATEGORY -e/extended -l/--label
+
+        Searches a value and prints out existing labels for it (only in combination with -e/--extended).
+        The -f/--find option allows to search for parts of the value string, while the -l/--label option only accepts exact matches.
+
+        The CATEGORY value refers to a category in the extended config file.
+        Get all categories with:
+
+        Other flags:
+
         -q, --quiet: Suppress output, printout in script-friendly way.'''
-        # show --extended` (replaces `tools show_config`).
+
+        return ei.run_command(self.__show, label_or_value, category=category, extended=extended, label=label, find=find, quiet=quiet)
+
+
+    def __show(self,
+             label_or_value: str,
+             category: str=None,
+             extended: bool=False,
+             label: bool=False,
+             find: bool=False,
+             quiet: bool=False):
+
+        if not extended:
+            try:
+                if quiet:
+                   print(Settings.__dict__[label_or_value])
+                else:
+                   pprint(Settings.__dict__[label_or_value])
+            except KeyError:
+                raise ei.PacliInputDataError("This setting label does not exist in the basic configuration file.")
+            return
 
         if find:
             result = ei.run_command(ce.search_value_content, category, str(label_or_value))
@@ -137,14 +167,18 @@ class ExtConfig:
             pprint(result)
 
 
-    def list(self, extended: bool=False):
+    def list(self, extended: bool=False, categories: bool=False):
         """Shows current contents of the standard or extended configuration file.
 
-        Flag:
+        Flags:
         -e, --extended: Shows extended configuration file.
+        -c, --categories: Shows list of available categories.
         """
         if extended:
-            return ce.get_config()
+            if categories:
+                return [cat for cat in ce.get_config()]
+            else:
+                return ce.get_config()
         else:
             pprint(Settings.__dict__)
 
