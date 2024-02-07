@@ -429,7 +429,7 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
         try:
             result = [{ claim.txid : claim.__dict__[param] } for claim in claims]
         except KeyError:
-            raise ei.PacliInputDataError("This parameter does not exist in the JSON output of this mode.")
+            raise ei.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
     else:
         result = [{param_names["txid"] : claim.txid,
                    param_names["donation_txid"] : claim.donation_txid,

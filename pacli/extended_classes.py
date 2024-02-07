@@ -913,7 +913,7 @@ class ExtTransaction:
                 else:
                     pprint([{t["txid"] : t[param]} for t in txes])
             except KeyError:
-                raise ei.PacliInputDataError("This parameter does not exist in the JSON output of this mode.")
+                raise ei.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
         else:
             for txdict in txes:
                 pprint(txdict)
