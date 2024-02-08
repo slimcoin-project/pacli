@@ -359,7 +359,7 @@ def burn_address():
 # API commands
 
 def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
-    '''Shows all transactions from your wallet to the tracked address.'''
+    '''Shows all transactions from your wallet to an address.'''
 
     if burns:
          if not quiet:

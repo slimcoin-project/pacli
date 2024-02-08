@@ -30,7 +30,7 @@ class Checkpoint:
         Prunes several checkpoints. DEPTH indicates the block depth where checkpoints are to be kept.
         By default, the checkpoints of the 2000 most recent blocks are kept.
         The 5 newest checkpoints are always kept (they can be manually deleted).
-        If BLOCKHEIGHT is given without -a/--above_block, checpoints until this block height are pruned.
+        If BLOCKHEIGHT is given without -a/--above_block, checkpoints until this block height are pruned.
         If -a/--above_block is given, then checkpoints above the block height are pruned.
 
         Other flags:
