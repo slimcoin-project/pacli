@@ -231,7 +231,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     all_txids = set([t["txid"] for t in wallet_txes])
     all_wallet_txes = [provider.getrawtransaction(txid, 1) for txid in all_txids]
     if debug:
-       print(len(all_wallet_txes), "transactions found.")
+       print(len(all_wallet_txes), "wallet transactions found.")
     result = []
     processing = None
 
@@ -252,7 +252,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                 if wallet or (address in sender_dict["sender"]):
                     txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"], "confirmations": confs}
                     if debug:
-                        print("Added transaction", tx["txid"])
+                        print("Added transaction (sender or receiver detected):", tx["txid"])
                     result.append(txdict)
                     processing = tx["txid"]
                     break
@@ -275,8 +275,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                             if processing == tx["txid"]:
                                 break
                         if debug:
-                            print("Added transaction", tx["txid"])
-                            print("Processing:", processing)
+                            print("Added transaction (only receiver detected):", tx["txid"])
                         result.append(txdict)
                         break
                 except TypeError:
