@@ -233,9 +233,9 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     if debug:
        print(len(all_wallet_txes), "wallet transactions found.")
     result = []
-    processing = None
 
     for tx in all_wallet_txes:
+        txdict = None
         try:
             confs = tx["confirmations"]
         except KeyError:
@@ -248,16 +248,24 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                 senders = bx.find_tx_senders(tx)
             except KeyError: # coinbase tx or error
                 continue
+
+            value_sent = 0
             for sender_dict in senders:
                 if wallet or (address in sender_dict["sender"]):
-                    txdict = tx if advanced else {"txid" : tx["txid"], "type": "send", "value" : sender_dict["value"], "confirmations": confs}
-                    if debug:
-                        print("Added transaction (sender or receiver detected):", tx["txid"])
-                    result.append(txdict)
-                    processing = tx["txid"]
-                    break
-            else:
-                processing = None
+                    if debug and not wallet:
+                        print("Address detected as sender in transaction:", tx["txid"])
+                    value_sent += sender_dict["value"]
+                    # result.append(txdict)
+                    # processing = tx["txid"]
+                    # preliminary_txdict = txdict
+                    if txdict is None:
+                        txdict = tx if advanced else {"txid" : tx["txid"], "type": ["send"], "value_sent" : value_sent, "confirmations": confs}
+                        if advanced:
+                            break
+                    else:
+                        txdict.update({"value_sent" : value_sent})
+            #else:
+            #    txdict = None
 
         if received or all_txes:
             try:
@@ -266,20 +274,33 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                 if debug:
                     print("WARNING: Invalid transaction. TXID:", tx.get("txid"))
                 continue
+
+            value_received = 0
             for output in outputs:
                 out_addresses = output["scriptPubKey"].get("addresses")
                 try:
                     if wallet or (address in out_addresses):
-                        txdict = tx if advanced else {"txid" : tx["txid"], "type" : "receive", "value": output["value"], "confirmations": confs}
-                        if advanced:
-                            if processing == tx["txid"]:
-                                break
-                        if debug:
-                            print("Added transaction (only receiver detected):", tx["txid"])
-                        result.append(txdict)
+                        value_received += output["value"]
+                        if txdict is not None:
+                            if not advanced:
+                                txdict.update({"type" : ["send", "receive"]})
+                                txdict.update({"value_received" : value_received})
+                        else:
+                            txdict = tx if advanced else {"txid" : tx["txid"], "type" : ["receive"], "value_received": value_received, "confirmations": confs}
+
+                        if debug and not wallet:
+                            print("Address detected as receiver in transaction: {}. Received value in this output: {}".format(tx["txid"], output["value"]))
                         break
+
                 except TypeError:
                     continue
+
+
+
+        if txdict is not None:
+            result.append(txdict)
+
+
     if sort:
         result.sort(key=lambda x: x["confirmations"])
 
