@@ -91,6 +91,7 @@ def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
         # extended_config address category has only one entry per value
         # so we can pick the first item.
         try:
+            # TODO this is a bit inconsistent as it uses a function directly which should be private
             fulllabel = ce.search_value("address", address)[0]
         except IndexError:
             print("No label is assigned to that address.")

@@ -347,7 +347,7 @@ class Proposal:
             return self.__state(label_or_id, param=param, complete=advanced, simple=basic, quiet=quiet, search=find, debug=debug)
         elif find:
             return self.__find(label_or_id, advanced=advanced, shortid=miniid)
-        return ce.show("proposal", label_or_id)
+        return ce.show("proposal", label_or_id, quiet=quiet)
 
     def list(self,
              id_or_label: str=None,

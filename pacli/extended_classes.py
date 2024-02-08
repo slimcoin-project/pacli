@@ -156,11 +156,11 @@ class ExtConfig:
             """Shows a label for a value."""
             result = ei.run_command(ce.search_value, category, str(label_or_value))
         else:
-            result = ei.run_command(ce.show, category, label_or_value)
+            result = ei.run_command(ce.show, category, label_or_value, quiet=quiet)
 
-        if result is None and not quiet:
-            print("No label was found.")
-        elif quiet:
+        #if result is None and not quiet:
+        #    print("No label was found.")
+        if quiet:
             return result
         else:
             print("Label(s) stored for value {}:".format(label_or_value))
@@ -613,7 +613,7 @@ class ExtDeck:
         elif find:
             return ce.find("deck", deckstr, quiet=quiet)
         else:
-            return ce.show("deck", deckstr) # branch to tools show_deck
+            return ce.show("deck", deckstr, quiet=quiet)
 
     def init(self,
              idstr: str=None,
@@ -804,7 +804,7 @@ class ExtTransaction:
                 pprint(tx_structure)
 
         else:
-            result = ce.show("transaction", txid_or_label)
+            result = ce.show("transaction", txid_or_label, quiet=True)
             if result is None:
                 try:
                     result = provider.getrawtransaction(txid_or_label)
@@ -1022,14 +1022,17 @@ class ExtTransaction:
             utxo = "{}:{}".format(txid_or_oldlabel, str(output))
         return ce.setcfg("utxo", label, value=utxo, quiet=quiet, modify=modify)
 
-    def show_utxo(self, label: str) -> str:
+    def show_utxo(self, label: str, quiet: bool=False) -> str:
         """Shows a stored UTXO by its label.
 
         Usage:
 
-        pacli transaction show_utxo LABEL"""
+        pacli transaction show_utxo LABEL
 
-        return ce.show("utxo", label)
+        Flag:
+        -q, --quiet: Suppress additional output."""
+
+        return ce.show("utxo", label, quiet=quiet)
 
     def list_utxos(self, quiet: bool=False) -> None:
         """Shows all stored UTXOs and their labels.

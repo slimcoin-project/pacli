@@ -10,6 +10,9 @@ EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
 CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo"]
 CAT_INIT = {c : {} for c in CATEGORIES}
 
+# Common error messages
+ERR_NOCAT = "Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'."
+
 # modes:
 # "replace" : value gets replaced, key stays the same
 # "modify" : label gets replaced (entry is deleted and a new entry is generated)
@@ -105,7 +108,7 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
     try:
         result = config[category].get(str(key))
     except KeyError:
-        raise ei.PacliInputDataError("Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'.")
+        raise ei.PacliInputDataError(ERR_NOCAT)
     return result
 
 
@@ -121,7 +124,7 @@ def delete_item(category: str, label: str, now: bool=False, configfilename: str=
     except KeyError:
         raise ei.PacliInputDataError("No item with this key. Nothing was deleted.")
     except AssertionError:
-        raise ei.PacliInputDataError("Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'.")
+        raise ei.PacliInputDataError(ERR_NOCAT)
 
     if not now:
         print("This is a dry run. Use --now to delete irrecoverabily.")
@@ -137,7 +140,7 @@ def search_value(category: str, value: str, configfilename: str=EXT_CONFIGFILE):
         config = get_config(configfilename)
         return [ key for key in config[category] if config[category][key] == value ]
     except KeyError:
-        raise PacliInputDataError("Category does not exist.")
+        raise ei.PacliInputDataError(ERR_NOCAT)
 
 def search_value_content(category: str, searchstring: str, configfilename: str=EXT_CONFIGFILE):
     try:
@@ -149,7 +152,7 @@ def search_value_content(category: str, searchstring: str, configfilename: str=E
         return result
         # key = [ key for key in config[category] if searchstring in config[category][key] ]
     except KeyError:
-        raise PacliInputDataError("Category does not exist.")
+        raise ei.PacliInputDataError(ERR_NOCAT)
 
 def process_fulllabel(fulllabel):
     # uses the network_label format.
@@ -202,15 +205,18 @@ def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: 
 def setcfg(category: str, label: str, value: str, modify: bool=False, replace: bool=False, quiet: bool=False):
     return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet)
 
-def show(category: str, label: str):
+def show(category: str, label: str, quiet: bool=False):
     result = ei.run_command(read_item, category=category, key=label)
-    return result
+    if result is None and not quiet:
+        print("No entry was found for this label.")
+    else:
+        return result
 
 def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True):
     """Returns a list of matching labels if only a part of the value (content) is known."""
     result = ei.run_command(search_value_content, category, str(content))
     if not result and not quiet:
-        print("No label was found.")
+        print("No entry or label was found matching the search string.")
     elif quiet:
         return result
     else:
