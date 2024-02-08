@@ -12,7 +12,7 @@ class Checkpoint:
             prune: int=None,
             quiet: bool=False,
             now: bool=False,
-            above_block: bool=False) -> None:
+            remove_orphans: bool=False) -> None:
         """Store a checkpoint (block hash) for a given height or the current height (default).
 
         Usage:
@@ -25,13 +25,17 @@ class Checkpoint:
 
         Deletes a checkpoint corresponding to blockheight HEIGHT. Use --now to delete really.
 
-        pacli checkpoint set [BLOCKHEIGHT] -p/--prune [DEPTH] [-a/--above_block]
+        pacli checkpoint set [BLOCKHEIGHT] -p/--prune [DEPTH]
 
         Prunes several checkpoints. DEPTH indicates the block depth where checkpoints are to be kept.
         By default, the checkpoints of the 2000 most recent blocks are kept.
         The 5 newest checkpoints are always kept (they can be manually deleted).
-        If BLOCKHEIGHT is given without -a/--above_block, checkpoints until this block height are pruned.
-        If -a/--above_block is given, then checkpoints above the block height are pruned.
+        If BLOCKHEIGHT is given, checkpoints until this block height are pruned.
+
+        pacli checkpoint set -r/--remove_orphans
+
+        Prunes all checkpoints of orphan/stale blocks, and add additional checkpoints.
+        A block is considered orphan/stale if the block hash doesn't correspond with the stored checkpoint.
 
         Other flags:
 
@@ -39,11 +43,13 @@ class Checkpoint:
 
         if delete:
             return ce.delete_item("checkpoint", str(blockheight), now=now, quiet=quiet)
-        if prune:
+        elif prune:
             if type(prune) != int:
                 prune = 2000 # default value
             # TODO: this command is quite slow, optimize it.
-            return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, above_block=above_block, quiet=quiet)
+            return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, quiet=quiet)
+        elif remove_orphans:
+            return ei.run_command(remove_orphan_checkpoints, quiet=quiet)
         else:
             return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet)
 
@@ -120,16 +126,40 @@ def retrieve_all_checkpoints() -> dict:
     checkpoints = sorted(config["checkpoint"].items())
     return checkpoints
 
+def remove_orphan_checkpoints(quiet: bool=False) -> None:
+    checkpoints = ce.get_config()["checkpoint"]
+    orphans = 0
+    for bheight in checkpoints:
+        blockhash = provider.getblockhash(int(bheight))
+        if checkpoints[bheight] != blockhash:
+            if not quiet:
+                print("Deleting checkpoint of orphan/stale block:", bheight)
+            ce.delete_item("checkpoint", bheight, now=True, quiet=True)
+            orphans += 1
+    if not quiet:
+        print("{} checkpoints deleted.".format(orphans))
+
+    if orphans > 0: # if checkpoints where deleted, new ones are being added
+        current_block = provider.getblockcount()
+        store_checkpoint(current_block, quiet=quiet)
+        if len(ce.get_config()["checkpoint"]) < 5:
+            if current_block > 1000:
+                store_checkpoint(current_block - 1000, quiet=quiet)
+
+
 def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: bool=False, quiet: bool=False) -> None:
     checkpoints = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
     counter = 0
-
-    if above_block:
-        checkpoints.sort(reverse=True)
-    else:
-        checkpoints.sort()
-    # print(checkpoints)
     current_block = provider.getblockcount()
+
+    #if above_block:
+    #    checkpoints.sort(reverse=True)
+    #    minimum_checkpoints = 0
+    #else:
+    checkpoints.sort()
+    minimum_checkpoints = 5
+    # print(checkpoints)
+
     index = 0
     if blockheight is None:
         limit_block = current_block - depth
@@ -143,7 +173,7 @@ def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: b
             print("Pruning checkpoints up to block {} (current block: {}).".format(limit_block, current_block))
             if not blockheight:
                 print("Depth: {} ".format(depth, current_block))
-    while len(ce.get_config()["checkpoint"]) > 5: # leave at least 5 checkpoints intact
+    while len(ce.get_config()["checkpoint"]) > minimum_checkpoints: # leave at least 5 checkpoints intact
         c = checkpoints[index]
 
         if (above_block and c >= limit_block) or ((not above_block) and (c <= limit_block)):
@@ -156,9 +186,17 @@ def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: b
             break # as checkpoints are sorted, we break out.
         index += 1
 
+    #if above_block:
+    #    # renewing the checkpoint list, storing at least 2 checkpoints
+    #    store_checkpoint(current_block)
+    #    if current_block > 1000:
+    #        store_checkpoint(current_block - 1000)
+    #    if current_block > 2000:
+    #        store_checkpoint(current_block - 2000)
+
     if not quiet:
         checkpoints_new = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
-        print("{} checkpoints deleted. {} checkpoints preserved (minimum: 5).".format(counter, len(checkpoints_new)))
+        print("{} checkpoints deleted. {} checkpoints preserved (minimum: {}).".format(counter, len(checkpoints_new), minimum_checkpoints))
 
 def reorg_check(quiet: bool=False) -> None:
     if not quiet:
