@@ -41,7 +41,7 @@ class ExtConfig:
             replace: bool=False,
             now: bool=False,
             quiet: bool=False) -> None:
-        '''Changes configuration settings.
+        """Changes configuration settings.
 
            Usage modes:
 
@@ -62,9 +62,15 @@ class ExtConfig:
 
            Modifies a setting.
 
-           Other options and flags:
+           Args:
 
-           -q, --quiet: Suppress output, printout in script-friendly way.'''
+             extended: Use the extendid configuration file.
+             replace: Replaces the label of a setting.
+             modify: Modify the value a setting.
+             category: Define the category of settings.
+             delete: Delete a setting.
+             now: Really delete a setting, in combination with -d/--delete.
+             quiet: Suppress output, printout in script-friendly way."""
 
         return ei.run_command(self.__set, label, value=value, category=category, extended=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
 
@@ -104,7 +110,7 @@ class ExtConfig:
              label: bool=False,
              find: bool=False,
              quiet: bool=False):
-        '''Shows a setting in the basic or extended configuration file.
+        """Shows a setting in the basic or extended configuration file.
 
         Usage options:
 
@@ -127,7 +133,7 @@ class ExtConfig:
 
         Other flags:
 
-        -q, --quiet: Suppress output, printout in script-friendly way.'''
+        -q, --quiet: Suppress output, printout in script-friendly way."""
 
         return ei.run_command(self.__show, label_or_value, category=category, extended=extended, label=label, find=find, quiet=quiet)
 
@@ -270,11 +276,11 @@ class ExtAddress:
             return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, quiet=quiet)
 
         elif delete:
-            '''deletes a key with an user-defined label. Cannot be used to delete main key.'''
+            """deletes a key with an user-defined label. Cannot be used to delete main key."""
             return ec.delete_label(label, keyring=keyring, now=now)
 
         elif account is not None:
-            ''''''
+            """"""
             return ke.import_key_to_wallet(account, label)
 
         elif address is not None: # ex: tools store_address
@@ -285,7 +291,7 @@ class ExtAddress:
                 print("Stored address {} with label {}.".format(address, label))
 
         else: # set_main
-            '''Declares a key identified by a label as the main one.'''
+            """Declares a key identified by a label as the main one."""
             return ec.set_main_key(label, backup=None, keyring=keyring, quiet=quiet)
 
 
@@ -326,15 +332,15 @@ class ExtAddress:
 
 
         if label:
-            '''Shows the label of the current main address, or of another address.'''
+            """Shows the label of the current main address, or of another address."""
             # TODO: evaluate if the output should really include label AND address, like in the old command.
             if not addr_id:
                 addr_id = Settings.key.address
             return ei.run_command(ec.show_label, addr_id, keyring=keyring)
 
         elif addr_id is not None:
-            '''Shows a stored alternative address or key.
-            --privkey, --pubkey and --wif options only work with --keyring.'''
+            """Shows a stored alternative address or key.
+            --privkey, --pubkey and --wif options only work with --keyring."""
 
             return ei.run_command(ec.show_stored_address, addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
 
@@ -1011,7 +1017,7 @@ class ExtTransaction:
 
         Flags:
 
-        -- quiet: Supresses output, printout in script-friendly way."""
+        --quiet: Supresses output, printout in script-friendly way."""
 
         if delete:
             return ce.delete("utxo", str(label), now=now)
