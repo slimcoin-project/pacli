@@ -1,3 +1,5 @@
+import datetime
+from typing import Union
 import pypeerassets as pa
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
@@ -49,7 +51,7 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, quiet: bool=False, coinbase: bool=False, advanced: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, debug: bool=False) -> list:
 
     if not endblock:
         endblock = provider.getblockcount()
@@ -132,16 +134,64 @@ def find_tx_senders(tx: dict) -> list:
     return senders
 
 
-def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: int=0, end: int=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
-    '''Show all transactions to a tracked address between two block heights (very slow!).'''
+def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=0, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
+    '''Show all transactions to a tracked address between two block heights (very slow!).
+       start and end can be blockheights or dates in the format YYYY-MM-DD.'''
 
     if burns:
          if not quiet:
              print("Using burn address.")
          receiving_address = au.burn_address()
+    try:
+        if "-" in str(start):
+            startdate = datetime.date.fromisoformat(start)
+            startblock = date_to_blockheight(startdate, debug=debug)
+        else:
+            startblock = int(start)
+        if not quiet:
+            print("Starting at block:", startblock)
+
+        if "-" in str(end):
+            enddate = datetime.date.fromisoformat(end)
+            # The date_to_blockheight function always returns the first block after the given date
+            # so the end block has to be one day later, minus 1 block
+            oneday = datetime.timedelta(days=1)
+            endblock = date_to_blockheight(enddate + oneday, startheight=startblock, debug=debug) - 1
+        else:
+            endblock = int(end)
+        if not quiet:
+             print("Ending at block:", endblock)
+    except (IndexError, ValueError):
+        raise ei.PacliInputDataError("At least one of the dates you entered is invalid.")
+
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=start, endblock=end, coinbase=coinbase, quiet=quiet, debug=debug)
+    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug)
 
     return txes
+
+
+def date_to_blockheight(date: datetime.date, startheight: int=0, debug: bool=False):
+    """Returns the first block created after 00:00 UTC the given date.
+       This means the block can also be created at a later date (e.g. in testnets with irregular block creation)."""
+    # block time format: 2022-04-26 20:31:22 UTC
+    blockheight = startheight
+    last_block = provider.getblockcount()
+
+    for step in 1000000, 100000, 10000, 1000, 100, 10, 1:
+        if step > last_block:
+            continue
+        for bh in range(blockheight, last_block, step):
+            blocktime = provider.getblock(provider.getblockhash(bh))["time"]
+            block_date = datetime.date.fromisoformat(blocktime.split(" ")[0])
+
+            if block_date >= date:
+                blockheight = bh - step + (step // 10)
+                break
+
+        if step == 1 and block_date >= date:
+            if debug:
+                print("Best block found", bh, blocktime, date)
+            break
+    return bh
 

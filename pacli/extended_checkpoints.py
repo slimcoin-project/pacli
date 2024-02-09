@@ -151,14 +151,8 @@ def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: b
     checkpoints = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
     counter = 0
     current_block = provider.getblockcount()
-
-    #if above_block:
-    #    checkpoints.sort(reverse=True)
-    #    minimum_checkpoints = 0
-    #else:
     checkpoints.sort()
     minimum_checkpoints = 5
-    # print(checkpoints)
 
     index = 0
     if blockheight is None:
@@ -185,14 +179,6 @@ def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: b
         else:
             break # as checkpoints are sorted, we break out.
         index += 1
-
-    #if above_block:
-    #    # renewing the checkpoint list, storing at least 2 checkpoints
-    #    store_checkpoint(current_block)
-    #    if current_block > 1000:
-    #        store_checkpoint(current_block - 1000)
-    #    if current_block > 2000:
-    #        store_checkpoint(current_block - 2000)
 
     if not quiet:
         checkpoints_new = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
