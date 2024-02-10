@@ -711,11 +711,15 @@ class ExtTransaction:
             quiet: bool=False) -> None:
         """Stores a transaction with label and hex string.
 
-           Usage:
+           Usage modes:
 
            pacli transaction set LABEL TX_HEX
 
            Stores hex string of transaction (TX_HEX) together with label LABEL.
+
+           pacli transaction ste LABEL TXID
+
+           Stores hex string of transaction identified by the given TXID.
 
            pacli transaction set TX_HEX
 
@@ -753,14 +757,18 @@ class ExtTransaction:
             if not quiet:
                 print("No label provided, TXID is used as label.")
         else:
-            value = tx
+            try:
+                # if "tx" is a TXID, get the transaction hex from blockchain
+                value = provider.getrawtransaction(tx)
+            except:
+                value = tx
 
         if not modify:
             # we can't do this check with modify enabled, as the value here isn't a TXHEX
             try:
                 txid = provider.decoderawtransaction(value)["txid"]
             except KeyError:
-                raise ei.PacliInputDataError("Invalid transaction hex string.")
+                raise ei.PacliInputDataError("Invalid value. This is neither a valid transaction hex string nor a valid TXID.")
 
         label = txid if tx is None else label_or_tx
 
@@ -884,9 +892,10 @@ class ExtTransaction:
             List token claim transactions.
             DECK can be a label or a deck ID.
 
-        pacli transaction list --all [--burns | --reftxes] [--sender=SENDER] [--receiver=RECEIVER] --start=STARTBLOCK --end=ENDBLOCK
+        pacli transaction list --all [--burns | --reftxes] [--sender=SENDER] [--receiver=RECEIVER] --start=START --end=END
 
             Block explorer mode: List all transactions between two block heights. WARNING: VERY SLOW if used with large block height ranges!
+            START and END can be block heights or the dates of the block timestamps (in format YYYY-MM-DD).
             Note: In this mode, --sender and --receiver can be any address, not only wallet addresses.
 
 
