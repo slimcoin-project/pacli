@@ -18,6 +18,8 @@ from pacli.utils import (sendtx, cointoolkit_verify)
 
 # Utils which are used by both at and dt (and perhaps normal) tokens.
 
+# Deck tools
+
 def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None):
     """Creates a Protobuf datastring with the deck metadata."""
 
@@ -46,6 +48,26 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
     data = serialize_deck_extended_data(net_query(provider.network), params=params)
     return data
 
+def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
+                        confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
+    """Alternative function for deck spawns. Allows p2pk inputs."""
+
+    network = Settings.network
+    production = Settings.production
+    version = Settings.deck_version
+
+    new_deck = pa.Deck(name, number_of_decimals, issue_mode, network,
+                           production, version, asset_specific_data)
+
+    spawn_tx = pa.deck_spawn(provider=provider,
+                          inputs=provider.select_inputs(Settings.key.address, 0.02),
+                          deck=new_deck,
+                          change_address=change_address,
+                          locktime=locktime
+                          )
+    return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, send=send)
+
+
 def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=True, quiet: bool=False, debug: bool=False):
     """Initializes a 'common' deck (also AT/PoB). dPoD decks need further initialization of more P2TH addresses."""
 
@@ -71,6 +93,26 @@ def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=Tru
     if not quiet:
         print("Done.")
 
+
+def get_deckinfo(deckid, p2th: bool=False):
+    """Returns basic deck info dictionary, optionally with P2TH addresses for dPoD tokens."""
+    d = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    d_dict = d.__dict__
+    if p2th:
+        print("Showing P2TH addresses.")
+        # the following code generates the addresses, so it's not necessary to add them to the dict.
+        # TODO shouldn't it be possible simply to use a list?
+        p2th_dict = {"p2th_main": d.p2th_address,
+                      "p2th_proposal" : d.derived_p2th_address("proposal"),
+                      "p2th_signalling" : d.derived_p2th_address("signalling"),
+                      "p2th_locking" : d.derived_p2th_address("locking"),
+                      "p2th_donation" : d.derived_p2th_address("donation"),
+                      "p2th_voting" : d.derived_p2th_address("voting")}
+        # d_dict.update(p2th_dict)
+    return d_dict
+
+# Transaction signing and sending tools
+
 def signtx_by_key(rawtx, label=None, key=None):
     """Allows to sign a transaction with a different than the main key."""
 
@@ -81,23 +123,6 @@ def signtx_by_key(rawtx, label=None, key=None):
            raise ei.PacliInputDataError("No key nor label provided.")
 
     return sign_transaction(provider, rawtx, key)
-
-def get_input_types(rawtx):
-    """Gets the types of ScriptPubKey inputs of a transaction.
-       Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,
-       because it manages input selection (RpcNode.select_inputs)"""
-    input_types = []
-    try:
-        for inp in rawtx.ins:
-            prev_tx = provider.getrawtransaction(inp.txid, 1)
-            prev_out = prev_tx["vout"][inp.txout]
-            input_types.append(prev_out["scriptPubKey"]["type"])
-
-        return input_types
-
-    except KeyError:
-        raise ei.PacliInputDataError("Transaction data not correctly given.")
-
 
 def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, confirm: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, save: bool=False, debug: bool=False, quiet: bool=False) -> object:
     """Final steps of a transaction creation. Checks, verifies, signs and sends the transaction, and waits for confirmation if the 'confirm' option is used."""
@@ -180,6 +205,8 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
     return { dict_key : tx_hex }
 
 
+# Transaction retrieval tools
+
 def get_wallet_transactions(fburntx: bool=False):
     """Gets all transactions stored in the wallet."""
     start = 0
@@ -202,6 +229,25 @@ def find_transaction_by_string(searchstring: str, only_start: bool=False):
        if (only_start and txid.startswith(searchstring)) or (searchstring in txid and not only_start):
            matches.append(txid)
     return matches
+
+def get_input_types(rawtx):
+    """Gets the types of ScriptPubKey inputs of a transaction.
+       Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,
+       because it manages input selection (RpcNode.select_inputs)"""
+    input_types = []
+    try:
+        for inp in rawtx.ins:
+            prev_tx = provider.getrawtransaction(inp.txid, 1)
+            prev_out = prev_tx["vout"][inp.txout]
+            input_types.append(prev_out["scriptPubKey"]["type"])
+
+        return input_types
+
+    except KeyError:
+        raise ei.PacliInputDataError("Transaction data not correctly given.")
+
+
+# CardTransfer tools
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
@@ -234,46 +280,28 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, confirm=confirm, debug=debug)
 
 
-def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
-                        confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
-    """Alternative function for deck spawns. Allows p2pk inputs."""
+def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
+    """Gets all valid CardIssues of a deck."""
+    # NOTE: Sender no longer necessary.
 
-    network = Settings.network
-    production = Settings.production
-    version = Settings.deck_version
+    wallet_txids = set([t["txid"] for t in get_wallet_transactions()]) if (only_wallet and not input_address) else None
 
-    new_deck = pa.Deck(name, number_of_decimals, issue_mode, network,
-                           production, version, asset_specific_data)
+    try:
+        cards = pa.find_all_valid_cards(provider, deck)
+        ds = pa.protocol.DeckState(cards)
+    except KeyError:
+        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli token init_deck DECK'")
 
-    spawn_tx = pa.deck_spawn(provider=provider,
-                          inputs=provider.select_inputs(Settings.key.address, 0.02),
-                          deck=new_deck,
-                          change_address=change_address,
-                          locktime=locktime
-                          )
-    return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, send=send)
+    claim_cards = []
+    for card in ds.valid_cards:
+        if card.type == "CardIssue":
+            if (input_address and (card.sender == input_address)) \
+            or (wallet_txids and (card.txid in wallet_txids)) \
+            or ((input_address is None) and not wallet_txids):
+                claim_cards.append(card)
+    return claim_cards
 
-
-def get_safe_block_timeframe(period_start, period_end, security_level=1):
-    """Returns a safe blockheight for TrackedTransactions to make reorg attacks less likely.
-    Security levels:
-
-    0 is very risky (5 to 95%, no minimum distance in blocks to period border)
-    1 is default (10 to 90%, 25 blocks minimum, equivalent to the recommended number of confirmations)
-    2 is safe (20 to 80%, 50 blocks minimum)
-    3 is very safe (30 to 70%, 100 blocks minimum)
-    4 is optimal (50%), always in the block closest to the middle of each period"""
-    security_levels = [(5, 0),
-                       (10, 25),
-                       (20, 50),
-                       (30, 100),
-                       (50, 0)]
-
-    period_length = period_end - period_start
-    level = security_levels[security_level]
-    safe_start = period_start + max(period_length * level[0], level[1])
-    safe_end = period_end - max(period_length * level[0], level[1])
-    return (safe_start, safe_end)
+# Transaction storage tools
 
 def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
     """Stores transaction in configuration file.
@@ -303,6 +331,35 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
                 raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
         else:
             raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
+
+
+# Misc tools
+
+def get_safe_block_timeframe(period_start, period_end, security_level=1):
+    """Returns a safe blockheight for TrackedTransactions to make reorg attacks less likely.
+    Security levels:
+
+    0 is very risky (5 to 95%, no minimum distance in blocks to period border)
+    1 is default (10 to 90%, 25 blocks minimum, equivalent to the recommended number of confirmations)
+    2 is safe (20 to 80%, 50 blocks minimum)
+    3 is very safe (30 to 70%, 100 blocks minimum)
+    4 is optimal (50%), always in the block closest to the middle of each period"""
+    security_levels = [(5, 0),
+                       (10, 25),
+                       (20, 50),
+                       (30, 100),
+                       (50, 0)]
+
+    period_length = period_end - period_start
+    level = security_levels[security_level]
+    safe_start = period_start + max(period_length * level[0], level[1])
+    safe_end = period_end - max(period_length * level[0], level[1])
+    return (safe_start, safe_end)
+
+def get_wallet_address_set() -> set:
+    """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
+    addr_entries = provider.listreceivedbyaddress(0, True)
+    return set([e["address"] for e in addr_entries])
 
 def is_possible_txid(txid: str) -> bool:
     """Very simple TXID format verification."""
@@ -334,22 +391,8 @@ def is_possible_address(address: str, network_name: str=Settings.network):
     except AssertionError:
         raise ei.PacliInputDataError("No valid address string or non-existing label.")
 
-'''def find_tx_senders(tx: dict) -> list:
-    """Finds all known senders of a transaction."""
-    # find_tx_sender from pypeerassets only finds the first sender.
-    # this variant returns a list of all input senders.
 
-    senders = []
-    for vin in tx["vin"]:
-        try:
-            sending_tx = provider.getrawtransaction(vin["txid"], 1)
-            vout = vin["vout"]
-            sender = sending_tx["vout"][vout]["scriptPubKey"]["addresses"]
-            value = sending_tx["vout"][vout]["value"]
-            senders.append({"sender" : sender, "value" : value})
-        except KeyError: # coinbase transactions
-            continue
-    return senders'''
+# General token tools
 
 def get_address_token_balance(deck: object, address: str) -> Decimal:
     """Gets token balance of a single deck of an address, as a Decimal value."""
@@ -376,12 +419,6 @@ def get_wallet_token_balances(deck: object) -> dict:
             balances.update({address : exponent_to_amount(state.balances[address], deck.number_of_decimals)})
 
     return balances
-
-def get_wallet_address_set() -> set:
-    """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
-    addr_entries = provider.listreceivedbyaddress(0, True)
-    return set([e["address"] for e in addr_entries])
-
 
 def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None, debug: bool=False):
     '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
@@ -438,43 +475,3 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
                    param_names["blocknum"] : claim.blocknum} for claim in claims]
 
     return result
-
-
-def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
-    """Gets all valid CardIssues of a deck."""
-    # NOTE: Sender no longer necessary.
-
-    wallet_txids = set([t["txid"] for t in get_wallet_transactions()]) if (only_wallet and not input_address) else None
-
-    try:
-        cards = pa.find_all_valid_cards(provider, deck)
-        ds = pa.protocol.DeckState(cards)
-    except KeyError:
-        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli token init_deck DECK'")
-
-    claim_cards = []
-    for card in ds.valid_cards:
-        if card.type == "CardIssue":
-            if (input_address and (card.sender == input_address)) \
-            or (wallet_txids and (card.txid in wallet_txids)) \
-            or ((input_address is None) and not wallet_txids):
-                claim_cards.append(card)
-    return claim_cards
-
-
-def get_deckinfo(deckid, p2th: bool=False):
-    """Returns basic deck info dictionary, optionally with P2TH addresses for dPoD tokens."""
-    d = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-    d_dict = d.__dict__
-    if p2th:
-        print("Showing P2TH addresses.")
-        # the following code generates the addresses, so it's not necessary to add them to the dict.
-        # TODO shouldn't it be possible simply to use a list?
-        p2th_dict = {"p2th_main": d.p2th_address,
-                      "p2th_proposal" : d.derived_p2th_address("proposal"),
-                      "p2th_signalling" : d.derived_p2th_address("signalling"),
-                      "p2th_locking" : d.derived_p2th_address("locking"),
-                      "p2th_donation" : d.derived_p2th_address("donation"),
-                      "p2th_voting" : d.derived_p2th_address("voting")}
-        # d_dict.update(p2th_dict)
-    return d_dict

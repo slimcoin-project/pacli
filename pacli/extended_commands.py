@@ -219,6 +219,27 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
     return result
 
 
+def store_addresses_from_keyring(network_name: str=Settings.network, replace: bool=False, quiet: bool=False, debug: bool=False) -> None:
+    """Stores all labels/addresses stored in the keyring in the extended config file."""
+    if not quiet:
+        print("Storing all addresses of network", network_name, "from keyring into extended config file.")
+        print("The config file will NOT store private keys. It only allows faster access to addresses.")
+    keyring_labels = ke.get_labels_from_keyring(network_name)
+    if debug:
+        print("Labels (with prefixes) retrieved from keyring:", keyring_labels)
+
+    for full_label in keyring_labels:
+        try:
+            store_address(full_label, full=True, replace=replace)
+        except ei.ValueExistsError:
+            if not quiet:
+                print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
+            continue
+
+
+# Transaction-related tools
+
+
 def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, sort: bool=False, wallet: bool=False, debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
     if not wallet:
@@ -306,24 +327,3 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
         result.sort(key=lambda x: x["confirmations"])
 
     return result
-
-
-def store_addresses_from_keyring(network_name: str=Settings.network, replace: bool=False, quiet: bool=False, debug: bool=False) -> None:
-    """Stores all labels/addresses stored in the keyring in the extended config file."""
-    if not quiet:
-        print("Storing all addresses of network", network_name, "from keyring into extended config file.")
-        print("The config file will NOT store private keys. It only allows faster access to addresses.")
-    keyring_labels = ke.get_labels_from_keyring(network_name)
-    if debug:
-        print("Labels (with prefixes) retrieved from keyring:", keyring_labels)
-
-    for full_label in keyring_labels:
-        try:
-            store_address(full_label, full=True, replace=replace)
-        except ei.ValueExistsError:
-            if not quiet:
-                print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
-            continue
-
-
-

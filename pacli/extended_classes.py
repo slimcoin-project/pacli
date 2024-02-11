@@ -544,6 +544,7 @@ class ExtDeck:
              dpodtoken: bool=False,
              attoken: bool=False,
              named: bool=False,
+             show_p2th: bool=False,
              quiet: bool=False):
         """Lists all decks (default), or those of a specified token type, or those with a stored label.
 
@@ -560,20 +561,38 @@ class ExtDeck:
         -p, --pobtoken: Only show PoB token decks.
         -d, --dpodtoken: Only show dPoD token decks.
         -a, --attoken: Only show AT token decks.
+        -s, --show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
 
         """
         # TODO: --pobtoken and --attoken currently show exactly the same decks. --pobtoken should only show PoB decks.
         # (vanilla command, but extended it replaces: `tools show_stored_decks`, `deck list` with --all flag, `pobtoken list_decks` with --pobtoken flag, and `podtoken list_decks` with --podtoken flag)
         if pobtoken or attoken:
-            ei.run_command(print_deck_list, dmu.list_decks_by_at_type(provider, c.ID_AT))
+            decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT)
         elif dpodtoken:
-            ei.run_command(print_deck_list, dmu.list_decks_by_at_type(provider, c.ID_DT))
+            decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
         elif named:
             """Shows all stored deck IDs and their labels."""
             return ce.list("deck", quiet=quiet)
         else:
             decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production)
+        if show_p2th:
+            if dpodtoken:
+                deck_dict = {d.id : {"deck_p2th" : d.p2th_address,
+                                     "proposal_p2th" : d.derived_p2th_address("donation"),
+                                     "voting_p2th" : d.derived_p2th_address("voting"),
+                                     "signalling_p2th" : d.derived_p2th_address("signalling"),
+                                     "locking_p2th" : d.derived_p2th_address("locking"),
+                                     "donation_p2th": d.derived_p2th_address("donation")}
+                                     for d in decks}
+
+            else:
+                deck_dict = {d.id : d.p2th_address for d in decks}
+            if quiet:
+                print(deck_dict)
+            else:
+                pprint(deck_dict)
+        else:
             print_deck_list(decks)
 
 
