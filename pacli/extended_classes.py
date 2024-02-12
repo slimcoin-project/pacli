@@ -34,8 +34,7 @@ class ExtConfig:
     def set(self,
             label: str,
             value: Union[str, bool]=None,
-            category: str=None,
-            extended: bool=False,
+            extended: str=None,
             delete: bool=False,
             modify: bool=False,
             replace: bool=False,
@@ -45,54 +44,55 @@ class ExtConfig:
 
            Usage modes:
 
-           pacli config set LABEL VALUE [-r/--replace] [options]
+           pacli config set LABEL VALUE [-e/--extended CATEGORY]
 
-           Adds or replaces (with -r/--replace) a setting in the basic configuration file (by default: pacli.conf).
+           Adds a setting in the basic configuration file (by default: pacli.conf)
+           or a category CATEGORY in the extended configuration file.
 
-           pacli config set LABEL VALUE CATEGORY -e/--extended [-r/--replace] [options]
+           pacli config set LABEL VALUE -r/--replace [-e/--extended CATEGORY]
 
-           Adds a or replaces (with -r/--replace) a setting in the extended configuration file.
+           Replaces the value of LABEL in the basic configuration file or in a
+           category CATEGORY of the extended configuration file.
 
-           pacli config set LABEL [-d/--delete] [-e/--extended -c/--category CATEGORY] [--now]
+           pacli config set LABEL -d/--delete [-e/--extended CATEGORY] [--now]
 
            Deletes a setting (by default: in the basic config file, with -e and -c in the extended config file).
            Use --now to really delete it, otherwise a dry run will be performed.
 
-           pacli config set NEW_LABEL OLD_LABEL -m
+           pacli config set NEW_LABEL OLD_LABEL -m [-e/--extended CATEGORY]
 
-           Modifies a setting.
+           Modifies a label (OLD_LABEL gets replaced by NEW_LABEL).
 
            Args:
 
              extended: Use the extendid configuration file.
-             replace: Replaces the label of a setting.
-             modify: Modify the value a setting.
-             category: Define the category of settings.
+             replace: Replaces the value of a setting.
+             modify: Modify the label of a setting.
              delete: Delete a setting.
              now: Really delete a setting, in combination with -d/--delete.
              quiet: Suppress output, printout in script-friendly way."""
 
-        return ei.run_command(self.__set, label, value=value, category=category, extended=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
+        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
 
     def __set(self,
               label: str,
               value: Union[str, bool]=None,
               category: str=None,
-              extended: bool=False,
               delete: bool=False,
               modify: bool=False,
               replace: bool=False,
               now: bool=False,
               quiet: bool=False) -> None:
 
-        if extended:
-            if not category:
-                pprint("You have to assign a category if modifying the extended config file.")
-            if delete:
-                return ce.delete(category, label=str(label), now=now)
+        if category is not None:
+            if type(category) != str:
+                # if -e is given without cat, it gets replaced by a bool value (True).
+                raise ei.PacliInputDataError("You have to provide a category if modifying the extended config file.")
             else:
-                return ce.setcfg(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
-
+                if delete:
+                    return ce.delete(category, label=str(label), now=now)
+                else:
+                    return ce.setcfg(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
         else:
             if value is None:
                 raise ei.PacliInputDataError("No value provided.")
@@ -105,8 +105,7 @@ class ExtConfig:
 
     def show(self,
              value_or_label: str,
-             category: str=None,
-             extended: bool=False,
+             extended: str=None,
              label: bool=False,
              find: bool=False,
              quiet: bool=False):
@@ -118,15 +117,16 @@ class ExtConfig:
 
         Shows setting in the basic configuration file.
 
-        pacli config show LABEL CATEGORY [options] -e/--extended
+        pacli config show LABEL -e/--extended CATEGORY [options]
 
-        Shows setting in the extended configuration file.
+        Shows setting in a category CATEGORY of the extended configuration file.
 
-        pacli config show VALUE CATEGORY -e/extended -f/--find
-        pacli config show VALUE CATEGORY -e/extended -l/--label
+        pacli config show VALUE -e/extended CATEGORY -f/--find
+        pacli config show VALUE -e/extended CATEGORY -l/--label
 
         Searches a value and prints out existing labels for it (only in combination with -e/--extended).
-        The -f/--find option allows to search for parts of the value string, while the -l/--label option only accepts exact matches.
+        The -f/--find option allows to search for parts of the value string,
+        while the -l/--label option only accepts exact matches (in analogy to 'address show --label').
 
         The CATEGORY value refers to a category in the extended config file.
         Get all categories with: `pacli config list -e -c`
@@ -135,18 +135,17 @@ class ExtConfig:
 
         -q, --quiet: Suppress output, printout in script-friendly way."""
 
-        return ei.run_command(self.__show, value_or_label, category=category, extended=extended, label=label, find=find, quiet=quiet)
+        return ei.run_command(self.__show, value_or_label, category=extended, label=label, find=find, quiet=quiet)
 
 
     def __show(self,
              value_or_label: str,
              category: str=None,
-             extended: bool=False,
              label: bool=False,
              find: bool=False,
              quiet: bool=False):
 
-        if not extended:
+        if category is None:
             try:
                 if quiet:
                    print(Settings.__dict__[value_or_label])
@@ -155,6 +154,9 @@ class ExtConfig:
             except KeyError:
                 raise ei.PacliInputDataError("This setting label does not exist in the basic configuration file.")
             return
+
+        elif type(category) != str:
+            raise ei.PacliInputDataError("You have to provide a category if showing the extended config file.")
 
         if find:
             result = ei.run_command(ce.search_value_content, category, str(value_or_label))

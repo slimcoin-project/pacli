@@ -41,6 +41,10 @@ def get_config(configfilename: str=EXT_CONFIGFILE, quiet: bool=False) -> dict:
 
 def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONFIGFILE, network_name: str=None, modify: bool=False, add: bool=False, replace: bool=False, quiet: bool=False, debug: bool=False) -> None:
 
+
+    # --modify: modifies a label (first argument is new label, old label or value is given as second argument)
+    # --replace: modifies a value associated with a label (first argument is label, new value is given as second argument)
+
     # to allow simple command line arguments and avoid additional per-command processing,
     # this listcomp generates the mode from the add and modify bool variables.
     # the True value at the end means that "protect" (MODES[-1]) is the default.
@@ -49,6 +53,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     config = get_config(configfilename)
 
     if mode == "modify":
+        # first, we look if the given value is an old key.
         if category == "address":
             old_key = network_name + "_" + value
             value_as_key = old_key in config[category]
@@ -56,7 +61,11 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
             value_as_key = value in config[category]
             old_key = value
 
-        if not value_as_key: # allows to modify labels directly
+        # If the value given is not an old key, we
+        # allow to modify labels searching for a value
+        # TODO is this really ideal this way?
+        # What if a typo determines a key is seen as a value?
+        if not value_as_key:
 
             matching_items = search_value(category, value)
             try:
