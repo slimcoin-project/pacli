@@ -257,6 +257,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     result = []
 
     for tx in all_wallet_txes:
+
         txdict = None
         try:
             confs = tx["confirmations"]

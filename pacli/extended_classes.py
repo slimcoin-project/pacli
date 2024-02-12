@@ -104,7 +104,7 @@ class ExtConfig:
 
 
     def show(self,
-             label_or_value: str,
+             value_or_label: str,
              category: str=None,
              extended: bool=False,
              label: bool=False,
@@ -135,11 +135,11 @@ class ExtConfig:
 
         -q, --quiet: Suppress output, printout in script-friendly way."""
 
-        return ei.run_command(self.__show, label_or_value, category=category, extended=extended, label=label, find=find, quiet=quiet)
+        return ei.run_command(self.__show, value_or_label, category=category, extended=extended, label=label, find=find, quiet=quiet)
 
 
     def __show(self,
-             label_or_value: str,
+             value_or_label: str,
              category: str=None,
              extended: bool=False,
              label: bool=False,
@@ -149,27 +149,27 @@ class ExtConfig:
         if not extended:
             try:
                 if quiet:
-                   print(Settings.__dict__[label_or_value])
+                   print(Settings.__dict__[value_or_label])
                 else:
-                   pprint(Settings.__dict__[label_or_value])
+                   pprint(Settings.__dict__[value_or_label])
             except KeyError:
                 raise ei.PacliInputDataError("This setting label does not exist in the basic configuration file.")
             return
 
         if find:
-            result = ei.run_command(ce.search_value_content, category, str(label_or_value))
+            result = ei.run_command(ce.search_value_content, category, str(value_or_label))
         elif label:
             """Shows a label for a value."""
-            result = ei.run_command(ce.search_value, category, str(label_or_value))
+            result = ei.run_command(ce.search_value, category, str(value_or_label))
         else:
-            result = ei.run_command(ce.show, category, label_or_value, quiet=quiet)
+            result = ei.run_command(ce.show, category, value_or_label, quiet=quiet)
 
         #if result is None and not quiet:
         #    print("No label was found.")
         if quiet:
             return result
         else:
-            print("Label(s) stored for value {}:".format(label_or_value))
+            print("Label(s) stored for value {}:".format(value_or_label))
             pprint(result)
 
 

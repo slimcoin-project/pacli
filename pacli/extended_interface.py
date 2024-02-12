@@ -38,13 +38,13 @@ def run_command(c, *args, **kwargs) -> object:
             raise
         sys.exit()
 
-    except (TypeError, AttributeError):
+    except TypeError:
 
         # a TypeError complaining is often raised if a deck wasn't initialized:
         # TypeError: argument of type 'NoneType' is not iterable
-        err_str = """\n        Error raised by PeerAssets.
+        err_str = """\n        General error raised by PeerAssets.
 
-        Probably the deck you specified didn't exist, or you need to initialize a deck.
+        If you gave a deck as an argument, a possible reason for this error is that you need to initialize the deck.
 
         To initialize the default decks, use:
 
@@ -58,10 +58,10 @@ def run_command(c, *args, **kwargs) -> object:
         if "debug" in kwargs.keys() and kwargs["debug"]:
             raise
         sys.exit()
-        raise
 
-    except ConnectionError:
-        print_red("Error: {} daemon is not running. Please start your client.".format(Settings.network.upper()))
+    #except requests.exceptions.ConnectionError:
+    #    # TODO: this doesn't catch it, it seems to be outside of the trace. Look if this can be catched somewhere, perhaps in __main__.
+    #    print_red("Error: {} daemon is not running. Please start your client.".format(Settings.network.upper()))
 
 def spinner(duration: int) -> None:
     '''Prints a "spinner" for a defined duration in seconds.'''
