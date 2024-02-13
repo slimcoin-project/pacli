@@ -63,14 +63,14 @@ class ExtConfig:
 
            Modifies a label (OLD_LABEL gets replaced by NEW_LABEL).
 
-           Args:
+           Options and flags:
 
-             extended: Use the extendid configuration file.
-             replace: Replaces the value of a setting.
-             modify: Modify the label of a setting.
-             delete: Delete a setting.
-             now: Really delete a setting, in combination with -d/--delete.
-             quiet: Suppress output, printout in script-friendly way."""
+           -e, --extended: Use the extendid configuration file.
+           -r, --replace: Replaces the value of a setting (mandatory to change settings in basic configuration file).
+           -m, --modify: Modify the label of a setting (only extended configuration file).
+           -d, --delete: Delete a setting (only extended configuration file).
+           --now: Really delete a setting, in combination with -d/--delete.
+           -q, --quiet: Suppress output, printout in script-friendly way."""
 
         return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
 
@@ -96,11 +96,17 @@ class ExtConfig:
         else:
             if value is None:
                 raise ei.PacliInputDataError("No value provided.")
+            if modify is True or delete is True:
+                raise ei.PacliInputDataError("Modifying labels or deleting them in the standard config file is not permitted.")
             if label not in default_conf.keys():
                 # raise ValueError({'error': 'Invalid setting key.'}) # ValueError added # this was mainly for compatibility.
-                raise ei.PacliInputDataError("Invalid setting key. This key doesn't exist in the standard configuration file.")
+                raise ei.PacliInputDataError("Invalid setting key. This label doesn't exist in the standard configuration file. See permitted labels with: 'config list -l'.")
+            if replace is False:
+                raise ei.PacliInputDataError("Basic settings can only be modified with the --replace/-r flag. New labels can't be added.")
 
-            write_settings(label, value)
+            if not quiet:
+                print("Changing basic setting: {} to value {}.".format(label, value))
+            write_settings(label, str(value))
 
 
     def show(self,
@@ -175,12 +181,13 @@ class ExtConfig:
             pprint(result)
 
 
-    def list(self, extended: bool=False, categories: bool=False):
-        """Shows current contents of the basic or extended configuration file.
+    def list(self, extended: bool=False, categories: bool=False, all_basic_settings: bool=False):
+        """Shows basic configuration settings or entries in the extended configuration file.
 
         Flags:
         -e, --extended: Shows extended configuration file.
         -c, --categories: Shows list of available categories (only in combination with -e/--extended).
+        -a, --all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents.
         """
         if extended is True:
             if categories is True:
@@ -189,8 +196,11 @@ class ExtConfig:
                 return ce.get_config()
         elif categories is True:
             print("Currently there are no different categories in the basic configuration file.")
-        else:
+        elif all_basic_settings is True:
             pprint(Settings.__dict__)
+        else:
+            settings = Settings.__dict__
+            pprint({s:settings[s] for s in settings if s in default_conf.keys()})
 
 
     def update_extended_categories(self, quiet: bool=False):
