@@ -63,23 +63,6 @@ class PoDToken(Token):
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data,
                              confirm=confirm, verify=verify, sign=sign, send=send)
 
-    '''def init_deck(self, deck: str, store_label: str=None) -> None:
-        """Initializes DT deck and imports all P2TH addresses into node.
-
-        Usage options:
-
-        pacli podtoken init_deck DECK
-
-        Only initialize the deck (DECK can be a deck ID or a label if it was already stored).
-
-        pacli podtoken init_deck DECK LABEL
-
-        Initialize deck DECK and store a label LABEL for it.
-        """
-
-        deckid = eu.search_for_stored_tx_label("deck", deck)
-        ei.run_command(dc.init_dt_deck, Settings.network, deckid, store_label=store_label)'''
-
 
     def deck_state(self, deck: str, debug: bool=False) -> None:
         '''Prints the DT deck state (the current state of the deck variables).
@@ -152,7 +135,7 @@ class PoDToken(Token):
             print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
             sign, send = False, False
 
-        if txhex:
+        if txhex is True:
             quiet = True
 
         asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=donation_state, proposer=proposer, force=force, debug=debug, quiet=quiet)
@@ -209,7 +192,7 @@ class PoDToken(Token):
 
         """
 
-        if my or (address is not None):
+        if (my is True) or (address is not None):
             return self.__my_votes(proposal_or_deck, address=address)
         else:
             return self.__get_votes(proposal_or_deck, debug=debug)
@@ -240,7 +223,7 @@ class Proposal:
     def __state(self, proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, quiet: bool=False, search: bool=False, debug: bool=False, ) -> None:
         '''Shows a single proposal state. You can search also for a short id (length 16 characters) or parts of the description.'''
 
-        if search:
+        if (search is True):
             pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True)[0]
         else:
             if len(proposal_string) == 16:
@@ -263,12 +246,12 @@ class Proposal:
                 di.prepare_dict({"result" : result})
                 pprint("Value of parameter {} for proposal {}:".format(param, proposal_id))
                 pprint(result)
-        elif quiet:
+        elif quiet is True:
             di.prepare_complete_collection(pdict)
             print(pdict)
-        elif simple:
+        elif simple is True:
             pprint(pdict)
-        elif complete:
+        elif complete is True:
             di.prepare_complete_collection(pdict)
             pprint(pdict)
         else:
@@ -339,13 +322,13 @@ class Proposal:
 
         """
 
-        if info:
+        if info is True:
             return self.__info(label_or_id)
-        elif state:
+        elif state is True:
             # note: --state and --find can be together.
             # proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, raw: bool=False, search: bool=False, debug: bool=False, ) -> None:
             return self.__state(label_or_id, param=param, complete=advanced, simple=basic, quiet=quiet, search=find, debug=debug)
-        elif find:
+        elif find is True:
             return self.__find(label_or_id, advanced=advanced, shortid=miniid)
         return ce.show("proposal", label_or_id, quiet=quiet)
 
@@ -538,16 +521,16 @@ class Proposal:
         NOTE: --end can give nothing as a result, if the last period (E) is chosen.
 
         '''
-        if start:
+        if start is True:
             mode = "start"
-        elif end:
+        elif end is True:
             mode = "end"
         else:
             mode = None
 
-        if all:
+        if all is True:
             return self.__all_periods(proposal, debug=debug)
-        elif period:
+        elif period is not None:
             return self.__get_period(proposal, period, mode=mode)
         else:
             return self.__current_period(proposal, blockheight=blockheight, show_blockheights=True, mode=mode, debug=debug)
@@ -656,7 +639,7 @@ class Proposal:
         # req_amount and periods in modifications is not strictly necessary, re-check this! TODO
 
         kwargs = locals()
-        if modify:
+        if modify is True:
             kwargs.update({"proposal" :  modify})
             del kwargs["modify"]
         del kwargs["self"]
@@ -808,12 +791,12 @@ class Donation:
 
         # you can use a label for your donation
 
-        if donation:
+        if donation is not None:
             dstate_id = eu.search_for_stored_tx_label("donation", donation)
             dstate = du.find_donation_state_by_string(dstate_id)
             deck = deck_from_ttx_txid(dstate_id)
             proposal_id = dstate.proposal_id
-        elif proposal:
+        elif proposal is not None:
             proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
             deck = deck_from_ttx_txid(proposal_id)
             proposal_state = get_proposal_state(provider, proposal_id=proposal_id)
@@ -822,7 +805,7 @@ class Donation:
             print("You must provide either a proposal state or a donation state.")
             return
 
-        if send:
+        if send is True:
             print("You selected to send your next transaction once the round has arrived.")
         else:
             print("This is a dry run, your transaction will not be sent. Use --send to send it.")
@@ -837,7 +820,7 @@ class Donation:
         period = du.get_period(proposal_id, deck)
         dist_round = du.get_dist_round(proposal_id, period=period)
 
-        if (not dstate) and (int(amount) > 0) and donor_label:
+        if (not dstate) and (int(amount) > 0) and (donor_label is not None):
             self.signal(proposal_id, amount, dest_label=donor_label)
         # if block heights correspond to a slot distribution round, decide if we do a locking or donation transaction
         elif dstate.dist_round == dist_round:
@@ -897,14 +880,14 @@ class Donation:
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
 
-        if wallet:
+        if wallet is True:
 
             all_dstates = ei.run_command(dmu.get_donation_states, provider, proposal_id, debug=debug)
             labels = ei.run_command(ec.get_all_labels, Settings.network, keyring=keyring)
             my_addresses = [ec.show_stored_address(label, network_name=Settings.network, noprefix=True, keyring=keyring) for label in labels]
             my_dstates = [d for d in all_dstates if d.donor_address in my_addresses]
 
-        elif all_matches:
+        elif all_matches is True:
             # Includes states where the current address is used as origin or intermediate address.
             my_dstates = dmu.get_donation_states(provider, proposal_id, address=address, debug=debug)
         else:
@@ -972,7 +955,7 @@ class Donation:
         # TODO: an option --wallet for the variant with DECK would be useful.
 
         if my:
-             if proposal:
+             if proposal is not None:
                  return ei.run_command(self.__my_donation_states, proposal, address=address, wallet=wallet, all_matches=all_matches, incomplete=incomplete, unclaimed=unclaimed, all=all, keyring=keyring, mode=mode, debug=debug)
              else:
                  deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_or_proposal)
@@ -1003,7 +986,7 @@ class Donation:
         --light: Faster mode, not displaying properties depending from deck state.
         '''
 
-        if proposal:
+        if proposal is not None:
 
             # ex check_all_tx
 
@@ -1029,7 +1012,7 @@ class Donation:
         # proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
 
-        if current:
+        if current is True:
             dist_round = ei.run_command(du.get_dist_round, proposal_id, pstate.deck)
             if dist_round is None:
                 raise ei.PacliInputDataError("Current block height isn't inside a distribution round. Please provide one, or don't use --current.")
@@ -1038,16 +1021,16 @@ class Donation:
         if dist_round is None:
             slots = []
             for rd, round_slot in enumerate(pstate.available_slot_amount):
-                if quiet:
+                if quiet is True:
                     slots.append(round_slot)
                 else:
                     pprint("Round {}: {}".format(rd, str(dmu.sats_to_coins(Decimal(round_slot), Settings.network))))
 
-            if quiet:
+            if quiet is True:
                 return slots
         else:
             slot = pstate.available_slot_amount[dist_round]
-            if quiet:
+            if quiet is True:
                 return slot
             else:
                 pprint("Available slot amount for round {}:".format(dist_round))
@@ -1102,12 +1085,12 @@ class Donation:
         if (dist_round is None) and (not quiet):
             print("Showing first slot where this address participated.")
 
-        if satoshi or quiet:
+        if (satoshi is True) or (quiet is True):
             slot = result["slot"]
         else:
             slot = du.sats_to_coins(result["slot"], Settings.network)
 
-        if quiet:
+        if quiet is True:
             return result
         else:
             print("Distribution round:", result["round"])

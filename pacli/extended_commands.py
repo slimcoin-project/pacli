@@ -240,9 +240,9 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
 # Transaction-related tools
 
 
-def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, sort: bool=False, wallet: bool=False, debug: bool=False) -> list:
+def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, sort: bool=False, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
-    if not wallet:
+    if not wallet and not raw:
         address = process_address(addr_string, keyring=keyring, try_alternative=False)
         if not address:
             raise ei.PacliInputDataError("You must provide either a valid address or a valid label.")
@@ -250,6 +250,8 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     all_txes = True if (not sent) and (not received) else False
 
     wallet_txes = eu.get_wallet_transactions()
+    if raw: # TODO: mainly debugging mode, maybe later remove again, or return the set (see below).
+        return [t["txid"] for t in wallet_txes]
     all_txids = set([t["txid"] for t in wallet_txes])
     all_wallet_txes = [provider.getrawtransaction(txid, 1) for txid in all_txids]
     if debug:

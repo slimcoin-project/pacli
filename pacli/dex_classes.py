@@ -117,7 +117,7 @@ class Dex:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         cards = pa.find_all_valid_cards(dxu.provider, deck)
         state = pa.protocol.DeckState(cards, cleanup_height=blockheight)
-        if raw:
+        if raw is True:
             return state.locks
         else:
             return dxu.prettyprint_locks(state.locks, blockheight)

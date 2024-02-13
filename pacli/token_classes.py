@@ -49,6 +49,7 @@ class Token:
 
         -t, --token_type: In combination with the second option, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
         -a, --advanced: In combination with the second option, shows balances of all tokens in JSON format.
+        -c, --common: Shows default tokens only.
         -o, --only_labels: In combination with the first or second option, don't show the addresses, only the labels.
         -n, --no_labels: In combination with the first or second option, don't show the labels, only the addresses.
         -k, --keyring: In combination with the first or second option, use an address stored in the keyring.
@@ -59,11 +60,11 @@ class Token:
         # allowed are: "at" / "pob", "dt" / "pod" (in all capitalizations)
 
 
-        if holders and param1:
+        if (holders is True) and (param1 is not None):
             from pacli.__main__ import Card
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
             return Card().balances(deckid)
-        elif (all or common):
+        elif (all is True) or (common is True):
             if (wallet, param1) == (None, None):
                 param1 = Settings.key.address
             # with --all flag, advanced mode is called;

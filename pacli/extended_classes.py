@@ -89,7 +89,7 @@ class ExtConfig:
                 # if -e is given without cat, it gets replaced by a bool value (True).
                 raise ei.PacliInputDataError("You have to provide a category if modifying the extended config file.")
             else:
-                if delete:
+                if delete is True:
                     return ce.delete(category, label=str(label), now=now)
                 else:
                     return ce.setcfg(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
@@ -147,7 +147,7 @@ class ExtConfig:
 
         if category is None:
             try:
-                if quiet:
+                if quiet is True:
                    print(Settings.__dict__[value_or_label])
                 else:
                    pprint(Settings.__dict__[value_or_label])
@@ -168,7 +168,7 @@ class ExtConfig:
 
         #if result is None and not quiet:
         #    print("No label was found.")
-        if quiet:
+        if quiet is True:
             return result
         else:
             print("Label(s) stored for value {}:".format(value_or_label))
@@ -182,8 +182,8 @@ class ExtConfig:
         -e, --extended: Shows extended configuration file.
         -c, --categories: Shows list of available categories (only in combination with -e/--extended).
         """
-        if extended:
-            if categories:
+        if extended is True:
+            if categories is True:
                 return [cat for cat in ce.get_config()]
             else:
                 return ce.get_config()
@@ -268,16 +268,16 @@ class ExtAddress:
             now: bool=False,
             import_all_keyring_addresses: bool=False):
 
-        if not label:
+        if label is None:
             if import_all_keyring_addresses:
                 return ec.store_addresses_from_keyring(quiet=quiet, replace=modify)
             else:
                 raise ei.PacliInputDataError("No label provided. See -h for options.")
 
-        elif new:
+        elif new is True:
             return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, quiet=quiet)
 
-        elif delete:
+        elif delete is True:
             """deletes a key with an user-defined label. Cannot be used to delete main key."""
             return ec.delete_label(label, keyring=keyring, now=now)
 
@@ -333,10 +333,10 @@ class ExtAddress:
         """
 
 
-        if label:
+        if label is True:
             """Shows the label of the current main address, or of another address."""
             # TODO: evaluate if the output should really include label AND address, like in the old command.
-            if not addr_id:
+            if addr_id is None:
                 addr_id = Settings.key.address
             return ei.run_command(ec.show_label, addr_id, keyring=keyring)
 
@@ -347,11 +347,11 @@ class ExtAddress:
             return ei.run_command(ec.show_stored_address, addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
 
         else:
-            if pubkey:
+            if pubkey is True:
                 return Settings.key.pubkey
-            if privkey:
+            if privkey is True:
                 return Settings.key.privkey
-            if wif:
+            if wif is True:
                 return Settings.key.wif
 
             return Settings.key.address
@@ -418,19 +418,19 @@ class ExtAddress:
                network: str=Settings.network,
                debug: bool=False):
 
-        if coinbalances or labels or full_labels:
+        if (coinbalances is True) or (labels is True) or (full_labels is True):
             # TODO: doesn't seem towork with keyring.
             # ex tools show_addresses
-            if labels or full_labels:
+            if (labels is True) or (full_labels is True):
                 named = True
             address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named)
 
-            if labels or full_labels:
-                if full_labels:
+            if (labels is True) or (full_labels is True):
+                if full_labels is True:
                     result = address_labels
                 else:
                     result = [{ke.format_label(l, keyring=keyring) : address_labels[l]} for l in address_labels]
-                if quiet:
+                if quiet is True:
                     return result
                 else:
                     pprint(result)
@@ -445,7 +445,7 @@ class ExtAddress:
                         balance = str(provider.getbalance(address))
                     except TypeError:
                         balance = "0"
-                        if debug:
+                        if debug is True:
                             print("No valid balance for address with label {}. Probably not a valid address.".format(label))
 
                     if balance != "0":
@@ -494,7 +494,7 @@ class ExtAddress:
 
         # REPLACES address balance
         # (unchanged from vanilla, but with wrapper for labels)
-        if label:
+        if label is not None:
             address = ei.run_command(ec.show_stored_address, label, keyring=keyring)
         elif address is None:
             address = Settings.key.address
@@ -535,7 +535,7 @@ class ExtDeck:
 
         # (replaces `tools store_deck` - is a power user command because most users would be fine with the default PoB and PoD token)
 
-        if delete:
+        if delete is True:
             return ce.delete("deck", label=str(label), now=now)
         else:
             return ce.setcfg("deck", label, deckid, modify=modify, quiet=quiet)
@@ -568,18 +568,18 @@ class ExtDeck:
         """
         # TODO: --pobtoken and --attoken currently show exactly the same decks. --pobtoken should only show PoB decks.
         # (vanilla command, but extended it replaces: `tools show_stored_decks`, `deck list` with --all flag, `pobtoken list_decks` with --pobtoken flag, and `podtoken list_decks` with --podtoken flag)
-        if pobtoken or attoken:
+        if (pobtoken is True) or (attoken is True):
             decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT)
-        elif dpodtoken:
+        elif dpodtoken is True:
             decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
-        elif named:
+        elif named is True:
             """Shows all stored deck IDs and their labels."""
             return ce.list("deck", quiet=quiet)
         else:
             decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production)
-        if show_p2th:
-            if dpodtoken:
+        if show_p2th is True:
+            if dpodtoken is True:
                 deck_dict = {d.id : {"deck_p2th" : d.p2th_address,
                                      "proposal_p2th" : d.derived_p2th_address("donation"),
                                      "voting_p2th" : d.derived_p2th_address("voting"),
@@ -590,7 +590,7 @@ class ExtDeck:
 
             else:
                 deck_dict = {d.id : d.p2th_address for d in decks}
-            if quiet:
+            if quiet is True:
                 print(deck_dict)
             else:
                 pprint(deck_dict)
@@ -622,22 +622,22 @@ class ExtDeck:
         -i, --info: Shows deck values.
         -f, --find: Searches for a string in the Deck ID.
         -q, --quiet: Suppress output, printout in script-friendly way.
-        --param: Shows a specific parameter (only in combination with --info).
+        --param PARAM: Shows a specific parameter (only in combination with --info).
         --p2th: Shows P2TH addresses (in combination with --info, only dPoD tokens)
         """
 
         #TODO: an option to search by name would be fine here.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
-        if info:
+        if info is True:
             deckid = eu.search_for_stored_tx_label("deck", deckstr)
             deckinfo = ei.run_command(eu.get_deckinfo, deckid, p2th)
 
-            if param:
+            if param is not None:
                 print(deckinfo.get(param))
             else:
                 pprint(deckinfo)
 
-        elif find:
+        elif find is True:
             return ce.find("deck", deckstr, quiet=quiet)
         else:
             return ce.show("deck", deckstr, quiet=quiet)
@@ -678,7 +678,7 @@ class ExtDeck:
             ei.run_command(dc.init_dt_deck, netw, dpod_deck, quiet=quiet)
         else:
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
-            if dpodtoken:
+            if dpodtoken is True:
                 ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, store_label=store_label)
             else:
                 ei.run_command(eu.init_deck, netw, deckid, quiet=quiet)
@@ -712,7 +712,7 @@ class ExtCard:
             # return err
             raise PacliInputDataError(err)
 
-        if valid:
+        if valid is True:
             result = pa.protocol.DeckState(cards).valid_cards
         else:
             result = cards
@@ -770,7 +770,7 @@ class ExtTransaction:
             now: bool=False,
             quiet: bool=False) -> None:
 
-        if delete:
+        if delete is True:
             return ce.delete("transaction", label=label_or_tx, now=now)
 
         if tx is None:
@@ -826,14 +826,14 @@ class ExtTransaction:
     def __show(self, txid_or_label: str, quiet: bool=False, structure: bool=False, decode: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
 
-        if structure:
+        if structure is True:
 
             if not eu.is_possible_txid(txid_or_label):
                 raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s mode currently doesn't support labels.")
 
             tx_structure = ei.run_command(bx.get_tx_structure, txid_or_label)
 
-            if quiet:
+            if quiet is True:
                 return tx_structure
             else:
                 pprint(tx_structure)
@@ -857,11 +857,11 @@ class ExtTransaction:
                 tx_decoded = {}
 
             if decode:
-                if quiet:
+                if quiet is True:
                     print(tx_decoded)
                 else:
                     pprint(tx_decoded)
-            elif quiet:
+            elif quiet is True:
                 return result
             else:
                 pprint(result)
@@ -885,6 +885,7 @@ class ExtTransaction:
              received: bool=False,
              receiver: str=None,
              reftxes: bool=None,
+             raw: bool=False,
              sender: str=None,
              sent: bool=False,
              start: bool=False,
@@ -934,6 +935,7 @@ class ExtTransaction:
         --count: Only count transactions, do not display them.
         -q, --quiet: Suppress additional output, printout in script-friendly way.
         -d, --debug: Provide debugging information.
+        --raw: Show raw output of the RPC commands (debugging option).
         -p, --param PARAMETER: Show the result of a specific parameter of the transaction.
               Possible parameters are all first-level keys of the dictionaries output by the distinct modes of this command.
               If used together with --advanced, the possible parametes are the first-level keys of the transaction JSON string,
@@ -966,7 +968,8 @@ class ExtTransaction:
              end: bool=False,
              count: bool=False,
              quiet: bool=False,
-             debug: bool=False) -> None:
+             debug: bool=False,
+             raw: bool=False) -> None:
         # TODO: Further harmonization: Results are now:
         # --all: tx_structure or tx JSON
         # --burns/--reftxes: custom dict with sender_label and sender_address
@@ -979,36 +982,37 @@ class ExtTransaction:
         if (not named) and (not quiet):
             print("Searching transactions (this can take several minutes) ...")
 
-        if all and (burns or reftxes):
-            txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, quiet=quiet, advanced=advanced, debug=debug, burns=burns)
-        elif all:
-            txes = bx.show_txes(sending_address=sender, receiving_address=receiver, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False)
-        elif burns:
+        if all is True:
+            if (burns is True) or (reftxes is True):
+                txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, quiet=quiet, advanced=advanced, debug=debug, burns=burns)
+            else:
+                txes = bx.show_txes(sending_address=sender, receiving_address=receiver, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False)
+        elif burns is True:
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
-        elif reftxes:
+        elif reftxes is True:
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
-        elif claims:
+        elif claims is True:
             txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param, debug=debug)
-        elif named:
+        elif named is True:
             """Shows all stored transactions and their labels."""
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
-            if advanced:
+            if advanced is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
-        elif wallet:
-            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, keyring=keyring)
+        elif wallet or raw:
+            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, keyring=keyring, raw=raw)
         else:
             """returns all transactions from or to that address in the wallet."""
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
             txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, sort=True, debug=debug)
 
-        if count:
+        if count is True:
             return len(txes)
-        elif quiet:
+        elif quiet is True:
             return txes
-        elif param and not claims:
+        elif (param is not None) and not claims:
             try:
-                if quiet:
+                if quiet is True:
                     return [{t["txid"] : t[param]} for t in txes]
                 else:
                     pprint([{t["txid"] : t[param]} for t in txes])
@@ -1049,10 +1053,10 @@ class ExtTransaction:
 
         --quiet: Supresses output, printout in script-friendly way."""
 
-        if delete:
+        if delete is True:
             return ce.delete("utxo", str(label), now=now)
 
-        if modify and (output is None):
+        if (modify is True) and (output is None):
             utxo = txid_or_oldlabel
         else:
             utxo = "{}:{}".format(txid_or_oldlabel, str(output))

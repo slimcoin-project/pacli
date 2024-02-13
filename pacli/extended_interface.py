@@ -52,7 +52,7 @@ def run_command(c, *args, **kwargs) -> object:
 
         To initialize a single deck, use:
 
-        pacli deck init DECKID [--podtoken]
+        pacli deck init DECKID [--dpodtoken]
         """
         print_red(err_str)
         if "debug" in kwargs.keys() and kwargs["debug"]:

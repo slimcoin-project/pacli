@@ -41,14 +41,14 @@ class Checkpoint:
 
         -q / --quiet: Suppress output."""
 
-        if delete:
+        if delete is True:
             return ce.delete_item("checkpoint", str(blockheight), now=now, quiet=quiet)
-        elif prune:
+        elif prune is True:
             if type(prune) != int:
                 prune = 2000 # default value
             # TODO: this command is quite slow, optimize it.
             return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, quiet=quiet)
-        elif remove_orphans:
+        elif remove_orphans is True:
             return ei.run_command(remove_orphan_checkpoints, quiet=quiet)
         else:
             return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet)

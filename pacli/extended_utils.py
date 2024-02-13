@@ -209,15 +209,21 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
 
 def get_wallet_transactions(fburntx: bool=False):
     """Gets all transactions stored in the wallet."""
+    # TODO/NOTE: The command now cycles through all accounts,
+    # despite on SLM this seems not working properly, this would be the correct path forward.
     start = 0
     raw_txes = []
-    while True:
-        new_txes = provider.listtransactions(many=999, since=start, fBurnTx=fburntx) # option fBurnTx=burntxes doesn't work as expected
-        raw_txes += new_txes
-        if len(new_txes) == 999:
-            start += 999
-        else:
-            break
+    # while True:
+    for account in provider.listaccounts():
+        # print("checking account", account)
+        while True:
+            new_txes = provider.listtransactions(many=999, since=start, fBurnTx=fburntx, account=account) # option fBurnTx=burntxes doesn't work as expected
+            # print("new txes:", new_txes)
+            raw_txes += new_txes
+            if len(new_txes) == 999:
+                start += 999
+            else:
+                break
     return raw_txes
 
 def find_transaction_by_string(searchstring: str, only_start: bool=False):

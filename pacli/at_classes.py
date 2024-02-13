@@ -99,8 +99,8 @@ class ATToken(Token):
         --debug: Show additional debug information.
         --force: Create the transaction even if the reward does not match the transaction (only for debugging!).'''
 
-        if payamount:
-            if payto:
+        if payamount is not None:
+            if payto is not None:
                 payto = ec.process_address(payto)
             else:
                 print("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
@@ -108,7 +108,7 @@ class ATToken(Token):
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        dec_payamount = Decimal(str(payamount)) if payamount else None
+        dec_payamount = Decimal(str(payamount)) if (payamount is not None) else None
         change_address = ec.process_address(change)
 
         asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data, deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=dec_payamount, debug=debug, force=force)
@@ -155,65 +155,6 @@ class ATToken(Token):
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, locktime=locktime, change_address=change_address, asset_specific_data=asset_specific_data,
                confirm=confirm, verify=verify, sign=sign, send=send)
-
-
-    """def deck_info(self, deck: str) -> None:
-        '''Prints AT-specific deck info.'''
-
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck)
-        ei.run_command(au.at_deckinfo, deckid)""" # part of deck show now
-
-    """@classmethod
-    def deck_list(self) -> None:
-        '''Prints list of AT decks'''
-
-        ei.run_command(print_deck_list, list_decks_by_at_type(provider, c.ID_AT))""" # part of deck list now
-
-    # Moved to extended_utils, is called from Transaction class (transaction list --claims)
-    """def show_claims(self, deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None):
-        '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
-
-        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
-
-        if type(self).__name__ == "PoBToken":
-            param_names.update({"donation_txid" : "Burn transaction"})
-        else:
-            param_names.update({"donation_txid" : "Referenced transaction"})
-
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        raw_claims = ei.run_command(eu.get_valid_cardissues, deck, input_address=address, only_wallet=wallet)
-        claim_txids = set([c.txid for c in raw_claims])
-        claims = []
-
-        for claim_txid in claim_txids:
-            bundle = [c for c in raw_claims if c.txid == claim_txid]
-            claim = bundle[0]
-            if len(bundle) > 1:
-                for b in bundle[1:]:
-                    claim.amount.append(b.amount[0])
-                    claim.receiver.append(b.receiver[0])
-            claims.append(claim)
-
-        for claim in claims:
-            if full:
-                pprint(claim.__dict__)
-
-            elif param:
-                pprint({ claim.txid : claim.__dict__[param] })
-            else:
-
-                claim_dict = {param_names["txid"] : claim.txid,
-                              param_names["donation_txid"] : claim.donation_txid,
-                              param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
-                              param_names["receiver"] : claim.receiver,
-                              param_names["blocknum"] : claim.blocknum}
-                pprint(claim_dict)
-
-    def all_my_balances(self, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_labels: bool=False, quiet: bool=False, advanced: bool=False, debug: bool=False):
-        '''Shows all valid AT/PoB token balances, ignoring other deck types.'''
-
-        return super().all_my_balances(address=address, deck_type=c.ID_AT, wallet=wallet, keyring=keyring, no_labels=no_labels, advanced=advanced, only_labels=only_labels, quiet=quiet, debug=debug)"""
 
 
 class PoBToken(ATToken):
@@ -263,20 +204,3 @@ class PoBToken(ATToken):
         --debug: Show additional debug information."""
 
         return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, quiet=quiet, debug=debug)
-
-    '''def my_burns(self, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, quiet: bool=False, debug: bool=False) -> None:
-        """List all burn transactions, of this address or the whole wallet (--wallet option).
-           --unclaimed shows only transactions which haven't been claimed yet."""
-
-        return super().my_txes(address=au.burn_address(), unclaimed=unclaimed, deck=deck, wallet=wallet, no_labels=no_labels, keyring=keyring, quiet=quiet, debug=debug)''' # part of transaction list
-
-
-    """@classmethod
-    def deck_list(self):
-        '''Prints list of AT decks'''
-
-        ei.run_command(print_deck_list, [d for d in list_decks_by_at_type(provider, c.ID_AT) if d.at_address == au.burn_address()])"""
-
-    """def show_all_burns(self, start: int=0, end: int=None, deckid: str=None, quiet: bool=False, debug: bool=False):
-        '''Show all burn transactions of all users. Very slow, use of --start and --end highly recommended.'''
-        return super().show_txes(address=au.burn_address(), deckid=deckid, start=start, end=end, quiet=quiet, debug=debug)"""
