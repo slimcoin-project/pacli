@@ -176,7 +176,7 @@ class ExtConfig:
 
 
     def list(self, extended: bool=False, categories: bool=False):
-        """Shows current contents of the standard or extended configuration file.
+        """Shows current contents of the basic or extended configuration file.
 
         Flags:
         -e, --extended: Shows extended configuration file.
@@ -187,17 +187,19 @@ class ExtConfig:
                 return [cat for cat in ce.get_config()]
             else:
                 return ce.get_config()
+        elif categories is True:
+            print("Currently there are no different categories in the basic configuration file.")
         else:
             pprint(Settings.__dict__)
 
 
     def update_extended_categories(self, quiet: bool=False):
-        # (replaces `tools update_categories` -> this command will be used very seldom, so it's not problematic if it's long or unintuitive.)
         """Update the category list of the extended config file.
 
         Flags:
         -q / --quiet: Suppress output.
         """
+        # TODO perhaps integrate into config set?
 
         ce.update_categories(quiet=quiet)
 
@@ -796,13 +798,13 @@ class ExtTransaction:
         return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify)
 
 
-    def show(self, txid_or_label: str, quiet: bool=False, structure: bool=False, decode: bool=False):
+    def show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
         Usage:
 
-           pacli transaction show LABEL [-d]
+           pacli transaction show LABEL [-d|-t]
 
            Shows a transaction stored in the extended config file, by label, as HEX or JSON string.
 
@@ -819,19 +821,20 @@ class ExtTransaction:
            -s, --structure: Show senders and receivers (not supported in the mode with LABELs).
            -q, --quiet: Suppress output, printout in script-friendly way.
            -d, --decode: Show transaction in JSON format (default: hex format).
+           -t, --txid: Show transaction ID.
 
         """
-        return ei.run_command(self.__show, txid_or_label, quiet=quiet, structure=structure, decode=decode)
+        return ei.run_command(self.__show, label_or_txid, quiet=quiet, structure=structure, decode=decode, txid=txid)
 
-    def __show(self, txid_or_label: str, quiet: bool=False, structure: bool=False, decode: bool=False):
+    def __show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
 
         if structure is True:
 
-            if not eu.is_possible_txid(txid_or_label):
+            if not eu.is_possible_txid(label_or_txid):
                 raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s mode currently doesn't support labels.")
 
-            tx_structure = ei.run_command(bx.get_tx_structure, txid_or_label)
+            tx_structure = ei.run_command(bx.get_tx_structure, label_or_txid)
 
             if quiet is True:
                 return tx_structure
@@ -839,10 +842,10 @@ class ExtTransaction:
                 pprint(tx_structure)
 
         else:
-            result = ce.show("transaction", txid_or_label, quiet=True)
+            result = ce.show("transaction", label_or_txid, quiet=True)
             if result is None:
                 try:
-                    result = provider.getrawtransaction(txid_or_label)
+                    result = provider.getrawtransaction(label_or_txid)
                     assert type(result) == str
                 except AssertionError:
                     if not quiet:
@@ -850,18 +853,18 @@ class ExtTransaction:
 
             try:
                 tx_decoded = provider.decoderawtransaction(result)
-                assert tx_decoded["txid"] is not None
+                tx_txid = tx_decoded["txid"]
             except:
                 if not quiet:
                     print("WARNING: Transaction was not stored correctly.")
                 tx_decoded = {}
 
-            if decode:
-                if quiet is True:
-                    print(tx_decoded)
-                else:
-                    pprint(tx_decoded)
-            elif quiet is True:
+            if decode is True:
+                result = tx_decoded
+            elif txid is True:
+                result = tx_txid
+
+            if quiet is True:
                 return result
             else:
                 pprint(result)
@@ -889,6 +892,7 @@ class ExtTransaction:
              sender: str=None,
              sent: bool=False,
              start: bool=False,
+             txids: bool=False,
              unclaimed: bool=False,
              wallet: bool=False) -> None:
         """Lists transactions, optionally of a specific type (burn transactions and claim transactions).
@@ -969,7 +973,8 @@ class ExtTransaction:
              count: bool=False,
              quiet: bool=False,
              debug: bool=False,
-             raw: bool=False) -> None:
+             raw: bool=False,
+             txids: bool=False) -> None:
         # TODO: Further harmonization: Results are now:
         # --all: tx_structure or tx JSON
         # --burns/--reftxes: custom dict with sender_label and sender_address
@@ -1008,8 +1013,23 @@ class ExtTransaction:
 
         if count is True:
             return len(txes)
+        elif (txids is True) and (not raw):
+            if named is True:
+                for tx in txes:
+                    for k, v in tx.items():
+                        try:
+                            print({k : provider.decoderawtransaction(v)["txid"]})
+                        except KeyError:
+                            if not quiet:
+                                print("Invalid transaction skipped:", k)
+
+            elif quiet is True:
+                print([t["txid"] for t in txes])
+            else:
+                pprint([t["txid"] for t in txes])
         elif quiet is True:
             return txes
+
         elif (param is not None) and not claims:
             try:
                 if quiet is True:
