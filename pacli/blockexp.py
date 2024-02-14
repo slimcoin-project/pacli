@@ -146,14 +146,13 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         last_block = provider.getblockcount()
         last_blocktime = provider.getblock(provider.getblockhash(last_block))["time"]
         last_block_date = datetime.date.fromisoformat(last_blocktime.split(" ")[0])
+        startdate, enddate = None, None
 
         if "-" in str(start):
             startdate = datetime.date.fromisoformat(start)
             startblock = date_to_blockheight(startdate, last_block, debug=debug)
         else:
             startblock = int(start)
-        if not quiet:
-            print("Starting at block:", startblock)
 
         if not end:
             end = provider.getblockcount()
@@ -161,9 +160,7 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         if "-" in str(end):
             enddate = datetime.date.fromisoformat(end)
 
-            if enddate > last_block_date:
-                raise ei.PacliInputDataError("Start or end date is in the future.")
-            elif enddate == last_block_date:
+            if enddate == last_block_date:
                 endblock = last_block
             else:
                 # The date_to_blockheight function always returns the first block after the given date
@@ -173,8 +170,12 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         else:
             endblock = int(end)
 
+        if (startdate is not None and startdate > last_block_date) or (enddate is not None and enddate > last_block_date):
+            raise ei.PacliInputDataError("Start or end date is in the future.")
+
         if not quiet:
             print("Ending at block:", endblock)
+            print("Starting at block:", startblock)
         if endblock < startblock:
             raise ei.PacliInputDataError("End block or date must be after the start block or date.")
     except (IndexError, ValueError):
