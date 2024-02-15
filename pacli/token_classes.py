@@ -83,25 +83,6 @@ class Token:
 
     # Enhanced transfer commands
 
-    '''def simple_transfer(self, deck: str, receiver: str, amount: str, locktime: int=0, change: str=Settings.change, sign: bool=True, send: bool=True, quiet: bool=False, debug: bool=False):
-        """Transfer tokens/cards to a single receiver.
-        --sign and --send are set true by default."""
-
-
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        change_address = ec.process_address(change)
-
-        return ei.run_command(eu.advanced_card_transfer, deck,
-                                 amount=[Decimal(str(amount))],
-                                 receiver=[receiver],
-                                 change_address=change_address,
-                                 locktime=locktime,
-                                 sign=sign,
-                                 send=send,
-                                 debug=debug
-                                 )''' # OK, integrated into transfer (ex multi_transfer)
-
 
     def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens/cards to one or multiple receivers in a single transaction.

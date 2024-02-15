@@ -125,6 +125,7 @@ class PoDToken(Token):
         --debug: Show additional debug information.
         --force: Create the transaction even if the reward does not match the transaction (only for debugging!).
         '''
+        # TODO add payto/payamount like in attoken/pobtoken claim
 
         change_address = ec.process_address(change)
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
@@ -171,7 +172,7 @@ class PoDToken(Token):
         return ei.run_command(dc.show_votes_by_address, deckid, address)
 
     def votes(self,
-              proposal_or_deck: str=None,
+              proposal_or_deck: str,
               address: str=Settings.key.address,
               my: bool=False,
               debug: bool=False):
@@ -535,77 +536,6 @@ class Proposal:
         else:
             return self.__current_period(proposal, blockheight=blockheight, show_blockheights=True, mode=mode, debug=debug)
 
-    """def list(self, deck: str, block: int=None, only_active: bool=False, all: bool=False, simple: bool=False, debug: bool=False) -> None:
-        '''Shows all proposals for a deck and the period they are currently in, optionally at a specific blockheight.'''
-        # TODO re-check: it seems that if we use Decimal for values like req_amount scientific notation is used.
-        # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
-        # TODO ensure that the simple mode also takes into account Proposal Modifications
-        # TODO add deck label mode (solved?)
-
-        deckid = eu.search_for_stored_tx_label("deck", deck)
-        statelist, advanced = ["active"], True
-        if not only_active:
-            statelist.append("completed")
-        if all:
-            statelist.append("abandoned")
-        if simple:
-            advanced = False
-
-        if block is None:
-            block = provider.getblockcount() + 1 # modified, next block is the reference, not last block
-            pprint("Next block to be added to blockchain: " + str(block))
-
-        pstate_periods = ei.run_command(du.get_proposal_state_periods, deckid, block, advanced=advanced, debug=debug)
-
-        coin = dmu.coin_value(Settings.network)
-        shown_pstates = False
-
-        if len([p for l in pstate_periods.values() for p in l]) == 0:
-            print("No proposals found for deck: " + deckid)
-        else:
-            print("Proposals in the following periods are available for this deck:")
-
-        # for index, period in enumerate(pstate_periods):
-        for period in pstate_periods:
-            pstates = pstate_periods[period]
-            first = True
-
-            for pstate_data in pstates:
-
-                pstate = pstate_data["state"]
-                startblock = pstate_data["startblock"]
-                endblock = pstate_data["endblock"]
-
-                if pstate.state in statelist:
-                    if not shown_pstates:
-                        shown_pstates = True
-                    if first: # MODIF, index is not needed.
-                        print("\n")
-                        pprint(di.printout_period(period, [startblock, endblock], show_blockheights=False))
-                        first = False
-                    requested_amount = pstate.req_amount / coin
-                    # We can't add the state in simple mode, as it will always be "active" at the start.
-                    result = [
-                              "Short ID & description: " + pstate.idstring,
-                              "Requested amount: {}".format(requested_amount),
-                              "Donation address: {}".format(pstate.donation_address),
-                              "Complete ID: {}".format(pstate.id),
-                              "Proposed delivery (block): {}".format(pstate.deck.epoch_length * pstate.end_epoch),
-                              "Duration of the period: {} - {}".format(startblock, endblock)
-                              ]
-
-                    if advanced:
-                        donated_amount = str(sum(pstate.donated_amounts) / coin)
-                        result.append("State: {}".format(pstate.state))
-                        result.append("Donated amount: {}".format(donated_amount))
-                        result.append("Donation transactions: {}".format(len([d for rd in pstate.donation_txes for d in rd])))
-                    print("\n*", "\n    ".join(result))
-
-
-        if not shown_pstates:
-
-            pmsg = "" if all else "active and/or completed "
-            print("No {}proposal states found for deck {}.".format(pmsg, deckid))"""
 
     # Tracked Transactions in Proposal class
 

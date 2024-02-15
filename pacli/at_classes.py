@@ -43,27 +43,6 @@ class ATToken(Token):
 
         return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=confirm, quiet=quiet, debug=debug)
 
-    """def show_txes(self, address: str=None, deckid: str=None, start: int=0, end: int=None, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
-        '''Show all transactions to a tracked address between two block heights (very slow!).'''
-
-        if burns:
-             print("Using burn address.")
-             address = burn_address(network_name=provider.network)
-
-        txes = ei.run_command(au.show_txes_by_block, tracked_address=address, deckid=deckid, startblock=start, endblock=end, quiet=quiet, debug=debug)
-        pprint(txes)
-
-    def my_txes(self, address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, quiet: bool=False, debug: bool=False) -> None:
-        '''Shows all transactions from your wallet to the tracked address.'''
-
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-        sender = Settings.key.address if not wallet else None
-        txes = ei.run_command(au.show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, quiet=quiet, debug=debug)
-
-        if not quiet:
-            pprint(txes)
-        else:
-            print(txes)""" # moved to at_utils
 
     @classmethod
     def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
@@ -167,7 +146,7 @@ class PoBToken(ATToken):
 
         Usage:
 
-        pacli pobtoken deck_spawn NAME TRACKED_ADDRESS
+        pacli pobtoken deck_spawn NAME
 
         Options and flags:
         --multiplier: Specify a multiplier for the reward..

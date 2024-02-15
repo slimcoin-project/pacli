@@ -34,17 +34,19 @@ class ExtConfig:
     def set(self,
             label: str,
             value: Union[str, bool]=None,
-            extended: str=None,
             delete: bool=False,
             modify: bool=False,
             replace: bool=False,
             now: bool=False,
-            quiet: bool=False) -> None:
-        """Changes configuration settings.
+            quiet: bool=False,
+            extended: str=None) -> None:
+        """Changes configuration settings of the basic or extended configuration file.
+
+           WARNING: The basic configuration file contains many settings which may lead immediately to problems if changed.
 
            Usage modes:
 
-           pacli config set LABEL VALUE [-e/--extended CATEGORY]
+           pacli config set LABEL VALUE -e/--extended CATEGORY
 
            Adds a setting in the basic configuration file (by default: pacli.conf)
            or a category CATEGORY in the extended configuration file.
@@ -54,23 +56,24 @@ class ExtConfig:
            Replaces the value of LABEL in the basic configuration file or in a
            category CATEGORY of the extended configuration file.
 
-           pacli config set LABEL -d/--delete [-e/--extended CATEGORY] [--now]
+           pacli config set LABEL -d/--delete -e/--extended CATEGORY [--now]
 
-           Deletes a setting (by default: in the basic config file, with -e and -c in the extended config file).
+           Deletes a setting in the extended configuration file.
            Use --now to really delete it, otherwise a dry run will be performed.
 
            pacli config set NEW_LABEL OLD_LABEL -m [-e/--extended CATEGORY]
 
-           Modifies a label (OLD_LABEL gets replaced by NEW_LABEL).
+           Modifies a label in the extended configuration file (OLD_LABEL gets replaced by NEW_LABEL).
 
-           Options and flags:
+           Args:
 
-           -e, --extended: Use the extendid configuration file.
-           -r, --replace: Replaces the value of a setting (mandatory to change settings in basic configuration file).
-           -m, --modify: Modify the label of a setting (only extended configuration file).
-           -d, --delete: Delete a setting (only extended configuration file).
-           --now: Really delete a setting, in combination with -d/--delete.
-           -q, --quiet: Suppress output, printout in script-friendly way."""
+             extended: Use the extended configuration file.
+             replace: Replaces the value of a setting (mandatory to change settings in basic configuration file).
+             modify: Modify the label of a setting (only extended configuration file).
+             delete: Delete a setting (only extended configuration file).
+             now: Really delete a setting, in combination with -d/--delete.
+             quiet: Suppress output, printout in script-friendly way.
+             value: To be used as a positional argument (without flag keyword), see 'Usage modes' above."""
 
         return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
 
@@ -111,10 +114,10 @@ class ExtConfig:
 
     def show(self,
              value_or_label: str,
-             extended: str=None,
              label: bool=False,
              find: bool=False,
-             quiet: bool=False):
+             quiet: bool=False,
+             extended: str=None):
         """Shows a setting in the basic or extended configuration file.
 
         Usage options:
@@ -127,19 +130,22 @@ class ExtConfig:
 
         Shows setting in a category CATEGORY of the extended configuration file.
 
-        pacli config show VALUE -e/extended CATEGORY -f/--find
-        pacli config show VALUE -e/extended CATEGORY -l/--label
+        pacli config show VALUE -f/--find [-e/extended CATEGORY]
+        pacli config show VALUE -l/--label [-e/extended CATEGORY]
 
-        Searches a value and prints out existing labels for it (only in combination with -e/--extended).
+        Searches a value and prints out existing labels for it.
         The -f/--find option allows to search for parts of the value string,
         while the -l/--label option only accepts exact matches (in analogy to 'address show --label').
 
         The CATEGORY value refers to a category in the extended config file.
         Get all categories with: `pacli config list -e -c`
 
-        Other flags:
+        Args:
 
-        -q, --quiet: Suppress output, printout in script-friendly way."""
+          extended: Use the extended configuration file (see above).
+          quiet: Suppress output, printout the result in script-friendly way.
+          label: Find label for an exact value.
+          find: Find label for a string which is present in the value."""
 
         return ei.run_command(self.__show, value_or_label, category=extended, label=label, find=find, quiet=quiet)
 
@@ -152,42 +158,54 @@ class ExtConfig:
              quiet: bool=False):
 
         if category is None:
-            try:
-                if quiet is True:
-                   print(Settings.__dict__[value_or_label])
-                else:
-                   pprint(Settings.__dict__[value_or_label])
-            except KeyError:
-                raise ei.PacliInputDataError("This setting label does not exist in the basic configuration file.")
-            return
+            result = []
+            if find or label:
+                searchstr = value_or_label
+                for label, value in Settings.__dict__.items():
+                    exact_value = (label and (str(searchstr) == str(value)))
+                    string_found = (find and (str(searchstr) in str(value)))
+                    if exact_value or string_found:
+                        result.append(label)
+
+            else:
+                try:
+                    result = Settings.__dict__[value_or_label]
+                except KeyError:
+                    raise ei.PacliInputDataError("This setting label does not exist in the basic configuration file.")
+
 
         elif type(category) != str:
             raise ei.PacliInputDataError("You have to provide a category if showing the extended config file.")
 
-        if find:
-            result = ei.run_command(ce.search_value_content, category, str(value_or_label))
-        elif label:
-            """Shows a label for a value."""
-            result = ei.run_command(ce.search_value, category, str(value_or_label))
         else:
-            result = ei.run_command(ce.show, category, value_or_label, quiet=quiet)
+            if find:
+                result = ei.run_command(ce.search_value_content, category, str(value_or_label))
+            elif label:
+                """Shows a label for a value."""
+                result = ei.run_command(ce.search_value, category, str(value_or_label))
+            else:
+                result = ei.run_command(ce.show, category, value_or_label, quiet=quiet)
 
         #if result is None and not quiet:
         #    print("No label was found.")
         if quiet is True:
             return result
         else:
-            print("Label(s) stored for value {}:".format(value_or_label))
+            if find or label:
+                print("Label(s) stored for value {}:".format(value_or_label))
+            else:
+                print("Value of label {}:".format(value_or_label))
             pprint(result)
 
 
     def list(self, extended: bool=False, categories: bool=False, all_basic_settings: bool=False):
         """Shows basic configuration settings or entries in the extended configuration file.
 
-        Flags:
-        -e, --extended: Shows extended configuration file.
-        -c, --categories: Shows list of available categories (only in combination with -e/--extended).
-        -a, --all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents.
+        Args:
+
+          extended: Shows extended configuration file.
+          categories: Shows list of available categories (only in combination with -e/--extended).
+          all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents.
         """
         if extended is True:
             if categories is True:
