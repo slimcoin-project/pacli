@@ -278,6 +278,7 @@ class ExtAddress:
           fresh: Creates an address/key with the wallet software and assigns it a label.
           delete: Deletes the specified address label. Use --now to delete really.
           modify: Replaces the label for an address by another one.
+          now: Really delete an entry.
           keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
           account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
           import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
@@ -857,13 +858,13 @@ class ExtTransaction:
 
         pacli transaction show LABEL [-d|-t]
 
-            Shows a transaction stored in the extended config file, by label, as HEX or JSON string.
+            Shows a transaction stored in the extended config file, by label, as HEX or JSON string (with -d).
 
         pacli transaction show TXID [-d]
 
-            Shows any transaction's content, as HEX or JSON string.
+            Shows any transaction's content, as HEX string or (with -d) as JSON string.
 
-        pacli transaction show TXID -a
+        pacli transaction show TXID -s
 
             Shows senders and receivers of any transaction.
 
@@ -879,6 +880,8 @@ class ExtTransaction:
 
     def __show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
+
+        hexstr = decode is False and structure is False
 
         if structure is True:
 
@@ -915,7 +918,7 @@ class ExtTransaction:
             elif txid is True:
                 result = tx_txid
 
-            if quiet is True:
+            if (quiet is True) or hexstr:
                 return result
             else:
                 pprint(result)
