@@ -850,17 +850,17 @@ class ExtTransaction:
         return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify)
 
 
-    def show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
+    def show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, id: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
         Usage modes:
 
-        pacli transaction show LABEL [-d|-t]
+        pacli transaction show LABEL
 
-            Shows a transaction stored in the extended config file, by label, as HEX or JSON string (with -d).
+            Shows a transaction stored in the extended config file, by label, as HEX or JSON string (with -d) or a TXID (with -i).
 
-        pacli transaction show TXID [-d]
+        pacli transaction show TXID
 
             Shows any transaction's content, as HEX string or (with -d) as JSON string.
 
@@ -873,10 +873,10 @@ class ExtTransaction:
            structure: Show senders and receivers (not supported in the mode with LABELs).
            quiet: Suppress output, printout in script-friendly way.
            decode: Show transaction in JSON format (default: hex format).
-           txid: Show transaction ID.
+           id: Show transaction ID.
 
         """
-        return ei.run_command(self.__show, label_or_txid, quiet=quiet, structure=structure, decode=decode, txid=txid)
+        return ei.run_command(self.__show, label_or_txid, quiet=quiet, structure=structure, decode=decode, txid=id)
 
     def __show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
