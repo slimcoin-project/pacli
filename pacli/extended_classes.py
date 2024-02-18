@@ -46,24 +46,27 @@ class ExtConfig:
 
            Usage modes:
 
-           pacli config set LABEL VALUE -e/--extended CATEGORY
+           pacli config set LABEL VALUE -r [-e CATEGORY]
 
-           Adds a setting in the basic configuration file (by default: pacli.conf)
-           or a category CATEGORY in the extended configuration file.
+               Replaces the VALUE associated with LABEL in the basic configuration file or in a
+               category CATEGORY of the extended configuration file.
+               WARNING: If changing the parameters of the basic configuration file,
+               the application may not work anymore! In this case you have to modify
+               the file manually.
 
-           pacli config set LABEL VALUE -r/--replace [-e/--extended CATEGORY]
+           pacli config set LABEL VALUE -e CATEGORY
 
-           Replaces the value of LABEL in the basic configuration file or in a
-           category CATEGORY of the extended configuration file.
+               Adds a new setting (LABEL/VALUE pair) to the extended configuration file.
+               The CATEGORY is mandatory.
 
-           pacli config set LABEL -d/--delete -e/--extended CATEGORY [--now]
+           pacli config set LABEL -d -e CATEGORY [--now]
 
-           Deletes a setting in the extended configuration file.
-           Use --now to really delete it, otherwise a dry run will be performed.
+               Deletes a setting (LABEL and its associated value) in the extended configuration file.
+               Use --now to really delete it, otherwise a dry run will be performed.
 
-           pacli config set NEW_LABEL OLD_LABEL -m [-e/--extended CATEGORY]
+           pacli config set NEW_LABEL OLD_LABEL -m -e CATEGORY
 
-           Modifies a label in the extended configuration file (OLD_LABEL gets replaced by NEW_LABEL).
+               Modifies a label in the extended configuration file (OLD_LABEL gets replaced by NEW_LABEL).
 
            Args:
 
@@ -73,7 +76,7 @@ class ExtConfig:
              delete: Delete a setting (only extended configuration file).
              now: Really delete a setting, in combination with -d/--delete.
              quiet: Suppress output, printout in script-friendly way.
-             value: To be used as a positional argument (without flag keyword), see 'Usage modes' above."""
+             value: To be used as a positional argument (flag keyword is not mandatory), see 'Usage modes' above."""
 
         return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
 
@@ -120,25 +123,25 @@ class ExtConfig:
              extended: str=None):
         """Shows a setting in the basic or extended configuration file.
 
-        Usage options:
+        Usage modes:
 
         pacli config show LABEL
 
-        Shows setting in the basic configuration file.
+            Shows setting (value associated with LABEL) in the basic configuration file.
 
-        pacli config show LABEL -e/--extended CATEGORY [options]
+        pacli config show LABEL -e CATEGORY
 
-        Shows setting in a category CATEGORY of the extended configuration file.
+            Shows setting (value associated with LABEL) in a category CATEGORY of the extended configuration file.
 
-        pacli config show VALUE -f/--find [-e/extended CATEGORY]
-        pacli config show VALUE -l/--label [-e/extended CATEGORY]
+        pacli config show VALUE -f [-e CATEGORY]
+        pacli config show VALUE -l [-e CATEGORY]
 
-        Searches a value and prints out existing labels for it.
-        The -f/--find option allows to search for parts of the value string,
-        while the -l/--label option only accepts exact matches (in analogy to 'address show --label').
+            Searches a VALUE and prints out existing labels for it.
+            The -f/--find option allows to search for parts of the value string,
+            while the -l/--label option only accepts exact matches (in analogy to 'address show --label').
 
-        The CATEGORY value refers to a category in the extended config file.
-        Get all categories with: `pacli config list -e -c`
+            The CATEGORY value refers to a category in the extended config file.
+            Get all categories with: `pacli config list -e -c`
 
         Args:
 
@@ -207,6 +210,7 @@ class ExtConfig:
           categories: Shows list of available categories (only in combination with -e/--extended).
           all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents.
         """
+        # TODO if anything which is not an argument is shown behind "-e" then it is assumed to be false.
         if extended is True:
             if categories is True:
                 return [cat for cat in ce.get_config()]
@@ -224,8 +228,9 @@ class ExtConfig:
     def update_extended_categories(self, quiet: bool=False):
         """Update the category list of the extended config file.
 
-        Flags:
-        -q / --quiet: Suppress output.
+        Args:
+
+          quiet: Suppress output.
         """
         # TODO perhaps integrate into config set?
 
@@ -235,12 +240,11 @@ class ExtConfig:
 
 class ExtAddress:
 
-    # NEW COMMANDS
     def set(self,
-            label: str=None,
+            label: str,
             address: str=None,
             account: str=None,
-            new: bool=False,
+            fresh: bool=False,
             delete: bool=False,
             modify: bool=False,
             quiet: bool=False,
@@ -250,35 +254,39 @@ class ExtAddress:
 
         """Sets the current main address or stores / deletes a label for an address.
 
-        Usage options:
+        Usage modes:
 
-        pacli address set LABEL ADDRESS [options]
+        pacli address set LABEL ADDRESS
 
-        Without flags, stores a label for an address.
+            Without flags, stores a label for an address.
 
-        pacli address set LABEL [--new] [--delete] [options]
+        pacli address set LABEL [-f]
 
-        Without flags, sets the LABEL as the main address.
+            Without flags, sets the LABEL as the main address.
+            If -f/--fresh is used, a new address is generated with label LABEL.
 
-        pacli address set NEW_LABEL OLD_LABEL --modify
+        pacli address set LABEL -d [--now]
 
-        Modifies a label (OLD_LABEL is replaced by NEW_LABEL).
+            Deletes a label LABEL for an address.
 
-        Options and flags:
+        pacli address set NEW_LABEL OLD_LABEL -m
 
-        -n, --new: Creates an address/key with the wallet software and assigns it a label.
-        -d, --delete: Deletes the specified address label. Use --now to delete really.
-        -m, --modify: Replaces the label for an address by another one.
-        -k, --keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
-        -a, --account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
-        -i, --import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
-        -q, --quiet: Suppress output, printout in script-friendly way.
+            Modifies a label (OLD_LABEL is replaced by NEW_LABEL).
+
+        Args:
+
+          fresh: Creates an address/key with the wallet software and assigns it a label.
+          delete: Deletes the specified address label. Use --now to delete really.
+          modify: Replaces the label for an address by another one.
+          keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
+          account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
+          import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
+          quiet: Suppress output, printout in script-friendly way.
+          address: Address. To be used as positional argument (flag keyword not mandatory). See Usage modes above.
         """
 
         # (replaces: `address set_main`, `address fresh`, `tools store_address`, `address set_label`, `tools store_address_from_keyring`, `address delete_label`, `tools delete_address_label`,  `address import_to_wallet` and  `tools store_addresses_from_keyring`) (Without flag it would work like the old address set_main, flag --new will generate a new address, like the current "fresh" command, other options are implemented with new flags like --delete, --keyring, --from-keyring, --all-keyring-labels, --into-wallet)
         # keyring commands will be added in a second step
-        # NOTE: --into-wallet flag is not necessary as the --account flag is only used in this option.
-        # NOTE: --set_main in --new will be trashed. It's logical that it should be change to this address.
         # NOTE: --backup options could be trashed. This option is now very unlikely to be used. Setting it to None for now.
 
         kwargs = locals()
@@ -290,7 +298,7 @@ class ExtAddress:
             label: str=None,
             address: str=None,
             account: str=None,
-            new: bool=False,
+            fresh: bool=False,
             delete: bool=False,
             modify: bool=False,
             quiet: bool=False,
@@ -304,7 +312,7 @@ class ExtAddress:
             else:
                 raise ei.PacliInputDataError("No label provided. See -h for options.")
 
-        elif new is True:
+        elif fresh is True:
             return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, quiet=quiet)
 
         elif delete is True:
@@ -339,27 +347,29 @@ class ExtAddress:
         # NOTE: it would be cool to have the --pubkey... option also for labeled addresses, but that may be quite difficult.
         """Shows the address corresponding to a label, or the main address.
 
-        Usage options:
+        Usage modes:
 
         pacli address show
 
-        Shows current main address.
+            Shows current main address.
 
         pacli address show LABEL
 
-        Shows address corresponding to label LABEL.
+            Shows address corresponding to label LABEL.
 
-        pacli address show [ADDRESS] --label
+        pacli address show [ADDRESS] -l
 
-        Shows label and address corresponding to address.
+            Shows label and address corresponding to address.
 
 
-        Options and flags:
-        -l, --label: Shows label for an address (see Usage options)
-        -k, --keyring: Use the keyring of your operating system (Linux/Unix only)
-        -w, --wif: Show private key in Wallet Interchange Format (WIF). Only with --keyring option. (WARNING: exposes private key!)
-        --privkey: Shows private key. Only with --keyring option. (WARNING: exposes private key!)
-        --pubkey: Shows public key. Only with --keyring option.
+        Args:
+
+          label: Shows label for an address (see Usage options)
+          keyring: Use the keyring of your operating system (Linux/Unix only)
+          wif: Show private key in Wallet Interchange Format (WIF). Only with --keyring option. (WARNING: exposes private key!)
+          privkey: Shows private key. Only with --keyring option. (WARNING: exposes private key!)
+          pubkey: Shows public key. Only with --keyring option.
+          addr_id: To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
         """
 
 
@@ -403,33 +413,35 @@ class ExtAddress:
 
         Usage modes:
 
-        pacli address list [options]
+        pacli address list
 
-        Shows a table of all stored addresses and those which contain coins, PoD and PoB tokens
+            Shows a table of all stored addresses and those which contain coins, PoD and PoB tokens
 
-        pacli address list [-a/--advanced] [options]
+        pacli address list -a
 
-        Shows a JSON string of all stored addresses and all or some tokens.
+            Advanced mode. Shows a JSON string of all stored addresses and all or some tokens.
+            -o/--only_labels and -w/--without_labels are exclusive flags for this mode.
 
-        Exclusive flags for this mode:
-        -o, --only_labels: Do not show addresses, only labels.
-        -w, --without_labels: Do not show labels, only addresses.
+        pacli address list -l
+        pacli address list -f
 
-        pacli address list -l/--labels
-        pacli address list -f/-full_labels
+            Shows only the labels which were stored.
+            These modes only accept the -b/--blockchain and -k/--keyring additional flags.
+            -f/--full_labels shows the labels with the network prefix (useful mainly for debugging).
 
-        Shows only the labels which were stored.
-        These modes only accept the -b/--blockchain and -k/--keyring additional flags.
-        -f/--full_labels shows the labels with the network prefix (useful mainly for debugging).
+        Args:
 
-        Common options or flags for all or most modes:
-
-        -n, --named: Shows only addresses which were named with a label.
-        -k, --keyring: Uses the keyring of your operating system.
-        -c, --coinbalances: Only shows coin balances, not tokens (faster).
-        -q, --quiet: Suppress output, printout in script-friendly way.
-        -b, --blockchain NETWORK: Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
-        -d, --debug: Show debug information.
+          advanced: Advanced mode, see Usage modes above.
+          labels: Show only stored labels.
+          full_labels: Show only stored labels with network prefix (debugging option).
+          named: Shows only addresses which were named with a label.
+          keyring: Uses the keyring of your operating system.
+          coinbalances: Only shows coin balances, not tokens (faster).
+          quiet: Suppress output, printout in script-friendly way.
+          blockchain: If pacli is used with various blockchains, Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
+          debug: Show debug information.
+          only_labels: In advanced mode, if a label is present, show only the label.
+          without_labels: In advanced mode, never show labels, only addresses.
         """
         # TODO: P2TH addresses should normally not be shown, implement a flag for them.
 
@@ -504,22 +516,25 @@ class ExtAddress:
     def balance(self, label: str=None, address: str=None, keyring: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
-        Usage:
+        Usage modes:
 
         pacli address balance
 
-        Shows main address balance.
+            Shows main address balance.
 
         pacli address balance LABEL
 
-        Shows balance of the address corresponding to label.
+            Shows balance of the address corresponding to label.
 
-        pacli address balance --address=ADDRESS
+        pacli address balance -a ADDRESS
 
-        Shows balance of address. Does only work with addresses stored in your wallet file.
+            Shows balance of address. Does only work with addresses stored in your wallet file.
 
-        Flags:
-        -k, --keyring: Use an address stored in the keyring of your operating system.
+        Args:
+
+           keyring: Use an address stored in the keyring of your operating system.
+           address: Address to be used.
+           label: To be used as a positional argument (without flag keyword), see "Usage modes" above.
         """
 
         # REPLACES address balance
@@ -538,7 +553,7 @@ class ExtDeck:
 
     def set(self,
             label: str,
-            deckid: str=None,
+            id_deck: str=None,
             modify: bool=False,
             delete: bool=False,
             quiet: bool=False,
@@ -547,24 +562,29 @@ class ExtDeck:
 
         Usage:
 
-        pacli set LABEL DECKID [--options]
+        pacli deck set LABEL DECKID
 
         Sets LABEL for DECKID.
 
-        pacli set LABEL --delete [--now]
+        pacli deck set LABEL -d [--now]
 
         Deletes LABEL from extended configuration file.
 
+        pacli deck set NEW_LABEL OLD_LABEL -m
 
-        Options and flags:
+        Modifies the label, replacing OLD_LABEL by NEW_LABEL.
 
-        -m, --modify: Modify the label for a value.
-        -d, --delete: Delete the specified label. Use --now to delete really.
-        -q, --quiet: Suppress output, printout in script-friendly way.
+        Args:
+
+          modify: Modify the label for a value.
+          delete: Delete the specified label. Use --now to delete really.
+          quiet: Suppress output, printout in script-friendly way.
+          id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory), see Usage section above.
         """
 
         # (replaces `tools store_deck` - is a power user command because most users would be fine with the default PoB and PoD token)
 
+        deckid = id_deck
         if delete is True:
             return ce.delete("deck", label=str(label), now=now)
         else:
@@ -586,14 +606,14 @@ class ExtDeck:
 
         pacli deck list [options]
 
-        Options and flags:
+        Args:
 
-        -n, --named: Only show decks with a stored label.
-        -q, --quiet: Suppress output, printout in script-friendly way.
-        -p, --pobtoken: Only show PoB token decks.
-        -d, --dpodtoken: Only show dPoD token decks.
-        -a, --attoken: Only show AT token decks.
-        -s, --show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
+          named: Only show decks with a stored label.
+          quiet: Suppress output, printout in script-friendly way.
+          pobtoken: Only show PoB token decks.
+          dpodtoken: Only show dPoD token decks.
+          attoken: Only show AT token decks.
+          show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
 
         """
         # TODO: --pobtoken and --attoken currently show exactly the same decks. --pobtoken should only show PoB decks.
@@ -633,34 +653,34 @@ class ExtDeck:
              param: str=None,
              info: bool=False,
              find: bool=False,
-             p2th: bool=False,
+             show_p2th: bool=False,
              quiet: bool=False):
         """Shows or searches a deck stored with a label.
 
         Usage:
 
-        pacli deck show LABEL [options]
+        pacli deck show LABEL
 
         Shows deck stored with label LABEL.
 
-        pacli deck show STRING --find
+        pacli deck show STRING -f
 
         Searches for a stored deck containing string STRING.
 
-        Options and flags:
+        Args:
 
-        -i, --info: Shows deck values.
-        -f, --find: Searches for a string in the Deck ID.
-        -q, --quiet: Suppress output, printout in script-friendly way.
-        --param PARAM: Shows a specific parameter (only in combination with --info).
-        --p2th: Shows P2TH addresses (in combination with --info, only dPoD tokens)
+          info: Shows deck values.
+          find: Searches for a string in the Deck ID.
+          quiet: Suppress output, printout in script-friendly way.
+          param: Shows a specific parameter (only in combination with -i/--info).
+          show_p2th: Shows P2TH addresses (in combination with -i/--info, only dPoD tokens)
         """
 
         #TODO: an option to search by name would be fine here.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
         if info is True:
             deckid = eu.search_for_stored_tx_label("deck", deckstr)
-            deckinfo = ei.run_command(eu.get_deckinfo, deckid, p2th)
+            deckinfo = ei.run_command(eu.get_deckinfo, deckid, show_p2th)
 
             if param is not None:
                 print(deckinfo.get(param))
@@ -673,31 +693,32 @@ class ExtDeck:
             return ce.show("deck", deckstr, quiet=quiet)
 
     def init(self,
-             idstr: str=None,
+             id_deck: str=None,
              dpodtoken: bool=False,
-             store_label: bool=False,
+             label: bool=False,
              quiet: bool=False) -> None:
         """Initializes a deck (token).
         This is mandatory to be able to use a token with pacli.
 
-        Usage:
+        Usage modes:
 
         pacli deck init
 
-        Initialize the default PoB and dPoD tokens of this network.
+            Initialize the default PoB and dPoD tokens of this network.
 
         pacli deck init DECK
 
-        Initialize a single deck. DECK can be a Deck ID or a label.
+            Initialize a single deck. DECK can be a Deck ID or a label.
 
-        Flags:
+        Args:
 
-        -d, --dpodtoken: Initialize a dPoD token.
-        -s, --store_label LABEL: Store a label for the deck in the extended configuration file.
-            Does only work if a deck is given.
-        -q, --quiet: Suppress output.
+          dpodtoken: Initialize a dPoD token.
+          label: Store a label for the deck in the extended configuration file. Does only work if a DECK is given.
+          quiet: Suppress output.
+          id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
         """
 
+        idstr = id_deck
         netw = Settings.network
 
         if idstr is None:
@@ -709,9 +730,9 @@ class ExtDeck:
         else:
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
             if dpodtoken is True:
-                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, store_label=store_label)
+                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, store_label=label)
             else:
-                ei.run_command(eu.init_deck, netw, deckid, quiet=quiet)
+                ei.run_command(eu.init_deck, netw, deckid, quiet=quiet, store_label=label)
 
 
 
@@ -721,13 +742,12 @@ class ExtCard:
 
         Usage:
 
-        pacli card list [options]
+        pacli card list
 
-        Options and flags:
+        Args:
 
-        -q, --quiet: suppresses information about the deck when a label is used, printout in script-friendly way.
-        -v, --valid: only shows valid cards according to Proof-of-Timeline rules,
-        i.e. where no double spend has been recorded."""
+          quiet: Suppresses additional output, printout in script-friendly way.
+          valid: Only shows valid cards according to Proof-of-Timeline rules, where no double spend has been recorded."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
         return ei.run_command(self.__listext, deckid, quiet=quiet, valid=valid)
@@ -755,7 +775,7 @@ class ExtTransaction:
 
     def set(self,
             label_or_tx: str,
-            tx: str=None,
+            txdata: str=None,
             modify: bool=False,
             delete: bool=False,
             now: bool=False,
@@ -766,32 +786,35 @@ class ExtTransaction:
 
            pacli transaction set LABEL TX_HEX
 
-           Stores hex string of transaction (TX_HEX) together with label LABEL.
+               Stores hex string of transaction (TX_HEX) together with label LABEL.
 
            pacli transaction ste LABEL TXID
 
-           Stores hex string of transaction identified by the given TXID.
+               Stores hex string of transaction identified by the given TXID.
 
            pacli transaction set TX_HEX
 
-           Stores hex string of transaction TX with the transaction ID (TXID) as label. Do not use for partially signed transactions!
+               Stores hex string of transaction TX with the transaction ID (TXID) as label. Do not use for partially signed transactions!
 
-           pacli transaction set LABEL [-d|--delete] [--now]
+           pacli transaction set LABEL -d [--now]
 
-           Deletes label (use --now to delete really).
+               Deletes label (use --now to delete really).
 
-           pacli transaction set NEWLABEL OLDLABEL --modify
+           pacli transaction set NEWLABEL OLDLABEL -m
 
-           Changes the label.
+               Modifies a label, replacing OLDLABEL with NEWLABEL.
 
-           Options and flags:
+           Args:
 
-           -m, --modify: changes the label.
-           -q, --quiet: suppress output, printout in script-friendly way.
+             modify: Changes the label.
+             quiet: Suppress output, printout in script-friendly way.
+             delete: Delete a transaction label/value pair.
+             now: Really delete a transaction label/value pair.
+             txdata: Transaction data. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
 
         """
 
-        return ei.run_command(self.__set, label_or_tx, tx=tx, modify=modify, delete=delete, now=now, quiet=quiet)
+        return ei.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet)
 
     def __set(self, label_or_tx: str,
             tx: str=None,
@@ -830,26 +853,26 @@ class ExtTransaction:
 
         """Shows a transaction, by default a stored transaction by its label.
 
-        Usage:
+        Usage modes:
 
-           pacli transaction show LABEL [-d|-t]
+        pacli transaction show LABEL [-d|-t]
 
-           Shows a transaction stored in the extended config file, by label, as HEX or JSON string.
+            Shows a transaction stored in the extended config file, by label, as HEX or JSON string.
 
-           pacli transaction show TXID [-d]
+        pacli transaction show TXID [-d]
 
-           Shows any transaction's content, as HEX or JSON string.
+            Shows any transaction's content, as HEX or JSON string.
 
-           pacli transaction show TXID -a
+        pacli transaction show TXID -a
 
-           Shows senders and receivers of any transaction.
+            Shows senders and receivers of any transaction.
 
-        Flags:
+        Args:
 
-           -s, --structure: Show senders and receivers (not supported in the mode with LABELs).
-           -q, --quiet: Suppress output, printout in script-friendly way.
-           -d, --decode: Show transaction in JSON format (default: hex format).
-           -t, --txid: Show transaction ID.
+           structure: Show senders and receivers (not supported in the mode with LABELs).
+           quiet: Suppress output, printout in script-friendly way.
+           decode: Show transaction in JSON format (default: hex format).
+           txid: Show transaction ID.
 
         """
         return ei.run_command(self.__show, label_or_txid, quiet=quiet, structure=structure, decode=decode, txid=txid)
@@ -899,115 +922,150 @@ class ExtTransaction:
 
 
     def list(self,
-             address_or_deck: str=None,
-             all: str=None,
-             address: str=None,
+             _value1: str=None,
+             _value2: str=None,
              advanced: bool=False,
-             burns: bool=None,
-             claims: bool=None,
-             coinbase: bool=False,
-             count: bool=False,
+             burntxes: bool=None,
+             claimtxes: bool=None,
              debug: bool=False,
-             end: bool=False,
+             end_height: str=None,
+             from_height: str=None,
+             ids: bool=False,
              keyring: bool=False,
              named: bool=False,
+             origin: str=None,
              param: str=None,
              quiet: bool=False,
              received: bool=False,
-             receiver: str=None,
-             reftxes: bool=None,
-             raw: bool=False,
-             sender: str=None,
+             gatewaytxes: bool=None,
+             lraw: bool=False,
              sent: bool=False,
-             start: bool=False,
-             txids: bool=False,
+             total: bool=False,
              unclaimed: bool=False,
-             wallet: bool=False) -> None:
+             view_coinbase: bool=False,
+             wallet: bool=False,
+             xplore: bool=False) -> None:
         """Lists transactions, optionally of a specific type (burn transactions and claim transactions).
 
-        Usage:
+        Usage modes:
 
-        pacli transaction list [ADDRESS] [options] [--sent] [--received]
+        pacli transaction list [ADDRESS]
 
-            Lists transactions sent and/or received by a specific address of the wallet (default: current main address). Can be slow if used on wallets with many transactions.
-            ADDRESS can be a label or an address.
+            Lists transactions sent and/or received by a specific address of the wallet.
+            ADDRESS is optional and can be a label or an address.
+            If ADDRESS is not given, the current main address is used.
+            Can be slow if used on wallets with many transactions.
 
-        pacli transaction list [-n|--named]
+        pacli transaction list -n/--named
 
-            Lists transactions stored with a label (e.g. for DEX purposes).
+            Lists transactions stored with a label in the extended config file
+            (e.g. for DEX purposes).
 
-        pacli transaction list [--deck=DECK] [--burns | --reftxes]
+        pacli transaction list [DECK] [-b/--burntxes | -g/--gatewaytxes]
 
-            Lists burn transactions or referenced (e.g. donation/ICO) TXes for AT tokens stored in wallet. Deck is optional for burn transactions.
-            DECK can be a label or a deck ID.
+            Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT tokens stored in wallet.
+            DECK is optional in the case of burn transactions. It can be a label or a deck ID.
 
-        pacli transaction list DECK --claims
+        pacli transaction list DECK -c/--claims
 
             List token claim transactions.
             DECK can be a label or a deck ID.
 
-        pacli transaction list --all [--burns | --reftxes] [--sender=SENDER] [--receiver=RECEIVER] --start=START --end=END
+        pacli transaction list -x/--xplore [RECEIVER_ADDRESS] [-o/--origin ORIGIN_ADDRESS] [-f/--fromheight STARTHEIGHT] [-e/--endheight ENDHEIGHT]
 
-            Block explorer mode: List all transactions between two block heights. WARNING: VERY SLOW if used with large block height ranges!
-            START and END can be block heights or the dates of the block timestamps (in format YYYY-MM-DD).
-            Note: In this mode, --sender and --receiver can be any address, not only wallet addresses.
+            Block explorer mode: List all transactions between two block heights.
+            RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is an address of a sender.
+            STARTHEIGHT and ENDHEIGHT can be block heights or dates of block timestamps (format YYYY-MM-DD).
+            -f and -t options are not mandatory but highly recommended.
+            WARNING: VERY SLOW if used with large block height ranges!
+            Note: In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
 
+        pacli transaction list -p/--param PARAM
 
-        Other options and flags:
+            Show a single parameter or variable of the transactions, together with the TXID.
+            This mode can be combined with all other modes.
+            Possible parameters are all first-level keys of the dictionaries output by the different modes of this command.
+            If used together with --advanced, the possible parametes are the first-level keys of the transaction JSON string,
+            with the exception of -c/--claims mode, where the attributes of a CardTransfer object can be used.
 
-        --sent: Only show sent transactions (not in combination with --named, --claims, --burns or --reftxes)
-        --received: Only show received transactions (not in combination with --named, --claims, --burns or --reftxes)
-        --advanced: Show complete transaction JSON or card transfer dictionary.
-        -w, --wallet: Show all specified transactions of all addresses in the wallet.
-        -u, --unclaimed: Show only unclaimed burn or referenced transactions (only --burns and --reftxes, needs a --deck to be specified).
-        --coinbase: Show coinbase transactions (not in combination with --burns, --reftxes, --named or --claims).
-        --sender: Show transactions sent by a specific sender address (only in combination with --all).
-        --receiver: Show transactions received by a specific receiver address (only in combination with --all).
-        -k, --keyring: Use an address/label stored in the keyring (not supported by --all mode).
-        --count: Only count transactions, do not display them.
-        -q, --quiet: Suppress additional output, printout in script-friendly way.
-        -d, --debug: Provide debugging information.
-        --raw: Show raw output of the RPC commands (debugging option).
-        -p, --param PARAMETER: Show the result of a specific parameter of the transaction.
-              Possible parameters are all first-level keys of the dictionaries output by the distinct modes of this command.
-              If used together with --advanced, the possible parametes are the first-level keys of the transaction JSON string,
-              with the exception of --claims mode, where the attributes of a CardTransfer object can be used.
+        Args:
 
+          advanced: Show complete transaction JSON or card transfer dictionary of claim transactions.
+          burntxes: Only show burn transactions.
+          claimtxes: Show reward claim transactions (see Usage modes).
+          debug: Provide debugging information.
+          end_height: Block height or date to end the search at (only in combination with -x).
+          from_height: Block height or date to start the search at (only in combination with -x).
+          gatewaytxes: Only show transactions going to a gateway address of an AT token.
+          ids: Only show transaction ids (TXIDs).
+          keyring: Use an address/label stored in the keyring (not supported by -x mode).
+          lraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
+          named: Show only transactions stored with a label (see Usage modes).
+          origin: Show transactions sent by a specific sender address (only in combination with -x).
+          param: Show the value of a specific parameter/variable of the transaction.
+          quiet: Suppress additional output, printout in script-friendly way.
+          sent: Only show sent transactions (not in combination with -n, -c, -b or -g).
+          total: Only count transactions, do not display them.
+          unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified).
+          wallet: Show all specified transactions of all addresses in the wallet.
+          view_coinbase: Show coinbase transactions (not in combination with -n, -c, -b or -g).
+          xplore: Block explorer mode (see Usage modes).
+          _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
+          _value2: Address (in some modes). Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
+          received: Only show received transactions (not in combination with -n, -c, -b or -g).
         """
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(self.__list, **kwargs)
 
     def __list(self,
-             address_or_deck: str=None,
-             address: str=None,
-             sender: str=None,
-             burns: bool=None,
-             reftxes: bool=None,
-             claims: bool=None,
-             all: str=None,
-             named: bool=False,
-             sent: bool=False,
-             received: bool=False,
-             coinbase: bool=False,
+             _value1: str=None,
+             _value2: str=None,
              advanced: bool=False,
-             wallet: bool=False,
-             param: str=None,
-             receiver: str=None,
-             unclaimed: bool=False,
-             keyring: bool=False,
-             start: bool=False,
-             end: bool=False,
-             count: bool=False,
-             quiet: bool=False,
+             burntxes: bool=None,
+             claimtxes: bool=None,
              debug: bool=False,
-             raw: bool=False,
-             txids: bool=False) -> None:
+             end_height: str=None,
+             from_height: str=None,
+             gatewaytxes: bool=None,
+             ids: bool=False,
+             keyring: bool=False,
+             lraw: bool=False,
+             named: bool=False,
+             param: str=None,
+             origin: str=None,
+             quiet: bool=False,
+             received: bool=False,
+             sent: bool=False,
+             unclaimed: bool=False,
+             total: bool=False,
+             view_coinbase: bool=False,
+             wallet: bool=False,
+             xplore: bool=False) -> None:
+
+        # free letters: h, j, l, m, o, y, z
+
+        # v could be view_coinbase
+        # o could be only_txids, only_count, only_amount?
+        # m could be
         # TODO: Further harmonization: Results are now:
-        # --all: tx_structure or tx JSON
-        # --burns/--reftxes: custom dict with sender_label and sender_address
-        # --advanced: always tx JSON
-        # without any label:
+        # -e: tx_structure or tx JSON
+        # -b/-g: custom dict with sender_label and sender_address
+        # -a: always tx JSON
+        # without any label: custom dict with main parameters
+
+        start = from_height
+        end = end_height
+        burns = burntxes
+        reftxes = gatewaytxes
+        claims = claimtxes
+        txids = ids
+        all = xplore
+        address_or_deck = _value1
+        address = _value2
+        count = total
+        coinbase = view_coinbase
+        raw = lraw
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
@@ -1019,7 +1077,7 @@ class ExtTransaction:
             if (burns is True) or (reftxes is True):
                 txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, quiet=quiet, advanced=advanced, debug=debug, burns=burns)
             else:
-                txes = bx.show_txes(sending_address=sender, receiving_address=receiver, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False)
+                txes = bx.show_txes(sending_address=sender, receiving_address=address_or_deck, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False)
         elif burns is True:
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
         elif reftxes is True:
@@ -1074,8 +1132,8 @@ class ExtTransaction:
 
     def set_utxo(self,
                  label: str,
-                 txid_or_oldlabel: str=None,
-                 output: int=None,
+                 _value1: str=None,
+                 _value2: int=None,
                  modify: bool=False,
                  delete: bool=False,
                  now: bool=False,
@@ -1083,24 +1141,31 @@ class ExtTransaction:
 
         """Stores a label for the transaction ID and output number (vout) of a specific UTXO. Use mostly for DEX purposes.
 
-        Usage options:
+        Usage modes:
 
         pacli transaction set_utxo LABEL TXID OUTPUT
 
-        Stores a label for an UTXO with a TXID and an output number OUTPUT.
+            Stores a label for an UTXO with a TXID and an output number OUTPUT.
 
-        pacli transaction set_utxo NEWLABEL OLDLABEL --modify
+        pacli transaction set_utxo NEWLABEL OLDLABEL -m
 
-        Modifies a label for an UTXO.
+            Modifies a label for an UTXO.
 
-        pacli transaction set_utxo LABEL --delete [--now]
+        pacli transaction set_utxo LABEL -d [--now]
 
-        Deletes a label for an UTXO (--now to delete really).
+            Deletes a label for an UTXO (--now to delete really).
 
-        Flags:
+        Args:
 
-        --quiet: Supresses output, printout in script-friendly way."""
+          quiet: Supresses output, printout in script-friendly way.
+          modify: Modifies a label.
+          delete: Deletes a label/utxo entry (default: dry run, see Usage modes).
+          now: In combination with -d, deletes a label permanently.
+          _value1: TXID or old label. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
+          _value2: Output. To be used as a positional argument (flag keyword not mandatory). See Usage modes above."""
 
+        txid_or_oldlabel = _value1
+        outut = _value2
         if delete is True:
             return ce.delete("utxo", str(label), now=now)
 
@@ -1117,8 +1182,9 @@ class ExtTransaction:
 
         pacli transaction show_utxo LABEL
 
-        Flag:
-        -q, --quiet: Suppress additional output."""
+        Args:
+
+          quiet: Suppress additional output."""
 
         return ce.show("utxo", label, quiet=quiet)
 
@@ -1127,10 +1193,11 @@ class ExtTransaction:
 
         Usage:
 
-        pacli transaction list_utxos [--quiet]
+        pacli transaction list_utxos
 
-        Flags:
+        Args:
 
-        --quiet: Suppress output, printout in script-friendly way."""
+          quiet: Suppress output, printout in script-friendly way."""
+
         return ce.list("utxo", quiet=quiet)
 

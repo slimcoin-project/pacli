@@ -10,6 +10,7 @@ def set_up(provider):
     # if provider is local node, check if PA P2TH is loaded in local node
     # this handles indexing of transaction
     # MODIFIED: added Slimcoin support
+
     if Settings.provider in ("rpcnode", "slm_rpcnode"):
         if Settings.production:
             if not provider.listtransactions("PAPROD"):
