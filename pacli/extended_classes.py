@@ -17,7 +17,7 @@ import pacli.dt_commands as dc
 import pacli.blockexp as bx
 
 from pacli.provider import provider
-from pacli.config import Settings, default_conf, write_settings
+from pacli.config import Settings, default_conf, write_settings, conf_dir
 from pacli.tui import print_deck_list, print_card_list
 
 # extended_main contains extensions of the main pacli classes only
@@ -68,6 +68,19 @@ class ExtConfig:
 
                Modifies a label in the extended configuration file (OLD_LABEL gets replaced by NEW_LABEL).
 
+           Notes:
+
+               The basic configuration settings 'network', 'provider' 'rpcuser', 'rpcpassword' and 'rpcport'
+               need to match the configuration of the coin client and the network used.
+               They should only be changed if pacli is to be used with a different network (e.g. testnet instead of mainnet)
+               or wallet file/data directiory.
+               Otherwise they will lead to connection errors which can be only solved changing back the values manually
+               in pacli.conf.
+               The setting 'deck_version' should only be changed by developers, as currently only version 1 is used
+               and otherwise it will lead to errors with decks.
+               Changing 'production' setting to False will enable a test environment for test tokens/decks which is
+               incompatible with normal decks, this should also only be changed by developers.
+
            Args:
 
              extended: Use the extended configuration file.
@@ -76,7 +89,9 @@ class ExtConfig:
              delete: Delete a setting (only extended configuration file).
              now: Really delete a setting, in combination with -d/--delete.
              quiet: Suppress output, printout in script-friendly way.
-             value: To be used as a positional argument (flag keyword is not mandatory), see 'Usage modes' above."""
+             value: To be used as a positional argument (flag keyword is not mandatory), see 'Usage modes' above.
+
+"""
 
         return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
 
@@ -111,7 +126,13 @@ class ExtConfig:
                 raise ei.PacliInputDataError("Basic settings can only be modified with the --replace/-r flag. New labels can't be added.")
 
             if not quiet:
-                print("Changing basic setting: {} to value {}.".format(label, value))
+                print("Changing basic config setting: {} to value: {}.".format(label, value))
+                ei.print_red("WARNING: Changing most of these settings can make pacli unusable or lead to strange errors!\nOnly change these settings if you know what you are doing.")
+                print("If this happens, change pacli.conf (located in {}) manually.".format(conf_dir))
+                print("It is always advisable to make a backup of pacli.conf before any setting is changed.")
+                if not ei.confirm_continuation():
+                    print("Aborted.")
+                    return
             write_settings(label, str(value))
 
 
