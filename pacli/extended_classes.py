@@ -71,15 +71,15 @@ class ExtConfig:
            Notes:
 
                The basic configuration settings 'network', 'provider' 'rpcuser', 'rpcpassword' and 'rpcport'
-               need to match the configuration of the coin client and the network used.
+               need to match the configuration of the coin client and the network/blockchain used.
                They should only be changed if pacli is to be used with a different network (e.g. testnet instead of mainnet)
-               or wallet file/data directiory.
-               Otherwise they will lead to connection errors which can be only solved changing back the values manually
-               in pacli.conf.
+               or wallet file/data directory. Once the setting has been changed you can't work with the old settings.
+               The errors can be only solved changing back the values manually in pacli.conf.
                The setting 'deck_version' should only be changed by developers, as currently only version 1 is used
                and otherwise it will lead to errors with decks.
                Changing 'production' setting to False will enable a test environment for test tokens/decks which is
                incompatible with normal decks, this should also only be changed by developers.
+               To change from testnet to mainnet and vice versa, use the 'network' setting.
 
            Args:
 
@@ -118,10 +118,10 @@ class ExtConfig:
             if value is None:
                 raise ei.PacliInputDataError("No value provided.")
             if modify is True or delete is True:
-                raise ei.PacliInputDataError("Modifying labels or deleting them in the standard config file is not permitted.")
+                raise ei.PacliInputDataError("Modifying labels or deleting them in the basic config file is not permitted.")
             if label not in default_conf.keys():
                 # raise ValueError({'error': 'Invalid setting key.'}) # ValueError added # this was mainly for compatibility.
-                raise ei.PacliInputDataError("Invalid setting key. This label doesn't exist in the standard configuration file. See permitted labels with: 'config list -l'.")
+                raise ei.PacliInputDataError("Invalid setting key. This label doesn't exist in the basic configuration file. See permitted labels with: 'config list'.")
             if replace is False:
                 raise ei.PacliInputDataError("Basic settings can only be modified with the --replace/-r flag. New labels can't be added.")
 
@@ -229,7 +229,7 @@ class ExtConfig:
 
           extended: Shows extended configuration file.
           categories: Shows list of available categories (only in combination with -e/--extended).
-          all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents.
+          all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents. These settings can't be changed as they're loaded on each Pacli start.
         """
         # TODO if anything which is not an argument is shown behind "-e" then it is assumed to be false.
         if extended is True:
@@ -716,9 +716,9 @@ class ExtDeck:
 
     def init(self,
              id_deck: str=None,
-             dpodtoken: bool=False,
              label: bool=False,
-             quiet: bool=False) -> None:
+             quiet: bool=False,
+             debug: bool=False) -> None:
         """Initializes a deck (token).
         This is mandatory to be able to use a token with pacli.
 
@@ -734,10 +734,10 @@ class ExtDeck:
 
         Args:
 
-          dpodtoken: Initialize a dPoD token.
           label: Store a label for the deck in the extended configuration file. Does only work if a DECK is given.
           quiet: Suppress output.
           id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
+          debug: Show debug information.
         """
 
         idstr = id_deck
@@ -751,8 +751,10 @@ class ExtDeck:
             ei.run_command(dc.init_dt_deck, netw, dpod_deck, quiet=quiet)
         else:
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
-            if dpodtoken is True:
-                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, store_label=label)
+            deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+            if "at_type" in deck.__dict__ and deck.at_type == c.ID_DT:
+                # if dpodtoken is True:
+                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, store_label=label, debug=debug)
             else:
                 ei.run_command(eu.init_deck, netw, deckid, quiet=quiet, store_label=label)
 

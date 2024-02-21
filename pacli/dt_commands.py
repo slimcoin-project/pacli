@@ -13,6 +13,7 @@ from pypeerassets.at.protobuf_utils import serialize_card_extended_data, seriali
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
 from pypeerassets.networks import net_query
 from pypeerassets.pautils import load_deck_p2th_into_local_node
+from pypeerassets.exceptions import P2THImportFailed
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -82,7 +83,7 @@ def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None
 
 # Deck
 
-def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=False, store_label: str=False) -> None:
+def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=False, store_label: str=False, debug: bool=False) -> None:
     # MODIFIED: added support for legacy blockchains
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     legacy = is_legacy_blockchain(network_name)
@@ -99,11 +100,16 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
 
     for tx_type in ("proposal", "signalling", "locking", "donation", "voting"):
         p2th_addr = deck.derived_p2th_address(tx_type)
+        accountname=deck.id + tx_type.upper()
         if not quiet:
             print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
+            print("Accountname for {}: {}".format(tx_type, accountname))
         if legacy:
             p2th_wif = deck.derived_p2th_wif(tx_type)
-            legacy_import(provider, p2th_addr, p2th_wif, rescan, silent=quiet)
+            try:
+                legacy_import(provider, p2th_addr, p2th_wif, rescan, silent=quiet, accountname=accountname)
+            except P2THImportFailed as e:
+                raise ei.PacliInputDataError("P2TH import failed for address:", p2th_addr)
         else:
             dmu.import_p2th_address(provider, p2th_addr)
 
@@ -119,7 +125,7 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
         if legacy:
             p2th_sdp_wif = pa.Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).wif
-            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan, silent=quiet)
+            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan, silent=quiet, accountname=deck.sdp_deckid)
         else:
             dmu.import_p2th_address(provider, p2th_sdp_addr)
 

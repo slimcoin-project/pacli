@@ -1,4 +1,4 @@
-import time, re
+import time, re, sys
 from decimal import Decimal
 import pypeerassets as pa
 from typing import Optional, Union
@@ -214,16 +214,20 @@ def get_wallet_transactions(fburntx: bool=False):
     start = 0
     raw_txes = []
     # while True:
-    for account in provider.listaccounts():
+    all_accounts = list(provider.listaccounts().keys())
+    all_accounts.reverse() # retrieve relevant accounts first, then the rest of the txes in "" account
+    for account in all_accounts:
         # print("checking account", account)
         while True:
-            new_txes = provider.listtransactions(many=999, since=start, fBurnTx=fburntx, account=account) # option fBurnTx=burntxes doesn't work as expected
-            # print("new txes:", new_txes)
+            new_txes = provider.listtransactions(many=500, since=start, fBurnTx=fburntx, account=account) # option fBurnTx=burntxes doesn't work as expected
             raw_txes += new_txes
-            if len(new_txes) == 999:
-                start += 999
-            else:
+            #if len(new_txes) == 999:
+            #    start += 999
+            # TODO: the new variant should be more reliable, for example if there is an error with one transaction
+            if len(new_txes) == 0:
                 break
+            else:
+                start += len(new_txes)
     return raw_txes
 
 def find_transaction_by_string(searchstring: str, only_start: bool=False):
