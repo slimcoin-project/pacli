@@ -80,7 +80,8 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
             # TODO: we don't check here if the addr_string is a valid address.
             result = addr_string
 
-    eu.is_possible_address(result, network_name)
+    if not eu.is_possible_address(result, network_name):
+        raise ei.PacliInputDataError("No valid address string or non-existing label.")
     return result
 
 def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
@@ -249,7 +250,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
     all_txes = True if (not sent) and (not received) else False
 
-    wallet_txes = eu.get_wallet_transactions()
+    wallet_txes = eu.get_wallet_transactions(debug=debug)
     if raw: # TODO: mainly debugging mode, maybe later remove again, or return the set (see below).
         return [t["txid"] for t in wallet_txes]
     all_txids = set([t["txid"] for t in wallet_txes])

@@ -207,19 +207,22 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
 
 # Transaction retrieval tools
 
-def get_wallet_transactions(fburntx: bool=False):
+def get_wallet_transactions(fburntx: bool=False, debug: bool=False):
     """Gets all transactions stored in the wallet."""
-    # TODO/NOTE: The command now cycles through all accounts,
-    # despite on SLM this seems not working properly, this would be the correct path forward.
-    start = 0
+
     raw_txes = []
-    # while True:
     all_accounts = list(provider.listaccounts().keys())
+    # all_accounts = [a for a in list(provider.listaccounts().keys()) if is_possible_address(a) == False]
+    # print(all_accounts)
     all_accounts.reverse() # retrieve relevant accounts first, then the rest of the txes in "" account
     for account in all_accounts:
-        # print("checking account", account)
+        start = 0
+        if debug:
+            print("Checking account", account)
         while True:
-            new_txes = provider.listtransactions(many=500, since=start, fBurnTx=fburntx, account=account) # option fBurnTx=burntxes doesn't work as expected
+            new_txes = provider.listtransactions(many=500, since=start, account=account) # option fBurnTx=burntxes doesn't work as expected # removed fBurnTx=fburntx,
+            if debug:
+                print("{} new transactions found.".format(len(new_txes)))
             raw_txes += new_txes
             #if len(new_txes) == 999:
             #    start += 999
@@ -228,6 +231,7 @@ def get_wallet_transactions(fburntx: bool=False):
                 break
             else:
                 start += len(new_txes)
+
     return raw_txes
 
 def find_transaction_by_string(searchstring: str, only_start: bool=False):
@@ -396,10 +400,14 @@ def is_possible_base58_address(address: str, network_name: str):
         return True
 
 def is_possible_address(address: str, network_name: str=Settings.network):
+
     try:
+        assert len(address) > 0
         assert is_possible_base58_address(address, network_name)
+        return True
     except AssertionError:
-        raise ei.PacliInputDataError("No valid address string or non-existing label.")
+        # raise ei.PacliInputDataError("No valid address string or non-existing label.")
+        return False
 
 
 # General token tools
