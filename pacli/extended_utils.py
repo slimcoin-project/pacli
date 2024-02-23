@@ -370,9 +370,9 @@ def get_safe_block_timeframe(period_start, period_end, security_level=1):
     safe_end = period_end - max(period_length * level[0], level[1])
     return (safe_start, safe_end)
 
-def get_wallet_address_set() -> set:
+def get_wallet_address_set(empty: bool=False) -> set:
     """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
-    addr_entries = provider.listreceivedbyaddress(0, True)
+    addr_entries = provider.listreceivedbyaddress(0, empty)
     return set([e["address"] for e in addr_entries])
 
 def is_possible_txid(txid: str) -> bool:

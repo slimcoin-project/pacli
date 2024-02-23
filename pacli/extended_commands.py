@@ -206,10 +206,11 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
 
     if not named:
         counter = 0
-        wallet_addresses = eu.get_wallet_address_set()
+        wallet_addresses = eu.get_wallet_address_set(empty=empty)
+
         for address in wallet_addresses:
             if address not in result.values():
-                if not empty:
+                if empty is False:
                     if provider.getbalance(address) == 0:
                         continue
                 label = "{}_(unlabeled{})".format(prefix, str(counter))
@@ -290,8 +291,6 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                             break
                     else:
                         txdict.update({"value_sent" : value_sent})
-            #else:
-            #    txdict = None
 
         if received or all_txes:
             try:

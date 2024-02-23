@@ -430,14 +430,15 @@ class ExtAddress:
              only_labels: bool=False,
              quiet: bool=False,
              blockchain: str=Settings.network,
-             debug: bool=False):
+             debug: bool=False,
+             empty: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
 
         Usage modes:
 
         pacli address list
 
-            Shows a table of all stored addresses and those which contain coins, PoD and PoB tokens
+            Shows a table of all named addresses and those which contain coins, PoD and PoB tokens
 
         pacli address list -a
 
@@ -463,11 +464,12 @@ class ExtAddress:
           blockchain: If pacli is used with various blockchains, Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
           debug: Show debug information.
           only_labels: In advanced mode, if a label is present, show only the label.
+          empty: Show addresses with empty balances which were not named.
           without_labels: In advanced mode, never show labels, only addresses.
         """
         # TODO: P2TH addresses should normally not be shown, implement a flag for them.
 
-        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, network=blockchain, debug=debug)
+        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, network=blockchain, empty=empty, debug=debug)
 
     def __list(self,
                advanced: bool=False,
@@ -480,14 +482,16 @@ class ExtAddress:
                named: bool=False,
                quiet: bool=False,
                network: str=Settings.network,
-               debug: bool=False):
+               debug: bool=False,
+               empty: bool=False):
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             # TODO: doesn't seem towork with keyring.
             # ex tools show_addresses
             if (labels is True) or (full_labels is True):
                 named = True
-            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named)
+
+            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=empty)
 
             if (labels is True) or (full_labels is True):
                 if full_labels is True:
@@ -533,6 +537,7 @@ class ExtAddress:
                                   only_labels=only_labels,
                                   named=named,
                                   quiet=quiet,
+                                  empty=empty,
                                   debug=debug)
 
     def balance(self, label: str=None, address: str=None, keyring: bool=False):
