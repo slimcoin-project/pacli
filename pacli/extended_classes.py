@@ -638,15 +638,39 @@ class ExtDeck:
           show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
 
         """
+        return ei.run_command(self.__list, pobtoken=pobtoken, dpodtoken=dpodtoken, attoken=attoken, named=named, show_p2th=show_p2th, quiet=quiet)
+
+    def __list(self,
+             pobtoken: bool=False,
+             dpodtoken: bool=False,
+             attoken: bool=False,
+             named: bool=False,
+             show_p2th: bool=False,
+             quiet: bool=False):
         # TODO: --pobtoken and --attoken currently show exactly the same decks. --pobtoken should only show PoB decks.
         # (vanilla command, but extended it replaces: `tools show_stored_decks`, `deck list` with --all flag, `pobtoken list_decks` with --pobtoken flag, and `podtoken list_decks` with --podtoken flag)
+
         if (pobtoken is True) or (attoken is True):
             decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT)
         elif dpodtoken is True:
             decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
         elif named is True:
             """Shows all stored deck IDs and their labels."""
-            return ce.list("deck", quiet=quiet)
+            deck_dict = ce.list("deck", quiet=True)
+            if quiet:
+                print(deck_dict)
+                return
+            deck_list = []
+            for label, deckid in deck_dict.items():
+                try:
+                    deck_dict = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production).__dict__
+                    deck_dict.update({"label" : label})
+                    deck_list.append(deck_dict)
+                except:
+                    print("Stored deck {} is not a valid PeerAssets deck.".format(deckid))
+                    continue
+            ei.print_deck_list(deck_list)
+            return
         else:
             decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production)

@@ -48,8 +48,11 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         try:
             if not tracked_address:
                 tracked_address = deck.at_address
-        except AttributeError:
-            raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
+            assert deck.at_type == c.ID_AT
+
+        except (AttributeError, AssertionError):
+            raise ei.PacliInputDataError("Deck {} is not an AT or PoB token deck.".format(deckid))
+
     else:
         deck = None
         if unclaimed:

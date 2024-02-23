@@ -157,66 +157,83 @@ def confirm_continuation() -> bool:
 
 # Tables
 
+
+def deck_line_item(deck: dict):
+
+    return [deck["label"],
+            deck["id"],
+            deck["name"],
+            deck["issuer"],
+            deck["issue_mode"],
+            deck["tx_confirmations"]]
+
+def print_deck_list(decks: list):
+    tui.print_table(
+    title="Named decks:",
+    heading=("Label", "ID", "Name", "Issuer", "Issue mode", "Confirmations"),
+    data=map(deck_line_item, decks))
+
+
 def address_line_item(address: dict):
-     return [address["label"],
+    return [address["label"],
              address["address"],
              address["network"],
              address["balance"]]
 
 def print_address_list(addresses: list):
-      tui.print_table(
-      title="Addresses with labels in wallet:",
-      heading=("Label", "address", "network", "coin balance"),
-      data=map(address_line_item, addresses))
+    tui.print_table(
+    title="Addresses with labels in wallet:",
+    heading=("Label", "address", "network", "coin balance"),
+    data=map(address_line_item, addresses))
 
 def balances_line_item(address: dict):
-     return [address["label"],
+    return [address["label"],
              address["address"],
              address["coin"],
              address["pob"],
              address["pod"]]
 
 def balances_line_item_onlytokens(address: dict):
-     return [address["label"],
+    return [address["label"],
              address["address"],
              address["pob"],
              address["pod"]]
 
 def print_default_balances_list(balances: dict, labeldict: dict, decks: list, network_name: str, only_tokens: bool=False) -> None:
-      addr_balances = []
-      if only_tokens:
-          currencies = {"pob" : decks[0].id, "pod" : decks[1].id}
-      else:
-          currencies = {"coin": network_name, "pob" : decks[0].id, "pod" : decks[1].id}
+    addr_balances = []
+    if only_tokens:
+        currencies = {"pob" : decks[0].id, "pod" : decks[1].id}
+    else:
+        currencies = {"coin": network_name, "pob" : decks[0].id, "pod" : decks[1].id}
 
-      for full_label, address in labeldict.items():
-          balance = {}
-          # NOTE: this has the effect that labels without _ are not shown correctly.
-          label = "_".join(full_label.split("_")[1:])
-          balance.update({"label" : label })
-          balance.update({"address" : address})
+    for full_label, address in labeldict.items():
+        balance = {}
+        # NOTE: this has the effect that labels without _ are not shown correctly.
+        label = "_".join(full_label.split("_")[1:])
+        balance.update({"label" : label })
+        balance.update({"address" : address})
 
-          for curr_header, curr_id in currencies.items():
+        for curr_header, curr_id in currencies.items():
 
-              if (curr_id in balances) and (address in balances[curr_id]):
-                  balance_value = balances[curr_id][address]
-              else:
-                  balance_value = 0
-              balance.update({curr_header : balance_value})
+            if (curr_id in balances) and (address in balances[curr_id]):
+                balance_value = balances[curr_id][address]
+            else:
+                balance_value = 0
+            balance.update({curr_header : balance_value})
 
-          addr_balances.append(balance)
+        addr_balances.append(balance)
 
-      if only_tokens:
-          table_data = map(balances_line_item_onlytokens, addr_balances)
-          table_heading = ("Label", "Address", "PoB tokens", "dPoD tokens")
-      else:
-          table_data = map(balances_line_item, addr_balances)
-          table_heading = ("Label", "Address", network_name, "PoB tokens", "dPoD tokens")
+    if only_tokens:
+        table_data = map(balances_line_item_onlytokens, addr_balances)
+        table_heading = ("Label", "Address", "PoB tokens", "dPoD tokens")
+    else:
+        table_data = map(balances_line_item, addr_balances)
+        table_heading = ("Label", "Address", network_name, "PoB tokens", "dPoD tokens")
 
-      tui.print_table(
-      title="Balances of addresses with labels in wallet:",
-      heading=table_heading,
-      data=table_data)
+    tui.print_table(
+    title="Balances of addresses with labels in wallet:",
+    heading=table_heading,
+    data=table_data)
 
 # Exceptions
 
