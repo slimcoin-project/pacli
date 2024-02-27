@@ -1167,7 +1167,11 @@ class ExtTransaction:
 
         if count is True:
             return len(txes)
+
         elif (txids is True) and (not raw):
+            if claims is True:
+                txes = ([{"txid" : t["TX ID"]} for t in txes]) # TODO: ugly hack, improve this
+
             if named is True:
                 for tx in txes:
                     for k, v in tx.items():
@@ -1176,6 +1180,7 @@ class ExtTransaction:
                         except KeyError:
                             if not quiet:
                                 print("Invalid transaction skipped:", k)
+
 
             elif quiet is True:
                 print([t["txid"] for t in txes])
