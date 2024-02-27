@@ -170,7 +170,7 @@ def deck_line_item(deck: dict):
 def print_deck_list(decks: list):
     tui.print_table(
     title="Named decks:",
-    heading=("Label", "ID", "Name", "Issuer", "Issue mode", "Confirmations"),
+    heading=("Local label", "ID", "Global name", "Issuer", "Issue mode", "Confirmations"),
     data=map(deck_line_item, decks))
 
 
