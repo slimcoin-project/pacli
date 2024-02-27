@@ -4,16 +4,16 @@ from decimal import Decimal
 import pypeerassets as pa
 import pypeerassets.at.at_parser as ap
 import pypeerassets.at.dt_misc_utils as dmu
+import pypeerassets.at.constants as c
 from pypeerassets.pautils import find_tx_sender
 from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
-from pypeerassets.at.constants import ID_AT
 from pypeerassets.networks import net_query
 from pypeerassets.exceptions import UnsupportedNetwork
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
-import pacli.extended_constants as c
+import pacli.extended_constants as extc
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -46,8 +46,10 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
             if debug:
                 print("Transactions you already claimed tokens for of this deck:", claimed_txes)
         try:
+
             if not tracked_address:
                 tracked_address = deck.at_address
+
             assert deck.at_type == c.ID_AT
 
         except (AttributeError, AssertionError):
@@ -149,106 +151,6 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     return txes_to_address
 
-'''# def show_txes_by_block(tracked_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, quiet: bool=False, debug: bool=False) -> list:
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, endblock: int=None, startblock: int=0, quiet: bool=False, debug: bool=False) -> list:
-    # VERY SLOW. When watchaddresses are available this should be replaced.
-
-    if not endblock:
-        endblock = provider.getblockcount()
-    if (not quiet) and ((endblock - startblock) > 10000):
-        print("""
-              NOTE: This commands cycles through all blocks and will take very long
-              to finish. It's recommended to use it for block ranges of less than 10000 blocks.
-              Abort and get results with CTRL-C.
-              """)
-
-    if deckid:
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        try:
-            tracked_address = deck.at_address
-        except AttributeError:
-            raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
-
-    tracked_txes = []
-    # all_txes = True if tracked_address is None else False
-
-    for bh in range(startblock, endblock + 1):
-        try:
-            if not quiet and bh % 100 == 0:
-                print("Processing block:", bh)
-            blockhash = provider.getblockhash(bh)
-            block = provider.getblock(blockhash)
-
-            try:
-                block_txes = block["tx"]
-            except KeyError:
-                print("You have reached the tip of the blockchain.")
-                return tracked_txes
-
-            for txid in block_txes:
-                print("TXID", txid)
-                try:
-                    tx_struct = eu.get_tx_structure(txid)
-                except Exception as e:
-                    print("Error", e)
-                    continue
-                print(tx_struct)
-                recv = receiving_address in [r for o in tx_struct["outputs"] for r in o["receivers"]]
-                send = sending_address in tx_struct["inputs"]
-                #print(recv, send, sending_address, receiving_address)
-                #print([o["receivers"] for o in tx_struct["outputs"]])
-                if (recv and send) or (recv and sending_address is None) or (send and receiving_address is None) or (sending_address is None and receiving_address is None):
-                    tx_dict = {"txid" : txid}
-                    tx_dict.update(tx_struct)
-                    tracked_txes.append(tx_dict)
-
-
-                """
-                total_amount_to_address = Decimal(0)
-                try:
-                    origin = [(inp["txid"], inp["vout"]) for inp in tx["vin"]]
-                except KeyError:
-                    origin = [("coinbase", inp["coinbase"]) for inp in tx["vin"]]
-                try:
-                    vouts = tx["vout"]
-                except KeyError:
-                    if all_txes:
-                        tracked_txes.append({"height": bh, "txid": txid})
-                    if debug:
-                        print("Transaction not considered:", txid)
-                    continue
-                for output in vouts:
-                    try:
-                        output_addr = output["scriptPubKey"]["addresses"][0] # TODO: this only tracks simple scripts.
-                    except KeyError:
-                        if output.get("value") == 0: # PoS coinstake txes
-                            continue
-                        if output["scriptPubKey"].get("type") == "nulldata":
-                            continue # op_return
-                        if debug:
-                            print("Script not implemented.", txid, output)
-                        continue
-
-                    if tracked_address == output_addr:
-                        total_amount_to_address += Decimal(str(output["value"]))
-
-                if total_amount_to_address == 0:
-                    continue
-
-                if debug:
-                    print("TX {} added, value {}.".format(txid, total_amount_to_address))
-
-
-                tracked_txes.append({"height" : bh,
-                                     "txid" : txid,
-                                     "origin" : origin,
-                                     "amount" : total_amount_to_address
-                                     })"""
-        except KeyboardInterrupt:
-            break
-
-    return tracked_txes'''
-
 def check_donation_tx_validity(txid: str, tracked_address: str, startblock: int=None, endblock: int=None, expected_sender: str=None, debug: bool=False):
     # checks the validity of a donation/burn transaction
     try:
@@ -338,7 +240,7 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
 
 
 def at_deckinfo(deckid):
-    for deck in dmu.list_decks_by_at_type(provider, ID_AT):
+    for deck in dmu.list_decks_by_at_type(provider, c.ID_AT):
         if deck.id == deckid:
             break
     else:
@@ -356,7 +258,7 @@ def get_claimed_txes(deck: object, input_address: str, only_wallet: bool=False) 
 def burn_address():
     if not provider.network.endswith("slm"):
         raise UnsupportedNetwork("Unsupported network for burn tokens.")
-    return c.BURN_ADDRESS[provider.network]
+    return extc.BURN_ADDRESS[provider.network]
 
 
 # API commands
