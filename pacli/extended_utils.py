@@ -102,12 +102,13 @@ def get_deckinfo(deckid, p2th: bool=False):
         print("Showing P2TH addresses.")
         # the following code generates the addresses, so it's not necessary to add them to the dict.
         # TODO shouldn't it be possible simply to use a list?
-        p2th_dict = {"p2th_main": d.p2th_address,
-                      "p2th_proposal" : d.derived_p2th_address("proposal"),
-                      "p2th_signalling" : d.derived_p2th_address("signalling"),
-                      "p2th_locking" : d.derived_p2th_address("locking"),
-                      "p2th_donation" : d.derived_p2th_address("donation"),
-                      "p2th_voting" : d.derived_p2th_address("voting")}
+        p2th_dict = {"p2th_main": d.p2th_address}
+        p2th_dict.update(get_dt_p2th_addresses(d))
+                      #"p2th_proposal" : d.derived_p2th_address("proposal"),
+                      #"p2th_signalling" : d.derived_p2th_address("signalling"),
+                      #"p2th_locking" : d.derived_p2th_address("locking"),
+                      #"p2th_donation" : d.derived_p2th_address("donation"),
+                      #"p2th_voting" : d.derived_p2th_address("voting")}
         # d_dict.update(p2th_dict)
     return d_dict
 
@@ -207,7 +208,7 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
 
 # Transaction retrieval tools
 
-def get_wallet_transactions(fburntx: bool=False, debug: bool=False):
+def get_wallet_transactions(fburntx: bool=False, exclude: list=None, debug: bool=False):
     """Gets all transactions stored in the wallet."""
 
     raw_txes = []
@@ -216,13 +217,13 @@ def get_wallet_transactions(fburntx: bool=False, debug: bool=False):
     # print(all_accounts)
     all_accounts.reverse() # retrieve relevant accounts first, then the rest of the txes in "" account
     for account in all_accounts:
+        if exclude and (account in exclude):
+            continue
         start = 0
-        if debug:
-            print("Checking account", account)
         while True:
             new_txes = provider.listtransactions(many=500, since=start, account=account) # option fBurnTx=burntxes doesn't work as expected # removed fBurnTx=fburntx,
             if debug:
-                print("{} new transactions found.".format(len(new_txes)))
+                print("{} new transactions found in account {}.".format(len(new_txes), account))
             raw_txes += new_txes
             #if len(new_txes) == 999:
             #    start += 999
@@ -347,69 +348,6 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
             raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
 
 
-# Misc tools
-
-def get_safe_block_timeframe(period_start, period_end, security_level=1):
-    """Returns a safe blockheight for TrackedTransactions to make reorg attacks less likely.
-    Security levels:
-
-    0 is very risky (5 to 95%, no minimum distance in blocks to period border)
-    1 is default (10 to 90%, 25 blocks minimum, equivalent to the recommended number of confirmations)
-    2 is safe (20 to 80%, 50 blocks minimum)
-    3 is very safe (30 to 70%, 100 blocks minimum)
-    4 is optimal (50%), always in the block closest to the middle of each period"""
-    security_levels = [(5, 0),
-                       (10, 25),
-                       (20, 50),
-                       (30, 100),
-                       (50, 0)]
-
-    period_length = period_end - period_start
-    level = security_levels[security_level]
-    safe_start = period_start + max(period_length * level[0], level[1])
-    safe_end = period_end - max(period_length * level[0], level[1])
-    return (safe_start, safe_end)
-
-def get_wallet_address_set(empty: bool=False) -> set:
-    """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
-    addr_entries = provider.listreceivedbyaddress(0, empty)
-    return set([e["address"] for e in addr_entries])
-
-def is_possible_txid(txid: str) -> bool:
-    """Very simple TXID format verification."""
-    try:
-
-        assert len(txid) == 64
-        hexident = int(txid, 16)
-        return True
-
-    except (ValueError, AssertionError):
-        return False
-
-def is_possible_base58_address(address: str, network_name: str):
-    """Very simple address format validation, without checksum test."""
-
-    not_b58 = re.compile(r"[^123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]")
-    network = net_query(network_name)
-
-    if address[0] not in network.base58_prefixes:
-        return False
-    elif re.search(not_b58, address):
-        return False
-    else:
-        return True
-
-def is_possible_address(address: str, network_name: str=Settings.network):
-
-    try:
-        assert len(address) > 0
-        assert is_possible_base58_address(address, network_name)
-        return True
-    except AssertionError:
-        # raise ei.PacliInputDataError("No valid address string or non-existing label.")
-        return False
-
-
 # General token tools
 
 def get_address_token_balance(deck: object, address: str) -> Decimal:
@@ -493,3 +431,104 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
                    param_names["blocknum"] : claim.blocknum} for claim in claims]
 
     return result
+
+# Misc tools
+
+def get_safe_block_timeframe(period_start, period_end, security_level=1):
+    """Returns a safe blockheight for TrackedTransactions to make reorg attacks less likely.
+    Security levels:
+
+    0 is very risky (5 to 95%, no minimum distance in blocks to period border)
+    1 is default (10 to 90%, 25 blocks minimum, equivalent to the recommended number of confirmations)
+    2 is safe (20 to 80%, 50 blocks minimum)
+    3 is very safe (30 to 70%, 100 blocks minimum)
+    4 is optimal (50%), always in the block closest to the middle of each period"""
+    security_levels = [(5, 0),
+                       (10, 25),
+                       (20, 50),
+                       (30, 100),
+                       (50, 0)]
+
+    period_length = period_end - period_start
+    level = security_levels[security_level]
+    safe_start = period_start + max(period_length * level[0], level[1])
+    safe_end = period_end - max(period_length * level[0], level[1])
+    return (safe_start, safe_end)
+
+def get_wallet_address_set(empty: bool=False) -> set:
+    """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
+    addr_entries = provider.listreceivedbyaddress(0, empty)
+    return set([e["address"] for e in addr_entries])
+
+def is_possible_txid(txid: str) -> bool:
+    """Very simple TXID format verification."""
+    try:
+
+        assert len(txid) == 64
+        hexident = int(txid, 16)
+        return True
+
+    except (ValueError, AssertionError):
+        return False
+
+def is_possible_base58_address(address: str, network_name: str):
+    """Very simple address format validation, without checksum test."""
+
+    not_b58 = re.compile(r"[^123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]")
+    network = net_query(network_name)
+
+    if address[0] not in network.base58_prefixes:
+        return False
+    elif re.search(not_b58, address):
+        return False
+    else:
+        return True
+
+def is_possible_address(address: str, network_name: str=Settings.network):
+
+    try:
+        assert len(address) > 0
+        assert is_possible_base58_address(address, network_name)
+        return True
+    except AssertionError:
+        # raise ei.PacliInputDataError("No valid address string or non-existing label.")
+        return False
+
+def get_p2th(accounts: bool=False):
+
+    if accounts:
+        result = ["PAPROD", "PATEST"] # default P2TH accounts for deck spawns
+    else:
+        result = [] # TODO find addresses for PAPROD and PATEST
+
+    decks = pa.find_all_valid_decks(provider, Settings.deck_version,
+                                        Settings.production)
+    for deck in decks:
+        if accounts:
+            result.append(deck.id) # Deck P2TH account
+        else:
+            result.append(deck.p2th_address) # Deck P2TH addr.
+
+        # derived P2THs of DT tokens
+        if getattr(deck, "at_type", None) == ID_DT:
+            if accounts:
+                result += get_dt_p2th_accounts(deck).values()
+            else:
+                result += get_dt_p2th_addresses(deck).values()
+
+    return result
+
+def get_dt_p2th_addresses(deck):
+    return {"p2th_proposal" : deck.derived_p2th_address("proposal"),
+            "p2th_signalling" : deck.derived_p2th_address("signalling"),
+            "p2th_locking" : deck.derived_p2th_address("locking"),
+            "p2th_donation" : deck.derived_p2th_address("donation"),
+            "p2th_voting" : deck.derived_p2th_address("voting")}
+
+def get_dt_p2th_accounts(deck):
+    return {"p2th_proposal" : deck.id + "PROPOSAL",
+            "p2th_signalling" : deck.id + "SIGNALLING",
+            "p2th_locking" : deck.id + "LOCKING",
+            "p2th_donation" : deck.id + "DONATION",
+            "p2th_voting" : deck.id + "VOTING"}
+

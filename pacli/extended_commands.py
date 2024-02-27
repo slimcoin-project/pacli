@@ -179,7 +179,7 @@ def show_addresses(addrlist: list, label_list: list, network: str=Settings.netwo
         result.append(adr)
     return result
 
-def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
+def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
 
@@ -207,6 +207,9 @@ def get_labels_and_addresses(prefix: str=Settings.network, keyring: bool=False, 
     if not named:
         counter = 0
         wallet_addresses = eu.get_wallet_address_set(empty=empty)
+
+        if exclude:
+            wallet_addresses -= set(exclude)
 
         for address in wallet_addresses:
             if address not in result.values():
@@ -242,26 +245,92 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
 # Transaction-related tools
 
 
-def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, sort: bool=False, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
+def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, include_p2th: bool=False, sort: bool=False, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
+    # TODO recheck all modes: with/without address, wallet, sent/received
+
     if not wallet and not raw:
         address = process_address(addr_string, keyring=keyring, try_alternative=False)
         if not address:
             raise ei.PacliInputDataError("You must provide either a valid address or a valid label.")
+    else:
+        address = None
 
     all_txes = True if (not sent) and (not received) else False
+    if wallet:
+        wallet_addresses = eu.get_wallet_address_set(empty=True)
 
-    wallet_txes = eu.get_wallet_transactions(debug=debug)
-    if raw: # TODO: mainly debugging mode, maybe later remove again, or return the set (see below).
-        return [t["txid"] for t in wallet_txes]
-    all_txids = set([t["txid"] for t in wallet_txes])
-    all_wallet_txes = [provider.getrawtransaction(txid, 1) for txid in all_txids]
     if debug:
-       print(len(all_wallet_txes), "wallet transactions found.")
+        print("Get wallet transactions ...")
+    if include_p2th:
+        wallet_txes = eu.get_wallet_transactions(debug=debug)
+        excluded_addresses = []
+
+    else: # normally exclude p2th accounts
+        p2th_accounts = eu.get_p2th(accounts=True)
+        if wallet:
+            p2th_addresses = set(eu.get_p2th())
+            wallet_addresses = wallet_addresses - p2th_addresses
+        if debug:
+            print("Excluding P2TH accounts", p2th_accounts)
+            if wallet:
+                print("Wallet addresses", wallet_addresses)
+        wallet_txes = eu.get_wallet_transactions(debug=debug, exclude=p2th_accounts)
+
+    if raw: # TODO: mainly debugging mode, maybe later remove again, or return the set (see below).
+        return wallet_txes
+
+    unique_txes = list(set([(t["txid"], t["category"]) for t in wallet_txes]))
+    #if wallet:
+    #    unique_txes = list(set([(t["txid"], t["category"]) for t in wallet_txes]))
+    #else:
+    #    unique_txes = list(set([(t["txid"], None) for t in wallet_txes])) # if an address is given, we can use the fastest mode.
+    if debug:
+        print("Sorting ...")
+
+    unique_txes.sort(key=lambda x: x[0], reverse=True) # should be: send, receive, generate
+
+    if debug:
+        print("Sorting finished.\nPreprocessing transaction list ...")
+
+    # preprocessing step added
+    txes = {}
+    if sent or (received and not sent):
+        cats = ["send"] if sent is True else ["receive", "generate", "immature"]
+    else:
+        cats = ["send", "receive", "generate", "immature"]
+
+    oldtxid = None
+    for txid, category in unique_txes:
+        # deletes txes which aren't in the required categories
+        if (oldtxid not in (None, txid)) and set(cats).isdisjoint(txes[oldtxid]):
+            if debug:
+                print("Deleting tx {}. Cats {} not matching {}.".format(oldtxid, txes[oldtxid], cats))
+            del txes[oldtxid]
+
+        if txid not in txes.keys():
+            if debug:
+                print("New tx", txid)
+            txes.update({ txid : [category]})
+        else:
+            if category not in txes[txid]:
+                if debug:
+                    print("Adding category {} to tx {}".format(category, txid))
+                txes[txid].append(category)
+            else:
+                if debug:
+                    print("Ignoring category {} to tx {}, already existing in: {}".format(category, txid, txes["txid"]))
+        oldtxid = txid
+
+    if debug:
+       print(len(txes), "wallet transactions found.")
     result = []
+    if debug:
+        print("Preprocessing finished.\nChecking senders and receivers ...")
 
-    for tx in all_wallet_txes:
+    for txid, categories in txes.items():
 
+        tx = provider.getrawtransaction(txid, 1)
         txdict = None
         try:
             confs = tx["confirmations"]
@@ -270,21 +339,30 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
             if advanced: # more usable and needed for sorting
                 tx.update({"confirmations" : 0})
 
-        if sent or all_txes:
+        if debug:
+            print("Categories of tx {}: {}".format(tx["txid"], categories))
+            print("Checking if wallet or address has sent transaction {} ...".format(tx["txid"]), end="")
+
+        if ("send" in categories) and ((all_txes or sent) or (received and ("receive" in categories))):
+
             try:
                 senders = bx.find_tx_senders(tx)
-            except KeyError: # coinbase tx or error
+            except KeyError: # coinbase txes should not be canceled here as they should give []
+                if debug:
+                    print("Transaction aborted.")
                 continue
 
+            if debug:
+                print("True.")
+
             value_sent = 0
+
             for sender_dict in senders:
-                if wallet or (address in sender_dict["sender"]):
-                    if debug and not wallet:
+                if (wallet and not set(sender_dict["sender"]).isdisjoint(wallet_addresses)) or (address in sender_dict["sender"]):
+                    if not wallet and debug:
                         print("Address detected as sender in transaction:", tx["txid"])
                     value_sent += sender_dict["value"]
-                    # result.append(txdict)
-                    # processing = tx["txid"]
-                    # preliminary_txdict = txdict
+
                     if txdict is None:
                         txdict = tx if advanced else {"txid" : tx["txid"], "type": ["send"], "value_sent" : value_sent, "confirmations": confs}
                         if advanced:
@@ -292,41 +370,56 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                     else:
                         txdict.update({"value_sent" : value_sent})
 
-        if received or all_txes:
+        else:
+            if debug:
+               print("False.")
+
+        if debug:
+            print("Checking if address or wallet is a receiver of transaction: {} ... ".format(tx["txid"]), end="")
+
+        if ("receive" in categories or "generate" in categories or "immature" in categories) and ((all_txes or received) or (sent and ("send" in categories))):
+
             try:
                 outputs = tx["vout"]
             except KeyError:
                 if debug:
                     print("WARNING: Invalid transaction. TXID:", tx.get("txid"))
                 continue
+            if debug:
+                print("True.")
 
             value_received = 0
+
             for output in outputs:
                 out_addresses = output["scriptPubKey"].get("addresses")
-                try:
-                    if wallet or (address in out_addresses):
-                        value_received += output["value"]
-                        if txdict is not None:
-                            if not advanced:
-                                txdict.update({"type" : ["send", "receive"]})
-                                txdict.update({"value_received" : value_received})
-                        else:
-                            txdict = tx if advanced else {"txid" : tx["txid"], "type" : ["receive"], "value_received": value_received, "confirmations": confs}
-
-                        if debug and not wallet:
-                            print("Address detected as receiver in transaction: {}. Received value in this output: {}".format(tx["txid"], output["value"]))
-                        break
-
-                except TypeError:
+                if not out_addresses: # None or []
                     continue
 
+                if (wallet and (include_p2th or not set(out_addresses).isdisjoint(wallet_addresses))) or (address in out_addresses):
 
+                    value_received += output["value"]
+
+            if value_received > 0:
+                if txdict is not None:
+                    if not advanced:
+                        txdict.update({"type" : ["send", "receive"]})
+                        txdict.update({"value_received" : value_received})
+                else:
+                    txdict = tx if advanced else {"txid" : tx["txid"], "type" : ["receive"], "value_received": value_received, "confirmations": confs}
+
+            if debug and not wallet:
+                print("Address detected as receiver in transaction: {}. Received value in this output: {}".format(tx["txid"], output["value"]))
+
+        else:
+            if debug:
+                print("False.")
 
         if txdict is not None:
             result.append(txdict)
 
-
     if sort:
+        if debug:
+            print("Sorting result by confirmations ...")
         result.sort(key=lambda x: x["confirmations"])
 
     return result

@@ -428,10 +428,11 @@ class ExtAddress:
              named: bool=False,
              without_labels: bool=False,
              only_labels: bool=False,
+             p2th: bool=False,
              quiet: bool=False,
              blockchain: str=Settings.network,
              debug: bool=False,
-             empty: bool=False):
+             include_all: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
 
         Usage modes:
@@ -464,12 +465,12 @@ class ExtAddress:
           blockchain: If pacli is used with various blockchains, Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
           debug: Show debug information.
           only_labels: In advanced mode, if a label is present, show only the label.
-          empty: Show addresses with empty balances which were not named.
+          include_all: Show all addresses, also those with empty balances which were not named.
           without_labels: In advanced mode, never show labels, only addresses.
         """
         # TODO: P2TH addresses should normally not be shown, implement a flag for them.
 
-        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, network=blockchain, empty=empty, debug=debug)
+        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, debug=debug)
 
     def __list(self,
                advanced: bool=False,
@@ -479,11 +480,14 @@ class ExtAddress:
                full_labels: bool=False,
                no_labels: bool=False,
                only_labels: bool=False,
+               p2th: bool=False,
                named: bool=False,
                quiet: bool=False,
                network: str=Settings.network,
                debug: bool=False,
-               empty: bool=False):
+               include_all: bool=False):
+
+        excluded_addresses = eu.get_p2th() if p2th is False else []
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             # TODO: doesn't seem towork with keyring.
@@ -491,7 +495,8 @@ class ExtAddress:
             if (labels is True) or (full_labels is True):
                 named = True
 
-            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=empty)
+
+            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, exclude=excluded_addresses)
 
             if (labels is True) or (full_labels is True):
                 if full_labels is True:
@@ -537,7 +542,8 @@ class ExtAddress:
                                   only_labels=only_labels,
                                   named=named,
                                   quiet=quiet,
-                                  empty=empty,
+                                  empty=include_all,
+                                  exclude=excluded_addresses,
                                   debug=debug)
 
     def balance(self, label: str=None, address: str=None, keyring: bool=False):
@@ -631,7 +637,7 @@ class ExtDeck:
 
         Usage:
 
-        pacli deck list [options]
+        pacli deck list
 
         Args:
 
@@ -726,7 +732,7 @@ class ExtDeck:
           param: Shows a specific parameter (only in combination with -i/--info).
           show_p2th: Shows P2TH addresses (in combination with -i/--info, only dPoD tokens)
         """
-
+        # TODO: add --show_p2th address to all decks, not only dPoD.
         #TODO: an option to search by name would be fine here.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
         if info is True:
@@ -1011,22 +1017,22 @@ class ExtTransaction:
             If ADDRESS is not given, the current main address is used.
             Can be slow if used on wallets with many transactions.
 
-        pacli transaction list -n/--named
+        pacli transaction list -n
 
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list [DECK] [-b/--burntxes | -g/--gatewaytxes]
+        pacli transaction list [DECK] [-b | -g]
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT tokens stored in wallet.
             DECK is optional in the case of burn transactions. It can be a label or a deck ID.
 
-        pacli transaction list DECK -c/--claims
+        pacli transaction list DECK -c
 
             List token claim transactions.
             DECK can be a label or a deck ID.
 
-        pacli transaction list -x/--xplore [RECEIVER_ADDRESS] [-o/--origin ORIGIN_ADDRESS] [-f/--fromheight STARTHEIGHT] [-e/--endheight ENDHEIGHT]
+        pacli transaction list -x [RECEIVER_ADDRESS] [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
 
             Block explorer mode: List all transactions between two block heights.
             RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is an address of a sender.
@@ -1035,7 +1041,7 @@ class ExtTransaction:
             WARNING: VERY SLOW if used with large block height ranges!
             Note: In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
 
-        pacli transaction list -p/--param PARAM
+        pacli transaction list -p PARAM
 
             Show a single parameter or variable of the transactions, together with the TXID.
             This mode can be combined with all other modes.
