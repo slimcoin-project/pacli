@@ -22,9 +22,8 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
-    # TODO: re-check if addresses without labels are shown (simply send tokens to a random non-label address)
 
-    if not advanced:
+    if advanced is not True:
         # the quick mode displays only default PoB and PoD decks
         decks = get_default_tokens()
     elif deck_type is not None:
@@ -51,14 +50,14 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
             balance = float(str(provider.getbalance(addr)))
             coin_balances.update({addr: balance})
 
-        if advanced and (not no_labels):
+        if (advanced is True) and (not no_labels):
             coin_balances = ei.format_balances(coin_balances, labeldict, suppress_addresses=only_labels)
 
         balances = { Settings.network : coin_balances }
 
     # NOTE: default view needs no deck labels
     # NOTE2: Silent mode doesn't show labels.
-    if (advanced and not no_labels) and (not quiet):
+    if ((advanced is True) and not no_labels) and (not quiet):
         deck_labels = ce.get_config()["deck"]
     else:
         deck_labels = None
@@ -71,7 +70,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
                 # Note: returns a dict, structure of balances var is thus different.
                 balance = eu.get_wallet_token_balances(deck)
 
-                if advanced and (not no_labels) and (not quiet):
+                if (advanced is True) and (not no_labels) and (not quiet):
                     balance = ei.format_balances(balance, labeldict, suppress_addresses=only_labels)
             else:
                 balance = eu.get_address_token_balance(deck, address)
@@ -94,7 +93,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
 
     if quiet:
         print(balances)
-    elif advanced or (not wallet):
+    elif (advanced is True) or (not wallet):
         pprint(balances)
     else:
         ei.print_default_balances_list(balances, labeldict, decks, network_name=Settings.network, only_tokens=only_tokens)

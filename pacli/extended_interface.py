@@ -44,6 +44,8 @@ def run_command(c, *args, **kwargs) -> object:
         # TypeError: argument of type 'NoneType' is not iterable
         err_str = """\n        General error raised by PeerAssets.
 
+        Check if your input is correct.
+
         If you gave a deck as an argument, a possible reason for this error is that you need to initialize the deck.
 
         To initialize the default decks, use:
