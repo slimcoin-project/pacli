@@ -333,7 +333,7 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
         cards = pa.find_all_valid_cards(provider, deck)
         ds = pa.protocol.DeckState(cards)
     except KeyError:
-        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli token init_deck DECK'")
+        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli deck init DECK'")
 
     claim_cards = []
     for card in ds.valid_cards:
@@ -404,7 +404,7 @@ def get_wallet_token_balances(deck: object) -> dict:
 
     return balances
 
-def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None, debug: bool=False):
+def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None, quiet: bool=False, debug: bool=False):
     '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
 
     if deck_str is None:
@@ -414,6 +414,9 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
 
     deckid = search_for_stored_tx_label("deck", deck_str)
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+
+    if "at_type" not in deck.__dict__:
+        raise ei.PacliInputDataError("{} is not a DT/dPoD or AT/PoB deck.".format(deckid))
 
     try:
         assert deck.at_address == c.BURN_ADDRESS[provider.network]
@@ -457,6 +460,9 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
                    param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
                    param_names["receiver"] : claim.receiver,
                    param_names["blocknum"] : claim.blocknum} for claim in claims]
+
+    if (not quiet) and len(result) == 0:
+        print("No claim transactions found.")
 
     return result
 

@@ -1151,7 +1151,7 @@ class ExtTransaction:
         elif reftxes is True:
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
         elif claims is True:
-            txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param, debug=debug)
+            txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
         elif named is True:
             """Shows all stored transactions and their labels."""
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
