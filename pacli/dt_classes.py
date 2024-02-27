@@ -915,6 +915,7 @@ class Donation:
         --include_badtx: also detects wrongly formatted transactions, but only displays the txid.
         --light: Faster mode, not displaying properties depending from deck state.
         '''
+        # TODO: catch error when OP_RETURN is not found (pypeerassets.exceptions.InvalidNulldataOutput)
 
         if proposal is not None:
 

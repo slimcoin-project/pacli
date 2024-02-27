@@ -1187,9 +1187,9 @@ class ExtTransaction:
         elif (param is not None) and not claims:
             try:
                 if quiet is True:
-                    return [{t["txid"] : t[param]} for t in txes]
+                    return [{t["txid"] : t.get(param)} for t in txes]
                 else:
-                    pprint([{t["txid"] : t[param]} for t in txes])
+                    pprint([{t["txid"] : t.get(param)} for t in txes])
             except KeyError:
                 raise ei.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
         else:
