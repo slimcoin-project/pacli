@@ -134,7 +134,7 @@ def find_tx_senders(tx: dict) -> list:
     return senders
 
 
-def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=0, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
+def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=None, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Show all transactions to a tracked address between two block heights (very slow!).
        start and end can be blockheights or dates in the format YYYY-MM-DD.'''
 
@@ -148,14 +148,17 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         last_block_date = datetime.date.fromisoformat(last_blocktime.split(" ")[0])
         startdate, enddate = None, None
 
+
+        if not start:
+            start = 0
+        if not end:
+            end = provider.getblockcount()
+
         if "-" in str(start):
             startdate = datetime.date.fromisoformat(start)
             startblock = date_to_blockheight(startdate, last_block, debug=debug)
         else:
             startblock = int(start)
-
-        if not end:
-            end = provider.getblockcount()
 
         if "-" in str(end):
             enddate = datetime.date.fromisoformat(end)

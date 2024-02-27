@@ -1133,6 +1133,7 @@ class ExtTransaction:
         count = total
         coinbase = view_coinbase
         raw = lraw
+        sender = origin
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
