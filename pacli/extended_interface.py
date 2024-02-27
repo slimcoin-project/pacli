@@ -210,6 +210,8 @@ def print_default_balances_list(balances: dict, labeldict: dict, decks: list, ne
         balance = {}
         # NOTE: this has the effect that labels without _ are not shown correctly.
         label = "_".join(full_label.split("_")[1:])
+        if label.startswith("(unlabeled"):
+            label = ""
         balance.update({"label" : label })
         balance.update({"address" : address})
 

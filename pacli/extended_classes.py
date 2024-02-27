@@ -514,6 +514,8 @@ class ExtAddress:
                 addresses = []
                 for full_label, address in address_labels.items():
                     network_name, label = ce.process_fulllabel(full_label)
+                    if "(unlabeled" in label:
+                        label = ""
 
                     try:
                         balance = str(provider.getbalance(address))
