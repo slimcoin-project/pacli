@@ -23,10 +23,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
     # TODO: re-check if addresses without labels are shown (simply send tokens to a random non-label address)
-    # TODO deck_type is not userfriendly, perhaps increase friendlyness to allow calling that on CLI
 
-
-    # with a human_readable type.
     if not advanced:
         # the quick mode displays only default PoB and PoD decks
         decks = get_default_tokens()
@@ -106,7 +103,7 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
     """Shows the balance of a single token (deck) on the current main address or another address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
-    # TODO: also affected by wallet issue.
+    # TODO: also affected by wallet issue. (which?)
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -117,10 +114,8 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
         labeldict = ec.get_labels_and_addresses(keyring=keyring)
         balances = eu.get_wallet_token_balances(deck)
 
-
         if (not no_labels) and (not quiet):
             balances = ei.format_balances(balances, labeldict)
-
 
         if quiet:
             print(balances)

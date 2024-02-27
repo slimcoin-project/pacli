@@ -68,8 +68,9 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, send=send)
 
 
-def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=True, quiet: bool=False, debug: bool=False):
+def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, quiet: bool=False, no_label: bool=True, debug: bool=False):
     """Initializes a 'common' deck (also AT/PoB). dPoD decks need further initialization of more P2TH addresses."""
+    # NOTE: Default is now storing the deck name as a label, if it doesn't exist.
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if deckid not in provider.listaccounts():
@@ -84,14 +85,41 @@ def init_deck(network: str, deckid: str, store_label: str=None, rescan: bool=Tru
     if debug:
         print("Output of validation tool:\n", check_addr)
 
-    if store_label:
-        try:
-            ce.write_item("deck", store_label, deckid)
-        except ce.ValueExistsError:
-            raise ei.PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
+    if not no_label:
+        store_deck_label(deck, label=label, quiet=quiet)
 
     if not quiet:
         print("Done.")
+
+def store_deck_label(deck: object, label: str=None, quiet: bool=False):
+
+    value_exists_errmsg = "Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli deck set LABEL {}' with a custom LABEL value."
+
+    if not label:
+        if not quiet:
+            print("Trying to store global deck name {} as a local label for this deck.".format(deck.name))
+
+        existing_labels = ce.list("deck", quiet=True)
+        if deck.name in existing_labels:
+            raise ei.PacliInputDataError(value_exists_errmsg.format(deck.id, deck.name, deck.id))
+        else:
+            label = deck.name
+
+        for d in pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production):
+            if (d.name == deck.name) and (d.id != deck.id) and (d.issue_time <= deck.issue_time):
+                if not quiet:
+                    print("{} was already used as a global name by another earlier deck: {}".format(deck.name, d.id))
+                    print("It can be still used as a local label.")
+                    print("Confirm the name typing [ENTER], or input another name.")
+                    input_name = input()
+                    if len(input_name.strip()) > 0: # strip avoids that space is entered
+                        label = input_name
+
+    try:
+        # ce.write_item("deck", label, deckid)
+        ce.setcfg("deck", label, deck.id)
+    except ei.ValueExistsError:
+        raise ei.PacliInputDataError(value_exists_errmsg.format(deck.id, label, deck.id))
 
 
 def get_deckinfo(deckid, p2th: bool=False):

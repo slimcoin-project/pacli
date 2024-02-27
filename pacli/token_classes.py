@@ -19,9 +19,8 @@ class Token:
                 param1: str=None,
                 param2: str=None,
                 token_type: str=None,
-                holders: bool=False,
-                all: bool=False,
-                common: bool=False,
+                cardholders: bool=False,
+                advanced: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
                 no_labels: bool=False,
@@ -30,55 +29,78 @@ class Token:
                 debug: bool=False):
         """List the token balances of an address, the whole wallet or all users.
 
-        Usage options:
+        Usage mode:
 
-        pacli token balance DECK [ADDRESS] [--wallet]
+        pacli token balance DECK [ADDRESS|-w]
 
-        Shows balances of a single token of all addresses (--wallet flag) or only the specified address.
+        Shows balances of a single token of all addresses (-w flag) or only the specified address.
 
-        pacli token balance [ADDRESS] --all [--wallet]
+        pacli token balance [ADDRESS|-w] -a
 
-        Shows balances of all tokens, either on the specified address or on the whole wallet (with --wallet flag).
+        Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
 
-        pacli token balance DECK --holders
+        pacli token balance [ADDRESS|-w]
 
-        Shows all balances of all holders of a token (addresses with cards of this deck). Similar to 'card balances' command.
+        Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
+
+        pacli token balance DECK -c
+
+        Shows balances of all holders of a token (addresses with cards of this deck). Similar to 'card balances' command.
 
 
-        Other options and flags:
+        Args:
 
-        -t, --token_type: In combination with the second option, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
-        -a, --advanced: In combination with the second option, shows balances of all tokens in JSON format.
-        -c, --common: Shows default tokens only.
-        -o, --only_labels: In combination with the first or second option, don't show the addresses, only the labels.
-        -n, --no_labels: In combination with the first or second option, don't show the labels, only the addresses.
-        -k, --keyring: In combination with the first or second option, use an address stored in the keyring.
-        -q, --quiet: Suppresses information about the deck when a label is used.
-        -d, --debug: Display debug info."""
+          token_type: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
+          advanced: See above. Shows balances of all tokens in JSON format.
+          cardholders: Show balances of all holders of cards of a token.
+          only_labels: In combination with the first or second option, don't show the addresses, only the labels.
+          no_labels: In combination with the first or second option, don't show the labels, only the addresses.
+          keyring: In combination with the first or second option, use an address stored in the keyring.
+          quiet: Suppresses information about the deck when a label is used.
+          debug: Display debug info.
+          param1: Deck or address. To be used as a positional argument (flag name not necessary).
+          param2: Address. To be used as a positional argument (flag name not necessary).
+          wallet: Show balances of all addresses in the wallet."""
 
         # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
         # allowed are: "at" / "pob", "dt" / "pod" (in all capitalizations)
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(self.__balance, **kwargs)
 
+    def __balance(self,
+                param1: str=None,
+                param2: str=None,
+                token_type: str=None,
+                cardholders: bool=False,
+                advanced: bool=False,
+                wallet: bool=False,
+                keyring: bool=False,
+                no_labels: bool=False,
+                only_labels: bool=False,
+                quiet: bool=False,
+                debug: bool=False):
 
-        if (holders is True) and (param1 is not None):
+        if cardholders is True:
+            if param1 is None:
+                raise ei.PacliInputDataError("Cardholder mode requires a deck.")
             from pacli.__main__ import Card
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
             return Card().balances(deckid)
-        elif (all is True) or (common is True):
-            if (wallet, param1) == (None, None):
-                param1 = Settings.key.address
-            # with --all flag, advanced mode is called;
-            # with --common flag, advanced mode is set to False (table output similar to address balances)
-            address = ec.process_address(param1)
-            deck_type = c.get_deck_type(token_type.lower()) if token_type is not None else None
-            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=all, only_labels=only_labels, deck_type=deck_type, quiet=quiet, debug=debug)
-        elif param1:
+        elif (param1 is not None) and ((param2 is not None) or (wallet is True)): # single token mode
             address = ec.process_address(param2) if param2 is not None else Settings.key.address
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
             return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, quiet=quiet)
-
         else:
-            ei.print_red("You have to provide a deck for this command, or use the --all/--common option.")
+            # TODO seems like label names are not given in this mode if a an address is given.
+            if (wallet, param1) == (False, None):
+                param1 = Settings.key.address
+            if (not wallet):
+                advanced = True
+            # without advanced flag, advanced mode is only set if the user requires it.
+            address = ec.process_address(param1) if wallet is False else None
+            deck_type = c.get_deck_type(token_type.lower()) if token_type is not None else None
+            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=only_labels, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
     # Enhanced transfer commands
@@ -98,13 +120,14 @@ class Token:
         Transfer to multiple receivers. AMOUNT1 goes to RECEIVER1 and so on.
         The brackets are mandatory, but they don't have to be escaped.
 
-        Options and flags:
-        -c, --change: Specify a change address.
-        -v, --verify: Verify transaction with Cointoolkit.
-        -q, --quiet: Suppress output and printout in a script-friendly way.
-        -d, --debug: Show additional debug info.
-        --sign: Signs the transaction (True by default, use --send=False for a dry run)
-        --send: Sends the transaction (True by default, use --send=False for a dry run)
+        Args:
+
+          change: Specify a change address.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Suppress output and printout in a script-friendly way.
+          debug: Show additional debug information.
+          sign: Signs the transaction (True by default, use --send=False for a dry run)
+          send: Sends the transaction (True by default, use --send=False for a dry run)
         """
         # NOTE: This is not a wrapper of card transfer, so the signature errors from P2PK are also fixed.
 
@@ -120,9 +143,6 @@ class Token:
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        #transfers = transferlist.split(";")
-        #receivers = [transfer.split(":")[0] for transfer in transfers]
-        #amounts = [Decimal(str(transfer.split(":")[1])) for transfer in transfers]
         change_address = ec.process_address(change)
 
         if not quiet:

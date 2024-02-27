@@ -83,7 +83,7 @@ def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None
 
 # Deck
 
-def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=False, store_label: str=False, debug: bool=False) -> None:
+def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=False, label: str=None, no_label: bool=False, debug: bool=False) -> None:
     # MODIFIED: added support for legacy blockchains
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     legacy = is_legacy_blockchain(network_name)
@@ -136,11 +136,13 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
                 print("Rescanning ...")
 
 
-    if store_label:
-         try:
-             ce.write_item("deck", store_label, deckid)
-         except ce.ValueExistsError:
-             raise PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
+    if not no_label:
+        eu.store_deck_label(deck, label=label, quiet=quiet)
+    #if store_label:
+    #     try:
+    #         ce.write_item("deck", store_label, deckid)
+    #     except ce.ValueExistsError:
+    #         raise PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
 
     if not quiet:
         print("Done.")

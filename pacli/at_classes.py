@@ -17,7 +17,7 @@ from pacli.token_classes import Token
 class ATToken(Token):
 
 
-    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, confirm: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
+    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
         The purpose of this command is to be able to use the address labels from Pacli,
         above all to make fast transactions to a tracked address of an AT token.
@@ -25,15 +25,16 @@ class ATToken(Token):
         Usage:
         pacli attoken create_tx ADDRESS AMOUNT
 
-        Options and flags:
-        -t, --tx_fee: Specify a transaction fee.
-        --change: Specify a change address.
-        --sign: Sign the transaction (True by default).
-        --send: Send the transaction (True by default).
-        --confirm: Wait and display a message until the transaction is confirmed.
-        -v, --verify: Verify transaction with Cointoolkit.
-        -q, --quiet: Suppress output and print it out in a script-friendly way.
-        -d, --debug: Show additional debug information.'''
+        Args:
+
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Suppress output and print it out in a script-friendly way.
+          debug: Show additional debug information.'''
         # TODO: this could benefit from a deck parameter, so you could automatically send to the deck's tracked address.
 
         change_address = ec.process_address(change)
@@ -41,13 +42,13 @@ class ATToken(Token):
         dec_amount = Decimal(str(amount))
         rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, change_address=change_address, debug=debug)
 
-        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=confirm, quiet=quiet, debug=debug)
+        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, debug=debug)
 
 
     @classmethod
     def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
               locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
-              confirm: bool=False, quiet: bool=False, force: bool=False,
+              wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
         '''Claims the token reward for a burn transaction (PoB tokens) or a transaction to a tracked address (AT tokens) referenced by a transaction ID.
 
@@ -62,21 +63,26 @@ class ATToken(Token):
 
         Claim the tokens and make a payment with the issued tokens in the same transaction to one specific address.
 
-        pacli [pobtoken|attoken] claim DECK TXID --receivers=[ADDR1, ADDR2, ...] --amounts=[AM1, AM2, ...]
+        pacli [pobtoken|attoken] claim DECK TXID -r [ADDR1, ADDR2, ...] -a [AM1, AM2, ...]
 
         Claim the tokens and make a payment with the issued tokens to multiple receivers (put the lists into brackets)
 
-        Options and flags:
-        --locktime: Lock the transaction until a block or a time.
-        --tx_fee: Specify a transaction fee.
-        --change: Specify a change address.
-        --sign: Sign the transaction (True by default).
-        --send: Send the transaction (True by default).
-        --confirm: Wait and display a message until the transaction is confirmed.
-        --verify: Verify transaction with Cointoolkit.
-        --quiet: Suppress output and print it out in a script-friendly way.
-        --debug: Show additional debug information.
-        --force: Create the transaction even if the reward does not match the transaction (only for debugging!).'''
+        Args:
+
+          locktime: Lock the transaction until a block or a time.
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit.
+          payto: Pay to a single address (see above).
+          payamount: Pay a single amount (see above).
+          amounts: List of amounts (see above) to be paid to multiple receivers.
+          receivers: List of receivers (see above).
+          quiet: Suppress output and print it out in a script-friendly way.
+          debug: Show additional debug information.
+          force: Create the transaction even if the reward does not match the transaction (only for debugging!).'''
 
         if payamount is not None:
             if payto is not None:
@@ -101,85 +107,90 @@ class ATToken(Token):
                                  sign=sign,
                                  send=send,
                                  verify=verify,
-                                 confirm=confirm,
+                                 confirm=wait_for_confirmation,
                                  debug=debug
                                  )
 
     @classmethod
-    def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
-              endblock: int=None, change: str=Settings.change, version=1, locktime: int=0, verify: bool=False,
-              confirm: bool=False, sign: bool=False, send: bool=False) -> None:
+    def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
+              end_block: int=None, change: str=Settings.change, locktime: int=0, verify: bool=False,
+              wait_for_confirmation: bool=False, sign: bool=True, send: bool=True) -> None:
         '''Spawns a new AT deck.
 
         Usage:
 
         pacli attoken deck_spawn NAME TRACKED_ADDRESS
 
-        Options and flags:
-        --multiplier: Specify a multiplier for the reward..
-        --number_of_decimals: Specify the number of decimals of the token.
-        --startblock: Specify a start block to track transactions from.
-        --endblock: Specify an end block to track transactions.
-        --tx_fee: Specify a transaction fee.
-        --change: Specify a change address.
-        --sign: Sign the transaction (True by default).
-        --send: Send the transaction (True by default).
-        --confirm: Wait and display a message until the transaction is confirmed.
-        --verify: Verify transaction with Cointoolkit.'''
+        Args:
+
+          multiplier: Specify a multiplier for the reward..
+          number_of_decimals: Specify the number of decimals of the token.
+          from_block: Specify a start block to track transactions from.
+          end_block: Specify an end block to track transactions.
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit.'''
 
 
         change_address = ec.process_address(change)
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=startblock, endblock=endblock)
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, locktime=locktime, change_address=change_address, asset_specific_data=asset_specific_data,
-               confirm=confirm, verify=verify, sign=sign, send=send)
+               confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
 class PoBToken(ATToken):
     # bundles all PoB-specific functions.
 
-    def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, startblock: int=None,
-              endblock: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
-              confirm: bool=False, send: bool=True, locktime: int=0, version=1):
+    def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
+              end_block: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
+              wait_for_confirmation: bool=False, send: bool=True, locktime: int=0):
+
         """Spawn a new PoB token, uses automatically the burn address of the network.
 
         Usage:
 
         pacli pobtoken deck_spawn NAME
 
-        Options and flags:
-        --multiplier: Specify a multiplier for the reward..
-        --number_of_decimals: Specify the number of decimals of the token.
-        --startblock: Specify a start block to track transactions from.
-        --endblock: Specify an end block to track transactions.
-        --tx_fee: Specify a transaction fee.
-        --change: Specify a change address.
-        --sign: Sign the transaction (True by default).
-        --send: Send the transaction (True by default).
-        --confirm: Wait and display a message until the transaction is confirmed.
-        --verify: Verify transaction with Cointoolkit."""
+        Args:
+
+          multiplier: Specify a multiplier for the reward..
+          number_of_decimals: Specify the number of decimals of the token.
+          from_block: Specify a start block to track transactions from.
+          end_block: Specify an end block to track transactions.
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit."""
 
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
 
-        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=startblock, endblock=endblock, version=version, locktime=locktime, confirm=confirm, verify=verify, sign=sign, send=send)
+        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=from_block, endblock=end_block, locktime=locktime, confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
-    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, confirm: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
+
+    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address.
 
         Usage:
 
         pacli pobtoken burn_coins AMOUNT
 
-        Options and flags:
-        --tx_fee: Specify a transaction fee.
-        --change: Specify a change address.
-        --sign: Sign the transaction (True by default).
-        --send: Send the transaction (True by default).
-        --confirm: Wait and display a message until the transaction is confirmed.
-        --verify: Verify transaction with Cointoolkit.
-        --quiet: Suppress output and print it out in a script-friendly way.
-        --debug: Show additional debug information."""
+        Args:
 
-        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=confirm, verify=verify, quiet=quiet, debug=debug)
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Suppress output and print it out in a script-friendly way.
+          debug: Show additional debug information."""
+
+        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)

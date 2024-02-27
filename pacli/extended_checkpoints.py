@@ -15,31 +15,38 @@ class Checkpoint:
             remove_orphans: bool=False) -> None:
         """Store a checkpoint (block hash) for a given height or the current height (default).
 
-        Usage:
+        Usage modes:
 
         pacli checkpoint set [BLOCKHEIGHT]
 
-        Stores a checkpoint, the block height becomes the label. If no height is given, the most recent block is used.
+        Stores a checkpoint, the block height becomes the label.
+        If no height is given, the most recent block is used.
 
-        pacli checkpoint set BLOCKHEIGHT -d/--delete [--now]
+        pacli checkpoint set BLOCKHEIGHT -d [--now]
 
         Deletes a checkpoint corresponding to blockheight HEIGHT. Use --now to delete really.
 
-        pacli checkpoint set [BLOCKHEIGHT] -p/--prune [DEPTH]
+        pacli checkpoint set [BLOCKHEIGHT] -p [DEPTH]
 
         Prunes several checkpoints. DEPTH indicates the block depth where checkpoints are to be kept.
         By default, the checkpoints of the 2000 most recent blocks are kept.
         The 5 newest checkpoints are always kept (they can be manually deleted).
         If BLOCKHEIGHT is given, checkpoints until this block height are pruned, and DEPTH is ignored.
 
-        pacli checkpoint set -r/--remove_orphans
+        pacli checkpoint set -r
 
         Prunes all checkpoints of orphan/stale blocks, and add additional checkpoints.
         A block is considered orphan/stale if the block hash doesn't correspond with the stored checkpoint.
 
-        Other flags:
+        Args:
 
-        -q / --quiet: Suppress output."""
+          blockheight: Block height. To be used as a positional argument (flag name not mandatory).
+          delete: Delete checkpoint (see Usage modes).
+          now: Delete checkpoint really.
+          prune: Prune old checkpoints (see Usage modes).
+          remove_orphans: Prune orphan checkpoints (see Usage modes).
+          quiet: Suppress output.
+        """
 
         if delete is True:
             return ce.delete_item("checkpoint", str(blockheight), now=now, quiet=quiet)
@@ -53,15 +60,19 @@ class Checkpoint:
         else:
             return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet)
 
-    def show(self, height: int=None) -> str:
+    def show(self, bheight: int=None) -> str:
         """Show a checkpoint (block hash), by default the most recent.
 
         Usage:
 
         pacli checkpoint show [BLOCKHEIGHT]
 
-        BLOCKHEIGHT is the blockheight to lookup the checkpoint."""
-        return ei.run_command(retrieve_checkpoint, height=height)
+        BLOCKHEIGHT is the blockheight to lookup the checkpoint.
+
+        Args:
+
+          bheight: Block height. To be used as a positional argument (flag name not mandatory). See Usage."""
+        return ei.run_command(retrieve_checkpoint, height=bheight)
 
     def list(self) -> list:
         """Show all checkpoints (block hashes)."""
@@ -73,10 +84,12 @@ class Checkpoint:
 
         Usage:
 
-        pacli checkpoint reorg_check [--quiet]
+        pacli checkpoint reorg_check
 
-        Flags:
-        -q, --quiet: Script friendly output: 0 for passed and 1 for failed check."""
+        Args:
+
+          quiet: Script friendly output: 0 for passed and 1 for failed check."""
+
         return ei.run_command(reorg_check, quiet=quiet)
 
 

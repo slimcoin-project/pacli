@@ -465,7 +465,8 @@ class ExtAddress:
           blockchain: If pacli is used with various blockchains, Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
           debug: Show debug information.
           only_labels: In advanced mode, if a label is present, show only the label.
-          include_all: Show all addresses, also those with empty balances which were not named.
+          p2th: Include P2TH addresses.
+          include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           without_labels: In advanced mode, never show labels, only addresses.
         """
         # TODO: P2TH addresses should normally not be shown, implement a flag for them.
@@ -752,10 +753,12 @@ class ExtDeck:
     def init(self,
              id_deck: str=None,
              label: bool=False,
+             no_label: bool=False,
              quiet: bool=False,
              debug: bool=False) -> None:
         """Initializes a deck (token).
         This is mandatory to be able to use a token with pacli.
+        By default, the global deck name is stored as a local label in the extended configuration file.
 
         Usage modes:
 
@@ -769,7 +772,8 @@ class ExtDeck:
 
         Args:
 
-          label: Store a label for the deck in the extended configuration file. Does only work if a DECK is given.
+          label: Store a custom label. Does only work if a DECK is given.
+          no_label: Do not store any label.
           quiet: Suppress output.
           id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
           debug: Show debug information.
@@ -782,16 +786,16 @@ class ExtDeck:
             pob_deck = pc.DEFAULT_POB_DECK[netw]
             dpod_deck = pc.DEFAULT_POD_DECK[netw]
 
-            ei.run_command(eu.init_deck, netw, pob_deck, quiet=quiet)
-            ei.run_command(dc.init_dt_deck, netw, dpod_deck, quiet=quiet)
+            ei.run_command(eu.init_deck, netw, pob_deck, quiet=quiet, no_label=no_label)
+            ei.run_command(dc.init_dt_deck, netw, dpod_deck, quiet=quiet, no_label=no_label)
         else:
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
             if "at_type" in deck.__dict__ and deck.at_type == c.ID_DT:
                 # if dpodtoken is True:
-                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, store_label=label, debug=debug)
+                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, label=label, debug=debug, no_label=no_label)
             else:
-                ei.run_command(eu.init_deck, netw, deckid, quiet=quiet, store_label=label)
+                ei.run_command(eu.init_deck, netw, deckid, quiet=quiet, label=label, no_label=no_label)
 
 
 
