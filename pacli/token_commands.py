@@ -32,8 +32,8 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
 
-    if wallet and not no_labels:
-        labeldict = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=empty, exclude=exclude)
+    if wallet is True and no_labels is False:
+            labeldict = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=empty, exclude=exclude)
 
     if only_tokens:
         balances = {}
@@ -41,8 +41,11 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
         # this section adds the coin balances
         coin_balances = {}
 
-        if wallet:
-            labeled_addresses = labeldict.values()
+        if wallet is True:
+            if no_labels is False:
+                labeled_addresses = labeldict.values()
+            else:
+                labeled_addresses = eu.get_wallet_address_set(empty=empty)
         else:
             labeled_addresses = [address]
 
