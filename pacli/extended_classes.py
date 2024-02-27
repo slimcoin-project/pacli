@@ -1064,7 +1064,7 @@ class ExtTransaction:
           end_height: Block height or date to end the search at (only in combination with -x).
           from_height: Block height or date to start the search at (only in combination with -x).
           gatewaytxes: Only show transactions going to a gateway address of an AT token.
-          ids: Only show transaction ids (TXIDs).
+          ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
           keyring: Use an address/label stored in the keyring (not supported by -x mode).
           lraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           named: Show only transactions stored with a label (see Usage modes).
@@ -1185,7 +1185,7 @@ class ExtTransaction:
             elif quiet is True:
                 print([t["txid"] for t in txes])
             else:
-                pprint([t["txid"] for t in txes])
+                pprint([t["txid"] for t in txes], max_seq_len=100000)
         elif quiet is True:
             return txes
 
