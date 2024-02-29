@@ -33,48 +33,50 @@ class PoDToken(Token):
                    deck_sdp: str=None,
                    number_of_decimals=2,
                    change: str=Settings.change,
-                   confirm: bool=False,
+                   wait_for_confirmation: bool=False,
                    verify: bool=False,
-                   sign: bool=False,
-                   send: bool=False,
+                   sign: bool=True,
+                   send: bool=True,
                    locktime: int=0) -> None:
         """Spawns a new DT deck.
 
         Usage:
 
-        pacli podtoken deck_spawn NAME EPOCHLENGTH REWARD [options]
+            pacli podtoken deck_spawn NAME EPOCHLENGTH REWARD
 
-        Options and flags:
-        -m, --min_vote PERCENTAGE: Voting threshold to approve a proposal (default: 0).
-        -p, --periods_sdp PERIODS: Number of Special Distribution Periods.
-        -d, --deck_sdp DECK: Deck for the Special Distribution Periods (can be ID or label)
-        -n, --number_of_decimals NUMBER: Number of decimals of the token (default: 2).
-        -t, --tx_fee: Specify a transaction fee.
-        --change: Specify a change address.
-        --sign: Sign the transaction (False by default).
-        --send: Send the transaction (False by default).
-        --confirm: Wait and display a message until the transaction is confirmed.
-        --verify: Verify transaction with Cointoolkit."""
+        Args:
+
+          min_vote: Voting threshold (percentage) to approve a proposal (default: 0).
+          periods_sdp: Number of Special Distribution Periods.
+          deck_sdp: Deck for the Special Distribution Periods (can be ID or label)
+          number_of_decimals: Number of decimals of the token (default: 2).
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sign: Sign the transaction (False by default).
+          send: Send the transaction (False by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit."""
 
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, deck_sdp)
         change_address = ec.process_address(change)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data,
-                             confirm=confirm, verify=verify, sign=sign, send=send)
+                             confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
     def deck_state(self, deck: str, debug: bool=False) -> None:
-        '''Prints the DT deck state (the current state of the deck variables).
+        """Prints the DT deck state (the current state of the deck variables).
 
         Usage:
 
-        pacli podtoken deck_state DECK
+            pacli podtoken deck_state DECK
 
-        Options:
-        --debug: Shows debug information.
+        Args:
 
-        '''
+          debug: Shows debug information.
+
+        """
         deckid = eu.search_for_stored_tx_label("deck", deck)
         ei.run_command(dc.dt_state, deckid, debug)
 
@@ -85,8 +87,8 @@ class PoDToken(Token):
               amounts: list=None,
               change: str=Settings.change,
               locktime: int=0,
-              donation_state: str=None,
-              donor_address:str=None,
+              state: str=None,
+              examine_address:str=None,
               proposer: bool=False,
               verify: bool=False,
               sign: bool=True,
@@ -94,59 +96,63 @@ class PoDToken(Token):
               force: bool=False,
               quiet: bool=False,
               txhex: bool=False,
-              confirm: bool=False,
+              wait_for_confirmation: bool=False,
               debug: bool=False) -> str:
-        '''Issue Proof-of-donation tokens as a reward after a successful donation.
+        """Issue Proof-of-donation tokens as a reward after a successful donation.
 
-        Usage options:
+        Usage modes:
 
-        pacli podtoken claim PROPOSAL
+            pacli podtoken claim PROPOSAL
 
         Claim the tokens and store them on the current main address, which has to be the donor.
         PROPOSAL is the proposal that was donated to.
         Note: as there can be only one donation per proposal and donor address, there is no possible ambiguity.
 
-        pacli podtoken claim DECK TXID --receivers=[ADDR1, ADDR2, ...] --amounts=[AM1, AM2, ...]
+            pacli podtoken claim DECK TXID -r [ADDR1, ADDR2, ...] -a [AM1, AM2, ...]
 
         Claim the tokens and make a payment with the issued tokens to multiple receivers (put the lists into brackets)
 
-        Options and flags:
-        --proposer: Claim the proposer reward.
-        --donation_state: Allows to specify a donation state (TXID of signalling transaction) if there are any ambiguities, for example if an incomplete donation was made from the same address.
-        --donor_address: Allows to specify a different donor address to check if a claim from there is possible (--sign and --send are disabled).
-        --locktime: Lock the transaction until a block or a time.
-        --change: Specify a change address.
-        --sign: Sign the transaction (True by default).
-        --send: Send the transaction (True by default).
-        --confirm: Wait and display a message until the transaction is confirmed.
-        --verify: Verify transaction with Cointoolkit.
-        --quiet: Suppress output.
-        --txhex: Print out the transaction as a HEX string.
-        --debug: Show additional debug information.
-        --force: Create the transaction even if the reward does not match the transaction (only for debugging!).
-        '''
+        Args:
+
+          proposer: Claim the proposer reward.
+          state: Allows to specify a donation state (TXID of signalling transaction) if there are any ambiguities, for example if an incomplete donation was made from the same address.
+          examine_address: Allows to specify a different donor address to check if a claim from there is possible (--sign and --send are disabled).
+          locktime: Lock the transaction until a block or a time.
+          change: Specify a change address.
+          receivers: List of receivers of the transaction (see above).
+          amounts: List of amounts sent to the receivers (see above).
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Suppress output.
+          txhex: Print out the transaction as a HEX string.
+          debug: Show additional debug information.
+          force: Create the transaction even if the reward does not match the transaction (only for debugging!).
+        """
         # TODO add payto/payamount like in attoken/pobtoken claim
 
         change_address = ec.process_address(change)
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
 
-        if donor_address is None:
+        if examine_address is None:
             donor_address = Settings.key.address
         else:
-            print("You provided a custom address. You will only be able to do a dry run to check if a certain address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
+            donor_address = examine_address
+            print("You provided a custom address. You will only be able to do a dry run to examine if this address can claim tokens, but you can't actually claim tokens.\n--sign and --send are disabled, and if you sign the transaction manually it will be invalid.")
             sign, send = False, False
 
         if txhex is True:
             quiet = True
 
-        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=donation_state, proposer=proposer, force=force, debug=debug, quiet=quiet)
+        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=state, proposer=proposer, force=force, debug=debug, quiet=quiet)
 
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=confirm, quiet=quiet, sign=sign, send=send)
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
         return ei.output_tx(tx, txhex=txhex)
 
 
     def __get_votes(self, proposal: str, debug: bool=False) -> None:
-        '''Displays the result of both voting rounds.'''
+        """Displays the result of both voting rounds."""
         # TODO: ideally there may be a variable indicating the second round has not started yet.
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
@@ -166,7 +172,7 @@ class PoDToken(Token):
             pprint("In this round, the proposal was {}.".format(approval_state))
 
     def __my_votes(self, deck: str, address: str=Settings.key.address) -> None:
-        '''shows votes cast from this address, for all proposals of a deck.'''
+        """shows votes cast from this address, for all proposals of a deck."""
 
         deckid = eu.search_for_stored_tx_label("deck", deck)
         return ei.run_command(dc.show_votes_by_address, deckid, address)
@@ -178,18 +184,21 @@ class PoDToken(Token):
               debug: bool=False):
         """Shows votes, either of the current address, or of a specific proposal.
 
-        Usage options:
+        Usage modes:
 
-        pacli podtoken votes PROPOSAL
+            pacli podtoken votes PROPOSAL
 
         Shows all votes from all users on the proposal PROPOSAL.
 
-        pacli podtoken votes DECK [-m/--my|ADDRESS]
+            pacli podtoken votes DECK [-m/--my|ADDRESS]
 
         Shows all votes cast from the current address (-m/--my) or another ADDRESS for the specified deck DECK.
 
-        Other options and flags:
-        -d, --debug: prints debug information
+        Args:
+
+          address: See votes from the specified address.
+          my: See votes of current main address.
+          debug: prints debug information
 
         """
 
@@ -199,18 +208,53 @@ class PoDToken(Token):
             return self.__get_votes(proposal_or_deck, debug=debug)
 
 
+    def check_tx(self, proposal: str=None, txid: str=None, fulltx: str=None, include_badtx: bool=False, light: bool=False) -> None:
+        """Creates a TrackedTransaction object and shows its properties. Primarily for debugging.
+
+        Usage modes:
+
+            pacli donation check_tx PROPOSAL
+
+        Lists all TrackedTransactions for a proposal, even invalid ones.
+
+            pacli donation check_tx [-t TXID|-f TXHEX]
+
+        Displays all attributes of a TrackedTransaction, given a TXID or the transaction in hex format (TXHEX).
+
+        Args:
+
+          include_badtx: also detects wrongly formatted transactions, but only displays the txid (not in combination with -t or -f).
+          light: Faster mode, not displaying properties depending from deck state.
+          fulltx: Transaction in hex code. See Usage modes.
+          txid: Transaction ID. See Usage modes.
+          proposal: Proposal ID or label. See Usage modes. To be used as a positional argument (flag name not mandatory).
+        """
+        # TODO: catch error when OP_RETURN is not found (pypeerassets.exceptions.InvalidNulldataOutput)
+
+        if proposal is not None:
+
+            # ex check_all_tx
+
+            proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
+            return ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
+
+        tx = ei.run_command(du.get_trackedtx, txid=txid, txhex=fulltx)
+        pprint("Type: " + str(type(tx)))
+        pprint(tx.__dict__)
+
+
 class Proposal:
 
 
     def __info(self, proposal: str) -> None:
-        '''Get basic info of a proposal.'''
+        """Get basic info of a proposal."""
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         proposal_tx = du.find_proposal(proposal_id, provider)
         pprint(proposal_tx.__dict__)
 
     def __find(self, searchstring: str, advanced: bool=False, shortid: bool=False) -> None:
-        '''finds a proposal based on its description string or short id'''
+        """finds a proposal based on its description string or short id"""
 
         pstates = ei.run_command(du.find_proposal_state_by_string, searchstring, advanced=advanced, shortid=shortid)
         for pstate in pstates:
@@ -222,7 +266,7 @@ class Proposal:
                 pprint("State: {}".format(pstate.state))
 
     def __state(self, proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, quiet: bool=False, search: bool=False, debug: bool=False, ) -> None:
-        '''Shows a single proposal state. You can search also for a short id (length 16 characters) or parts of the description.'''
+        """Shows a single proposal state. You can search also for a short id (length 16 characters) or parts of the description."""
 
         if (search is True):
             pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True)[0]
@@ -268,18 +312,20 @@ class Proposal:
             quiet: bool=False) -> None:
         """Stores a proposal with label and proposal id (TXID). Use --modify to change the label.
 
-        Usage options:
+        Usage modes:
 
-        pacli proposal set LABEL PROPOSAL_ID
+            pacli proposal set LABEL PROPOSAL_ID
 
         Stores a new proposal.
 
-        pacli proposal set NEW_LABEL OLD_LABEL -m/--modify
+            pacli proposal set NEW_LABEL OLD_LABEL -m
 
         Modifies the label of an already stored proposal.
 
-        Flags:
-        -q, --quiet: Suppress output.
+        Args:
+
+          modify: Replace the label by another one (see Usage modes).
+          quiet: Suppress output (script-friendly).
         """
         return ce.setcfg("proposal", label, value=proposal_id, quiet=quiet, modify=modify)
 
@@ -296,30 +342,38 @@ class Proposal:
              debug: bool=False) -> str:
         """Shows information about a proposal.
 
-        Usage options:
+        Usage modes:
 
-        pacli proposal show LABEL
+            pacli proposal show LABEL
 
         Shows a proposal ID stored with a label LABEL.
 
-        pacli proposal show LABEL_OR_ID -i/--info
+            pacli proposal show LABEL_OR_ID -i
 
         Shows basic information about a proposal.
 
-        pacli proposal show LABEL_OR_ID -s/--state [-p/--param PARAM] [-a/--advanced]
+            pacli proposal show LABEL_OR_ID -s [-p PARAM] [-a]
 
         Shows a dictionary with the current state of a proposal.
-        If -p/--param is given, display only a specific parameter of the dictionary.
-        If -a/--advanced is given, show advanced information.
+        If -p is given, display only a specific parameter of the dictionary.
+        If -a is given, show advanced information.
 
-        pacli proposal show STRING -f/--find [-m/--miniid]
+            pacli proposal show STRING -f [-m]
 
         Find a proposal containing STRING in its ID or description.
-        If -m/--miniid is given, the STRING must match the mini ID (first 8 characters) of the proposal.
+        If -m is given, the STRING must match the mini ID (first 8 characters) of the proposal.
 
-        Other options and flags:
-        -q, --quiet: Suppress addiitonal output, print information in raw format (script-friendly).
-        -d, --debug: Provide additional debug information.
+        Args:
+
+            advanced: Show advanced information about a proposal state (only in combination with -s).
+            basic: Show a simplified version of the proposal state (only in combination with -s).
+            find: Search for a proposal containing a string (see Usage modes).
+            info: Show basic info about a proposal.
+            miniid: Use the mini id (short id) to identify the proposal (only in combination with -f)
+            param: Show a parameter of the proposal state dictionary (only in combination with -s)
+            quiet: Suppress addiitonal output, print information in raw format (script-friendly).
+            state: Show the state of the proposal with all variables (see Usage modes).
+            debug: Provide additional debug information.
 
         """
 
@@ -337,59 +391,62 @@ class Proposal:
              id_or_label: str=None,
              blockheight: int=False,
              only_active: bool=False,
-             all: bool=False,
+             all_proposals: bool=False,
              simple: bool=False,
              quiet: bool=False,
              named: bool=False,
              debug: bool=False) -> None:
         """Shows a list of proposals.
 
-        Usage options:
+        Usage modes:
 
-        pacli proposal list DECK [--only_active|--all]
+           pacli proposal list DECK [-o|-a]
 
         Shows proposals of DECK. By default, shows active and completed proposals.
         DECK can be a deck ID or a label.
 
-        Flags of this mode:
-        -o, --only_active: shows only currently active proposals.
-        -a, --all: in addition to active and completed, shows also abandoned proposals.
-        -s, --simple: Like --all, but doesn't show proposals' state (much faster).
-        -b, --blockheight: Block height to consider for the proposals' state (debugging option)
-
-        pacli proposal list -n/--named
+           pacli proposal list -n
 
         Shows proposals a label was assigned to.
 
-        Other options and flags:
+        Args:
 
-        -q, --quiet: If used with --named, suppress additional output and printout list in a script-friendly way.
-        -d, --debug: Show debugging information.
+          only_active: shows only currently active proposals (not in combination with -n).
+          all_proposals: in addition to active and completed, shows also abandoned proposals.
+          simple: Like --all, but doesn't show proposals' state (much faster).
+          named: Only shows proposals with labels/names assigned to them.
+          blockheight: Block height to consider for the proposals' state (debugging option)
+          quiet: If used with --named, suppress additional output and printout list in a script-friendly way.
+          debug: Show debugging information.
+          id_or_label: To be used as a positional argument (flag name not mandatory). See Usage modes.
         """
 
         if named:
             return ce.list("proposal", quiet=quiet)
         else:
-            return ei.run_command(dc.list_current_proposals, id_or_label, block=blockheight, only_active=only_active, all=all, simple=simple, debug=debug)
+            return ei.run_command(dc.list_current_proposals, id_or_label, block=blockheight, only_active=only_active, all=all_proposals, simple=simple, debug=debug)
 
     def voters(self,
                proposal: str,
                debug: bool=False,
                blockheight: int=None,
-               outputformat=None) -> None:
-        '''Shows enabled voters and their balance at the start of the current epoch of a proposal, or at a defined blockheight.
+               quiet: bool=False,
+               listvoters: bool=False) -> None:
+        """Shows enabled voters and their balance at the start of the current epoch of a proposal, or at a defined blockheight.
 
         Usage:
-        pacli proposal voters PROPOSAL [options]
 
-        Options and flags:
-        -o, --outputformat FORMAT: Use a different output format.
-            Allowed values:
-                'simpledict' prints out a script-friendly dict,
-                'voterlist' prints out only a list of voters.
-        -b, --blockheight: Block height to consider for the voters' balances (mainly debugging command)
-        -d, --debug: Show additional debug information.
-        '''
+            pacli proposal voters PROPOSAL
+
+        Shows list of voters for proposal PROPOSAL.
+
+        Args:
+
+          quiet: Suppress additional output and print out a script-friendly dictionary.
+          listvoters: Print out only a list of voters.
+          blockheight: Block height to consider for the voters' balances (mainly debugging command)
+          debug: Show additional debug information."""
+
         # TODO: if blockheight option is given, proposal isn't strictly necessary. But the code would have to be changed for that.
         # TODO: the voter weight is shown in scientific notation. Should be re-formatted.
 
@@ -410,7 +467,11 @@ class Proposal:
 
         parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
 
-        if outputformat not in ("simpledict", "voterlist"):
+        if listvoters is True:
+            print(", ".join(parser_state.enabled_voters.keys()))
+        elif quiet is True:
+            print(parser_state.enabled_voters)
+        else:
             pprint("Enabled voters and weights for proposal {}".format(proposal_id))
 
             pprint(parser_state.enabled_voters)
@@ -424,15 +485,11 @@ class Proposal:
             pprint("Weights are shown in minimum token units.")
             pprint("The tokens' numbers of decimals don't matter for this view.")
 
-        elif outputformat == "voterlist":
-            print(", ".join(parser_state.enabled_voters.keys()))
 
-        elif outputformat == "simpledict":
-            print(parser_state.enabled_voters)
 
     # TODO: the period methods could be simplified, much code redundance.
     def __current_period(self, proposal: str, blockheight: int=None, show_blockheights: bool=True, mode: str=None, quiet: bool=False, debug: bool=False) -> None:
-        '''Shows the current period of the proposal lifecycle.'''
+        """Shows the current period of the proposal lifecycle."""
 
         if mode in ("start", "end"):
             quiet = True
@@ -453,7 +510,7 @@ class Proposal:
 
 
     def __all_periods(self, proposal: str, debug: bool=False) -> None:
-        '''Shows all periods of the proposal lifecycle.'''
+        """Shows all periods of the proposal lifecycle."""
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         deck = ei.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
@@ -485,43 +542,46 @@ class Proposal:
     def period(self,
               proposal: str,
               period: str=None,
-              all: bool=False,
+              all_periods: bool=False,
               blockheight: int=None,
               start: bool=False,
               end: bool=False,
               debug: bool=False):
-        '''Shows information about the periods of a proposal.
+        """Shows information about the periods of a proposal.
 
         Usage options:
 
-        pacli proposal period
+            pacli proposal period
 
         Shows the current period of the proposal.
 
-        pacli proposal period -a/--all
+            pacli proposal period -a
 
         Shows info about all periods of the proposal.
 
-        pacli proposal period PERIOD
+            pacli proposal period PERIOD
 
         Shows info about a certain period of the proposal.
         PERIOD has to be entered as a string, combining a letter and a number (e.g. b20, e1)
         By default, the start and end block of the period are shown.
 
-        pacli proposal period --blockheight=BLOCK
+            pacli proposal period -b BLOCK
 
         Shows info about the period of a proposal active at block BLOCK.
 
+        NOTE: -e option can give nothing as a result, if the last period (E) is chosen.
 
-        Other options and flags:
+        Args:
 
-        -s, --start: If used with a PERIOD, shows only the start block of the period (script-friendly).
-        -e, --end: If used with a PERIOD, shows only the end block of the period (script-friendly).
-        -d, --debug: Show debug information.
+           start: If used with a PERIOD, shows only the start block of the period (script-friendly).
+           end: If used with a PERIOD, shows only the end block of the period (script-friendly).
+           debug: Show debug information.
+           period: Period (see Usage modes). To be used as a positional argument (flag name not mandatory).
+           all_periods: Show all periods (see Usage modes).
+           blockheight: Show period at a block height (see Usage modes).
 
-        NOTE: --end can give nothing as a result, if the last period (E) is chosen.
 
-        '''
+        """
         if start is True:
             mode = "start"
         elif end is True:
@@ -529,7 +589,7 @@ class Proposal:
         else:
             mode = None
 
-        if all is True:
+        if all_periods is True:
             return self.__all_periods(proposal, debug=debug)
         elif period is not None:
             return self.__get_period(proposal, period, mode=mode)
@@ -539,62 +599,86 @@ class Proposal:
 
     # Tracked Transactions in Proposal class
 
-    def create(self, deck: str=None, req_amount: str=None, periods: int=None, description: str="", change: str=Settings.change, tx_fee: str="0.01", modify: str=None, confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False) -> None:
-        '''Creates a new proposal.
+    def create(self, identifier: str, req_amount: str=None, periods: int=None, intro: str="", change: str=Settings.change, tx_fee: str="0.01", modify: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False) -> None:
+        """Creates a new proposal.
 
-        Usage options:
+        Usage modes:
 
-        pacli proposal create DECK REQ_AMOUNT PERIODS [DESCRIPTION] [--sign --send]
+            pacli proposal create DECK REQ_AMOUNT PERIODS [BRIEF]
 
         Creates a new proposal on deck DECK with parameters:
         - requested amount REQ_AMOUNT
-        - lengt of the working period in distribution periods: PERIODS
-        - short description: DESCRIPTION
+        - length of the working period in distribution periods: PERIODS
+        - short introduction/description: INTRO (optional, but recommended)
+        DECK can be a label or a deck ID.
 
-        pacli proposal create --modify=PROPOSAL [options] [--sign --send]
+            pacli proposal create PROPOSAL [[-r] REQ_AMOUNT] [[-p] PERIODS] [[-i] INTRO]
 
         Modifies the existing proposal PROPOSAL.
+        The parameters can be entered as positional or keyword arguments.
+        If only few parameters are to be changed, using keywords is recommended,
+        to be able to skip the other parameters.
 
-        Other options and flags:
-        --sign: Sign the transaction.
-        --send: Send the transaction.
-        --change: Set change address
-        --tx_fee: Set custom transaction fee.
-        --confirm: Wait for a confirmation and show a message until then.
-        --verify: Verify transaction with Cointoolkit.
-        --txhex: Only display the transaction hexstring (script-friendly).
-        --debug: Display debugging information.
-        '''
+        Args:
+
+          sign: Sign the transaction.
+          send: Send the transaction.
+          change: Set change address.
+          modify: Modify the proposal (see Usage modes).
+          tx_fee: Set custom transaction fee.
+          wait_for_confirmation: Wait for a confirmation and show a message until then.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Only output the transaction hexstring (script-friendly).
+          debug: Display debugging information.
+          req_amount: Requested amount. To be used as positional argument (flag name not necessary). See Usage modes.
+          periods: Required periods. To be used as positional argument (flag name not necessary). See Usage modes.
+          intro: Short introduction or description. To be used as positional argument (flag name not necessary). See Usage modes.
+        """
         # NOTE: as deck is not mandatory when modifying an existing proposal, we can only use keyword arguments if we want to perserve the order.
         # req_amount and periods in modifications is not strictly necessary, re-check this! TODO
 
         kwargs = locals()
+
         if modify is True:
-            kwargs.update({"proposal" :  modify})
+            kwargs.update({"proposal" : identifier})
             del kwargs["modify"]
+        else:
+            kwargs.update({"deck" : identifier})
+        kwargs.update({"description" : intro},
+                      {"txhex" : quiet})
         del kwargs["self"]
+        del kwargs["identifier"]
+        del kwargs["intro"]
+        del kwargs["quiet"]
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
 
-    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, wait: bool=False, confirm: bool=False, txhex: bool=False, security: int=1, debug: bool=False) -> None:
-        '''Vote (with "yes" or "no") for a proposal.
+    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, wait_for_confirmation: bool=False, match_round: bool=False, quiet: bool=False, level_security: int=1, debug: bool=False) -> None:
+        """Vote (with "yes" or "no") for a proposal.
 
         Usage:
 
-        pacli proposal vote PROPOSAL [yes|no]
+            pacli proposal vote PROPOSAL [yes|no]
 
-        Options:
-        --sign: Sign the transaction.
-        --send: Send the transaction.
-        --change: Set change address
-        --tx_fee: Set custom transaction fee.
-        --confirm: Wait for a confirmation and show a message until then.
-        --verify: Verify transaction with Cointoolkit.
-        --txhex: Only display the transaction hexstring (script-friendly).
-        --debug: Display debugging information.'''
+        Args:
+
+          sign: Sign the transaction.
+          send: Send the transaction.
+          change: Set change address
+          tx_fee: Set custom transaction fee.
+          level_security: Security level.
+          wait_for_confirmation: Wait for a confirmation and show a message until then.
+          match_round: Wait for the next suitable voting round to broadcast the transaction.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Only display the transaction hexstring (script-friendly).
+          debug: Display debugging information."""
 
         kwargs = locals()
+        kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round})
+        del kwargs["match_round"]
+        del kwargs["level_security"]
         del kwargs["self"]
+        del kwargs["quiet"]
         return ei.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
 
 
@@ -603,123 +687,143 @@ class Proposal:
 class Donation:
 
     # Tracked Transactions in Donation class
+    # TODO: It would be best to find another word for "reserve", as we have already "round_number" with -r. Perhaps something like "next_round_reserve? (but -n is --new_inputs)
 
-    def signal(self, proposal: str, amount: str, destination: str, change: str=Settings.change, tx_fee: str="0.01", confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=True, debug: bool=False, txhex: bool=False, security: int=1, force: bool=False) -> None:
-        '''Creates a compliant signalling transaction for a proposal. The destination address becomes the donor address of the Donation State. It can be added as an address or as a label.
+    def signal(self, proposal: str, amount: str, destination: str, change: str=Settings.change, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, match_round: bool=True, debug: bool=False, quiet: bool=False, level_security: int=1, force: bool=False) -> None:
+        """Creates a compliant signalling transaction for a proposal. The destination address becomes the donor address of the Donation State. It can be added as an address or as a label.
 
         Usage:
 
         pacli donation signal PROPOSAL AMOUNT DESTINATION_ADDRESS [--sign --send]
 
-        Options and flags:
+        Args:
 
-        --sign: Sign the transaction.
-        --send: Send the transaction.
-        --wait: Wait for the next signalling round to begin.
-        --check_round: In combination with --wait, specify a round for the transaction to be sent.
-        --security: Specify a security level (default: 1)
-        --change: Set change address
-        --tx_fee: Set custom transaction fee.
-        --confirm: Wait for a confirmation and show a message until then.
-        --verify: Verify transaction with Cointoolkit.
-        --txhex: Only display the transaction hexstring (script-friendly).
-        --debug: Display debugging information.
-        --force: Send the transaction even if some parameters are wrong (debugging option).'''
+          sign: Sign the transaction.
+          send: Send the transaction.
+          match_round: Wait for the next signalling round to begin.
+          round_number: In combination with -m, specify a round for the transaction to be sent (0 to 7).
+          level_security: Specify a security level (default: 1)
+          change: Set change address
+          tx_fee: Set custom transaction fee.
+          wait_for_confirmation: Wait for a confirmation and show a message until then.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Only display the transaction hexstring (script-friendly).
+          debug: Display debugging information.
+          force: Send the transaction even if some parameters are wrong (debugging option)."""
 
         kwargs = locals()
+        kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
+        del kwargs["round_number"]
+        del kwargs["match_round"]
+        del kwargs["level_security"]
+        del kwargs["quiet"]
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
 
 
-    def lock(self, proposal: str, amount: str=None, change: str=Settings.change, destination: str=Settings.key.address, reserve: str=None, tx_fee: str="0.01", confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, check_round: int=None, wait: bool=False, new_inputs: bool=False, timelock: int=None, reserveamount: str=None, force: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
-        '''Creates a Locking Transaction to lock funds for a donation, by default to the origin address.
+    def lock(self, proposal: str, amount: str=None, destination: str=Settings.key.address, change: str=Settings.change, reserve: str=None, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, march_round: bool=False, new_inputs: bool=False, timelock: int=None, reserveamount: str=None, force: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
+        """Creates a Locking Transaction to lock funds for a donation, by default to the origin address.
 
         Usage:
 
-        pacli transaction lock PROPOSAL [options] [--sign --send]
+            pacli transaction lock PROPOSAL [AMOUNT] [--sign --send]
 
         Lock an amount to be used as a donation for PROPOSAL.
         If the amount is not given, use the calculated slot.
 
-        Options and flags:
+        Args:
 
-        --amount: Specify a custom amount to lock.
-        --reserveamount: Reserve an amount to signal for the next suitable distribution round.
-        --reserve: Specify an address to send the reserve amount to.
-        --timelock: Specify a custom timelock (NOT recommended!)
-        --new_inputs: Do not use the output of the signalling transaction, but instead new ones.
-        --sign: Sign the transaction.
-        --send: Send the transaction.
-        --wait: Wait for the next locking round to begin.
-        --check_round: In combination with --wait, specify a round for the transaction to be sent.
-        --security: Specify a security level (default: 1)
-        --change: Set change address
-        --tx_fee: Set custom transaction fee.
-        --confirm: Wait for a confirmation and show a message until then.
-        --verify: Verify transaction with Cointoolkit.
-        --txhex: Only display the transaction hexstring (script-friendly).
-        --debug: Display debugging information.
-        --force: Send the transaction even if some parameters are wrong (debugging option).
-        '''
+          amount: Specify a custom amount to lock.
+          reserveamount: Reserve an amount to signal for the next suitable distribution round.
+          reserve: Specify an address to send the reserve amount to.
+          timelock: Specify a custom timelock (NOT recommended!)
+          new_inputs: Do not use the output of the signalling transaction, but instead new ones.
+          sign: Sign the transaction.
+          send: Send the transaction.
+          match_round: Wait for the next locking round to begin.
+          round_number: In combination with --wait, specify a round for the transaction to be sent.
+          level_security: Specify a security level (default: 1)
+          change: Set change address
+          tx_fee: Set custom transaction fee.
+          wait_for_confirmation: Wait for a confirmation and show a message until then.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Only display the transaction hexstring (script-friendly).
+          debug: Display debugging information.
+          force: Send the transaction even if some parameters are wrong (debugging option).
+          destination: Address the funds will be locked at.
+        """
 
         kwargs = locals()
+        kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
+        del kwargs["round_number"]
+        del kwargs["match_round"]
+        del kwargs["level_security"]
+        del kwargs["quiet"]
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
 
 
-    def release(self, proposal: str, amount: str=None, change: str=Settings.change, reserve: str=None, reserveamount: str=None, tx_fee: str="0.01", check_round: int=None, wait: bool=False, new_inputs: bool=False, force: bool=False, confirm: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, txhex: bool=False, security: int=1) -> None:
-        '''Releases a donation and transfers the coins to the Proposer. This command can be used both in the release phase and in the donation rounds of the second distribution phase.
+    def release(self, proposal: str, amount: str=None, change: str=Settings.change, reserve: str=None, reserveamount: str=None, tx_fee: str="0.01", round_number: int=None, match_round: bool=False, new_inputs: bool=False, force: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
+        """Releases a donation and transfers the coins to the Proposer. This command can be used both in the release phase and in the donation rounds of the second distribution phase.
 
         Usage:
 
         pacli donation release PROPOSAL [options] [--sign --send]
 
-        Options and flags:
+        Args:
 
-        --amount: Specify a custom amount to release.
-        --reserveamount: Reserve an amount to signal for the next suitable distribution round.
-        --reserve: Specify an address to send the reserve amount to.
-        --new_inputs: Do not use the output of the locking or signalling transaction, but instead new ones.
-        --sign: Sign the transaction.
-        --send: Send the transaction.
-        --wait: Wait for the next donation round to begin.
-        --check_round: In combination with --wait, specify a round for the transaction to be sent.
-        --security: Specify a security level (default: 1)
-        --change: Set change address
-        --tx_fee: Set custom transaction fee.
-        --confirm: Wait for a confirmation and show a message until then.
-        --verify: Verify transaction with Cointoolkit.
-        --txhex: Only display the transaction hexstring (script-friendly).
-        --debug: Display debugging information.
-        --force: Send the transaction even if some parameters are wrong (debugging option).
-        '''
+          amount: Specify a custom amount to release.
+          reserveamount: Reserve an amount to signal for the next suitable distribution round.
+          reserve: Specify an address to send the reserve amount to.
+          new_inputs: Do not use the output of the locking or signalling transaction, but instead new ones.
+          sign: Sign the transaction.
+          send: Send the transaction.
+          match_round: Wait for the next donation round to begin.
+          round_number: In combination with --wait, specify a round for the transaction to be sent.
+          level_security: Specify a security level (default: 1)
+          change: Set change address
+          tx_fee: Set custom transaction fee.
+          wait_for_confirmation: Wait for a confirmation and show a message until then.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Only display the transaction hexstring (script-friendly).
+          debug: Display debugging information.
+          force: Send the transaction even if some parameters are wrong (debugging option).
+        """
 
         kwargs = locals()
+        kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
+        del kwargs["round_number"]
+        del kwargs["match_round"]
+        del kwargs["level_security"]
+        del kwargs["quiet"]
         del kwargs["self"]
         return ei.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
 
-    def proceed(self, proposal: str=None, donation: str=None, amount: str=None, donor_label: str=None, send: bool=False):
-        '''EXPERIMENTAL method allowing to select the next step of a donation state with all standard values,
+    def proceed(self, proposal: str=None, donation: str=None, amount: str=None, label: str=None, send: bool=False):
+        """EXPERIMENTAL method allowing to select the next step of a donation state with all standard values,
         i.e. selecting always the full slot and using the previous transactions' outputs.
         The command works if the block height corresponds to the correct period or the one directly before.
 
-        Usage options:
+        Usage modes:
 
-        pacli donation proceed PROPOSAL
+            pacli donation proceed PROPOSAL
 
         Proceed with a donation to PROPOSAL.
 
-        pacli donation proceed --donation=DONATION_STATE
+            pacli donation proceed -d DONATION_STATE
 
         Proceed with the specified donation state.
 
-        Options and flags:
+        Args:
 
-        --amount: Select a custom amount.
-        --donor_label: Select a donor label.
-        --send: Send the transaction (signing is already sent to True).'''
+          proposal: Proposal. To be used as a positional argument (flag name not mandatory). See Usage modes.
+          donation: Donation state.
+          amount: Select a custom amount.
+          label: Label of the donor address.
+          send: Send the transaction (signing is already sent to True)."""
 
         # you can use a label for your donation
+        donor_label = label
 
         if donation is not None:
             dstate_id = eu.search_for_stored_tx_label("donation", donation)
@@ -756,13 +860,13 @@ class Donation:
         elif dstate.dist_round == dist_round:
             if dist_round <= 3 and dstate.signalling_tx:
                 # here the next step should be a LockingTransaction
-                self.lock(proposal_id, wait=True, sign=True, send=send)
+                self.lock(proposal_id, match_round=True, sign=True, send=send)
             elif dist_round >= 4 and dstate.signalling_tx:
                 # next step is release.
-                self.release(proposal_id, wait=True, sign=True, send=send)
+                self.release(proposal_id, match_round=True, sign=True, send=send)
         elif period in (("D", 0), ("D", 1), ("D", 2)): # release period and 2 periods immediately before
             # (we don't need to check the locking tx because we checked the state already.)
-            self.release(proposal_id, wait=True, sign=True, send=send)
+            self.release(proposal_id, match_round=True, sign=True, send=send)
         elif period in (("D", 50), ("E", 0)):
             PoDToken().claim_reward(proposal_id)
         else:
@@ -771,11 +875,11 @@ class Donation:
 
 
     def create_tx(self, tx_type, **kwargs) -> None:
-        '''Generic tracked transaction creation.
+        """Generic tracked transaction creation.
 
         Usage:
 
-        pacli donation create_tx TX_TYPE [options]
+            pacli donation create_tx TX_TYPE [options]
 
         Create a transaction of type TX_TYPE.
         Allowed values: proposal, vote, signalling, locking, donation.
@@ -783,14 +887,14 @@ class Donation:
         Options and flags:
 
         Please refer to the help docstring of the transaction type you want to create.
-        '''
+        """
 
         return ei.run_command(dtx.create_trackedtransaction, tx_type, **kwargs)
 
     # Other commands
 
     def __all_donation_states(self, proposal: str, all: bool=False, incomplete: bool=False, unclaimed: bool=False, mode: str=None, debug: bool=False) -> None:
-        '''Shows currently active (default) or all (--all flag) donation states of this proposal.'''
+        """Shows currently active (default) or all (--all flag) donation states of this proposal."""
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
@@ -804,7 +908,7 @@ class Donation:
             di.display_donation_state(dstate, mode)
 
     def __my_donation_states(self, proposal: str, address: str=Settings.key.address, wallet: bool=False, all_matches: bool=False, all: bool=False, unclaimed: bool=False, incomplete: bool=False, keyring: bool=False, mode: str=None, debug: bool=False) -> None:
-        '''Shows the donation states involving a certain address (default: current active address).'''
+        """Shows the donation states involving a certain address (default: current active address)."""
         # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
         # TODO: not working properly; probably related to the label prefixes.
 
@@ -841,12 +945,12 @@ class Donation:
 
 
     def list(self,
-             deck_or_proposal: str=None,
-             address: str=Settings.key.address,
+             value: str=None,
+             examine_address: str=Settings.key.address,
              my: bool=False,
              wallet: bool=False,
-             all_matches: bool=False,
-             all: bool=False,
+             origin_matches: bool=False,
+             all_states: bool=False,
              incomplete: bool=False,
              unclaimed: bool=False,
              short: bool=False,
@@ -856,89 +960,54 @@ class Donation:
              debug: bool=False):
         """Shows a list of donation states.
 
-        Usage options:
+        Usage modes:
 
-        pacli donation list PROPOSAL
+            pacli donation list PROPOSAL
 
         Show all donation states made to a proposal and match the requirements lined out in the options.
 
-        pacli donation list --my --proposal=PROPOSAL [--wallet]
+            pacli donation list --my -p PROPOSAL [--wallet]
 
         Shows donation states made from this address or wallet to a proposal.
         By default, incompleted and completed donations
 
-        pacli donation list DECK --my
+            pacli donation list DECK --my
 
         Show all donation states made from that address.
 
-        Other options and flags:
-        --wallet: In combination with --my and --proposal, show all donations made from the wallet.
-        --address: In combination with --my, specify another donor address.
-        --all: In combination with --my, printout all donation states (also abandoned ones).
-        --incomplete: In combination with --my, only show incomplete states.
-        --unclaimed: In combination with --my, only show states still not claimed.
-        --all_matches: In combination with --my, show also states where the specified address is not the donor address but the origin address.
-        --keyring: In combination with --my, use the keyring of the OS for the address/key storage.
-        --mode: Printout in a specific mode (allowed options: 'short', 'simplified').
-        --debug: Show debug information.
+        Args:
+
+          wallet: In combination with --my and -p, show all donations made from the wallet.
+          examine_address: In combination with --my, specify another donor address (labels allowed).
+          all_states: In combination with --my, printout all donation states (also abandoned ones).
+          incomplete: In combination with --my, only show incomplete states.
+          unclaimed: In combination with --my, only show states still not claimed.
+          origin_matches: In combination with --my, show also states where the specified address is not the donor address but the origin address.
+          keyring: In combination with --my, use the keyring of the OS for the address/key storage.
+          mode: Printout in a specific mode (allowed options: 'short', 'simplified').
+          debug: Show debug information.
+          proposal: Proposal, if --my mode is used.
+          my: Show donations made from an address or the user's wallet. See Usage modes.
+          value: Deck or proposal. See Usage modes. To be used as a positional argument (flag name not mandatory).
         """
         # TODO: an option --wallet for the variant with DECK would be useful.
 
         if my:
              if proposal is not None:
-                 return ei.run_command(self.__my_donation_states, proposal, address=address, wallet=wallet, all_matches=all_matches, incomplete=incomplete, unclaimed=unclaimed, all=all, keyring=keyring, mode=mode, debug=debug)
+                 return ei.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all=all_states, keyring=keyring, mode=mode, debug=debug)
              else:
-                 deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_or_proposal)
-                 return ei.run_command(dc.show_donations_by_address, deckid, address, mode=mode)
+                 deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", value)
+                 return ei.run_command(dc.show_donations_by_address, deckid, examine_address, mode=mode)
 
-        elif deck_or_proposal is not None:
-             proposal = deck_or_proposal
-             return ei.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all=all, mode=mode, debug=debug)
+        elif value is not None:
+             proposal = value
+             return ei.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all=all_states, mode=mode, debug=debug)
         else:
              ei.print_red("Invalid option, you have to provide a proposal or a deck.")
 
 
-    def check_tx(self, txid=None, txhex=None, proposal: str=None, include_badtx: bool=False, light: bool=False) -> None:
-        '''Creates a TrackedTransaction object and shows its properties. Primarily for debugging.
-
-        Usage options:
-
-        pacli donation check_tx --proposal=PROPOSAL
-
-        Lists all TrackedTransactions for a proposal, even invalid ones.
-
-        pacli donation check_tx [--txid=TXID|--txhex=TXHEX]
-
-        Displays all attributes of a TrackedTransaction, given a TXID or the transaction in hex format (TXHEX).
-
-        Options and flags:
-        --include_badtx: also detects wrongly formatted transactions, but only displays the txid.
-        --light: Faster mode, not displaying properties depending from deck state.
-        '''
-        # TODO: catch error when OP_RETURN is not found (pypeerassets.exceptions.InvalidNulldataOutput)
-
-        if proposal is not None:
-
-            # ex check_all_tx
-
-            proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-            return ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
-
-        tx = ei.run_command(du.get_trackedtx, txid=txid, txhex=txhex)
-        pprint("Type: " + str(type(tx)))
-        pprint(tx.__dict__)
-
-
-    """def check_all_tx(self, proposal: str, include_badtx: bool=False, light: bool=False) -> None:
-        '''Lists all TrackedTransactions for a proposal, even invalid ones.
-           include_badtx also detects wrongly formatted transactions, but only displays the txid.'''
-
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)""" # done, see check_tx
-
-
     def __available_slot_amount(self, proposal_id: str, dist_round: int=None, current: bool=False, quiet: bool=False, debug: bool=False):
-        '''Shows the available slot amount in a slot distribution round, or show all of them. Default is the current round, if the current blockheight is inside one.'''
+        """Shows the available slot amount in a slot distribution round, or show all of them. Default is the current round, if the current blockheight is inside one."""
 
         # proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
@@ -970,48 +1039,50 @@ class Donation:
 
     def slot(self,
              proposal: str,
-             dist_round: int=None,
+             round_number: int=None,
              address: str=None,
              my: bool=False,
              current: bool=False,
              satoshi: bool=False,
              quiet: bool=False,
              debug: bool=False) -> None:
-        '''Shows the available slots of a proposal.
+        """Shows the available slots of a proposal.
 
-        Usage options:
+        Usage modes:
 
-        pacli donation slot PROPOSAL [DIST_ROUND]
+            pacli donation slot PROPOSAL [ROUND_NUMBER]
 
         Shows all slots of a proposal, either in a specified distribution round, or of all rounds.
 
-        pacli donation slot PROPOSAL --my
+            pacli donation slot PROPOSAL --my
 
         Shows slots of the current main address.
 
-        pacli donation slot PROPOSAL --address=ADDRESS_OR_LABEL
+            pacli donation slot PROPOSAL -a ADDRESS_OR_LABEL
 
         Shows slots of another address (can be given as a label).
 
-        Options and flags:
+        Args:
 
-        --dist_round: Specify a distribution round.
-        --current: If used at a block height corresponding to a distribution round of the proposal, show the slot for this round.
-        --satoshi: Shows the slot in satoshis (only in combination with --my).
-        --quiet: Suppresses information and shows slots in script-friendly way. Slots are always displayed in satoshi.
-        --debug: Display additional debug information.'''
+          round_number: Specify a distribution round. To be used as a positional argument (flag name not mandatory).
+          current: If used at a block height corresponding to a distribution round of the proposal, show the slot for this round.
+          satoshi: Shows the slot in satoshis (only in combination with --my).
+          quiet: Suppresses information and shows slots in script-friendly way. Slots are always displayed in satoshi.
+          debug: Display additional debug information.
+          address: Address to check. See Usage modes.
+          """
         # TODO: here a --wallet option would make sense.
 
         proposal_id = ei.run_command(eu.search_for_stored_tx_label,"proposal", proposal, quiet=quiet)
         if (not my) and (not address):
-            return ei.run_command(self.__available_slot_amount, proposal_id, dist_round=dist_round, current=current, quiet=quiet, debug=debug)
+            return ei.run_command(self.__available_slot_amount, proposal_id, dist_round=round_number, current=current, quiet=quiet, debug=debug)
 
         if not address:
             address = Settings.key.address
         else:
             address = ec.process_address(address)
 
-        result = ei.run_command(du.get_slot, proposal_id, donor_address=address, dist_round=dist_round, quiet=quiet)
+        result = ei.run_command(du.get_slot, proposal_id, donor_address=address, dist_round=round_number, quiet=quiet)
 
         if (dist_round is None) and (not quiet):
             print("Showing first slot where this address participated.")
@@ -1028,19 +1099,22 @@ class Donation:
             print("Slot:", slot)
 
 
-    def qualified(self, proposal: str, round_dist: int, address: str=Settings.key.address, label: str=None, debug: bool=False) -> bool:
-        '''Shows if the address is entitled to participate in a slot distribution round.
+    def qualified(self, proposal: str, round_number: int, address: str=Settings.key.address, label: str=None, debug: bool=False) -> bool:
+        """Shows if the address is entitled to participate in a slot distribution round.
 
         Usage:
 
-        pacli donation qualified PROPOSAL DIST_ROUND [ADDRESS|--label=ADDRESS_LABEL]
+        pacli donation qualified PROPOSAL ROUND_NUMBER [ADDRESS| -l ADDRESS_LABEL]
 
-        Shows if address ADDRESS (default: current main address) is qualified.
+        Shows if address ADDRESS (default: current main address) is qualified in the round ROUND_NUMBER.
         If a label is used, --label=ADDRESS_LABEL has to be used.
 
-        Options and flags:
-        --debug: Show additional debug information.
-        '''
+        Args:
+
+          debug: Show additional debug information.
+          address: Address to check.
+          label: Label of the address to check.
+        """
         # Note: the donor address must be used as the origin address for the new signalling transaction.
         # TODO: could probably be reworked with the ProposalState methods.
         # TODO: show_stored_key can be replaced with ce.process_address. We would then however have to detect if a label was used or not (for the "..with label.." part)
@@ -1053,10 +1127,10 @@ class Donation:
             # we don't use show_label here so it's also possible to use under Windows.
             address_label = address
 
-        print("Qualification status for address {} for distribution round {} in proposal {}:".format(address_label, round_dist, proposal_id))
+        print("Qualification status for address {} for distribution round {} in proposal {}:".format(address_label, round_number, proposal_id))
 
         slot_fill_threshold = 0.95
-        if round_dist in (0, 3, 6, 7):
+        if round_number in (0, 3, 6, 7):
             return True
 
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug, donor_address=address)
@@ -1068,36 +1142,38 @@ class Donation:
             if debug: print("Effective slot:", ds.effective_slot)
             if debug: print("Minimal qualifying amount (based on slot):", min_qualifying_amount)
             try:
-                if round_dist == ds.dist_round + 1:
-                    if round_dist in (1, 2) and (ds.state == "incomplete"):
+                if round_number == ds.dist_round + 1:
+                    if round_number in (1, 2) and (ds.state == "incomplete"):
                         if ds.effective_locking_slot >= min_qualifying_amount:
                             return True
                     # rd 4 is also rd 3 + 1
-                    elif round_dist in (4, 5) and (ds.state == "complete"):
+                    elif round_number in (4, 5) and (ds.state == "complete"):
                         if ds.effective_slot >= min_qualifying_amount:
                             return True
-                elif (round_dist == 4) and (ds.state == "complete"):
+                elif (round_number == 4) and (ds.state == "complete"):
                     if ds.effective_slot >= min_qualifying_amount:
                         return True
             except TypeError:
                 return False
         return False
 
-    def check_address(self, proposal: str, donor_address: str=Settings.key.address, quiet: bool=False):
-        '''Shows if the donor address was already used for a Proposal.
+    def check_address(self, proposal: str, address: str=Settings.key.address, quiet: bool=False):
+        """Shows if the donor address was already used for a Proposal.
 
         Usage:
 
-        pacli donation check_address PROPOSAL [DONOR_ADDRESS]
+        pacli donation check_address PROPOSAL [ADDRESS]
 
-        If DONOR_ADDRESS is omitted, the current main address is used.
+        If ADDRESS is omitted, the current main address is used.
         Note: a "False" means that the check was not passed, i.e. the donor address should not be used.
 
-        Flag:
-        -q, --quiet: Suppress output.'''
+        Args:
+
+          address: Donor address. To be used as a positional argument (flag name not mandatory). See Usage.
+          quiet: Suppress output."""
 
         proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet)
-        if du.donor_address_used(donor_address, proposal_id):
+        if du.donor_address_used(address, proposal_id):
             result = "Already used in this proposal, use another address." if not quiet else False
         else:
             result = "Not used in this proposal, you can freely use it." if not quiet else True

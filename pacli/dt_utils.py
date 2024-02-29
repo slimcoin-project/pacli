@@ -8,6 +8,7 @@ from pypeerassets.at.dt_misc_utils import get_proposal_state, find_proposal, get
 from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn
 from pacli.extended_interface import PacliInputDataError
+from pypeerassets.exceptions import InvalidNulldataOutput
 
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
@@ -379,7 +380,7 @@ def get_trackedtx(txid=None, txhex=None):
     try:
         opreturn = read_tx_opreturn(raw_tx["vout"][1])
         txident = parse_protobuf(opreturn, "ttx")["id"]
-    except KeyError:
+    except (KeyError, InvalidNulldataOutput):
         raise PacliInputDataError("Transaction not found or incorrect format.")
 
     if txident == c.ID_LOCKING: return LockingTransaction.from_json(raw_tx, provider)
@@ -395,7 +396,8 @@ def get_all_trackedtxes(proposal_id, include_badtx=False, light=False):
 
     for tx_type in ("voting", "signalling", "locking", "donation"):
         ptx = find_proposal(proposal_id, provider)
-        p2th = ptx.deck.derived_p2th_address(tx_type)
+        # p2th = ptx.deck.derived_p2th_address(tx_type)
+        p2th = ptx.deck.id + tx_type.upper() # TODO use function for this
         txes = get_marked_txes(provider, p2th)
         print(tx_type, ":")
         for txjson in txes:

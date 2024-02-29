@@ -140,7 +140,10 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
                     full_label = full_label[4:]
                 label = full_label.replace(prefix, "")
                 if not suppress_addresses:
-                    label = "{} ({})".format(label, address)
+                    if label.startswith("(unlabeled"):
+                        label = address
+                    else:
+                        label = "{} ({})".format(label, address)
                 balances.update({label : balance})
                 break
         else:

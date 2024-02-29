@@ -2,6 +2,7 @@
 import time
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
+import pacli.extended_utils as eu
 from pacli.provider import provider
 
 class Checkpoint:
@@ -143,8 +144,11 @@ def remove_orphan_checkpoints(quiet: bool=False) -> None:
     checkpoints = ce.get_config()["checkpoint"]
     orphans = 0
     for bheight in checkpoints:
+
         blockhash = provider.getblockhash(int(bheight))
-        if checkpoints[bheight] != blockhash:
+        # is_possible_txid works also for blockchashes
+        if (checkpoints[bheight] != blockhash) or (not eu.is_possible_txid(blockhash)):
+
             if not quiet:
                 print("Deleting checkpoint of orphan/stale block:", bheight)
             ce.delete_item("checkpoint", bheight, now=True, quiet=True)

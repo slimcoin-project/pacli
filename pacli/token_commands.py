@@ -33,7 +33,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
                                         Settings.production)
 
     if wallet is True and no_labels is False:
-            labeldict = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=empty, exclude=exclude)
+        labeldict = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=empty, exclude=exclude)
 
     if only_tokens:
         balances = {}

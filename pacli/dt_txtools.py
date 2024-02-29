@@ -44,7 +44,7 @@ def create_trackedtransaction(tx_type,
                               sign: bool=False,
                               send: bool=False,
                               wait: bool=False,
-                              confirm: bool=False,
+                              wait_for_confirmation: bool=False,
                               txhex: bool=False,
                               debug: bool=False) -> object:
     '''Generic tracked transaction creation.'''
@@ -139,7 +139,7 @@ def create_trackedtransaction(tx_type,
 
     rawtx = create_unsigned_trackedtx(params, basic_tx_data, force=force, quiet=quiet, debug=debug)
 
-    return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, quiet=txhex, confirm=confirm), txhex=txhex)
+    return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, quiet=txhex, confirm=wait_for_confirmation), txhex=txhex)
 
 
 def create_params(tx_type: str, **kwargs) -> dict:

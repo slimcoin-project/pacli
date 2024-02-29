@@ -115,7 +115,7 @@ class ATToken(Token):
     def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, change: str=Settings.change, locktime: int=0, verify: bool=False,
               wait_for_confirmation: bool=False, sign: bool=True, send: bool=True) -> None:
-        '''Spawns a new AT deck.
+        """Spawns a new AT deck.
 
         Usage:
 
@@ -132,7 +132,7 @@ class ATToken(Token):
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit.'''
+          verify: Verify transaction with Cointoolkit."""
 
 
         change_address = ec.process_address(change)
@@ -172,7 +172,7 @@ class PoBToken(ATToken):
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
 
-        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, startblock=from_block, endblock=end_block, locktime=locktime, confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
+        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, locktime=locktime, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
     def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
