@@ -4,6 +4,7 @@ import pypeerassets as pa
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.at_utils as au
+import pacli.blocklocator as loc
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -51,11 +52,11 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, debug: bool=False) -> list:
 
     #if not endblock:
     #    endblock = provider.getblockcount() # goes to show_txes
-    if (not quiet) and ((endblock - startblock) > 10000):
+    if (not quiet) and (not use_locator) and ((endblock - startblock) > 10000):
         print("""
               NOTE: This commands cycles through all blocks and will take very long
               to finish. It's recommended to use it for block ranges of less than 10000 blocks.
@@ -65,14 +66,44 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         try:
-            tracked_address = deck.at_address
+            receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
         except AttributeError:
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     tracked_txes = []
     # all_txes = True if tracked_address is None else False
 
-    for bh in range(startblock, endblock + 1):
+    if use_locator or store_locator:
+        if sending_address or receiving_address:
+            address_list = [sending_address, receiving_address]
+        #else: # whole wallet mode, not recommended with locators at this time!
+        #    address_list = list(eu.get_wallet_address_set())
+    else:
+        address_list = []
+
+    if use_locator:
+        blockheights, last_checked_block = get_locator_data(address_list)
+        if last_checked_block == 0: # TODO this in theory has to be done separately for each address
+            if debug:
+                print("Addresses", address_list, "were not checked. Storing locator data now.")
+            blockheights = range(startblock, endblock + 1)
+            store_locator = True
+
+        elif endblock > last_checked_block:
+            if debug:
+                print("Endblock {} is over the last checked block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
+            blockheights = blockheights + list(range(last_checked_block, endblock + 1))
+            store_locator = True
+
+    else:
+        blockheights = range(startblock, endblock + 1)
+
+    if store_locator:
+        address_blocks = {a : [] for a in address_list}
+
+        print(address_blocks, "AB")
+
+    for bh in blockheights:
         try:
             if not quiet and bh % 100 == 0:
                 print("Processing block:", bh)
@@ -83,19 +114,17 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
                 block_txes = block["tx"]
             except KeyError:
                 print("You have reached the tip of the blockchain.")
-                return tracked_txes
+                break
 
             for txid in block_txes:
-                if debug:
-                    print("Checking TX:", txid)
                 try:
                     tx_struct = get_tx_structure(txid)
                 except Exception as e:
                     if debug:
-                        print("Error", e)
+                        print("TX {} Error: {}".format(txid, e))
                     continue
                 if debug:
-                    print("TX layout:", tx_struct)
+                    print("TX {} struct: {}".format(txid, tx_struct))
                 if not coinbase and len(tx_struct["inputs"]) == 0:
                     continue
                 recv = receiving_address in [r for o in tx_struct["outputs"] for r in o["receivers"]]
@@ -110,9 +139,20 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
                         tx_dict.update(tx_struct)
                     tracked_txes.append(tx_dict)
 
+                    if store_locator:
+                       if sending_address and send:
+                           address_blocks[sending_address].append(bh)
+                       if receiving_address and recv:
+                           address_blocks[receiving_address].append(bh)
+
+
+            lastblockhash = blockhash
+
         except KeyboardInterrupt:
             break
 
+    if store_locator:
+        store_locator_data(address_blocks, lastblockhash, quiet=quiet, debug=debug)
     return tracked_txes
 
 
@@ -134,7 +174,7 @@ def find_tx_senders(tx: dict) -> list:
     return senders
 
 
-def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=None, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
+def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=None, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False, use_locator: bool=True) -> None:
     '''Show all transactions to a tracked address between two block heights (very slow!).
        start and end can be blockheights or dates in the format YYYY-MM-DD.'''
 
@@ -147,7 +187,6 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         last_blocktime = provider.getblock(provider.getblockhash(last_block))["time"]
         last_block_date = datetime.date.fromisoformat(last_blocktime.split(" ")[0])
         startdate, enddate = None, None
-
 
         if not start:
             start = 0
@@ -186,8 +225,10 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
 
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug)
+    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator)
 
+    if (not quiet) and (len(txes) == 0):
+        print("No transactions found.")
     return txes
 
 
@@ -219,4 +260,28 @@ def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0
             break
 
     return bh
+
+
+def get_locator_data(address_list: list, filename: str=None, debug: bool=False):
+    locator = loc.BlockLocator.from_file(locatorfilename=filename)
+    raw_blockheights = []
+    last_checked_blocks = []
+    for addr in address_list:
+        if addr is not None:
+            loc_addr = locator.get_address(addr)
+            raw_blockheights += loc_addr.heights
+            last_checked_blocks.append(loc_addr.lastblockheight)
+
+    blockheights = list(set(raw_blockheights))
+    blockheights.sort()
+    last_checked_block = min(last_checked_blocks) # returns the last commonly checked block for all addresses.
+    # print(blockheights)
+    return (blockheights, last_checked_block)
+
+def store_locator_data(address_dict: dict, lastblockhash: str, filename: str=None, quiet: bool=False, debug: bool=False):
+    locator = loc.BlockLocator.from_file(locatorfilename=filename)
+    for address, values in address_dict.items():
+        if address:
+            locator.store_blockheights(address, values, lastblockhash=lastblockhash)
+    locator.store(quiet=quiet, debug=debug)
 

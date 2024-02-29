@@ -652,6 +652,7 @@ class ExtDeck:
           show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
 
         """
+        # TODO add "uninitialized".
         return ei.run_command(self.__list, pobtoken=pobtoken, dpodtoken=dpodtoken, attoken=attoken, named=named, show_p2th=show_p2th, quiet=quiet)
 
     def __list(self,
@@ -1005,7 +1006,8 @@ class ExtTransaction:
              quiet: bool=False,
              received: bool=False,
              gatewaytxes: bool=None,
-             lraw: bool=False,
+             zraw: bool=False,
+             locator: bool=False,
              sent: bool=False,
              total: bool=False,
              unclaimed: bool=False,
@@ -1066,7 +1068,8 @@ class ExtTransaction:
           gatewaytxes: Only show transactions going to a gateway address of an AT token.
           ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
           keyring: Use an address/label stored in the keyring (not supported by -x mode).
-          lraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
+          locator: Use block locator (only in combination with -x).
+          zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           named: Show only transactions stored with a label (see Usage modes).
           origin: Show transactions sent by a specific sender address (only in combination with -x).
           param: Show the value of a specific parameter/variable of the transaction.
@@ -1097,7 +1100,7 @@ class ExtTransaction:
              gatewaytxes: bool=None,
              ids: bool=False,
              keyring: bool=False,
-             lraw: bool=False,
+             locator: bool=False,
              named: bool=False,
              param: str=None,
              origin: str=None,
@@ -1108,9 +1111,10 @@ class ExtTransaction:
              total: bool=False,
              view_coinbase: bool=False,
              wallet: bool=False,
-             xplore: bool=False) -> None:
+             xplore: bool=False,
+             zraw: bool=False) -> None:
 
-        # free letters: h, j, l, m, o, y, z
+        # free letters: j, l, m, y, z
 
         # v could be view_coinbase
         # o could be only_txids, only_count, only_amount?
@@ -1132,7 +1136,7 @@ class ExtTransaction:
         address = _value2
         count = total
         coinbase = view_coinbase
-        raw = lraw
+        raw = zraw
         sender = origin
 
         if address:
@@ -1143,9 +1147,9 @@ class ExtTransaction:
 
         if all is True:
             if (burns is True) or (reftxes is True):
-                txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, quiet=quiet, advanced=advanced, debug=debug, burns=burns)
+                txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, quiet=quiet, advanced=advanced, debug=debug, burns=burns, use_locator=locator)
             else:
-                txes = bx.show_txes(sending_address=sender, receiving_address=address_or_deck, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False)
+                txes = bx.show_txes(sending_address=sender, receiving_address=address_or_deck, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
         elif burns is True:
             txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
         elif reftxes is True:

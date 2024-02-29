@@ -954,7 +954,7 @@ class Donation:
              incomplete: bool=False,
              unclaimed: bool=False,
              short: bool=False,
-             basic: bool: False,
+             basic: bool=False,
              proposal: str=None,
              keyring: bool=False,
              debug: bool=False):
