@@ -721,7 +721,7 @@ class Donation:
         return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
 
 
-    def lock(self, proposal: str, amount: str=None, destination: str=Settings.key.address, change: str=Settings.change, reserve: str=None, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, march_round: bool=False, new_inputs: bool=False, timelock: int=None, reserveamount: str=None, force: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
+    def lock(self, proposal: str, amount: str=None, destination: str=Settings.key.address, change: str=Settings.change, reserve: str=None, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, match_round: bool=False, new_inputs: bool=False, timelock: int=None, reserveamount: str=None, force: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
         """Creates a Locking Transaction to lock funds for a donation, by default to the origin address.
 
         Usage:
@@ -954,9 +954,9 @@ class Donation:
              incomplete: bool=False,
              unclaimed: bool=False,
              short: bool=False,
+             basic: bool: False,
              proposal: str=None,
              keyring: bool=False,
-             mode: str=None,
              debug: bool=False):
         """Shows a list of donation states.
 
@@ -966,32 +966,37 @@ class Donation:
 
         Show all donation states made to a proposal and match the requirements lined out in the options.
 
-            pacli donation list --my -p PROPOSAL [--wallet]
+            pacli donation list -m -p PROPOSAL [--wallet]
 
         Shows donation states made from this address or wallet to a proposal.
         By default, incompleted and completed donations
 
-            pacli donation list DECK --my
+            pacli donation list DECK -m
 
         Show all donation states made from that address.
 
         Args:
 
-          wallet: In combination with --my and -p, show all donations made from the wallet.
-          examine_address: In combination with --my, specify another donor address (labels allowed).
-          all_states: In combination with --my, printout all donation states (also abandoned ones).
-          incomplete: In combination with --my, only show incomplete states.
-          unclaimed: In combination with --my, only show states still not claimed.
-          origin_matches: In combination with --my, show also states where the specified address is not the donor address but the origin address.
-          keyring: In combination with --my, use the keyring of the OS for the address/key storage.
-          mode: Printout in a specific mode (allowed options: 'short', 'simplified').
+          wallet: In combination with -m and -p, show all donations made from the wallet.
+          examine_address: In combination with -m, specify another donor address (labels allowed).
+          all_states: In combination with -m, printout all donation states (also abandoned ones).
+          incomplete: In combination with -m, only show incomplete states.
+          unclaimed: In combination with -m, only show states still not claimed.
+          origin_matches: In combination with -m, show also states where the specified address is not the donor address but the origin address.
+          keyring: In combination with -m, use the keyring of the OS for the address/key storage.
+          short: Printout in short mode.
+          basic: Printout in basic/simplified mode.
           debug: Show debug information.
-          proposal: Proposal, if --my mode is used.
+          proposal: Proposal, if -m mode is used.
           my: Show donations made from an address or the user's wallet. See Usage modes.
           value: Deck or proposal. See Usage modes. To be used as a positional argument (flag name not mandatory).
         """
         # TODO: an option --wallet for the variant with DECK would be useful.
 
+        if basic:
+            mode = "simplified"
+        elif short:
+            mode = "short"
         if my:
              if proposal is not None:
                  return ei.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all=all_states, keyring=keyring, mode=mode, debug=debug)
@@ -1054,7 +1059,7 @@ class Donation:
 
         Shows all slots of a proposal, either in a specified distribution round, or of all rounds.
 
-            pacli donation slot PROPOSAL --my
+            pacli donation slot PROPOSAL -m
 
         Shows slots of the current main address.
 
