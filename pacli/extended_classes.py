@@ -665,13 +665,13 @@ class ExtDeck:
              quiet: bool=False):
         """Lists all decks (default), or those of a specified token type, or those with a stored label.
 
-        Note: The deck's 'name' is not unique. To give a deck a (locally) unique identifier, store it with a label.
+        Note: The deck's global 'name' is not guaranteed to be unique. To give a deck a (locally) unique identifier, store it with a label.
 
         Usage:
 
         pacli deck list
 
-        Note: In compatibility mode, the table of 'deck list' without flags is slightly different.
+        Note: In compatibility mode, the table of 'deck list' without flags is slightly different. It includes the local label and the initialization status.
 
         Args:
 
