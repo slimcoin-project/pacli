@@ -163,20 +163,28 @@ def confirm_continuation() -> bool:
 # Tables
 
 
-def deck_line_item(deck: dict):
+def deck_line_item(deck: dict, show_initialized: bool=False):
 
-    return [deck["label"],
+    deck_item = [deck["label"],
             deck["id"],
             deck["name"],
             deck["issuer"],
             deck["issue_mode"],
             deck["tx_confirmations"]]
+    if show_initialized:
+        deck_item.append(deck["initialized"])
+    return deck_item
 
-def print_deck_list(decks: list):
+def print_deck_list(decks: list, show_initialized: bool=False):
+    heading = ["Local label", "ID", "Global name", "Issuer", "Issue mode", "Confirmations"]
+    if show_initialized:
+        heading.append("Init")
+
     tui.print_table(
     title="Named decks:",
-    heading=("Local label", "ID", "Global name", "Issuer", "Issue mode", "Confirmations"),
-    data=map(deck_line_item, decks))
+    heading=heading,
+    #data=map(lambda x: deck_line_item(show_initialized=show_initialized), decks)
+    data=[deck_line_item(d, show_initialized=show_initialized) for d in decks])
 
 
 def address_line_item(address: dict):
@@ -241,6 +249,39 @@ def print_default_balances_list(balances: dict, labeldict: dict, decks: list, ne
     title="Balances of addresses with labels in wallet:",
     heading=table_heading,
     data=table_data)
+
+def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, wallet_addresses: list=[]):
+    # prepare deck dictionary for inclusion in the table
+
+    deck_list = []
+    # for label, deckid in decks.items():
+    for deck in decks:
+        try:
+            matching_labels = [lb for lb, did in deck_label_dict.items() if did == deck.id]
+            if matching_labels:
+                label = matching_labels[0]
+            else:
+                if only_named:
+                    continue
+                label = ""
+
+            deck_dict = deck.__dict__
+            if wallet_addresses:
+                if deck.p2th_address in wallet_addresses:
+                    initialized = True
+                else:
+                    initialized = False
+
+                deck_dict.update({"initialized" : initialized})
+
+            deck_dict.update({"label" : label})
+
+            deck_list.append(deck_dict)
+        except Exception as e:
+            print("Stored deck {} is not a valid PeerAssets deck.".format(deck.id))
+            print(e)
+            continue
+    return deck_list
 
 # Exceptions
 

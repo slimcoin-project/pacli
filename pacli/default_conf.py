@@ -8,5 +8,6 @@ default_conf = {
     "provider": "rpcnode", # explorer, cryptoid
     "rpcuser" : "sdfjkl",
     "rpcpassword" : "uiofdkfdsfsdf",
-    "rpcport" : 9904  
+    "rpcport" : 9904,
+    "compatibility_mode" : False
     }

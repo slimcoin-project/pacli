@@ -121,15 +121,7 @@ class BlockLocatorAddress:
         # Hash is stored in the file.
         self.heights = heights
         self.update_lastblock(lastblockhash=lastblockhash, lastblockheight=lastblockheight)
-        #if lastblockhash:
-        #    self.lastblockhash = lastblockhash
-        #    self.lastblockheight = provider.getblock(lastblockhash)["height"]
-        #elif lastblockheight:
-        #    self.lastblockhash = provider.getblockhash(lastblockheight)
-        #    self.lastblockheight = lastblockheight
-        #else:
-        #    self.lastblockheight = 0
-        #    self.lastblockhash = provider.getblockhash(0)
+
 
     @classmethod
     def empty(cls, lastblockhash: str=""):
@@ -157,17 +149,4 @@ class BlockLocatorAddress:
         else:
             self.lastblockheight = 0
             self.lastblockhash = provider.getblockhash(0)
-
-
-    #def retrieve(address: str):
-    #    """Gets the dict with all blockheights and the last block from an address."""
-
-    #    locator = get_locator(quiet=quiet)
-    #    return locator.get(address)
-
-
-
-
-
-
 

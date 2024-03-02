@@ -39,7 +39,8 @@ class ExtConfig:
             replace: bool=False,
             now: bool=False,
             quiet: bool=False,
-            extended: str=None) -> None:
+            extended: str=None,
+            compatibility_mode: bool=False) -> None:
         """Changes configuration settings of the basic or extended configuration file.
 
            WARNING: The basic configuration file contains many settings which may lead immediately to problems if changed.
@@ -53,6 +54,7 @@ class ExtConfig:
                WARNING: If changing the parameters of the basic configuration file,
                the application may not work anymore! In this case you have to modify
                the file manually.
+               (NOTE: In compatibility mode, the -r flag can be omitted.)
 
            pacli config set LABEL VALUE -e CATEGORY
 
@@ -67,6 +69,13 @@ class ExtConfig:
            pacli config set NEW_LABEL OLD_LABEL -m -e CATEGORY
 
                Modifies a label in the extended configuration file (OLD_LABEL gets replaced by NEW_LABEL).
+
+           pacli config set [True|False] -c
+
+               Enables (True) or disables (False) the compatibility mode.
+               Compatibility mode will format all outputs of commands like 'vanilla' PeerAssets,
+               and ensures the original commands and their flags work as expected.
+               Please refer to the original PeerAssets README.
 
            Notes:
 
@@ -90,10 +99,11 @@ class ExtConfig:
              now: Really delete a setting, in combination with -d/--delete.
              quiet: Suppress output, printout in script-friendly way.
              value: To be used as a positional argument (flag keyword is not mandatory), see 'Usage modes' above.
+             compatibility_mode: Enable or disable compatibility mode. See Usage modes.
 
 """
 
-        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet)
+        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, compatibility_mode=compatibility_mode)
 
     def __set(self,
               label: str,
@@ -103,7 +113,8 @@ class ExtConfig:
               modify: bool=False,
               replace: bool=False,
               now: bool=False,
-              quiet: bool=False) -> None:
+              quiet: bool=False,
+              compatibility_mode: bool=False) -> None:
 
         if category is not None:
             if type(category) != str:
@@ -114,18 +125,34 @@ class ExtConfig:
                     return ce.delete(category, label=str(label), now=now)
                 else:
                     return ce.setcfg(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
+
+        if compatibility_mode is True:
+            if label in ("True", "true", "yes", "1", True):
+                value = "True"
+            else:
+                value = "False"
+            label = "compatibility_mode"
+            if not quiet:
+                print("Setting compatibility mode to {}.".format(value))
+                print("Compatibility mode affects the output of some original commands,")
+                print("but doesn't affect the inner workings nor the extended commands.")
         else:
+
             if value is None:
                 raise ei.PacliInputDataError("No value provided.")
             if modify is True or delete is True:
                 raise ei.PacliInputDataError("Modifying labels or deleting them in the basic config file is not permitted.")
             if label not in default_conf.keys():
-                # raise ValueError({'error': 'Invalid setting key.'}) # ValueError added # this was mainly for compatibility.
-                raise ei.PacliInputDataError("Invalid setting key. This label doesn't exist in the basic configuration file. See permitted labels with: 'config list'.")
+                if Settings.compatibility_mode == "True":
+                    raise ValueError({'error': 'Invalid setting key.'}) # ValueError added # this was mainly for compatibility.
+                else:
+                    raise ei.PacliInputDataError("Invalid setting key. This label doesn't exist in the basic configuration file. See permitted labels with: 'config list'.")
             if replace is False:
-                raise ei.PacliInputDataError("Basic settings can only be modified with the --replace/-r flag. New labels can't be added.")
+                if Settings.compatibility_mode == "False":
+                    # compat mode works without the -r flag.
+                    raise ei.PacliInputDataError("Basic settings can only be modified with the --replace/-r flag. New labels can't be added.")
 
-            if not quiet:
+            if not quiet and (Settings.compatibility_mode == "False"):
                 print("Changing basic config setting: {} to value: {}.".format(label, value))
                 ei.print_red("WARNING: Changing most of these settings can make pacli unusable or lead to strange errors!\nOnly change these settings if you know what you are doing.")
                 print("If this happens, change pacli.conf (located in {}) manually.".format(conf_dir))
@@ -133,7 +160,8 @@ class ExtConfig:
                 if not ei.confirm_continuation():
                     print("Aborted.")
                     return
-            write_settings(label, str(value))
+
+        write_settings(label, str(value))
 
 
     def show(self,
@@ -633,6 +661,7 @@ class ExtDeck:
              attoken: bool=False,
              named: bool=False,
              show_p2th: bool=False,
+             basic: bool=False,
              quiet: bool=False):
         """Lists all decks (default), or those of a specified token type, or those with a stored label.
 
@@ -642,6 +671,8 @@ class ExtDeck:
 
         pacli deck list
 
+        Note: In compatibility mode, the table of 'deck list' without flags is slightly different.
+
         Args:
 
           named: Only show decks with a stored label.
@@ -649,11 +680,12 @@ class ExtDeck:
           pobtoken: Only show PoB token decks.
           dpodtoken: Only show dPoD token decks.
           attoken: Only show AT token decks.
+          basic: Don't show initialized status.
           show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
 
         """
         # TODO add "uninitialized".
-        return ei.run_command(self.__list, pobtoken=pobtoken, dpodtoken=dpodtoken, attoken=attoken, named=named, show_p2th=show_p2th, quiet=quiet)
+        return ei.run_command(self.__list, pobtoken=pobtoken, dpodtoken=dpodtoken, attoken=attoken, named=named, show_p2th=show_p2th, basic=basic, quiet=quiet, debug=True)
 
     def __list(self,
              pobtoken: bool=False,
@@ -661,35 +693,32 @@ class ExtDeck:
              attoken: bool=False,
              named: bool=False,
              show_p2th: bool=False,
-             quiet: bool=False):
+             basic: bool=False,
+             quiet: bool=False,
+             debug: bool=False):
         # TODO: --pobtoken and --attoken currently show exactly the same decks. --pobtoken should only show PoB decks.
         # (vanilla command, but extended it replaces: `tools show_stored_decks`, `deck list` with --all flag, `pobtoken list_decks` with --pobtoken flag, and `podtoken list_decks` with --podtoken flag)
+
+        show_initialized = False if basic else True
 
         if (pobtoken is True) or (attoken is True):
             decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT)
         elif dpodtoken is True:
             decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
-        elif named is True:
-            """Shows all stored deck IDs and their labels."""
-            deck_dict = ce.list("deck", quiet=True)
-            if quiet:
-                print(deck_dict)
-                return
-            deck_list = []
-            for label, deckid in deck_dict.items():
-                try:
-                    deck_dict = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production).__dict__
-                    deck_dict.update({"label" : label})
-                    deck_list.append(deck_dict)
-                except:
-                    print("Stored deck {} is not a valid PeerAssets deck.".format(deckid))
-                    continue
-            ei.print_deck_list(deck_list)
-            return
-        else:
-            decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
-                                        Settings.production)
-        if show_p2th is True:
+
+        #    #deck_list = []
+        #    #for label, deckid in deck_dict.items():
+        #    #    try:
+        #    #        deck_dict = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production).__dict__
+        #    #        deck_dict.update({"label" : label})
+        #    #        deck_list.append(deck_dict)
+        #    #    except:
+        #    #        print("Stored deck {} is not a valid PeerAssets deck.".format(deckid))
+        #    #        continue
+        #    deck_list = ei.get_deck_labels(decks)
+        #    ei.print_deck_list(deck_list, show_initialized=show_initialized)
+        #    return
+        elif show_p2th is True:
             if dpodtoken is True:
                 deck_dict = {d.id : {"deck_p2th" : d.p2th_address,
                                      "proposal_p2th" : d.derived_p2th_address("donation"),
@@ -705,8 +734,23 @@ class ExtDeck:
                 print(deck_dict)
             else:
                 pprint(deck_dict)
+            return
         else:
-            print_deck_list(decks)
+            decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
+                                        Settings.production)
+            deck_label_dict = ce.list("deck", quiet=True)
+            if named is True and quiet:
+                """Shows all stored deck IDs and their labels."""
+                print(deck_label_dict)
+                return
+
+            if Settings.compatibility_mode == "True" and (not named):
+                print_deck_list(decks)
+            else:
+
+                wallet_addresses = list(eu.get_wallet_address_set(empty=True)) if show_initialized else []
+                deck_list = ei.add_deck_data(decks, deck_label_dict, only_named=named, wallet_addresses=wallet_addresses)
+                ei.print_deck_list(deck_list, show_initialized=show_initialized)
 
 
     def show(self,
