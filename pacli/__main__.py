@@ -99,8 +99,8 @@ class Address(ExtAddress):
 
         pprint(rand_addr)
 
-    def get_unspent(self, amount: int) -> Optional[dict]:
-        '''quick find UTXO for this address'''
+    def get_unspent(self) -> Optional[dict]:
+        '''Quickly find an UTXO for this address which is able to spend 0.02 fees for a PeerAssets transaction.'''
 
         try:
             pprint(
