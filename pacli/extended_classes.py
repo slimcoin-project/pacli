@@ -1099,10 +1099,12 @@ class ExtTransaction:
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list [DECK] [-b | -g]
+        pacli transaction list [DECK -u] -b
+        pacli transaction list DECK -g
 
-            Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT tokens stored in wallet.
-            DECK is optional in the case of burn transactions. It can be a label or a deck ID.
+            Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens stored in wallet.
+            DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
+            In the case of -b, DECK is only necessary if combined with -u.
 
         pacli transaction list DECK -c
 
@@ -1136,7 +1138,7 @@ class ExtTransaction:
           from_height: Block height or date to start the search at (only in combination with -x).
           gatewaytxes: Only show transactions going to a gateway address of an AT token.
           ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
-          keyring: Use an address/label stored in the keyring (not supported by -x mode).
+          keyring: Use a label of an address stored in the keyring (not supported by -x mode).
           locator: Use block locator (only in combination with -x).
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           named: Show only transactions stored with a label (see Usage modes).
@@ -1240,6 +1242,10 @@ class ExtTransaction:
 
         if count is True:
             return len(txes)
+
+        elif len(txes) == 0 and not quiet:
+            print("No matching transactions found.")
+
 
         elif (txids is True) and (not raw):
             if claims is True:
