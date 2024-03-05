@@ -290,9 +290,9 @@ class ExtConfig:
 class ExtAddress:
 
     def set(self,
-            label: str,
+            label: str=None,
             address: str=None,
-            account: str=None,
+            to_account: str=None,
             fresh: bool=False,
             delete: bool=False,
             modify: bool=False,
@@ -314,6 +314,10 @@ class ExtAddress:
             Without flags, sets the LABEL as the main address.
             If -f/--fresh is used, a new address is generated with label LABEL.
 
+        pacli address set -a ADDRESS
+
+            Set an address as the current main address.
+
         pacli address set LABEL -d [--now]
 
             Deletes a label LABEL for an address.
@@ -329,10 +333,11 @@ class ExtAddress:
           modify: Replaces the label for an address by another one.
           now: Really delete an entry.
           keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
-          account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
+          to_account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
           import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
           quiet: Suppress output, printout in script-friendly way.
-          address: Address. To be used as positional argument (flag keyword not mandatory). See Usage modes above.
+          address: Address. To be used as positional argument (flag keyword not mandatory). See Usage modes.
+          label: Label. To be used as positional argument (flag keyword not mandatory). See Usage modes.
         """
 
         # (replaces: `address set_main`, `address fresh`, `tools store_address`, `address set_label`, `tools store_address_from_keyring`, `address delete_label`, `tools delete_address_label`,  `address import_to_wallet` and  `tools store_addresses_from_keyring`) (Without flag it would work like the old address set_main, flag --new will generate a new address, like the current "fresh" command, other options are implemented with new flags like --delete, --keyring, --from-keyring, --all-keyring-labels, --into-wallet)
@@ -347,7 +352,7 @@ class ExtAddress:
     def __set_label(self,
             label: str=None,
             address: str=None,
-            account: str=None,
+            to_account: str=None,
             fresh: bool=False,
             delete: bool=False,
             modify: bool=False,
@@ -356,7 +361,7 @@ class ExtAddress:
             now: bool=False,
             import_all_keyring_addresses: bool=False):
 
-        if label is None:
+        if label is None and address is None:
             if import_all_keyring_addresses:
                 return ec.store_addresses_from_keyring(quiet=quiet, replace=modify)
             else:
@@ -369,11 +374,11 @@ class ExtAddress:
             """deletes a key with an user-defined label. Cannot be used to delete main key."""
             return ec.delete_label(label, keyring=keyring, now=now)
 
-        elif account is not None:
-            """"""
-            return ke.import_key_to_wallet(account, label)
+        elif to_account is not None:
+            """creates an account and imports key to it."""
+            return ke.import_key_to_wallet(to_account, label)
 
-        elif address is not None: # ex: tools store_address
+        elif label is not None and address is not None: # ex: tools store_address
             """Stores a label for an address in the extended config file."""
             # ec.store_address(label, address=address, modify=modify)
             ec.set_label(label, address, set_main=True, keyring=keyring, modify=modify, network_name=Settings.network)
@@ -381,8 +386,8 @@ class ExtAddress:
                 print("Stored address {} with label {}.".format(address, label))
 
         else: # set_main
-            """Declares a key identified by a label as the main one."""
-            return ec.set_main_key(label, backup=None, keyring=keyring, quiet=quiet)
+            """Declares a key identified by a label or address as the main one."""
+            return ec.set_main_key(label=label, address=address, backup=None, keyring=keyring, quiet=quiet)
 
 
     def show(self,

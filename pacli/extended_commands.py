@@ -31,21 +31,25 @@ def fresh_address(label: str, set_main: bool=False, backup: str=None, keyring: b
     if set_main:
         return set_main_key(label, keyring=keyring, legacy=legacy, quiet=quiet)
 
-def set_main_key(label: str, backup: str=None, keyring: bool=False, legacy: bool=False, quiet: bool=False):
-    if keyring:
+def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: bool=False, legacy: bool=False, quiet: bool=False):
+    if keyring and not address:
         return ke.set_main_key(label, backup=backup, legacy=legacy)
 
     if backup:
-        print("Backups not supported when using Tools for address labels.")
+        print("Backups not supported when using external config file for address labels.")
         return
 
-    address = get_address(label)
+    if label is not None:
+        address = get_address(label)
+    elif address is None:
+        raise ei.PacliInputDataError("No address nor label provided.")
+
     wif_key = provider.dumpprivkey(address)
 
     try:
         key = pa.Kutil(network=Settings.network, from_wif=wif_key).privkey
     except ValueError:
-        ei.print_red("Error: Invalid address or private key.")
+        raise ei.PacliInputDataError("Invalid or non-wallet address.")
         return
 
     ke.set_key("key", key) # Note that this function isn't present in the standard pacli keystore.
