@@ -577,7 +577,7 @@ class ExtAddress:
                                   exclude=excluded_addresses,
                                   debug=debug)
 
-    def balance(self, label: str=None, address: str=None, keyring: bool=False):
+    def balance(self, label: str=None, address: str=None, keyring: bool=False, wallet: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
         Usage modes:
@@ -594,6 +594,10 @@ class ExtAddress:
 
             Shows balance of address. Does only work with addresses stored in your wallet file.
 
+        pacli address balance -w
+
+            Shows balance of whole wallet.
+
         Args:
 
            keyring: Use an address stored in the keyring of your operating system.
@@ -602,14 +606,30 @@ class ExtAddress:
         """
 
         # REPLACES address balance
-        # (unchanged from vanilla, but with wrapper for labels)
+        return ei.run_command(self.__balance, label=label, address=address, keyring=keyring, wallet=wallet)
+
+    def __balance(self, label: str=None, address: str=None, keyring: bool=False, wallet: bool=False):
+
         if label is not None:
             address = ei.run_command(ec.show_stored_address, label, keyring=keyring)
+
+        if wallet is True:
+            address = None
         elif address is None:
             address = Settings.key.address
+        elif not eu.is_possible_address(address):
+            raise ei.PacliInputDataError("Not a valid address or label.")
+
+        try:
+            balance = provider.getbalance(address)
+            if balance == 0 and address not in eu.get_wallet_address_set():
+                raise ei.PacliInputDataError("This address is not in your wallet. Command works only for wallet addresses.")
+        except TypeError:
+            raise ei.PacliInputDataError("Address or label does not exist.")
+
 
         pprint(
-            {'balance': float(provider.getbalance(address))}
+            {'balance': float(balance)}
             )
 
 
