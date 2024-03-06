@@ -122,7 +122,7 @@ def set_label(label: str, address: str, network_name: str=Settings.network, set_
     if set_main:
         return set_main_key(str(label), keyring=keyring)
 
-def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False, replace: bool=False):
+def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False, replace: bool=False, to_wallet: bool=True):
     keyring_prefix = "key_"
     # ext_label is the extended config label, full_label includes the 'key_' prefix used in the keyring.
     # full option means that full keyring labels are processed.
@@ -139,6 +139,9 @@ def store_address(label: str, network_name: str=Settings.network, address: str=N
         address = ke.label_to_kutil(full_label).address
 
     ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name, replace=replace)
+
+    if to_wallet is True:
+        ke.import_key_to_wallet("keyring_addresses", ext_label[len(network_name + "_"):])
 
 
 def get_address(label: str, network_name: str=Settings.network, noprefix: bool=False) -> str:

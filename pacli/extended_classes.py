@@ -334,7 +334,7 @@ class ExtAddress:
           now: Really delete an entry.
           keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
           to_account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
-          import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file. --modify allows existing entries to be replaced, otherwise they won't be changed.
+          import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file and imports them to the wallet. -m allows existing entries to be replaced, otherwise they won't be changed.
           quiet: Suppress output, printout in script-friendly way.
           address: Address. To be used as positional argument (flag keyword not mandatory). See Usage modes.
           label: Label. To be used as positional argument (flag keyword not mandatory). See Usage modes.
@@ -346,6 +346,7 @@ class ExtAddress:
 
         kwargs = locals()
         del kwargs["self"]
+        kwargs.update({"debug" : True})
         ei.run_command(self.__set_label, **kwargs)
 
 
@@ -359,7 +360,8 @@ class ExtAddress:
             quiet: bool=False,
             keyring: bool=False,
             now: bool=False,
-            import_all_keyring_addresses: bool=False):
+            import_all_keyring_addresses: bool=False,
+            debug: bool=False):
 
         if label is None and address is None:
             if import_all_keyring_addresses:
