@@ -498,7 +498,7 @@ class ExtAddress:
           blockchain: If pacli is used with various blockchains, Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
           debug: Show debug information.
           only_labels: In advanced mode, if a label is present, show only the label.
-          p2th: Include P2TH addresses.
+          p2th: Show only P2TH addresses.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           without_labels: In advanced mode, never show labels, only addresses.
         """
@@ -521,7 +521,13 @@ class ExtAddress:
                debug: bool=False,
                include_all: bool=False):
 
-        excluded_addresses = eu.get_p2th() if p2th is False else []
+        # excluded_addresses = eu.get_p2th() if p2th is False else []
+        if p2th:
+            p2th_dict = eu.get_p2th_dict()
+            include_only = p2th_dict.keys()
+            coinbalances = True
+        else:
+            include_only = None
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             # TODO: doesn't seem towork with keyring.
@@ -529,8 +535,8 @@ class ExtAddress:
             if (labels is True) or (full_labels is True):
                 named = True
 
-
-            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, exclude=excluded_addresses)
+            # address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, exclude=excluded_addresses)
+            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only)
 
             if (labels is True) or (full_labels is True):
                 if full_labels is True:
@@ -561,12 +567,15 @@ class ExtAddress:
                         balance = balance.rstrip("0")
 
                     if (network is None) or (network == network_name):
-                        addresses.append({"label": label,
-                                          "address" : address,
-                                          "network" : network_name,
-                                          "balance" : balance})
+                        addr_dict = {"label": label,
+                                     "address" : address,
+                                     "network" : network_name,
+                                     "balance" : balance}
+                        if p2th:
+                            addr_dict.update({"account" : p2th_dict.get(address)})
+                        addresses.append(addr_dict)
 
-                ei.print_address_list(addresses)
+                ei.print_address_list(addresses, p2th=p2th)
                 return
         else:
 
@@ -579,7 +588,7 @@ class ExtAddress:
                                   named=named,
                                   quiet=quiet,
                                   empty=include_all,
-                                  exclude=excluded_addresses,
+                                  include_only=include_only,
                                   debug=debug)
 
     def balance(self, label_or_address: str=None, keyring: bool=False, wallet: bool=False):

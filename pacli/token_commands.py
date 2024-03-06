@@ -18,7 +18,7 @@ def get_default_tokens():
     return decks
 
 
-def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, named: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, empty: bool=False, debug: bool=False):
+def all_balances(address: str=Settings.key.address, exclude: list=[], include_only: list=[], wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, named: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, empty: bool=False, debug: bool=False):
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
@@ -33,7 +33,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], wallet: bo
                                         Settings.production)
 
     if wallet is True and no_labels is False:
-        labeldict = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=empty, exclude=exclude)
+        labeldict = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=empty, exclude=exclude, include_only=include_only)
 
     if only_tokens:
         balances = {}

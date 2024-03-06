@@ -183,12 +183,14 @@ def show_addresses(addrlist: list, label_list: list, network: str=Settings.netwo
         result.append(adr)
     return result
 
-def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
+def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
 
     if not keyring:
         result = ce.get_config()["address"]
+        if include_only:
+            result = {k : result[k] for k in result if result[k] in include_only}
 
     else:
         result = {}
@@ -210,7 +212,10 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], key
 
     if not named:
         counter = 0
-        wallet_addresses = eu.get_wallet_address_set(empty=empty)
+        if include_only:
+            wallet_addresses = set(include_only)
+        else:
+            wallet_addresses = eu.get_wallet_address_set(empty=empty)
 
         if exclude:
             wallet_addresses -= set(exclude)

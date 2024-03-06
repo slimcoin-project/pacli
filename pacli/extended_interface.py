@@ -187,17 +187,25 @@ def print_deck_list(decks: list, show_initialized: bool=False):
     data=[deck_line_item(d, show_initialized=show_initialized) for d in decks])
 
 
-def address_line_item(address: dict):
-    return [address["label"],
+def address_line_item(address: dict, p2th: bool=False):
+    item = [address["label"],
              address["address"],
              address["network"],
              address["balance"]]
+    if p2th is True:
+        item.append(address["account"])
+    return item
 
-def print_address_list(addresses: list):
+def print_address_list(addresses: list, p2th: bool=False):
+    addr_heading = ["Label", "Address", "Network", "Coin balance"]
+    if p2th is True:
+        addr_heading.append("P2TH account")
+
     tui.print_table(
-    title="Addresses with labels in wallet:",
-    heading=("Label", "address", "network", "coin balance"),
-    data=map(address_line_item, addresses))
+    title="Addresses:",
+    heading=addr_heading,
+    #data=map(address_line_item(p2th=p2th), addresses)
+    data=[address_line_item(a, p2th=p2th) for a in addresses])
 
 def balances_line_item(address: dict):
     return [address["label"],

@@ -5,6 +5,7 @@ from typing import Optional, Union
 from prettyprinter import cpprint as pprint
 from pypeerassets.transactions import sign_transaction
 from pypeerassets.networks import net_query
+from pypeerassets.pa_constants import param_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
@@ -536,7 +537,8 @@ def get_p2th(accounts: bool=False):
     if accounts:
         result = ["PAPROD", "PATEST"] # default P2TH accounts for deck spawns
     else:
-        result = [] # TODO find addresses for PAPROD and PATEST
+        pa_params = param_query(Settings.network)
+        result = [pa_params.P2TH_addr, pa_params.test_P2TH_addr]
 
     decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
@@ -552,6 +554,24 @@ def get_p2th(accounts: bool=False):
                 result += get_dt_p2th_accounts(deck).values()
             else:
                 result += get_dt_p2th_addresses(deck).values()
+
+    return result
+
+def get_p2th_dict():
+    pa_params = param_query(Settings.network)
+    result = {pa_params.P2TH_addr : "PAPROD",
+              pa_params.test_P2TH_addr : "PATEST"}
+
+    decks = pa.find_all_valid_decks(provider, Settings.deck_version,
+                                        Settings.production)
+    for deck in decks:
+        result.update({ deck.p2th_address : deck.id })
+
+        if getattr(deck, "at_type", None) == ID_DT:
+            for tx_type in ("proposal", "signalling", "locking", "donation", "voting"):
+                value = deck.id + tx_type.upper()
+                key = deck.derived_p2th_address(tx_type)
+                result.update ({ key : value })
 
     return result
 
