@@ -203,9 +203,14 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
 
 def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False):
     cfg = ei.run_command(get_config, quiet=quiet)
-    result = cfg[category]
+    rawdict = cfg[category]
+    result_keys = [k for k in rawdict.keys()]
+    result_keys.sort()
+    result = {k : rawdict[k] for k in result_keys}
+
     if return_list:
-        return [{k : result[k]} for k in result]
+        result_list = [{k : result[k]} for k in result]
+        return result_list
     elif quiet or (not prettyprint):
         return result
     else:
