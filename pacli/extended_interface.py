@@ -54,7 +54,7 @@ def run_command(c, *args, **kwargs) -> object:
 
         To initialize a single deck, use:
 
-        pacli deck init DECKID [--dpodtoken]
+        pacli deck init DECKID
         """
         print_red(err_str)
         if "debug" in kwargs.keys() and kwargs["debug"]:
@@ -176,9 +176,9 @@ def deck_line_item(deck: dict, show_initialized: bool=False):
     return deck_item
 
 def print_deck_list(decks: list, show_initialized: bool=False):
-    heading = ["Local label", "ID", "Global name", "Issuer", "Issue mode", "Confirmations"]
+    heading = ["Local label", "ID", "Global name", "Issuer", "M", "Conf."]
     if show_initialized:
-        heading.append("Init")
+        heading.append("I")
 
     tui.print_table(
     title="Named decks:",
@@ -250,12 +250,14 @@ def print_default_balances_list(balances: dict, labeldict: dict, decks: list, ne
     heading=table_heading,
     data=table_data)
 
-def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, wallet_addresses: list=[]):
+def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, initialized_decks: list=[], debug: bool=False):
     # prepare deck dictionary for inclusion in the table
 
     deck_list = []
     # for label, deckid in decks.items():
     for deck in decks:
+        #if debug:
+        #    print("Checking deck", deck.id)
         try:
             matching_labels = [lb for lb, did in deck_label_dict.items() if did == deck.id]
             if matching_labels:
@@ -266,20 +268,24 @@ def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, wa
                 label = ""
 
             deck_dict = deck.__dict__
-            if wallet_addresses:
-                if deck.p2th_address in wallet_addresses:
-                    initialized = True
-                else:
-                    initialized = False
+            if deck.id in [d.id for d in initialized_decks]:
+                initialized = "+"
+                if debug:
+                    print("Deck init status added for", deck.id)
+            else:
+                initialized = ""
 
-                deck_dict.update({"initialized" : initialized})
+            deck_dict.update({"initialized" : initialized})
 
+            if debug:
+                print("Label added for", deck.id)
             deck_dict.update({"label" : label})
 
             deck_list.append(deck_dict)
         except Exception as e:
-            print("Stored deck {} is not a valid PeerAssets deck.".format(deck.id))
-            print(e)
+            if debug:
+                print("Stored deck {} is not a valid PeerAssets deck.".format(deck.id))
+                print(e)
             continue
     return deck_list
 

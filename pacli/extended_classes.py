@@ -681,13 +681,14 @@ class ExtDeck:
 
 
     def list(self,
-             pobtoken: bool=False,
-             dpodtoken: bool=False,
+             burntoken: bool=False,
+             podtoken: bool=False,
              attoken: bool=False,
              named: bool=False,
              show_p2th: bool=False,
-             basic: bool=False,
-             quiet: bool=False):
+             without_initstate: bool=False,
+             quiet: bool=False,
+             debug: bool=False):
         """Lists all decks (default), or those of a specified token type, or those with a stored label.
 
         Note: The deck's global 'name' is not guaranteed to be unique. To give a deck a (locally) unique identifier, store it with a label.
@@ -702,15 +703,15 @@ class ExtDeck:
 
           named: Only show decks with a stored label.
           quiet: Suppress output, printout in script-friendly way.
-          pobtoken: Only show PoB token decks.
-          dpodtoken: Only show dPoD token decks.
+          burntoken: Only show PoB token decks.
+          podtoken: Only show dPoD token decks.
           attoken: Only show AT token decks.
-          basic: Don't show initialized status.
+          without_initstate: Don't show initialized status.
           show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
-
+          debug: Show debug information.
         """
-        # TODO add "uninitialized".
-        return ei.run_command(self.__list, pobtoken=pobtoken, dpodtoken=dpodtoken, attoken=attoken, named=named, show_p2th=show_p2th, basic=basic, quiet=quiet, debug=True)
+
+        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, show_p2th=show_p2th, without_initstate=without_initstate, quiet=quiet, debug=debug)
 
     def __list(self,
              pobtoken: bool=False,
@@ -718,31 +719,18 @@ class ExtDeck:
              attoken: bool=False,
              named: bool=False,
              show_p2th: bool=False,
-             basic: bool=False,
+             without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
-        # TODO: --pobtoken and --attoken currently show exactly the same decks. --pobtoken should only show PoB decks.
-        # (vanilla command, but extended it replaces: `tools show_stored_decks`, `deck list` with --all flag, `pobtoken list_decks` with --pobtoken flag, and `podtoken list_decks` with --podtoken flag)
 
-        show_initialized = False if basic else True
+        show_initialized = False if without_initstate else True
 
         if (pobtoken is True) or (attoken is True):
-            decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT)
+            decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT))
+            if pobtoken is True:
+                decks = [d for d in decks if d.at_address == au.burn_address()]
         elif dpodtoken is True:
-            decks = ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT)
-
-        #    #deck_list = []
-        #    #for label, deckid in deck_dict.items():
-        #    #    try:
-        #    #        deck_dict = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production).__dict__
-        #    #        deck_dict.update({"label" : label})
-        #    #        deck_list.append(deck_dict)
-        #    #    except:
-        #    #        print("Stored deck {} is not a valid PeerAssets deck.".format(deckid))
-        #    #        continue
-        #    deck_list = ei.get_deck_labels(decks)
-        #    ei.print_deck_list(deck_list, show_initialized=show_initialized)
-        #    return
+            decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT))
         elif show_p2th is True:
             if dpodtoken is True:
                 deck_dict = {d.id : {"deck_p2th" : d.p2th_address,
@@ -761,21 +749,24 @@ class ExtDeck:
                 pprint(deck_dict)
             return
         else:
-            decks = ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
-                                        Settings.production)
+            decks = list(ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
+                                        Settings.production))
+
+
+        if Settings.compatibility_mode == "True" and (not named):
+            print_deck_list(decks)
+        else:
             deck_label_dict = ce.list("deck", quiet=True)
             if named is True and quiet:
                 """Shows all stored deck IDs and their labels."""
                 print(deck_label_dict)
                 return
 
-            if Settings.compatibility_mode == "True" and (not named):
-                print_deck_list(decks)
-            else:
-
-                wallet_addresses = list(eu.get_wallet_address_set(empty=True)) if show_initialized else []
-                deck_list = ei.add_deck_data(decks, deck_label_dict, only_named=named, wallet_addresses=wallet_addresses)
-                ei.print_deck_list(deck_list, show_initialized=show_initialized)
+            initialized_decks = eu.get_initialized_decks(decks, debug=debug) if show_initialized else []
+            deck_list = ei.add_deck_data(decks, deck_label_dict, only_named=named, initialized_decks=initialized_decks, debug=debug)
+            if debug:
+                print(len(deck_list), "decks found.")
+            ei.print_deck_list(deck_list, show_initialized=show_initialized)
 
 
     def show(self,
@@ -826,6 +817,8 @@ class ExtDeck:
              id_deck: str=None,
              label: bool=False,
              no_label: bool=False,
+             all_decks: bool=False,
+             store_blockheights: int=50000,
              quiet: bool=False,
              debug: bool=False) -> None:
         """Initializes a deck (token).
@@ -842,14 +835,37 @@ class ExtDeck:
 
             Initialize a single deck. DECK can be a Deck ID or a label.
 
+        pacli deck init [DECK] -s [BLOCKS] [-a]
+
+        In addition to initializing, store blockheights of transactions relevant for the deck,
+        to be used with the block explorer mode of 'transaction list' (-x).
+        BLOCKS is the number of blocks to analyze. If not given, it will default to 50000.
+        If the decks are already present in the locator file, it will continue from the last commonly checked block.
+        If DECK is not given, apply this to standard PoB and dPoD decks.
+        If -a is given, do it for all initialized decks.
+
         Args:
 
           label: Store a custom label. Does only work if a DECK is given.
           no_label: Do not store any label.
           quiet: Suppress output.
+          all_decks: In combination with -s, store blockheights for all initialized decks.
           id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
+          store_blockheights: Store blockheights for a deck.
           debug: Show debug information.
         """
+        kwargs = locals()
+        del kwargs["self"]
+        ei.run_command(self.__init, **kwargs)
+
+    def __init(self,
+               id_deck: str=None,
+               label: bool=False,
+               no_label: bool=False,
+               all_decks: bool=False,
+               store_blockheights: int=50000,
+               quiet: bool=False,
+               debug: bool=False) -> None:
 
         idstr = id_deck
         netw = Settings.network
@@ -860,14 +876,25 @@ class ExtDeck:
 
             ei.run_command(eu.init_deck, netw, pob_deck, quiet=quiet, no_label=no_label)
             ei.run_command(dc.init_dt_deck, netw, dpod_deck, quiet=quiet, no_label=no_label)
+            deckid = None
         else:
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
             if "at_type" in deck.__dict__ and deck.at_type == c.ID_DT:
-                # if dpodtoken is True:
                 ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, label=label, debug=debug, no_label=no_label)
             else:
                 ei.run_command(eu.init_deck, netw, deckid, quiet=quiet, label=label, no_label=no_label)
+
+        if store_blockheights:
+            if all_decks:
+                decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
+                initialized_decks = eu.get_initialized_decks(decks)
+            elif deckid:
+                decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production) for d in deckid]
+            else:
+                decks = [pa.find_deck(provider, pob_deck, Settings.deck_version, Settings.production),
+                        pa.find_deck(provider, dpod_deck, Settings.deck_version, Settings.production)]
+            ei.run_command(bx.store_blockheights, decks, quiet=quiet, debug=debug, blocks=store_blockheights)
 
 
 
@@ -923,7 +950,7 @@ class ExtTransaction:
 
                Stores hex string of transaction (TX_HEX) together with label LABEL.
 
-           pacli transaction ste LABEL TXID
+           pacli transaction set LABEL TXID
 
                Stores hex string of transaction identified by the given TXID.
 

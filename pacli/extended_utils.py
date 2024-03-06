@@ -72,6 +72,9 @@ def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, qui
     """Initializes a 'common' deck (also AT/PoB). dPoD decks need further initialization of more P2TH addresses."""
     # NOTE: Default is now storing the deck name as a label, if it doesn't exist.
 
+    if not quiet:
+        print("Importing deck:", deckid)
+
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if deckid not in provider.listaccounts():
         provider.importprivkey(deck.p2th_wif, deck.id, rescan)
@@ -566,3 +569,47 @@ def get_dt_p2th_accounts(deck):
             "p2th_donation" : deck.id + "DONATION",
             "p2th_voting" : deck.id + "VOTING"}
 
+def get_initialized_decks(decks: list, debug: bool=False) -> list:
+    # from the given list, checks which ones are initialized
+    # decks have to be given completely, not as deck ids.
+    accounts = provider.listaccounts()
+    if debug:
+        print("Accounts:", sorted(list(accounts.keys())))
+    initialized_decks = []
+    for deck in decks:
+        if not deck.id in accounts.keys():
+            if debug:
+                print("Deck not initialized:", deck.id)
+            continue
+        elif "at_type" in deck.__dict__ and deck.at_type == ID_DT:
+            derived_accounts = get_dt_p2th_accounts(deck)
+            if set(derived_accounts.values()).isdisjoint(accounts):
+                if debug:
+                    print("Deck not completely initialized", deck.id)
+                continue
+        if debug:
+            print("Adding initialized deck", deck.id)
+        initialized_decks.append(deck)
+    return initialized_decks
+
+"""def get_initialized_decks_old(decks: list, debug: bool=False) -> list:
+    # OLD slower but more precise version checking addresses.
+    # from the given list, checks which ones are initialized
+    # decks have to be given completely, not as deck ids.
+    wallet_addresses = get_wallet_address_set()
+    initialized_decks = []
+    for deck in decks:
+        if not deck.p2th_address in wallet_addresses:
+            if debug:
+                print("Deck not initialized:", deck.id)
+            continue
+        elif "at_type" in deck.__dict__ and deck.at_type == ID_DT:
+            derived_p2ths = get_dt_p2th_addresses(deck)
+            if set(derived_p2ths.values()).isdisjoint(wallet_addresses):
+                if debug:
+                    print("Deck not completely initialized", deck.id)
+                continue
+        if debug:
+            print("Adding initialized deck", deck.id)
+        initialized_decks.append(deck)
+    return initialized_decks"""

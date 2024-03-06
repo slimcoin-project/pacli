@@ -88,19 +88,32 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     legacy = is_legacy_blockchain(network_name)
 
+    if not quiet:
+        print("Importing dPoD deck:", deck.id)
+
     if "sdp_deckid" not in deck.__dict__.keys():
         if not quiet:
             print("No SDP (voting) token found for this deck. This is probably not a proof-of-donation deck!")
         return
 
-    if deck.id not in provider.listaccounts():
+    all_accounts = provider.listaccounts()
+    if deck.id not in all_accounts:
         if not quiet:
             print("Importing main key from deck.")
         load_deck_p2th_into_local_node(provider, deck)
+    else:
+        if not quiet:
+            print("Main key was already imported.")
 
     for tx_type in ("proposal", "signalling", "locking", "donation", "voting"):
-        p2th_addr = deck.derived_p2th_address(tx_type)
+
         accountname=deck.id + tx_type.upper()
+        if accountname in all_accounts:
+            if not quiet:
+                print("P2TH address for", tx_type, "was already imported.")
+            continue
+
+        p2th_addr = deck.derived_p2th_address(tx_type)
         if not quiet:
             print("Importing {} P2TH address: {}".format(tx_type, p2th_addr))
             print("Accountname for {}: {}".format(tx_type, accountname))
@@ -116,18 +129,24 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
     # SDP
     # Note: there can be a None value for sdp_deckid even if this is a PoD token (e.g. in the case of a swap).
     if deck.sdp_deckid is not None:
-        p2th_sdp_addr = pa.Kutil(network=network_name,
+        if deck.sdp_deckid not in all_accounts:
+
+            p2th_sdp_addr = pa.Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).address
 
-        if not quiet:
-            print("Importing SDP P2TH address: {}".format(p2th_sdp_addr))
+            if not quiet:
+                print("Importing SDP (voting) P2TH address: {}".format(p2th_sdp_addr))
 
-        if legacy:
-            p2th_sdp_wif = pa.Kutil(network=network_name,
+            if legacy:
+                p2th_sdp_wif = pa.Kutil(network=network_name,
                              privkey=bytearray.fromhex(deck.sdp_deckid)).wif
-            legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan, silent=quiet, accountname=deck.sdp_deckid)
+                legacy_import(provider, p2th_sdp_addr, p2th_sdp_wif, rescan, silent=quiet, accountname=deck.sdp_deckid)
+            else:
+                dmu.import_p2th_address(provider, p2th_sdp_addr)
+
         else:
-            dmu.import_p2th_address(provider, p2th_sdp_addr)
+            if not quiet:
+                print("SDP (voting) P2TH address was already imported.")
 
     if rescan:
         if not legacy:

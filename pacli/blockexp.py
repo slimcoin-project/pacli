@@ -1,11 +1,11 @@
 import datetime
 from typing import Union
 import pypeerassets as pa
+import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.at_utils as au
 import pacli.blocklocator as loc
-
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -52,7 +52,7 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, receiving_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, debug: bool=False) -> list:
 
     #if not endblock:
     #    endblock = provider.getblockcount() # goes to show_txes
@@ -76,6 +76,8 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
     if use_locator or store_locator:
         if sending_address or receiving_address:
             address_list = [sending_address, receiving_address]
+        elif receiving_list:
+            address_list = receiving_list
         #else: # whole wallet mode, not recommended with locators at this time!
         #    address_list = list(eu.get_wallet_address_set())
     else:
@@ -101,7 +103,8 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
     if store_locator:
         address_blocks = {a : [] for a in address_list}
 
-        print(address_blocks, "AB")
+    if receiving_list:
+        receiving_address = None
 
     for bh in blockheights:
         try:
@@ -127,7 +130,14 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
                     print("TX {} struct: {}".format(txid, tx_struct))
                 if not coinbase and len(tx_struct["inputs"]) == 0:
                     continue
-                recv = receiving_address in [r for o in tx_struct["outputs"] for r in o["receivers"]]
+
+                receivers = [r for o in tx_struct["outputs"] for r in o["receivers"]]
+                if receiving_list:
+                    # TODO: does not work this way, we have to do each address separately. store_locator has to be moved here thus.
+                    # receiving_address could generate the list [receiving_address], so we have less code.
+                    recv = not set(receiving_list).isdisjoint(receivers)
+                else:
+                    recv = receiving_address in receivers
                 send = sending_address in [s for i in tx_struct["inputs"] for s in i["sender"]]
                 # print(recv, send, sending_address, receiving_address)
                 # print([o["receivers"] for o in tx_struct["outputs"]])
@@ -144,7 +154,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, d
                            address_blocks[sending_address].append(bh)
                        if receiving_address and recv:
                            address_blocks[receiving_address].append(bh)
-
 
             lastblockhash = blockhash
 
@@ -284,4 +293,43 @@ def store_locator_data(address_dict: dict, lastblockhash: str, filename: str=Non
         if address:
             locator.store_blockheights(address, values, lastblockhash=lastblockhash)
     locator.store(quiet=quiet, debug=debug)
+
+
+def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks: int=50000, without_burn_address: bool=False):
+
+    if not quiet:
+        print("Storing blockheight locators for decks:", [d.id for d in decks])
+    current_block = provider.getblockcount()
+    confirmations = [d.tx_confirmations for d in decks]
+    min_blockheight = current_block - max(confirmations) - 10 # 10 blocks before first confirmation of a deck spawn
+    if not quiet:
+        print("Starting scan at block:", min_blockheight)
+
+    addresses = []
+    for deck in decks:
+        addresses.append(deck.p2th_address)
+        try:
+            if deck.at_type == c.ID_DT:
+                dt_p2th = list(eu.get_dt_p2th_addresses(deck).values())
+                addresses += dt_p2th
+        except AttributeError:
+            continue
+    if not without_burn_address:
+       addresses.append(au.burn_address())
+
+    if debug:
+        print("Addresses to store", addresses)
+    blockheights, lastblock = get_locator_data(addresses)
+    if debug:
+        print("Locator data:", blockheights, lastblock)
+    start_block = max(lastblock, min_blockheight)
+    end_block = start_block + blocks
+    txes = show_txes_by_block(receiving_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, use_locator=True, store_locator=True, debug=debug)
+    if not quiet:
+        print(len(txes), "found.")
+
+
+
+
+
 
