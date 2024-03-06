@@ -582,7 +582,7 @@ class ExtAddress:
                                   exclude=excluded_addresses,
                                   debug=debug)
 
-    def balance(self, label: str=None, address: str=None, keyring: bool=False, wallet: bool=False):
+    def balance(self, label_or_address: str=None, keyring: bool=False, wallet: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
         Usage modes:
@@ -595,7 +595,7 @@ class ExtAddress:
 
             Shows balance of the address corresponding to label.
 
-        pacli address balance -a ADDRESS
+        pacli address balance ADDRESS
 
             Shows balance of address. Does only work with addresses stored in your wallet file.
 
@@ -606,31 +606,32 @@ class ExtAddress:
         Args:
 
            keyring: Use an address stored in the keyring of your operating system.
-           address: Address to be used.
-           label: To be used as a positional argument (without flag keyword), see "Usage modes" above.
+           wallet: Show balance of the whole wallet, see above.
+           address_or_label: To be used as a positional argument (without flag keyword), see "Usage modes" above.
         """
 
         # REPLACES address balance
-        return ei.run_command(self.__balance, label=label, address=address, keyring=keyring, wallet=wallet)
+        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, wallet=wallet)
 
-    def __balance(self, label: str=None, address: str=None, keyring: bool=False, wallet: bool=False):
+    def __balance(self, label_or_address: str=None, keyring: bool=False, wallet: bool=False):
 
-        if label is not None:
-            address = ei.run_command(ec.show_stored_address, label, keyring=keyring)
+        if label_or_address is not None:
+            address = ec.process_address(label_or_address, keyring=keyring)
 
-        if wallet is True:
+            if address is None:
+                raise ei.PacliInputDataError("Label was not found.")
+
+        elif wallet is True:
             address = None
-        elif address is None:
+        else:
             address = Settings.key.address
-        elif not eu.is_possible_address(address):
-            raise ei.PacliInputDataError("Not a valid address or label.")
 
         try:
             balance = provider.getbalance(address)
-            if balance == 0 and address not in eu.get_wallet_address_set():
+            if (balance == 0) and (address not in eu.get_wallet_address_set(empty=True)):
                 raise ei.PacliInputDataError("This address is not in your wallet. Command works only for wallet addresses.")
         except TypeError:
-            raise ei.PacliInputDataError("Address or label does not exist.")
+            raise ei.PacliInputDataError("Address does not exist.")
 
 
         pprint(
