@@ -830,7 +830,7 @@ class ExtDeck:
              label: bool=False,
              no_label: bool=False,
              all_decks: bool=False,
-             store_blockheights: int=50000,
+             store_blockheights: int=None,
              quiet: bool=False,
              debug: bool=False) -> None:
         """Initializes a deck (token).
@@ -875,7 +875,7 @@ class ExtDeck:
                label: bool=False,
                no_label: bool=False,
                all_decks: bool=False,
-               store_blockheights: int=50000,
+               store_blockheights: int=None,
                quiet: bool=False,
                debug: bool=False) -> None:
 
@@ -898,15 +898,61 @@ class ExtDeck:
                 ei.run_command(eu.init_deck, netw, deckid, quiet=quiet, label=label, no_label=no_label)
 
         if store_blockheights:
-            if all_decks:
-                decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
-                initialized_decks = eu.get_initialized_decks(decks)
-            elif deckid:
-                decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production) for d in deckid]
-            else:
-                decks = [pa.find_deck(provider, pob_deck, Settings.deck_version, Settings.production),
-                        pa.find_deck(provider, dpod_deck, Settings.deck_version, Settings.production)]
-            ei.run_command(bx.store_blockheights, decks, quiet=quiet, debug=debug, blocks=store_blockheights)
+            if store_blockheights == True:
+                blocks = 5000
+            elif type(store_blockheights) == int:
+                blocks = store_blockheights
+            ei.run_command(self.__storeblocks, deckid=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
+            #if all_decks:
+            #    decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
+            #    initialized_decks = eu.get_initialized_decks(decks)
+            #elif deckid:
+            #    decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]
+            #else:
+            #    decks = [pa.find_deck(provider, pob_deck, Settings.deck_version, Settings.production),
+            #            pa.find_deck(provider, dpod_deck, Settings.deck_version, Settings.production)]
+            #ei.run_command(bx.store_blockheights, decks, quiet=quiet, debug=debug, blocks=store_blockheights)
+
+    def storeblocks(self, idstr: str=None, blocks: int=50000, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+        """Stores blockheights for a deck.
+
+        Usage modes:
+
+            pacli deck storeblocks
+
+        Store blockheights for the standard PoB and dPoD decks.
+
+            pacli deck storeblocks IDSTR
+
+        Store blockheights for a deck.
+
+            pacli deck storeblocks -a
+
+        Store blockheights for all initialized decks.
+
+        Args:
+
+          blocks: Number of blocks to store (default: 50000).
+          all_decks: Store blockheights for all initialized decks.
+          quiet: Suppress output.
+          idstr: Deck label or Deck ID. To be used as a positional argument
+          debug: Show additional debug information."""
+
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr is not None else None
+        ei.run_command(self.__storeblocks, deckid=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
+
+    def __storeblocks(self, deckid: str, blocks: int=None, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+
+        if all_decks:
+            decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
+            initialized_decks = eu.get_initialized_decks(decks)
+        elif deckid:
+             decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]
+        else:
+             netw = Settings.network
+             decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
+                      pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)]
+        ei.run_command(bx.store_blockheights, decks, quiet=quiet, debug=debug, blocks=blocks)
 
 
 

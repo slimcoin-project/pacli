@@ -52,7 +52,12 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, receiving_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, debug: bool=False) -> list:
+
+    # locator_list parameter only stores the locator
+    if locator_list:
+        use_locator = True
+        store_locator = True
 
     #if not endblock:
     #    endblock = provider.getblockcount() # goes to show_txes
@@ -75,19 +80,18 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, r
 
     if use_locator or store_locator:
         if sending_address or receiving_address:
-            address_list = [sending_address, receiving_address]
-        elif receiving_list:
-            address_list = receiving_list
+            locator_list = [sending_address, receiving_address]
+
         #else: # whole wallet mode, not recommended with locators at this time!
-        #    address_list = list(eu.get_wallet_address_set())
+        #    locator_list = list(eu.get_wallet_address_set())
     else:
-        address_list = []
+        locator_list = []
 
     if use_locator:
-        blockheights, last_checked_block = get_locator_data(address_list)
+        blockheights, last_checked_block = get_locator_data(locator_list)
         if last_checked_block == 0: # TODO this in theory has to be done separately for each address
             if debug:
-                print("Addresses", address_list, "were not checked. Storing locator data now.")
+                print("Addresses", locator_list, "were not checked. Storing locator data now.")
             blockheights = range(startblock, endblock + 1)
             store_locator = True
 
@@ -101,9 +105,9 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, r
         blockheights = range(startblock, endblock + 1)
 
     if store_locator:
-        address_blocks = {a : [] for a in address_list}
+        address_blocks = {a : [] for a in locator_list}
 
-    if receiving_list:
+    if locator_list:
         receiving_address = None
 
     for bh in blockheights:
@@ -132,13 +136,9 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, r
                     continue
 
                 receivers = [r for o in tx_struct["outputs"] for r in o["receivers"]]
-                if receiving_list:
-                    # TODO: does not work this way, we have to do each address separately. store_locator has to be moved here thus.
-                    # receiving_address could generate the list [receiving_address], so we have less code.
-                    recv = not set(receiving_list).isdisjoint(receivers)
-                else:
-                    recv = receiving_address in receivers
-                send = sending_address in [s for i in tx_struct["inputs"] for s in i["sender"]]
+                senders = [s for i in tx_struct["inputs"] for s in i["sender"]]
+                recv = receiving_address in receivers
+                send = sending_address in senders
                 # print(recv, send, sending_address, receiving_address)
                 # print([o["receivers"] for o in tx_struct["outputs"]])
                 if (recv and send) or (recv and sending_address is None) or (send and receiving_address is None) or (sending_address is None and receiving_address is None):
@@ -147,21 +147,23 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, r
                     else:
                         tx_dict = {"txid" : txid}
                         tx_dict.update(tx_struct)
+
                     tracked_txes.append(tx_dict)
 
                     if store_locator:
-                       if sending_address and send:
-                           address_blocks[sending_address].append(bh)
-                       if receiving_address and recv:
-                           address_blocks[receiving_address].append(bh)
+                       #if sending_address and send:
+                       for a in locator_list:
+                           if (a in senders) or (a in receivers):
+                               address_blocks[a].append(bh)
 
             lastblockhash = blockhash
+            lastblockheight = bh
 
         except KeyboardInterrupt:
             break
 
     if store_locator:
-        store_locator_data(address_blocks, lastblockhash, quiet=quiet, debug=debug)
+        store_locator_data(address_blocks, lastblockheight, lastblockhash, quiet=quiet, debug=debug)
     return tracked_txes
 
 
@@ -287,15 +289,15 @@ def get_locator_data(address_list: list, filename: str=None, debug: bool=False):
     # print(blockheights)
     return (blockheights, last_checked_block)
 
-def store_locator_data(address_dict: dict, lastblockhash: str, filename: str=None, quiet: bool=False, debug: bool=False):
+def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, filename: str=None, quiet: bool=False, debug: bool=False):
     locator = loc.BlockLocator.from_file(locatorfilename=filename)
     for address, values in address_dict.items():
         if address:
-            locator.store_blockheights(address, values, lastblockhash=lastblockhash)
+            locator.store_blockheights(address, values, lastblockheight, lastblockhash=lastblockhash)
     locator.store(quiet=quiet, debug=debug)
 
 
-def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks: int=50000, without_burn_address: bool=False):
+def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks: int=50000):
 
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
@@ -303,7 +305,7 @@ def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks
     confirmations = [d.tx_confirmations for d in decks]
     min_blockheight = current_block - max(confirmations) - 10 # 10 blocks before first confirmation of a deck spawn
     if not quiet:
-        print("Starting scan at block:", min_blockheight)
+        print("First deck spawn approximately at block height:", min_blockheight)
 
     addresses = []
     for deck in decks:
@@ -312,24 +314,26 @@ def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks
             if deck.at_type == c.ID_DT:
                 dt_p2th = list(eu.get_dt_p2th_addresses(deck).values())
                 addresses += dt_p2th
+            elif deck.at_type == c.ID_AT:
+                # AT addresses can have duplicates, others not
+                if deck.at_address not in addresses:
+                    addresses.append(deck.at_address)
+                print("AT address appended:", deck.at_address)
         except AttributeError:
             continue
-    if not without_burn_address:
-       addresses.append(au.burn_address())
+    #if not without_burn_address: # probably unnecessary
+    #   addresses.append(au.burn_address())
 
     if debug:
         print("Addresses to store", addresses)
     blockheights, lastblock = get_locator_data(addresses)
     if debug:
         print("Locator data:", blockheights, lastblock)
-    start_block = max(lastblock, min_blockheight)
+    start_block = min(lastblock, min_blockheight)
     end_block = start_block + blocks
-    txes = show_txes_by_block(receiving_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, use_locator=True, store_locator=True, debug=debug)
+    if debug:
+        print("Start and end block, blocks:", start_block, end_block, blocks)
+    txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
     if not quiet:
         print(len(txes), "found.")
-
-
-
-
-
 
