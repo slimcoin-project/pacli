@@ -12,9 +12,8 @@ import pacli.extended_interface as ei
 import pacli.at_utils as au
 import pacli.extended_commands as ec
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
-from pacli.token_classes import Token
 
-class ATToken(Token):
+class ATToken():
 
 
     def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:

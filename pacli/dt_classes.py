@@ -18,10 +18,9 @@ import pacli.extended_commands as ec
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.dt_txtools as dtx
-from pacli.token_classes import Token
 
 
-class PoDToken(Token):
+class PoDToken():
 
     @classmethod
     def deck_spawn(self,

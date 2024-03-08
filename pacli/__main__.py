@@ -35,7 +35,6 @@ import pacli.keystore_extended as ke
 import pacli.extended_utils as eu
 import pacli.extended_commands as ec
 from pacli.extended_classes import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtTransaction
-from pacli.token_classes import Token
 from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import PoDToken, Proposal, Donation
@@ -447,7 +446,6 @@ def main():
         'coin': Coin(),
         'proposal' : Proposal(),
         'donation' : Donation(),
-        'token' : Token(),
         'attoken' : ATToken(),
         'pobtoken' : PoBToken(),
         'podtoken' : PoDToken(),
