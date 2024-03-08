@@ -1,9 +1,11 @@
 from typing import Optional, Union
-import pypeerassets as pa
+from decimal import Decimal
 from prettyprinter import cpprint as pprint
-from pprint import pprint as alt_pprint
+
+import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
+from pypeerassets.pautils import exponent_to_amount
 
 import pacli.extended_constants as pc
 import pacli.keystore_extended as ke
@@ -903,15 +905,7 @@ class ExtDeck:
             elif type(store_blockheights) == int:
                 blocks = store_blockheights
             ei.run_command(self.__storeblocks, deckid=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
-            #if all_decks:
-            #    decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
-            #    initialized_decks = eu.get_initialized_decks(decks)
-            #elif deckid:
-            #    decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]
-            #else:
-            #    decks = [pa.find_deck(provider, pob_deck, Settings.deck_version, Settings.production),
-            #            pa.find_deck(provider, dpod_deck, Settings.deck_version, Settings.production)]
-            #ei.run_command(bx.store_blockheights, decks, quiet=quiet, debug=debug, blocks=store_blockheights)
+
 
     def storeblocks(self, idstr: str=None, blocks: int=50000, all_decks: bool=False, quiet: bool=False, debug: bool=False):
         """Stores blockheights for a deck.
@@ -989,6 +983,166 @@ class ExtCard:
 
         print_card_list(list(result))
 
+
+    def balances(self,
+                param1: str=None,
+                param2: str=None,
+                token_type: str=None,
+                cardholders: bool=False,
+                advanced: bool=False,
+                wallet: bool=False,
+                keyring: bool=False,
+                no_labels: bool=False,
+                only_labels: bool=False,
+                quiet: bool=False,
+                debug: bool=False):
+        """List the token balances of an address, the whole wallet or all users.
+
+        Usage modes:
+
+            pacli card balances DECK [ADDRESS|-w]
+
+        Shows balances of a single token of all addresses (-w flag) or only the specified address.
+
+            pacli card balances [ADDRESS|-w] -a
+
+        Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
+
+            pacli card balances [ADDRESS|-w]
+
+        Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
+
+            pacli card balances DECK -c
+
+        Shows balances of all holders of a token (addresses with cards of this deck). Similar to 'card balances' command.
+        If compatibility mode is active, this is the standard mode and -c is not necessary.
+
+        Args:
+
+          token_type: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
+          advanced: See above. Shows balances of all tokens in JSON format.
+          cardholders: Show balances of all holders of cards of a token.
+          only_labels: In combination with the first or second option, don't show the addresses, only the labels.
+          no_labels: In combination with the first or second option, don't show the labels, only the addresses.
+          keyring: In combination with the first or second option, use an address stored in the keyring.
+          quiet: Suppresses information about the deck when a label is used.
+          debug: Display debug info.
+          param1: Deck or address. To be used as a positional argument (flag name not necessary).
+          param2: Address. To be used as a positional argument (flag name not necessary).
+          wallet: Show balances of all addresses in the wallet."""
+
+        # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
+        # allowed are: "at" / "pob", "dt" / "pod" (in all capitalizations)
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(self.__balance, **kwargs)
+
+    def __balance(self,
+                param1: str=None,
+                param2: str=None,
+                token_type: str=None,
+                cardholders: bool=False,
+                advanced: bool=False,
+                wallet: bool=False,
+                keyring: bool=False,
+                no_labels: bool=False,
+                only_labels: bool=False,
+                quiet: bool=False,
+                debug: bool=False):
+
+        if cardholders is True or Settings.compatibility_mode == "True":
+            if param1 is None:
+                raise ei.PacliInputDataError("Cardholder mode requires a deck.")
+
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
+
+            deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+            cards = pa.find_all_valid_cards(provider, deck)
+
+            state = pa.protocol.DeckState(cards)
+
+            balances = [exponent_to_amount(i, deck.number_of_decimals)
+                        for i in state.balances.values()]
+
+            pprint(dict(zip(state.balances.keys(), balances)))
+
+        elif (param1 is not None) and ((param2 is not None) or (wallet is True)): # single token mode
+            address = ec.process_address(param2) if param2 is not None else Settings.key.address
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
+            return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, quiet=quiet)
+        else:
+            # TODO seems like label names are not given in this mode if a an address is given.
+            if (wallet, param1) == (False, None):
+                param1 = Settings.key.address
+            if (not wallet):
+                advanced = True
+            # without advanced flag, advanced mode is only set if the user requires it.
+            address = ec.process_address(param1) if wallet is False else None
+            deck_type = c.get_deck_type(token_type.lower()) if token_type is not None else None
+            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=only_labels, deck_type=deck_type, quiet=quiet, debug=debug)
+
+
+    def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
+        """Transfer tokens/cards to one or multiple receivers in a single transaction.
+
+        Usage modes:
+
+            pacli card transfer DECK RECEIVER AMOUNT
+
+        Transfer AMOUNT of a token of deck DECK to a single receiver RECEIVER.
+
+            pacli card transfer DECK [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
+
+        Transfer to multiple receivers. AMOUNT1 goes to RECEIVER1 and so on.
+        The brackets are mandatory, but they don't have to be escaped.
+
+        Args:
+
+          change: Specify a change address.
+          verify: Verify transaction with Cointoolkit.
+          quiet: Suppress output and printout in a script-friendly way.
+          debug: Show additional debug information.
+          sign: Signs the transaction (True by default, use --send=False for a dry run)
+          send: Sends the transaction (True by default, use --send=False for a dry run)
+        """
+        # NOTE: This is not a wrapper of card transfer, so the signature errors from P2PK are also fixed.
+
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(self.__transfer, **kwargs)
+
+
+    def __transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
+
+        (sign, send) = (False, False) if ((Settings.compatibility_mode == "True") and (sign, send) == (None, None)) else (True, True)
+
+        if not set((type(receiver), type(amount))).issubset(set((list, str, int, float))):
+            raise ei.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
+
+        if type(receiver) == str:
+            receiver = [receiver]
+        if type(amount) != list:
+            amount = [Decimal(str(amount))]
+
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        receiver_addresses = [ec.process_address(r) for r in receiver]
+        change_address = ec.process_address(change)
+
+        if not quiet:
+            print("Sending tokens to the following receivers:", receiver)
+
+        return eu.advanced_card_transfer(deck,
+                                 amount=amount,
+                                 receiver=receiver_addresses,
+                                 change_address=change_address,
+                                 locktime=0,
+                                 asset_specific_data=None,
+                                 sign=sign,
+                                 send=send,
+                                 verify=verify,
+                                 debug=debug
+                                 )
 
 
 class ExtTransaction:

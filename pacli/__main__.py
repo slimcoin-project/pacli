@@ -266,7 +266,7 @@ class Card(ExtCard):
 
         print_card_list(cards)""" # disabled due to ExtCard conflict
 
-    def balances(self, deckid: str):
+    """def balances(self, deckid: str):
         '''list card balances on this deck'''
 
         cards, deck = self.__list(deckid).values()
@@ -276,7 +276,7 @@ class Card(ExtCard):
         balances = [exponent_to_amount(i, deck.number_of_decimals)
                     for i in state.balances.values()]
 
-        pprint(dict(zip(state.balances.keys(), balances)))
+        pprint(dict(zip(state.balances.keys(), balances)))""" # disabled, replaced by ExtCard
 
     def checksum(self, deckid: str) -> bool:
         '''show deck card checksum'''
@@ -317,7 +317,7 @@ class Card(ExtCard):
 
         raise Exception({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
-    @classmethod
+    """@classmethod
     def transfer(self, deckid: str, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None,
                  locktime: int=0, verify: bool=False,
@@ -345,7 +345,7 @@ class Card(ExtCard):
 
             pprint({'hex': tx.hexlify()})
 
-        return issue.hexlify()
+        return issue.hexlify()""" # replaced by ExtCard method
 
     @classmethod
     def burn(self, deckid: str, receiver: list=None, amount: list=None,
