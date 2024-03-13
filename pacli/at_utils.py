@@ -144,7 +144,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
                     for full_label in labels:
                         if labels[full_label] == tx_sender:
                             label = "_".join(full_label.split("_")[1:])
-                            tx_dict.update({"sender_label" : label })
+                            if not label.startswith("(unlabeled"):
+                                tx_dict.update({"sender_label" : label })
                             break
                 tx_dict.update({"sender_address" : tx_sender})
         txes_to_address.append(tx_dict)
