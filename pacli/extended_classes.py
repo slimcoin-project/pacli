@@ -1338,17 +1338,20 @@ class ExtTransaction:
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list [DECK -u] -b
-        pacli transaction list DECK -g
+        pacli transaction list DECK [ADDRESS] -u -b
+        pacli transaction list [ADDRESS] -b
+        pacli transaction list DECK [ADDRESS] -g
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens stored in wallet.
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
             In the case of -b, DECK is only necessary if combined with -u.
+            ADDRESS is optional. In the case no address is given, the main address is used.
 
-        pacli transaction list DECK -c
+        pacli transaction list DECK [ADDRESS] -c
 
             List token claim transactions.
             DECK can be a label or a deck ID.
+            ADDRESS is optional. In the case no address is given, the main address is used.
 
         pacli transaction list -x [RECEIVER_ADDRESS] [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
 

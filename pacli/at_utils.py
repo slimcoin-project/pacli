@@ -253,7 +253,7 @@ def at_deckinfo(deckid):
 
 def get_claimed_txes(deck: object, input_address: str, only_wallet: bool=False) -> set:
     # returns TXIDs of already claimed txes.
-    return set([c.donation_txid for c in get_valid_cardissues(deck, input_address, only_wallet=only_wallet)])
+    return set([c.donation_txid for c in eu.get_valid_cardissues(deck, input_address, only_wallet=only_wallet)])
 
 def burn_address():
     if not provider.network.endswith("slm"):
