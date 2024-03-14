@@ -1342,9 +1342,9 @@ class ExtTransaction:
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list DECK [ADDRESS] -u -b
-        pacli transaction list [DECK ADDRESS] -b
-        pacli transaction list DECK [ADDRESS] -g
+        pacli transaction list DECK [ADDRESS] -b -u
+        pacli transaction list [ADDRESS] -b
+        pacli transaction list DECK [ADDRESS] -g [-u]
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens stored in wallet.
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
@@ -1437,24 +1437,30 @@ class ExtTransaction:
         # o could be only_txids, only_count, only_amount?
         # m could be
         # TODO: Further harmonization: Results are now:
-        # -e: tx_structure or tx JSON
-        # -b/-g: custom dict with sender_label and sender_address
+        # -x: tx_structure or tx JSON
         # -a: always tx JSON
         # without any label: custom dict with main parameters
+        # -c: very custom "embellished" dict, should be changed #TODO
 
-        start = from_height
-        end = end_height
-        burns = burntxes
-        reftxes = gatewaytxes
-        claims = claimtxes
-        txids = ids
-        all = xplore
+        #start = from_height
+        #end = end_height
+        # burns = burntxes
+        # reftxes = gatewaytxes
+        # claims = claimtxes
+        # txids = ids
+        # all = xplore
         address_or_deck = _value1
         address = _value2
-        count = total
-        coinbase = view_coinbase
-        raw = zraw
-        sender = origin
+        # count = total
+        # coinbase = view_coinbase
+        # raw = zraw
+        # sender = origin
+
+        if (burntxes is True) and (_value2 is None) and (_value1 is not None) and (not unclaimed):
+           # special case: burns is selected without DECK and unclaimed
+           # then address can be given as first argument
+           address = _value1
+           address_or_deck = None
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
@@ -1462,39 +1468,39 @@ class ExtTransaction:
         if (not named) and (not quiet):
             print("Searching transactions (this can take several minutes) ...")
 
-        if all is True:
-            if (burns is True) or (reftxes is True):
-                txes = bx.show_txes(deck=address_or_deck, sending_address=sender, start=start, end=end, quiet=quiet, advanced=advanced, debug=debug, burns=burns, use_locator=locator)
+        if xplore is True:
+            if (burntxes is True) or (gatewaytxes is True):
+                txes = bx.show_txes(deck=address_or_deck, sending_address=origin, start=from_height, end=end_height, quiet=quiet, advanced=advanced, debug=debug, burns=burntxes, use_locator=locator)
             else:
-                txes = bx.show_txes(sending_address=sender, receiving_address=address_or_deck, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
-        elif burns is True:
+                txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
+        elif burntxes is True:
             txes = au.my_txes(sender=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
-        elif reftxes is True:
+        elif gatewaytxes is True:
             txes = au.my_txes(sender=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
-        elif claims is True:
+        elif claimtxes is True:
             txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
         elif named is True:
             """Shows all stored transactions and their labels."""
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
             if advanced is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
-        elif wallet or raw:
-            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, keyring=keyring, raw=raw)
+        elif wallet or zraw:
+            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, keyring=keyring, raw=zraw)
         else:
             """returns all transactions from or to that address in the wallet."""
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
             txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, sort=True, debug=debug)
 
-        if count is True:
+        if total is True:
             return len(txes)
 
         elif len(txes) == 0 and not quiet:
             print("No matching transactions found.")
 
 
-        elif (txids is True) and (not raw):
-            if claims is True:
+        elif (ids is True) and (not zraw):
+            if claimtxes is True:
                 txes = ([{"txid" : t["TX ID"]} for t in txes]) # TODO: ugly hack, improve this
 
             if named is True:
@@ -1514,7 +1520,7 @@ class ExtTransaction:
         elif quiet is True:
             return txes
 
-        elif (param is not None) and not claims:
+        elif (param is not None) and not claimtxes:
             try:
                 if quiet is True:
                     return [{t["txid"] : t.get(param)} for t in txes]
