@@ -117,12 +117,12 @@ def set_label(label: str, address: str, network_name: str=Settings.network, set_
     if keyring:
         ke.set_new_key(label=str(label), new_address=address, modify=modify, network_name=Settings.network)
     else:
-        ei.run_command(store_address, str(label), address=address, network_name=network_name, modify=modify)
+        store_address(str(label), address=address, network_name=network_name, modify=modify)
 
     if set_main:
         return set_main_key(str(label), keyring=keyring)
 
-def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False, replace: bool=False, to_wallet: bool=True):
+def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False, replace: bool=False, to_wallet: bool=False):
     keyring_prefix = "key_"
     # ext_label is the extended config label, full_label includes the 'key_' prefix used in the keyring.
     # full option means that full keyring labels are processed.
@@ -247,7 +247,7 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
 
     for full_label in keyring_labels:
         try:
-            store_address(full_label, full=True, replace=replace)
+            store_address(full_label, full=True, replace=replace, to_wallet=True)
         except ei.ValueExistsError:
             if not quiet:
                 print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))

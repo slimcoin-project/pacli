@@ -27,6 +27,7 @@ def run_command(c, *args, **kwargs) -> object:
     #    import warnings
     #    warnings.filterwarnings("ignore") # NOT working
 
+    debug = ("debug" in kwargs.keys() and kwargs["debug"]) or ("show_debug_info" in kwargs.keys() and kwargs["show_debug_info"])
     try:
         result = c(*args, **kwargs)
         return result
@@ -34,7 +35,7 @@ def run_command(c, *args, **kwargs) -> object:
     except (PacliInputDataError, ValueExistsError) as e:
 
         print_red("\nError: {}".format(e.args[0]))
-        if "debug" in kwargs.keys() and kwargs["debug"]:
+        if debug:
             raise
         sys.exit()
 
@@ -57,8 +58,9 @@ def run_command(c, *args, **kwargs) -> object:
         pacli deck init DECKID
         """
         print_red(err_str)
-        if "debug" in kwargs.keys() and kwargs["debug"]:
+        if debug:
             raise
+
         sys.exit()
 
     #except requests.exceptions.ConnectionError:

@@ -216,19 +216,19 @@ def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: 
     else:
         pprint(result)
 
-def setcfg(category: str, label: str, value: str, modify: bool=False, replace: bool=False, quiet: bool=False):
-    return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet)
+def setcfg(category: str, label: str, value: str, modify: bool=False, replace: bool=False, quiet: bool=False, debug: bool=False):
+    return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet, debug=debug)
 
-def show(category: str, label: str, quiet: bool=False):
-    result = ei.run_command(read_item, category=category, key=label)
+def show(category: str, label: str, quiet: bool=False, debug: bool=False):
+    result = ei.run_command(read_item, category=category, key=label, debug=debug)
     if result is None and not quiet:
         print("No entry was found for this label.")
     else:
         return result
 
-def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True):
+def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True, debug: bool=False):
     """Returns a list of matching labels if only a part of the value (content) is known."""
-    result = ei.run_command(search_value_content, category, str(content))
+    result = ei.run_command(search_value_content, category, str(content), debug=debug)
     if not result and not quiet:
         print("No entry or label was found matching the search string.")
     elif quiet:
@@ -240,9 +240,9 @@ def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True)
         else:
             return result
 
-def delete(category: str, label: str, now: bool=False) -> None:
+def delete(category: str, label: str, now: bool=False, debug: bool=False) -> None:
     """Deletes an item from the extended config file.
        Specify category and label.
        Use --now to delete really."""
-    return ei.run_command(delete_item, category, str(label), now=now)
+    return ei.run_command(delete_item, category, str(label), now=now, debug=debug)
 

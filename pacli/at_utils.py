@@ -264,7 +264,7 @@ def burn_address():
 
 # API commands
 
-def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
+def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Shows all transactions from your wallet to an address.'''
 
     if burns:
@@ -273,7 +273,8 @@ def my_txes(address: str=None, deck: str=None, unclaimed: bool=False, wallet: bo
          address = burn_address()
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-    sender = Settings.key.address if not wallet else None
+    if sender is None:
+        sender = Settings.key.address if not wallet else None
     txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug)
 
     return txes

@@ -301,7 +301,8 @@ class ExtAddress:
             quiet: bool=False,
             keyring: bool=False,
             now: bool=False,
-            import_all_keyring_addresses: bool=False):
+            import_all_keyring_addresses: bool=False,
+            show_debug_info: bool=False):
 
         """Sets the current main address or stores / deletes a label for an address.
 
@@ -340,6 +341,7 @@ class ExtAddress:
           quiet: Suppress output, printout in script-friendly way.
           address: Address. To be used as positional argument (flag keyword not mandatory). See Usage modes.
           label: Label. To be used as positional argument (flag keyword not mandatory). See Usage modes.
+          show_debug_info: Show debug information.
         """
 
         # (replaces: `address set_main`, `address fresh`, `tools store_address`, `address set_label`, `tools store_address_from_keyring`, `address delete_label`, `tools delete_address_label`,  `address import_to_wallet` and  `tools store_addresses_from_keyring`) (Without flag it would work like the old address set_main, flag --new will generate a new address, like the current "fresh" command, other options are implemented with new flags like --delete, --keyring, --from-keyring, --all-keyring-labels, --into-wallet)
@@ -348,7 +350,6 @@ class ExtAddress:
 
         kwargs = locals()
         del kwargs["self"]
-        kwargs.update({"debug" : True})
         ei.run_command(self.__set_label, **kwargs)
 
 
@@ -363,7 +364,9 @@ class ExtAddress:
             keyring: bool=False,
             now: bool=False,
             import_all_keyring_addresses: bool=False,
-            debug: bool=False):
+            show_debug_info: bool=False):
+
+        debug = show_debug_info
 
         if label is None and address is None:
             if import_all_keyring_addresses:
@@ -388,6 +391,7 @@ class ExtAddress:
             ec.set_label(label, address, set_main=True, keyring=keyring, modify=modify, network_name=Settings.network)
             if not quiet:
                 print("Stored address {} with label {}.".format(address, label))
+            return
 
         else: # set_main
             """Declares a key identified by a label or address as the main one."""
@@ -1339,7 +1343,7 @@ class ExtTransaction:
             (e.g. for DEX purposes).
 
         pacli transaction list DECK [ADDRESS] -u -b
-        pacli transaction list [ADDRESS] -b
+        pacli transaction list [DECK ADDRESS] -b
         pacli transaction list DECK [ADDRESS] -g
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens stored in wallet.
@@ -1464,9 +1468,9 @@ class ExtTransaction:
             else:
                 txes = bx.show_txes(sending_address=sender, receiving_address=address_or_deck, start=start, end=end, coinbase=coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
         elif burns is True:
-            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
+            txes = au.my_txes(sender=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
         elif reftxes is True:
-            txes = au.my_txes(address=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
+            txes = au.my_txes(sender=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
         elif claims is True:
             txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
         elif named is True:
