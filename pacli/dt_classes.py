@@ -22,6 +22,8 @@ import pacli.dt_txtools as dtx
 
 class PoDToken():
 
+    """General commands to manage dPoD (decentralized proof-of-donation) tokens."""
+
     @classmethod
     def deck_spawn(self,
                    name: str,
@@ -243,6 +245,8 @@ class PoDToken():
 
 
 class Proposal:
+
+    """Commands to manage, show and vote for proposals in dPoD tokens."""
 
 
     def __info(self, proposal: str) -> None:
@@ -684,6 +688,8 @@ class Proposal:
 
 
 class Donation:
+
+    """Commands to manage donations in dPoD tokens."""
 
     # Tracked Transactions in Donation class
     # TODO: It would be best to find another word for "reserve", as we have already "round_number" with -r. Perhaps something like "next_round_reserve? (but -n is --new_inputs)

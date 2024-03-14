@@ -8,6 +8,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 
 class Dex:
+    """Commands allowing the decentralized exchange of tokens for coins."""
 
     @classmethod
     def lock(self,

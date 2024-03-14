@@ -7,6 +7,8 @@ from pacli.provider import provider
 
 class Checkpoint:
 
+    """Commands dealing with checkpoints (stored block hashes), which help to recognize chain reorganizations."""
+
     def set(self,
             blockheight: int=None,
             delete: bool=False,

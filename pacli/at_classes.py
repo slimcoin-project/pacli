@@ -15,6 +15,7 @@ from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATToken():
 
+    """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
 
     def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
@@ -143,7 +144,8 @@ class ATToken():
 
 
 class PoBToken(ATToken):
-    # bundles all PoB-specific functions.
+
+    """Commands to deal with PoB (proof-of-burn) tokens, which reward burn transactions."""
 
     def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,

@@ -16,6 +16,8 @@ from pacli.utils import sign_transaction, sendtx
 
 class Coin:
 
+    """Commands to create coin transactions."""
+
     def sendto(self, address: Union[str], amount: Union[float],
                locktime: int=0) -> str:
         '''send coins to address'''

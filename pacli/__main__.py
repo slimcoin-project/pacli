@@ -47,7 +47,7 @@ from pacli.extended_checkpoints import Checkpoint
 
 class Config(ExtConfig):
 
-    '''dealing with configuration'''
+    """Commands to manage configuration settings."""
 
     def default(self) -> None:
         '''revert to default config'''
@@ -65,7 +65,7 @@ class Config(ExtConfig):
 
 class Address(ExtAddress):
 
-    '''my personal address'''
+    """Commands managing the main personal address and other addresses."""
 
     """def show(self, pubkey: bool=False, privkey: bool=False, wif: bool=False) -> str:
         '''print address, pubkey or privkey'''
@@ -110,6 +110,8 @@ class Address(ExtAddress):
 
 
 class Deck(ExtDeck):
+
+    '''Commands to manage token decks.'''
 
     """@classmethod
     def list(self):
@@ -232,7 +234,7 @@ class Deck(ExtDeck):
 
 class Card(ExtCard):
 
-    '''card information and manipulation'''
+    """Commands for card information and manipulation."""
 
     @classmethod
     def __find_deck(self, deckid) -> Deck:
@@ -417,6 +419,8 @@ class Card(ExtCard):
             pprint(i.to_json())
 
 class Transaction(ExtTransaction):
+
+    """Commands for transaction information and creation."""
 
     def raw(self, txid: str) -> None:
         '''fetch raw tx and display it'''
