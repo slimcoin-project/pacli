@@ -257,7 +257,7 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
 # Transaction-related tools
 
 
-def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, include_p2th: bool=False, sort: bool=False, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
+def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, include_p2th: bool=False, include_coinbase: bool=False, sort: bool=False, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
     # TODO recheck all modes: with/without address, wallet, sent/received
 
@@ -309,15 +309,17 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     txes = {}
     if sent or (received and not sent):
         cats = ["send"] if sent is True else ["receive", "generate", "immature"]
-    else:
+    elif include_coinbase is True:
         cats = ["send", "receive", "generate", "immature"]
+    else:
+        cats = ["send", "receive"]
 
     oldtxid = None
     for txid, category in unique_txes:
         # deletes txes which aren't in the required categories
         if (oldtxid not in (None, txid)) and set(cats).isdisjoint(txes[oldtxid]):
             if debug:
-                print("Deleting tx {}. Cats {} not matching {}.".format(oldtxid, txes[oldtxid], cats))
+                print("Ignoring tx {}. Cats {} not matching {}.".format(oldtxid, txes[oldtxid], cats))
             del txes[oldtxid]
 
         if txid not in txes.keys():

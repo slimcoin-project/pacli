@@ -1485,12 +1485,12 @@ class ExtTransaction:
             if advanced is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet or zraw:
-            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, keyring=keyring, raw=zraw)
+            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
         else:
             """returns all transactions from or to that address in the wallet."""
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
-            txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, sort=True, debug=debug)
+            txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
         if total is True:
             return len(txes)
@@ -1520,14 +1520,21 @@ class ExtTransaction:
         elif quiet is True:
             return txes
 
-        elif (param is not None) and not claimtxes:
+        elif param is not None:
+            txidstr = "TX ID" if claimtxes is True else "txid"
             try:
+                result = {t[txidstr] : t.get(param) for t in txes}
+                assert set(result.values()) != set([None]) # at least one tx should have a value
                 if quiet is True:
-                    return [{t["txid"] : t.get(param)} for t in txes]
+                    return result
                 else:
-                    pprint([{t["txid"] : t.get(param)} for t in txes])
-            except KeyError:
-                raise ei.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
+                    pprint(result)
+
+            except (KeyError, AssertionError):
+                print("Parameter '{}' does not exist in the listed transactions of this mode.".format(param))
+                print("Some available parameters for this mode:")
+                print([k for k in txes[0]])
+                return
         else:
             for txdict in txes:
                 pprint(txdict)
