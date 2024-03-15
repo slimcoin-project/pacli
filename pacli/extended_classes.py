@@ -1431,11 +1431,7 @@ class ExtTransaction:
              xplore: bool=False,
              zraw: bool=False) -> None:
 
-        # free letters: j, l, m, y, z
 
-        # v could be view_coinbase
-        # o could be only_txids, only_count, only_amount?
-        # m could be
         # TODO: Further harmonization: Results are now:
         # -x: tx_structure or tx JSON
         # -a: always tx JSON
@@ -1521,20 +1517,25 @@ class ExtTransaction:
             return txes
 
         elif param is not None:
+            if param is True:
+                raise ei.PacliInputDataError("No parameter was given.")
             txidstr = "TX ID" if claimtxes is True else "txid"
             try:
                 result = {t[txidstr] : t.get(param) for t in txes}
                 assert set(result.values()) != set([None]) # at least one tx should have a value
-                if quiet is True:
-                    return result
-                else:
-                    pprint(result)
 
+            except TypeError: # if the result is an unhashable type this is thrown, but it can be ignored
+                pass
             except (KeyError, AssertionError):
                 print("Parameter '{}' does not exist in the listed transactions of this mode.".format(param))
                 print("Some available parameters for this mode:")
                 print([k for k in txes[0]])
                 return
+
+            if quiet is True:
+                return result
+            else:
+                pprint(result)
         else:
             for txdict in txes:
                 pprint(txdict)
