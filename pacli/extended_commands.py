@@ -60,16 +60,16 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
 
 def show_stored_address(label: str, network_name: str=Settings.network, keyring: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False):
     # Safer mode for show_stored_key.
-    if keyring:
+    if keyring is True:
         return ke.show_stored_key(str(label), network_name=network_name, noprefix=noprefix, pubkey=pubkey, privkey=privkey, wif=wif, raise_if_invalid_label=raise_if_invalid_label)
     elif pubkey or privkey or wif:
         print("--privkey, --wif and --pubkey are only supported when using --keyring.")
     else:
         return get_address(str(label), network_name=network_name, noprefix=noprefix)
 
-def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=True, network_name: str=Settings.network) -> str:
+def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=False, network_name: str=Settings.network) -> str:
     """Allows to use a label or an address; you'll get an address back."""
-    # TODO: once all commands are equipped with --keyring flag put try_alternative to False.
+    # TODO it is not clear if the branch with try_alternative is still needed. For now it's set to false.
     try:
         address = show_stored_address(addr_string, keyring=keyring, raise_if_invalid_label=True)
         assert address is not None
@@ -85,7 +85,8 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
             result = addr_string
 
     if not eu.is_possible_address(result, network_name):
-        raise ei.PacliInputDataError("No valid address string or non-existing label.")
+        msg_keyring = "keyring" if keyring is True else "extended configuration file"
+        raise ei.PacliInputDataError("No valid address string or non-existing label in the {}.".format(msg_keyring))
     return result
 
 def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:

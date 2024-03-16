@@ -480,7 +480,8 @@ class ExtAddress:
 
         pacli address list
 
-            Shows a table of all named addresses and those which contain coins, PoD and PoB tokens
+            Shows a table of all named addresses and those which contain coins, PoD and PoB tokens.
+            Note: If P2TH addresses were named, they will be included in this list, otherwise not.
 
         pacli address list -a
 
@@ -1517,8 +1518,9 @@ class ExtTransaction:
             return txes
 
         elif param is not None:
+            msg_additionalparams =  "Some available parameters for this mode:\n{}".format([k for k in txes[0]])
             if param is True:
-                raise ei.PacliInputDataError("No parameter was given.")
+                raise ei.PacliInputDataError("No parameter was given.\n" + msg_additionalparams)
             txidstr = "TX ID" if claimtxes is True else "txid"
             try:
                 result = {t[txidstr] : t.get(param) for t in txes}
@@ -1528,8 +1530,7 @@ class ExtTransaction:
                 pass
             except (KeyError, AssertionError):
                 print("Parameter '{}' does not exist in the listed transactions of this mode.".format(param))
-                print("Some available parameters for this mode:")
-                print([k for k in txes[0]])
+                print(msg_additionalparams)
                 return
 
             if quiet is True:

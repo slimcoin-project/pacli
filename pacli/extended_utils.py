@@ -376,8 +376,33 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
                 return result
             else:
                 raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
-        else:
-            raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
+
+        elif category == "deck":
+            result = search_global_deck_name(identifier)
+            if result:
+                return result
+
+    raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
+
+def search_global_deck_name(identifier, quiet: bool=False):
+
+    if not quiet:
+        print("Searching global deck name ...")
+    decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
+    decks.sort(key = "tx_confirmations")
+    print([d.tx_confirmations for d in decks]) ## DEBUG
+    matching_decks = [d for d in decks if d.name == identifier]
+    if len(matching_decks) > 0:
+        if not quiet:
+            if len(matching_decks) > 1:
+                print("More than one matching deck found:", [d.id for d in matching_decks])
+                print("Using first deck with this name, with id:", matching_deck[0].id)
+            else:
+                print("Using matching deck, with id:", matching_deck[0].id)
+
+        return matching_decks[0].id
+    else:
+        return None
 
 
 # General token tools
