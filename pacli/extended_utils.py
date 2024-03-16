@@ -144,6 +144,59 @@ def get_deckinfo(deckid, p2th: bool=False):
         # d_dict.update(p2th_dict)
     return d_dict
 
+def get_initialized_decks(decks: list, debug: bool=False) -> list:
+    # from the given list, checks which ones are initialized
+    # decks have to be given completely, not as deck ids.
+    accounts = provider.listaccounts()
+    if debug:
+        print("Accounts:", sorted(list(accounts.keys())))
+    initialized_decks = []
+    for deck in decks:
+        if not deck.id in accounts.keys():
+            if debug:
+                print("Deck not initialized:", deck.id)
+            continue
+        elif "at_type" in deck.__dict__ and deck.at_type == ID_DT:
+            derived_accounts = get_dt_p2th_accounts(deck)
+            if set(derived_accounts.values()).isdisjoint(accounts):
+                if debug:
+                    print("Deck not completely initialized", deck.id)
+                continue
+        if debug:
+            print("Adding initialized deck", deck.id)
+        initialized_decks.append(deck)
+    return initialized_decks
+
+def search_global_deck_name(identifier: str, quiet: bool=False, check_initialized: bool=True):
+
+    if not quiet:
+        print("Deck not named locally. Searching global deck name ...")
+    # this will only search in confirmed decks
+    decks = [d for d in list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)) if d.issue_time > 0]
+    decks.sort(key = lambda x: (x.issue_time, x.id))
+    matching_decks = [d for d in decks if d.name == identifier]
+    if len(matching_decks) > 0:
+        deck = matching_decks[0]
+        if not quiet:
+            if len(matching_decks) > 1:
+                print("More than one matching deck found:", [d.id for d in matching_decks])
+                if deck.issue_time != matching_decks[1].issue_time:
+                    print("Using first issued deck with this global name with id:", deck.id)
+                else:
+                    print("There are several decks with the same name and issue time.")
+                    print("Using the deck with the lowest value of the TXID.", deck.id)
+            else:
+                print("Using matching deck with global name {}, with id: {}".format(identifier, deck.id))
+            if check_initialized:
+                idecks = [di.id for di in get_initialized_decks(decks)]
+                if deck.id not in idecks:
+                    print("WARNING: This deck was never initialized. Most commands will not work properly, they may output no information at all.")
+                    print("Initialize the deck with 'pacli deck init {}'".format(deck.id))
+
+        return deck.id
+    else:
+        return None
+
 # Transaction signing and sending tools
 
 def signtx_by_key(rawtx, label=None, key=None):
@@ -384,27 +437,6 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
 
     raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
 
-def search_global_deck_name(identifier, quiet: bool=False):
-
-    if not quiet:
-        print("Searching global deck name ...")
-    decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
-    decks.sort(key = "tx_confirmations")
-    print([d.tx_confirmations for d in decks]) ## DEBUG
-    matching_decks = [d for d in decks if d.name == identifier]
-    if len(matching_decks) > 0:
-        if not quiet:
-            if len(matching_decks) > 1:
-                print("More than one matching deck found:", [d.id for d in matching_decks])
-                print("Using first deck with this name, with id:", matching_deck[0].id)
-            else:
-                print("Using matching deck, with id:", matching_deck[0].id)
-
-        return matching_decks[0].id
-    else:
-        return None
-
-
 # General token tools
 
 def get_address_token_balance(deck: object, address: str) -> Decimal:
@@ -613,29 +645,6 @@ def get_dt_p2th_accounts(deck):
             "p2th_locking" : deck.id + "LOCKING",
             "p2th_donation" : deck.id + "DONATION",
             "p2th_voting" : deck.id + "VOTING"}
-
-def get_initialized_decks(decks: list, debug: bool=False) -> list:
-    # from the given list, checks which ones are initialized
-    # decks have to be given completely, not as deck ids.
-    accounts = provider.listaccounts()
-    if debug:
-        print("Accounts:", sorted(list(accounts.keys())))
-    initialized_decks = []
-    for deck in decks:
-        if not deck.id in accounts.keys():
-            if debug:
-                print("Deck not initialized:", deck.id)
-            continue
-        elif "at_type" in deck.__dict__ and deck.at_type == ID_DT:
-            derived_accounts = get_dt_p2th_accounts(deck)
-            if set(derived_accounts.values()).isdisjoint(accounts):
-                if debug:
-                    print("Deck not completely initialized", deck.id)
-                continue
-        if debug:
-            print("Adding initialized deck", deck.id)
-        initialized_decks.append(deck)
-    return initialized_decks
 
 """def get_initialized_decks_old(decks: list, debug: bool=False) -> list:
     # OLD slower but more precise version checking addresses.

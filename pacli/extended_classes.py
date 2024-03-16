@@ -818,6 +818,17 @@ class ExtDeck:
         # TODO: add --show_p2th address to all decks, not only dPoD.
         #TODO: an option to search by name would be fine here.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
+        return ei.run_command(self.__show, deckstr=deckstr, param=param, info=info, find=find, show_p2th=show_p2th, quiet=quiet)
+
+    def __show(self,
+             deckstr: str,
+             param: str=None,
+             info: bool=False,
+             find: bool=False,
+             show_p2th: bool=False,
+             quiet: bool=False):
+
+
         if info is True:
             deckid = eu.search_for_stored_tx_label("deck", deckstr)
             deckinfo = ei.run_command(eu.get_deckinfo, deckid, show_p2th)
