@@ -394,6 +394,9 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
         if ("receive" in categories or "generate" in categories or "immature" in categories) and ((all_txes or received) or (sent and ("send" in categories))):
 
+            if "send" in categories:
+                categories.remove("send")
+
             try:
                 outputs = tx["vout"]
             except KeyError:
@@ -416,11 +419,14 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
             if value_received > 0:
                 if txdict is not None:
-                    if not advanced:
-                        txdict.update({"type" : ["send", "receive"]})
+                    if not advanced and "type" in txdict:
+                        print(txdict["type"], categories)
+                        txdict["type"] += categories
+                        # txdict.update({"type" : ["send", "receive"]})
                         txdict.update({"value_received" : value_received})
                 else:
-                    txdict = tx if advanced else {"txid" : tx["txid"], "type" : ["receive"], "value_received": value_received, "confirmations": confs}
+                    # txdict = tx if advanced else {"txid" : tx["txid"], "type" : ["receive"], "value_received": value_received, "confirmations": confs}
+                    txdict = tx if advanced else {"txid" : tx["txid"], "type" : categories, "value_received": value_received, "confirmations": confs}
 
             if debug and not wallet:
                 print("Address detected as receiver in transaction: {}. Received value in this output: {}".format(tx["txid"], output["value"]))
