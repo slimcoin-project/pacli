@@ -412,29 +412,34 @@ def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
     if not quiet:
         print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
 
-def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False) -> str:
+def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True) -> str:
     """If the identifier is a label stored in the extended config file, return the associated txid."""
-    # the try-except clause returns the identifier if it's already in txid format.
+    # returns first the identifier if it's already in txid format.
 
     identifier = str(identifier) # will not work with int values, but we want ints to be possible as identifiers
     if is_possible_txid(identifier):
-        return identifier
-    else:
+        if check_deck and category == "deck":
+            # TODO: this is not ideal, it should return the deck object eventually
+            # could also be implemented this way for proposals
+            if pa.find_deck(provider, identifier, Settings.deck_version, Settings.production) is not None:
+                return identifier
+        else:
+            return identifier
 
-        result = ce.read_item(category, identifier)
+    result = ce.read_item(category, identifier)
 
-        if result is not None:
-            if is_possible_txid(result):
-                if not quiet:
-                    print("Using {} stored locally with label {} and ID {}.".format(category, identifier, result))
-                return result
-            else:
-                raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
+    if result is not None:
+        if is_possible_txid(result):
+            if not quiet:
+                print("Using {} stored locally with label {} and ID {}.".format(category, identifier, result))
+            return result
+        else:
+            raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
 
-        elif category == "deck":
-            result = search_global_deck_name(identifier)
-            if result:
-                return result
+    elif category == "deck":
+        result = search_global_deck_name(identifier)
+        if result:
+            return result
 
     raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
 
