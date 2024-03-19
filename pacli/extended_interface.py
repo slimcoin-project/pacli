@@ -28,6 +28,7 @@ def run_command(c, *args, **kwargs) -> object:
     #    warnings.filterwarnings("ignore") # NOT working
 
     debug = ("debug" in kwargs.keys() and kwargs["debug"]) or ("show_debug_info" in kwargs.keys() and kwargs["show_debug_info"])
+
     try:
         result = c(*args, **kwargs)
         return result

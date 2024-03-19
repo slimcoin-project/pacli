@@ -416,6 +416,7 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
     """If the identifier is a label stored in the extended config file, return the associated txid."""
     # the try-except clause returns the identifier if it's already in txid format.
 
+    identifier = str(identifier) # will not work with int values, but we want ints to be possible as identifiers
     if is_possible_txid(identifier):
         return identifier
     else:
@@ -425,7 +426,7 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
         if result is not None:
             if is_possible_txid(result):
                 if not quiet:
-                    print("Using {} stored with label {} and ID {}.".format(category, identifier, result))
+                    print("Using {} stored locally with label {} and ID {}.".format(category, identifier, result))
                 return result
             else:
                 raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")

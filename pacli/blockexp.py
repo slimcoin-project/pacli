@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 from typing import Union
 import pypeerassets as pa
 import pypeerassets.at.constants as c
@@ -12,13 +13,17 @@ from pacli.config import Settings
 # block exploring utilities are now bundled here
 
 
-def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=None) -> dict:
+def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None) -> dict:
     """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""
     # TODO: could see an usability improvement for coinbase txes.
     # However, this could lead to side effects.
 
-    tx = provider.getrawtransaction(txid, 1)
+    if not tx:
+        if txid:
+            tx = provider.getrawtransaction(txid, 1)
+        else:
+            return None
     try:
         senders = find_tx_senders(tx)
     except KeyError:
@@ -52,15 +57,14 @@ def get_tx_structure(txid: str, human_readable: bool=True, tracked_address: str=
         return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, show_locator_txes: bool=False, debug: bool=False) -> list:
 
     # locator_list parameter only stores the locator
+
     if locator_list:
         use_locator = True
         store_locator = True
 
-    #if not endblock:
-    #    endblock = provider.getblockcount() # goes to show_txes
     if (not quiet) and (not use_locator) and ((endblock - startblock) > 10000):
         print("""
               NOTE: This commands cycles through all blocks and will take very long
@@ -76,7 +80,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     tracked_txes = []
-    # all_txes = True if tracked_address is None else False
 
     if use_locator or store_locator:
         if sending_address or receiving_address:
@@ -111,6 +114,9 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         receiving_address = None
 
     for bh in blockheights:
+        if bh < startblock:
+            continue # this can happen when loading locator data
+
         try:
             if not quiet and bh % 100 == 0:
                 print("Processing block:", bh)
@@ -125,7 +131,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
             for txid in block_txes:
                 try:
-                    tx_struct = get_tx_structure(txid)
+                    tx_struct = get_tx_structure(txid=txid)
                 except Exception as e:
                     if debug:
                         print("TX {} Error: {}".format(txid, e))
@@ -141,7 +147,12 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                 send = sending_address in senders
                 # print(recv, send, sending_address, receiving_address)
                 # print([o["receivers"] for o in tx_struct["outputs"]])
-                if (recv and send) or (recv and sending_address is None) or (send and receiving_address is None) or (sending_address is None and receiving_address is None):
+                if ((not show_locator_txes and ((recv and send) or
+                    (recv and sending_address is None) or
+                    (send and receiving_address is None) or
+                    (sending_address is None and receiving_address is None))) or
+                    (show_locator_txes and (locator_list is not None) and (not set(locator_list).isdisjoint(set(senders + receivers))))
+                    ):
                     if advanced:
                         tx_dict = provider.getrawtransaction(txid, 1)
                     else:
@@ -151,7 +162,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                     tracked_txes.append(tx_dict)
 
                     if store_locator:
-                       #if sending_address and send:
                        for a in locator_list:
                            if (a in senders) or (a in receivers):
                                address_blocks[a].append(bh)
@@ -162,7 +172,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         except KeyboardInterrupt:
             break
 
-    if store_locator:
+    if store_locator and len(list(blockheights)) > 0:
         store_locator_data(address_blocks, lastblockheight, lastblockhash, quiet=quiet, debug=debug)
     return tracked_txes
 
@@ -286,7 +296,6 @@ def get_locator_data(address_list: list, filename: str=None, debug: bool=False):
     blockheights = list(set(raw_blockheights))
     blockheights.sort()
     last_checked_block = min(last_checked_blocks) # returns the last commonly checked block for all addresses.
-    # print(blockheights)
     return (blockheights, last_checked_block)
 
 def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, filename: str=None, quiet: bool=False, debug: bool=False):
@@ -301,11 +310,21 @@ def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks
 
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
-    current_block = provider.getblockcount()
-    confirmations = [d.tx_confirmations for d in decks]
-    min_blockheight = current_block - max(confirmations) - 10 # 10 blocks before first confirmation of a deck spawn
+    # current_block = provider.getblockcount()
+    # confirmations = [d.tx_confirmations for d in decks]
+    # min_spawn_blockheight = current_block - max(confirmations) - 10 # 10 blocks before first confirmation of a deck spawn
+    spawn_blockheights = []
+    for d in decks:
+        deck_tx = provider.getrawtransaction(d.id, 1)
+        try:
+            spawn_blockheights.append(provider.getblock(deck_tx["blockhash"])["height"])
+        except KeyError:
+            continue
+
+    min_spawn_blockheight = min(spawn_blockheights)
+
     if not quiet:
-        print("First deck spawn approximately at block height:", min_blockheight)
+        print("First deck spawn approximately at block height:", min_spawn_blockheight)
 
     addresses = []
     for deck in decks:
@@ -329,11 +348,97 @@ def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks
     blockheights, lastblock = get_locator_data(addresses)
     if debug:
         print("Locator data:", blockheights, lastblock)
-    start_block = min(lastblock, min_blockheight)
+    if lastblock == 0: # new decks
+        start_block = min_spawn_blockheight
+    else:
+        start_block = lastblock
+    # start_block = min(lastblock, min_spawn_blockheight)
     end_block = start_block + blocks
     if debug:
         print("Start and end block, blocks:", start_block, end_block, blocks)
     txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
     if not quiet:
         print(len(txes), "found.")
+
+def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
+    tx = provider.getrawtransaction(txid, 1)
+    if "blockhash" in tx.keys():
+        return provider.getblock(tx["blockhash"])["height"]
+    else:
+        return None
+
+def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None):
+
+    # If no lastblockheight is given, it uses the last already checked block.
+    if lastblockheight is None:
+        lastblockheight = get_locator_data(address_list)[1]
+    print("Last blockheight checked", lastblockheight)
+
+    # source 1: blockchain
+    blockchain_txes = show_txes_by_block(locator_list=address_list, endblock=lastblockheight, show_locator_txes=True, debug=True)
+    blockchain_balances = get_balances_from_structs(address_list, blockchain_txes)
+    # source 2: RPC listtransactions
+    rpc_txes_struct = [get_tx_structure(tx=tx, human_readable=False) for tx in rpc_txes]
+    rpc_balances = get_balances_from_structs(address_list, rpc_txes_struct, endblock=lastblockheight)
+
+    for address in address_list:
+        # source 3: UTXOS (listunspent)
+        unspent = provider.listunspent(address=address, minconf=1)
+        # print(unspent)
+        values = [Decimal(v["amount"]) for v in unspent]
+        heights = [get_tx_blockheight(v["txid"]) for v in unspent]
+        if len(heights) == 0:
+            print("Currently no UTXOS found for this address. UTXO test not possible.")
+            balance = None
+        elif max(heights) > lastblockheight:
+            print("UTXO check not possible, as balances changed after the given blockheight {}.".format(lastblockheight))
+            balance = None
+        else:
+            balance = sum(values)
+            print("Balance according to unspent outputs:", balance)
+
+        print("Address:", address)
+        print("RPC balances:", rpc_balances[address])
+        print("Blockchain balances:", blockchain_balances[address])
+
+        if ((balance is not None) and (blockchain_balances[address]["balance"] == rpc_balances[address]["balance"] == balance)):
+            print("PASSED (complete)")
+        elif blockchain_balances[address]["balance"] == rpc_balances[address]["balance"]:
+            print("PASSED (partly)")
+        else:
+            print("NOT PASSED")
+
+
+def get_balances_from_structs(address_list: list, txes: list, endblock: int=None):
+    balances = {}
+    for address in address_list:
+        balances.update({address : {"balance" : Decimal(0), "observed" : False}})
+        for tx in txes:
+            if endblock is not None and tx["blockheight"] > endblock:
+                continue
+            tx_balance, observed = get_tx_address_balance(address, tx)
+            if observed:
+                balances[address]["observed"] = True
+            balances[address]["balance"] += tx_balance
+    return balances
+
+
+def get_tx_address_balance(address: str, tx: dict):
+    # this takes TX Structure as a dict!
+    # print("TX", tx)
+    balance = 0
+    observed = False
+    for i in tx["inputs"]:
+        if i["sender"] == address:
+            balance -= Decimal(str(i["value"]))
+    for o in tx["outputs"]:
+        if address in o["receivers"]:
+            if len(set(o["receivers"])) == 1:
+                balance += Decimal(str(o["value"]))
+            else:
+                observed = True
+
+    return (balance, observed)
+
+
 

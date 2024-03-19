@@ -34,7 +34,8 @@ class BlockLocator:
 
         if locatorfilename is None:
             locatorfilename = LOCATORFILE
-        print("Opening file ...")
+        if not quiet:
+           print("Reading locator file ...")
         try:
             with open(locatorfilename, "r") as locatorfile:
                 try:

@@ -600,7 +600,7 @@ class ExtAddress:
                                   include_only=include_only,
                                   debug=debug)
 
-    def balance(self, label_or_address: str=None, keyring: bool=False, wallet: bool=False):
+    def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
         Usage modes:
@@ -621,17 +621,25 @@ class ExtAddress:
 
             Shows balance of whole wallet.
 
+        pacli address balance [ADDRESS] -i [BLOCKHEIGHT]
+
+            Performs an integrity test comparing blockchain data with output of RPC commands.
+            If BLOCKHEIGHT is given, the command will return the balance at this blockheight,
+            scanning blocks (and storing new locator data) if necessary.
+            If not, the command will return the state from the last scan.
+
         Args:
 
            keyring: Use an address stored in the keyring of your operating system.
            wallet: Show balance of the whole wallet, see above.
+           integrity_test: Performs an integrity test, comparing blockchain data with the data shown by SLM RPC commands (not in combination with -w).
            address_or_label: To be used as a positional argument (without flag keyword), see "Usage modes" above.
         """
 
         # REPLACES address balance
-        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, wallet=wallet)
+        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, integrity_test=integrity_test, wallet=wallet)
 
-    def __balance(self, label_or_address: str=None, keyring: bool=False, wallet: bool=False):
+    def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False):
 
         if label_or_address is not None:
             address = ec.process_address(label_or_address, keyring=keyring)
@@ -651,6 +659,12 @@ class ExtAddress:
         except TypeError:
             raise ei.PacliInputDataError("Address does not exist.")
 
+        if integrity_test:
+
+            lastblockheight = integrity_test if type(integrity_test) == int else None
+            print("Getting RPC txes ...")
+            rpc_txes = ec.get_address_transactions(addr_string=address, sent=True, received=True, advanced=True, include_coinbase=True, include_p2th=True, sort=True, debug=False)
+            return bx.integrity_test([address], rpc_txes, lastblockheight=lastblockheight) # TODO: implement lastblockheight
 
         pprint(
             {'balance': float(balance)}
@@ -923,20 +937,20 @@ class ExtDeck:
             ei.run_command(self.__storeblocks, deckid=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
 
-    def storeblocks(self, idstr: str=None, blocks: int=50000, all_decks: bool=False, quiet: bool=False, debug: bool=False):
-        """Stores blockheights for a deck.
+    def cache(self, idstr: str=None, blocks: int=50000, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+        """Stores data about deck state changes (blockheights).
 
         Usage modes:
 
-            pacli deck storeblocks
+            pacli deck cache
 
         Store blockheights for the standard PoB and dPoD decks.
 
-            pacli deck storeblocks IDSTR
+            pacli deck cache IDSTR
 
         Store blockheights for a deck.
 
-            pacli deck storeblocks -a
+            pacli deck cache -a
 
         Store blockheights for all initialized decks.
 
@@ -948,15 +962,17 @@ class ExtDeck:
           idstr: Deck label or Deck ID. To be used as a positional argument
           debug: Show additional debug information."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr is not None else None
-        ei.run_command(self.__storeblocks, deckid=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
-    def __storeblocks(self, deckid: str, blocks: int=None, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+        ei.run_command(self.__storeblocks, idstr=idstr, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
-        if all_decks:
+    def __storeblocks(self, idstr: str, blocks: int=None, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+
+        deckid = eu.search_for_stored_tx_label("deck", idstr, quiet=quiet) if idstr is not None else None
+
+        if all_decks is True:
             decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
             initialized_decks = eu.get_initialized_decks(decks)
-        elif deckid:
+        elif deckid is not None:
              decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]
         else:
              netw = Settings.network
@@ -1277,7 +1293,7 @@ class ExtTransaction:
             if not eu.is_possible_txid(label_or_txid):
                 raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s mode currently doesn't support labels.")
 
-            tx_structure = ei.run_command(bx.get_tx_structure, label_or_txid)
+            tx_structure = ei.run_command(bx.get_tx_structure, txid=label_or_txid)
 
             if quiet is True:
                 return tx_structure

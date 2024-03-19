@@ -420,7 +420,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
             if value_received > 0:
                 if txdict is not None:
                     if not advanced and "type" in txdict:
-                        print(txdict["type"], categories)
+                        # print(txdict["type"], categories)
                         txdict["type"] += categories
                         # txdict.update({"type" : ["send", "receive"]})
                         txdict.update({"value_received" : value_received})
