@@ -13,7 +13,7 @@ from pacli.config import Settings
 # block exploring utilities are now bundled here
 
 
-def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None) -> dict:
+def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None, add_txid: bool=False) -> dict:
     """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""
     # TODO: could see an usability improvement for coinbase txes.
@@ -51,10 +51,15 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
     if tracked_address:
         outputs_to_tracked = [o for o in outputs if (o.get("receivers") is not None and tracked_address in o["receivers"])]
         sender = senders[0] if len(senders) > 0 else "" # fix for coinbase txes
-        return {"sender" : sender, "outputs" : outputs, "height" : height}
+        result = {"sender" : sender, "outputs" : outputs, "height" : height}
 
     else:
-        return {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
+        result = {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
+
+    if add_txid:
+        result.update({"txid" : tx["txid"]})
+
+    return result
 
 
 def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, show_locator_txes: bool=False, debug: bool=False) -> list:
@@ -136,8 +141,8 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                     if debug:
                         print("TX {} Error: {}".format(txid, e))
                     continue
-                if debug:
-                    print("TX {} struct: {}".format(txid, tx_struct))
+                #if debug:
+                #    # print("TX {} struct: {}".format(txid, tx_struct))
                 if not coinbase and len(tx_struct["inputs"]) == 0:
                     continue
 
@@ -158,6 +163,8 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                     else:
                         tx_dict = {"txid" : txid}
                         tx_dict.update(tx_struct)
+                        if debug:
+                            print("TX added: {} struct: {}".format(txid, tx_struct))
 
                     tracked_txes.append(tx_dict)
 
@@ -337,7 +344,8 @@ def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks
                 # AT addresses can have duplicates, others not
                 if deck.at_address not in addresses:
                     addresses.append(deck.at_address)
-                print("AT address appended:", deck.at_address)
+                if debug:
+                    print("AT address appended:", deck.at_address)
         except AttributeError:
             continue
     #if not without_burn_address: # probably unnecessary
@@ -354,11 +362,11 @@ def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks
         start_block = lastblock
     # start_block = min(lastblock, min_spawn_blockheight)
     end_block = start_block + blocks
-    if debug:
-        print("Start and end block, blocks:", start_block, end_block, blocks)
-    txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
     if not quiet:
-        print(len(txes), "found.")
+        print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
+    txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
+    if not quiet:
+        print(len(txes), "transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
 
 def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
     tx = provider.getrawtransaction(txid, 1)
@@ -367,21 +375,27 @@ def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
     else:
         return None
 
-def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None):
+def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None, debug: bool=False):
 
     # If no lastblockheight is given, it uses the last already checked block.
     if lastblockheight is None:
         lastblockheight = get_locator_data(address_list)[1]
+
     print("Last blockheight checked", lastblockheight)
 
     # source 1: blockchain
-    blockchain_txes = show_txes_by_block(locator_list=address_list, endblock=lastblockheight, show_locator_txes=True, debug=True)
-    blockchain_balances = get_balances_from_structs(address_list, blockchain_txes)
+    if debug:
+        print("Blockchain test:")
+    blockchain_txes = show_txes_by_block(locator_list=address_list, endblock=lastblockheight, show_locator_txes=True, debug=debug)
+    blockchain_balances = get_balances_from_structs(address_list, blockchain_txes, debug=debug)
     # source 2: RPC listtransactions
-    rpc_txes_struct = [get_tx_structure(tx=tx, human_readable=False) for tx in rpc_txes]
-    rpc_balances = get_balances_from_structs(address_list, rpc_txes_struct, endblock=lastblockheight)
+    if debug:
+        print("RPC (listtransactions) test:")
+    rpc_txes_struct = [get_tx_structure(tx=tx, human_readable=False, add_txid=True) for tx in rpc_txes]
+    rpc_balances = get_balances_from_structs(address_list, rpc_txes_struct, endblock=lastblockheight, debug=debug)
 
     for address in address_list:
+        print("Testing address:", address)
         # source 3: UTXOS (listunspent)
         unspent = provider.listunspent(address=address, minconf=1)
         # print(unspent)
@@ -395,21 +409,25 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
             balance = None
         else:
             balance = sum(values)
-            print("Balance according to unspent outputs:", balance)
+            print("Balance according to unspent outputs on this address:", balance)
 
-        print("Address:", address)
-        print("RPC balances:", rpc_balances[address])
-        print("Blockchain balances:", blockchain_balances[address])
+        print("Balances according to wallet transactions (listtransactions RPC command):", rpc_balances[address])
+        print("Balances according to blockchain data:", blockchain_balances[address])
 
         if ((balance is not None) and (blockchain_balances[address]["balance"] == rpc_balances[address]["balance"] == balance)):
             print("PASSED (complete)")
         elif blockchain_balances[address]["balance"] == rpc_balances[address]["balance"]:
             print("PASSED (partly)")
         else:
-            print("NOT PASSED")
+            ei.print_red("NOT PASSED")
+            rtxes = set([r["txid"] for r in rpc_txes_struct])
+            btxes = set([b["txid"] for b in blockchain_txes])
+            print("Transactions missing in the RPC view (listtransactions command):")
+            print(btxes - rtxes)
+            print("Try to rescan the blockchain and then restart the client. If this doesn't change, your wallet file may be corrupted.")
 
 
-def get_balances_from_structs(address_list: list, txes: list, endblock: int=None):
+def get_balances_from_structs(address_list: list, txes: list, endblock: int=None, debug: bool=False):
     balances = {}
     for address in address_list:
         balances.update({address : {"balance" : Decimal(0), "observed" : False}})
@@ -420,6 +438,8 @@ def get_balances_from_structs(address_list: list, txes: list, endblock: int=None
             if observed:
                 balances[address]["observed"] = True
             balances[address]["balance"] += tx_balance
+            if debug:
+                print("TX {} adding balance: {}".format(tx["txid"], tx_balance))
     return balances
 
 

@@ -178,13 +178,13 @@ def deck_line_item(deck: dict, show_initialized: bool=False):
         deck_item.append(deck["initialized"])
     return deck_item
 
-def print_deck_list(decks: list, show_initialized: bool=False):
+def print_deck_list(decks: list, show_initialized: bool=False, title: str="Decks:"):
     heading = ["Local label", "ID", "Global name", "Issuer", "M", "Conf."]
     if show_initialized:
         heading.append("I")
 
     tui.print_table(
-    title="Named decks:",
+    title=title,
     heading=heading,
     #data=map(lambda x: deck_line_item(show_initialized=show_initialized), decks)
     data=[deck_line_item(d, show_initialized=show_initialized) for d in decks])

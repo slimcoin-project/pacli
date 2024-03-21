@@ -68,8 +68,8 @@ class BlockLocator:
         """Stores the whole locator dict."""
         if not quiet:
             print("Storing new locator block heights.")
-        if debug:
-            print("New Locator dict:", self.to_dict())
+        #if debug:
+        #    print("New Locator dict:", self.to_dict()) # very long output, not really necessary as one can check the json file
         with open(self.filename, "w") as locatorfile:
             json.dump(self.to_dict(), locatorfile)
 

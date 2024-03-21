@@ -600,7 +600,7 @@ class ExtAddress:
                                   include_only=include_only,
                                   debug=debug)
 
-    def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False):
+    def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False, debug: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
         Usage modes:
@@ -634,12 +634,13 @@ class ExtAddress:
            wallet: Show balance of the whole wallet, see above.
            integrity_test: Performs an integrity test, comparing blockchain data with the data shown by SLM RPC commands (not in combination with -w).
            address_or_label: To be used as a positional argument (without flag keyword), see "Usage modes" above.
+           debug: Show debug information.
         """
 
         # REPLACES address balance
-        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, integrity_test=integrity_test, wallet=wallet)
+        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, integrity_test=integrity_test, wallet=wallet, debug=debug)
 
-    def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False):
+    def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False, debug: bool=False):
 
         if label_or_address is not None:
             address = ec.process_address(label_or_address, keyring=keyring)
@@ -664,7 +665,7 @@ class ExtAddress:
             lastblockheight = integrity_test if type(integrity_test) == int else None
             print("Getting RPC txes ...")
             rpc_txes = ec.get_address_transactions(addr_string=address, sent=True, received=True, advanced=True, include_coinbase=True, include_p2th=True, sort=True, debug=False)
-            return bx.integrity_test([address], rpc_txes, lastblockheight=lastblockheight) # TODO: implement lastblockheight
+            return bx.integrity_test([address], rpc_txes, lastblockheight=lastblockheight, debug=debug) # TODO: implement lastblockheight
 
         pprint(
             {'balance': float(balance)}
@@ -718,7 +719,8 @@ class ExtDeck:
              podtoken: bool=False,
              attoken: bool=False,
              named: bool=False,
-             show_p2th: bool=False,
+             standard: bool=False,
+             only_p2th: bool=False,
              without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
@@ -738,33 +740,52 @@ class ExtDeck:
           quiet: Suppress output, printout in script-friendly way.
           burntoken: Only show PoB token decks.
           podtoken: Only show dPoD token decks.
+          standard: Only show the standard dPoD and PoB decks.
           attoken: Only show AT token decks.
           without_initstate: Don't show initialized status.
-          show_p2th: Shows P2TH address. When used with -d, show all P2TH addresses of the deck.
+          only_p2th: Shows only the P2TH address of each deck. When used with -d, shows all P2TH addresses of the dPoD decks.
           debug: Show debug information.
         """
 
-        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, show_p2th=show_p2th, without_initstate=without_initstate, quiet=quiet, debug=debug)
+        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, without_initstate=without_initstate, standard=standard, quiet=quiet, debug=debug)
 
     def __list(self,
              pobtoken: bool=False,
              dpodtoken: bool=False,
              attoken: bool=False,
              named: bool=False,
-             show_p2th: bool=False,
+             only_p2th: bool=False,
+             standard: bool=False,
              without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
 
         show_initialized = False if without_initstate else True
 
-        if (pobtoken is True) or (attoken is True):
+        if standard is True:
+            netw = Settings.network
+            decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
+                     pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)]
+            table_title = "Standard PoB and dPoD decks (in this order):"
+
+        elif (pobtoken is True) or (attoken is True):
             decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT))
             if pobtoken is True:
+                table_title = "PoB token decks:"
                 decks = [d for d in decks if d.at_address == au.burn_address()]
+            else:
+                table_title = "AT token decks (including PoB):"
+
         elif dpodtoken is True:
             decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT))
-        elif show_p2th is True:
+            table_title = "dPoD token decks:"
+
+        else:
+            table_title = "Decks:"
+            decks = list(ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
+                                        Settings.production))
+
+        if only_p2th is True:
             if dpodtoken is True:
                 deck_dict = {d.id : {"deck_p2th" : d.p2th_address,
                                      "proposal_p2th" : d.derived_p2th_address("donation"),
@@ -781,17 +802,12 @@ class ExtDeck:
             else:
                 pprint(deck_dict)
             return
-        else:
-            decks = list(ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
-                                        Settings.production))
-
 
         if Settings.compatibility_mode == "True" and (not named):
             print_deck_list(decks)
         else:
             deck_label_dict = ce.list("deck", quiet=True)
             if named is True and quiet:
-                """Shows all stored deck IDs and their labels."""
                 print(deck_label_dict)
                 return
 
@@ -799,7 +815,7 @@ class ExtDeck:
             deck_list = ei.add_deck_data(decks, deck_label_dict, only_named=named, initialized_decks=initialized_decks, debug=debug)
             if debug:
                 print(len(deck_list), "decks found.")
-            ei.print_deck_list(deck_list, show_initialized=show_initialized)
+            ei.print_deck_list(deck_list, show_initialized=show_initialized, title=table_title)
 
 
     def show(self,
