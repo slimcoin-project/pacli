@@ -1486,19 +1486,8 @@ class ExtTransaction:
         # -c: very custom "embellished" dict, should be changed #TODO
         # TODO how to properly ignore values for bool arguments which are not True but some incorrect value? perhaps with an additional function?
 
-        #start = from_height
-        #end = end_height
-        # burns = burntxes
-        # reftxes = gatewaytxes
-        # claims = claimtxes
-        # txids = ids
-        # all = xplore
         address_or_deck = _value1
         address = _value2
-        # count = total
-        # coinbase = view_coinbase
-        # raw = zraw
-        # sender = origin
 
         if (burntxes is True) and (_value2 is None) and (_value1 is not None) and (not unclaimed):
            # special case: burns is selected without DECK and unclaimed
@@ -1561,6 +1550,7 @@ class ExtTransaction:
                 print([t["txid"] for t in txes])
             else:
                 pprint([t["txid"] for t in txes], max_seq_len=100000)
+
         elif quiet is True:
             return txes
 

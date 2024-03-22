@@ -222,13 +222,15 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
             end = provider.getblockcount()
 
         if "-" in str(start):
-            startdate = datetime.date.fromisoformat(start)
+            start_formatted = start.split("-")[0].zfill(2) + "-" +  start.split("-")[1].zfill(2) + "-" + start.split("-")[2]
+            startdate = datetime.date.fromisoformat(start_formatted)
             startblock = date_to_blockheight(startdate, last_block, debug=debug)
         else:
             startblock = int(start)
 
         if "-" in str(end):
-            enddate = datetime.date.fromisoformat(end)
+            end_formatted = end.split("-")[0].zfill(2) + "-" +  end.split("-")[1].zfill(2) + "-" + end.split("-")[2]
+            enddate = datetime.date.fromisoformat(end_formatted)
 
             if enddate == last_block_date:
                 endblock = last_block
@@ -247,7 +249,10 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
             print("Ending at block:", endblock)
             print("Starting at block:", startblock)
         if endblock < startblock:
-            raise ei.PacliInputDataError("End block or date must be after the start block or date.")
+            if endblock + 1 == startblock: # this can happen if there are no blocks during at least one day
+                endblock = startblock
+            else:
+                raise ei.PacliInputDataError("End block or date must be after the start block or date.")
     except (IndexError, ValueError):
         raise ei.PacliInputDataError("At least one of the dates you entered is invalid.")
 
