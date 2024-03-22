@@ -29,12 +29,12 @@ class BlockLocator:
         return cls({})
 
     @classmethod
-    def from_file(cls, locatorfilename: str=None, quiet: bool=False) -> dict:
+    def from_file(cls, locatorfilename: str=None, quiet: bool=False, debug: bool=False) -> dict:
         """Gets the content from the file (list of addresses with block heights)."""
 
         if locatorfilename is None:
             locatorfilename = LOCATORFILE
-        if not quiet:
+        if debug:
            print("Reading locator file ...")
         try:
             with open(locatorfilename, "r") as locatorfile:

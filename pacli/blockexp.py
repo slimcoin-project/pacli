@@ -390,7 +390,7 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
     blockchain_balances = get_balances_from_structs(address_list, blockchain_txes, debug=debug)
     # source 2: RPC listtransactions
     if debug:
-        print("RPC (listtransactions) test:")
+        print("Wallet transaction test:")
     rpc_txes_struct = [get_tx_structure(tx=tx, human_readable=False, add_txid=True) for tx in rpc_txes]
     rpc_balances = get_balances_from_structs(address_list, rpc_txes_struct, endblock=lastblockheight, debug=debug)
 
@@ -399,16 +399,17 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
         # source 3: UTXOS (listunspent)
         unspent = provider.listunspent(address=address, minconf=1)
         # print(unspent)
-        values = [Decimal(v["amount"]) for v in unspent]
-        heights = [get_tx_blockheight(v["txid"]) for v in unspent]
-        if len(heights) == 0:
+        uvalues = [Decimal(v["amount"]) for v in unspent]
+        utxids = [v["txid"] for v in unspent]
+        uheights = [get_tx_blockheight(t) for t in utxids]
+        if len(uheights) == 0:
             print("Currently no UTXOS found for this address. UTXO test not possible.")
             balance = None
-        elif max(heights) > lastblockheight:
+        elif max(uheights) > lastblockheight:
             print("UTXO check not possible, as balances changed after the given blockheight {}.".format(lastblockheight))
             balance = None
         else:
-            balance = sum(values)
+            balance = sum(uvalues)
             print("Balance according to unspent outputs on this address:", balance)
 
         print("Balances according to wallet transactions (listtransactions RPC command):", rpc_balances[address])
@@ -418,6 +419,12 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
             print("PASSED (complete)")
         elif blockchain_balances[address]["balance"] == rpc_balances[address]["balance"]:
             print("PASSED (partly)")
+            print("Blockchain data and wallet transaction data match.")
+            print("Unspent outputs either not possible to test or not matching.")
+            if balance is not None:
+                print("Transactions missing in the unspent outputs:")
+                btxes = set([b["txid"] for b in blockchain_txes])
+                print(btxes - set(utxids))
         else:
             ei.print_red("NOT PASSED")
             rtxes = set([r["txid"] for r in rpc_txes_struct])
@@ -425,6 +432,8 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
             print("Transactions missing in the RPC view (listtransactions command):")
             print(btxes - rtxes)
             print("Try to rescan the blockchain and then restart the client. If this doesn't change, your wallet file may be corrupted.")
+            print("Transactions missing in the unspent outputs:")
+            print(btxes - set(utxids))
 
 
 def get_balances_from_structs(address_list: list, txes: list, endblock: int=None, debug: bool=False):

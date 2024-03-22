@@ -422,8 +422,7 @@ class ExtAddress:
 
         pacli address show [ADDRESS] -l
 
-            Shows label and address corresponding to address.
-
+            Shows label and address corresponding to address ADDRESS.
 
         Args:
 
@@ -683,17 +682,17 @@ class ExtDeck:
             now: bool=False):
         """Sets, modifies or deletes a label for a deck.
 
-        Usage:
+        Usage modes:
 
-        pacli deck set LABEL DECKID
+            pacli deck set LABEL DECKID
 
         Sets LABEL for DECKID.
 
-        pacli deck set LABEL -d [--now]
+            pacli deck set LABEL -d [--now]
 
         Deletes LABEL from extended configuration file.
 
-        pacli deck set NEW_LABEL OLD_LABEL -m
+            pacli deck set NEW_LABEL OLD_LABEL -m
 
         Modifies the label, replacing OLD_LABEL by NEW_LABEL.
 
@@ -702,7 +701,7 @@ class ExtDeck:
           modify: Modify the label for a value.
           delete: Delete the specified label. Use --now to delete really.
           quiet: Suppress output, printout in script-friendly way.
-          id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory), see Usage section above.
+          id_deck: Deck ID or old label. To be used as a positional argument (flag keyword not mandatory), see Usage modes above.
         """
 
         # (replaces `tools store_deck` - is a power user command because most users would be fine with the default PoB and PoD token)
@@ -730,9 +729,9 @@ class ExtDeck:
 
         Usage:
 
-        pacli deck list
+            pacli deck list
 
-        Note: In compatibility mode, the table of 'deck list' without flags is slightly different. It includes the local label and the initialization status.
+        Note: In compatibility mode, the table of 'deck list' without flags is slightly different. It does not include the local label and the initialization status.
 
         Args:
 
@@ -827,13 +826,13 @@ class ExtDeck:
              quiet: bool=False):
         """Shows or searches a deck stored with a label.
 
-        Usage:
+        Usage modes:
 
-        pacli deck show LABEL
+            pacli deck show LABEL
 
         Shows deck stored with label LABEL.
 
-        pacli deck show STRING -f
+            pacli deck show STRING -f
 
         Searches for a stored deck containing string STRING.
 
@@ -875,7 +874,7 @@ class ExtDeck:
 
     def init(self,
              id_deck: str=None,
-             label: bool=False,
+             label: str=None,
              no_label: bool=False,
              all_decks: bool=False,
              store_blockheights: int=None,
@@ -920,7 +919,7 @@ class ExtDeck:
 
     def __init(self,
                id_deck: str=None,
-               label: bool=False,
+               label: str=None,
                no_label: bool=False,
                all_decks: bool=False,
                store_blockheights: int=None,
@@ -960,15 +959,15 @@ class ExtDeck:
 
             pacli deck cache
 
-        Store blockheights for the standard PoB and dPoD decks.
+        Cache deck state info for the standard PoB and dPoD decks.
 
-            pacli deck cache IDSTR
+            pacli deck cache DECK
 
-        Store blockheights for a deck.
+        Cache deck state info for a deck. DECK can be label or deck ID.
 
             pacli deck cache -a
 
-        Store blockheights for all initialized decks.
+        Cache deck state for all initialized decks.
 
         Args:
 
@@ -1099,10 +1098,12 @@ class ExtCard:
                 debug: bool=False):
 
         if cardholders is True or Settings.compatibility_mode == "True":
-            if param1 is None:
+
+            deck_str = param1
+            if deck_str is None:
                 raise ei.PacliInputDataError("Cardholder mode requires a deck.")
 
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
 
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
             cards = pa.find_all_valid_cards(provider, deck)
@@ -1115,8 +1116,10 @@ class ExtCard:
             pprint(dict(zip(state.balances.keys(), balances)))
 
         elif (param1 is not None) and ((param2 is not None) or (wallet is True)): # single token mode
-            address = ec.process_address(param2) if param2 is not None else Settings.key.address
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", param1, quiet=quiet)
+            deck_str = param1
+            addr_str = param2
+            address = ec.process_address(addr_str) if addr_str is not None else Settings.key.address
+            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
             return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, quiet=quiet)
         else:
             # TODO seems like label names are not given in this mode if a an address is given.
@@ -1348,17 +1351,17 @@ class ExtTransaction:
     def list(self,
              _value1: str=None,
              _value2: str=None,
+             end_height: str=None,
+             from_height: str=None,
+             origin: str=None,
+             param: str=None,
+             ids: bool=False,
+             keyring: bool=False,
+             named: bool=False,
              advanced: bool=False,
              burntxes: bool=None,
              claimtxes: bool=None,
              debug: bool=False,
-             end_height: str=None,
-             from_height: str=None,
-             ids: bool=False,
-             keyring: bool=False,
-             named: bool=False,
-             origin: str=None,
-             param: str=None,
              quiet: bool=False,
              received: bool=False,
              gatewaytxes: bool=None,
@@ -1401,7 +1404,7 @@ class ExtTransaction:
             DECK can be a label or a deck ID.
             ADDRESS is optional. In the case no address is given, the main address is used.
 
-        pacli transaction list -x [RECEIVER_ADDRESS] [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
+        pacli transaction list [RECEIVER_ADDRESS] -x [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
 
             Block explorer mode: List all transactions between two block heights.
             RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is an address of a sender.
@@ -1410,7 +1413,7 @@ class ExtTransaction:
             WARNING: VERY SLOW if used with large block height ranges!
             Note: In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
 
-        pacli transaction list -p PARAM
+        pacli transaction list [ADDRESS] -p PARAM
 
             Show a single parameter or variable of the transactions, together with the TXID.
             This mode can be combined with all other modes.
@@ -1439,7 +1442,7 @@ class ExtTransaction:
           total: Only count transactions, do not display them.
           unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified).
           wallet: Show all specified transactions of all addresses in the wallet.
-          view_coinbase: Show coinbase transactions (not in combination with -n, -c, -b or -g).
+          view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
           _value2: Address (in some modes). Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
@@ -1481,6 +1484,7 @@ class ExtTransaction:
         # -a: always tx JSON
         # without any label: custom dict with main parameters
         # -c: very custom "embellished" dict, should be changed #TODO
+        # TODO how to properly ignore values for bool arguments which are not True but some incorrect value? perhaps with an additional function?
 
         #start = from_height
         #end = end_height
