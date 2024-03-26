@@ -66,6 +66,8 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
     # locator_list parameter only stores the locator
 
+    lastblockheight, lastblockhash = None, None
+
     if locator_list:
         use_locator = True
         store_locator = True
@@ -132,7 +134,10 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                 block_txes = block["tx"]
             except KeyError:
                 print("You have reached the tip of the blockchain.")
-                break
+                if lastblockheight is None:
+                    raise ei.PacliInputDataError("Start block is after the current block height.")
+                else:
+                    break
 
             for txid in block_txes:
                 try:
@@ -222,14 +227,16 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
             end = provider.getblockcount()
 
         if "-" in str(start):
-            start_formatted = start.split("-")[0].zfill(2) + "-" +  start.split("-")[1].zfill(2) + "-" + start.split("-")[2]
+            ssp = start.split("-")
+            start_formatted = ssp[0] + "-" +  ssp[1].zfill(2) + "-" + ssp[2].zfill(2)
             startdate = datetime.date.fromisoformat(start_formatted)
             startblock = date_to_blockheight(startdate, last_block, debug=debug)
         else:
             startblock = int(start)
 
         if "-" in str(end):
-            end_formatted = end.split("-")[0].zfill(2) + "-" +  end.split("-")[1].zfill(2) + "-" + end.split("-")[2]
+            esp = end.split("-")
+            end_formatted = esp[0] + "-" +  esp[1].zfill(2) + "-" + esp[2].zfill(2)
             enddate = datetime.date.fromisoformat(end_formatted)
 
             if enddate == last_block_date:
@@ -245,14 +252,16 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         if (startdate is not None and startdate > last_block_date) or (enddate is not None and enddate > last_block_date):
             raise ei.PacliInputDataError("Start or end date is in the future.")
 
-        if not quiet:
-            print("Ending at block:", endblock)
-            print("Starting at block:", startblock)
         if endblock < startblock:
             if endblock + 1 == startblock: # this can happen if there are no blocks during at least one day
                 endblock = startblock
             else:
                 raise ei.PacliInputDataError("End block or date must be after the start block or date.")
+
+        if not quiet:
+            print("Starting at block:", startblock)
+            print("Ending at block:", endblock)
+
     except (IndexError, ValueError):
         raise ei.PacliInputDataError("At least one of the dates you entered is invalid.")
 
@@ -318,7 +327,7 @@ def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: 
     locator.store(quiet=quiet, debug=debug)
 
 
-def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks: int=50000):
+def store_deck_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks: int=50000):
 
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
@@ -371,7 +380,46 @@ def store_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks
         print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
     txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
     if not quiet:
-        print(len(txes), "transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
+        print(len(txes), "matching transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
+
+
+def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=50000, quiet: bool=False, debug: bool=False):
+    # addresses need to be scanned from 0, as we don't know when they were created
+    # An exception could be made for addresses in the wallet.
+    if not quiet:
+        print("Storing blockheight locators for addresses:", addresses)
+    blockheights, lastblock = get_locator_data(addresses)
+    if debug:
+        print("Locator data (heights, last block):", blockheights, lastblock)
+    if not start_block:
+        start_block = lastblock
+    else:
+        if start_block > (lastblock + 1):
+            if not quiet:
+                print("WARNING: Block heights between {} and {} not checked.".format(lastblock, start_block))
+                if not ei.confirm_continuation():
+                    print("Aborted.")
+                    return
+    end_block = start_block + blocks
+
+    txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
+    if not quiet:
+        print(len(txes), "matching transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
+
+def erase_blocklocator_entries(addresses: list, quiet: bool=False, filename: str=None, debug: bool=False):
+    if not quiet:
+        print("Deleting block locator entries of addresses:", addresses)
+        print("Please type 'yes' to confirm.")
+        if not ei.confirm_continuation():
+            print("Aborted.")
+            return
+    locator = loc.BlockLocator.from_file(locatorfilename=filename)
+    for address in addresses:
+        locator.delete_address(address)
+    locator.store(quiet=quiet, debug=debug)
+
+
+
 
 def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
     tx = provider.getrawtransaction(txid, 1)

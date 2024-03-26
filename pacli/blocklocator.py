@@ -64,6 +64,13 @@ class BlockLocator:
         else:
             return BlockLocatorAddress.empty()
 
+
+    def delete_address(self, address: str):
+        try:
+            del self.addresses[address]
+        except KeyError:
+            raise ei.PacliInputDataError("Address not found.")
+
     def store(self, quiet: bool=False, debug: bool=False):
         """Stores the whole locator dict."""
         if not quiet:
