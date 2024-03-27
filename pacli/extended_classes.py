@@ -920,7 +920,7 @@ class ExtDeck:
              label: str=None,
              no_label: bool=False,
              all_decks: bool=False,
-             store_blockheights: int=None,
+             cache: int=None,
              quiet: bool=False,
              debug: bool=False) -> None:
         """Initializes a deck (token).
@@ -953,7 +953,7 @@ class ExtDeck:
           quiet: Suppress output.
           all_decks: In combination with -s, store blockheights for all initialized decks.
           id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
-          store_blockheights: Store blockheights for a deck.
+          cache: Cache the deck's state, storing the blockheights with state changes.
           debug: Show debug information.
         """
         kwargs = locals()
@@ -965,7 +965,7 @@ class ExtDeck:
                label: str=None,
                no_label: bool=False,
                all_decks: bool=False,
-               store_blockheights: int=None,
+               cache: int=None,
                quiet: bool=False,
                debug: bool=False) -> None:
 
@@ -976,23 +976,23 @@ class ExtDeck:
             pob_deck = pc.DEFAULT_POB_DECK[netw]
             dpod_deck = pc.DEFAULT_POD_DECK[netw]
 
-            ei.run_command(eu.init_deck, netw, pob_deck, quiet=quiet, no_label=no_label)
-            ei.run_command(dc.init_dt_deck, netw, dpod_deck, quiet=quiet, no_label=no_label)
+            eu.init_deck(netw, pob_deck, quiet=quiet, no_label=no_label)
+            dc.init_dt_deck(netw, dpod_deck, quiet=quiet, no_label=no_label)
             deckid = None
         else:
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
+            deckid = eu.search_for_stored_tx_label("deck", idstr, quiet=quiet)
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
             if "at_type" in deck.__dict__ and deck.at_type == c.ID_DT:
-                ei.run_command(dc.init_dt_deck, netw, deckid, quiet=quiet, label=label, debug=debug, no_label=no_label)
+                dc.init_dt_deck(netw, deckid, quiet=quiet, label=label, debug=debug, no_label=no_label)
             else:
-                ei.run_command(eu.init_deck, netw, deckid, quiet=quiet, label=label, no_label=no_label)
+                eu.init_deck(netw, deckid, quiet=quiet, label=label, no_label=no_label)
 
-        if store_blockheights:
-            if store_blockheights == True:
+        if cache:
+            if cache == True:
                 blocks = 5000
-            elif type(store_blockheights) == int:
-                blocks = store_blockheights
-            ei.run_command(self.__storeblocks, deckid=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
+            elif type(cache) == int:
+                blocks = cache
+            self.__cache(idstr=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
 
     def cache(self, idstr: str=None, blocks: int=50000, all_decks: bool=False, quiet: bool=False, debug: bool=False):

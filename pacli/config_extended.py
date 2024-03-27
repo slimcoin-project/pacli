@@ -108,7 +108,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
             key_shown = key
         print("Stored {}:\nLabel: {}\nValue: {}".format(category, key_shown, value))
 
-def write_config(config, configfilename: str=EXT_CONFIGFILE):
+def write_config(config, configfilename: str=EXT_CONFIGFILE, debug: bool=False):
     with open(configfilename, "w") as configfile:
         json.dump(config, configfile)
 
@@ -144,14 +144,14 @@ def delete_item(category: str, label: str, now: bool=False, configfilename: str=
     if debug:
         print("New config file content:", config)
 
-def search_value(category: str, value: str, configfilename: str=EXT_CONFIGFILE):
+def search_value(category: str, value: str, configfilename: str=EXT_CONFIGFILE, debug: bool=False):
     try:
         config = get_config(configfilename)
         return [ key for key in config[category] if config[category][key] == value ]
     except KeyError:
         raise ei.PacliInputDataError(ERR_NOCAT)
 
-def search_value_content(category: str, searchstring: str, configfilename: str=EXT_CONFIGFILE):
+def search_value_content(category: str, searchstring: str, configfilename: str=EXT_CONFIGFILE, debug: bool=False):
     try:
         config = get_config(configfilename)
         result = []
@@ -231,6 +231,7 @@ def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True,
     result = ei.run_command(search_value_content, category, str(content), debug=debug)
     if not result and not quiet:
         print("No entry or label was found matching the search string.")
+        return []
     elif quiet:
         return result
     else:

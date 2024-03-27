@@ -156,7 +156,7 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
 
 
     if not no_label:
-        eu.store_deck_label(deck, label=label, quiet=quiet)
+        eu.store_deck_label(deck, label=label, alt=False, quiet=quiet, debug=debug)
     #if store_label:
     #     try:
     #         ce.write_item("deck", store_label, deckid)

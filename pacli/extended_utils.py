@@ -90,12 +90,12 @@ def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, qui
         print("Output of validation tool:\n", check_addr)
 
     if not no_label:
-        store_deck_label(deck, label=label, quiet=quiet)
+        store_deck_label(deck, label=label, quiet=quiet, alt=False, debug=debug)
 
     if not quiet:
         print("Done.")
 
-def store_deck_label(deck: object, label: str=None, quiet: bool=False):
+def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool=False, debug: bool=False):
 
     value_exists_errmsg = "Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli deck set LABEL {}' with a custom LABEL value."
 
@@ -103,7 +103,16 @@ def store_deck_label(deck: object, label: str=None, quiet: bool=False):
         if not quiet:
             print("Trying to store global deck name {} as a local label for this deck.".format(deck.name))
 
-        existing_labels = ce.list("deck", quiet=True)
+        existing_labels = ce.list("deck", quiet=True, debug=debug)
+
+        if alt is False:
+            local_name = ce.find("deck", deck.id, quiet=True, debug=debug)
+
+            if local_name: # is empty list if no label is found
+               if not quiet:
+                   print("Aborted. There is already at least one local name (label) for the deck: {}".format(local_name))
+                   return
+
         if deck.name in existing_labels:
             raise ei.PacliInputDataError(value_exists_errmsg.format(deck.id, deck.name, deck.id))
         else:
