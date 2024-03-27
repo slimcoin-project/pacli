@@ -20,7 +20,7 @@ ERR_NOCAT = "Category does not exist or is missing. See list of available catego
 # "protect" : only allows additions of new labels, no modifications (default)
 MODES = ["replace", "modify", "add", "protect"]
 
-def get_config(configfilename: str=EXT_CONFIGFILE, quiet: bool=False) -> dict:
+def get_config(configfilename: str=EXT_CONFIGFILE, quiet: bool=False, debug: bool=False) -> dict:
 
     try:
         with open(configfilename, "r") as configfile:
@@ -112,7 +112,7 @@ def write_config(config, configfilename: str=EXT_CONFIGFILE):
     with open(configfilename, "w") as configfile:
         json.dump(config, configfile)
 
-def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE):
+def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE, debug: bool=False):
     config = get_config(configfilename)
     try:
         result = config[category].get(str(key))
@@ -201,8 +201,8 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
 
 ### Extended helper tools (api)
 
-def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False):
-    cfg = ei.run_command(get_config, quiet=quiet)
+def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, debug: bool=False):
+    cfg = ei.run_command(get_config, quiet=quiet, debug=debug)
     rawdict = cfg[category]
     result_keys = [k for k in rawdict.keys()]
     result_keys.sort()
