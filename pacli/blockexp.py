@@ -254,7 +254,9 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
 
         if endblock < startblock:
             if endblock + 1 == startblock: # this can happen if there are no blocks during at least one day
-                endblock = startblock
+                if not quiet:
+                    print("No blocks were found in the selected timeframe.")
+                return []
             else:
                 raise ei.PacliInputDataError("End block or date must be after the start block or date.")
 
@@ -417,9 +419,6 @@ def erase_blocklocator_entries(addresses: list, quiet: bool=False, filename: str
     for address in addresses:
         locator.delete_address(address)
     locator.store(quiet=quiet, debug=debug)
-
-
-
 
 def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
     tx = provider.getrawtransaction(txid, 1)

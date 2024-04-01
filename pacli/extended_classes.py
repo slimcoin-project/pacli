@@ -884,7 +884,7 @@ class ExtDeck:
           find: Searches for a string in the Deck ID.
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -i/--info).
-          show_p2th: Shows P2TH addresses (in combination with -i/--info, only dPoD tokens)
+          show_p2th: Shows P2TH addresses (only in combination with -i/--info, only dPoD tokens)
         """
         # TODO: add --show_p2th address to all decks, not only dPoD.
         #TODO: an option to search by name would be fine here.
@@ -937,7 +937,7 @@ class ExtDeck:
 
             Initialize a single deck. DECK can be a Deck ID or a label.
 
-        pacli deck init [DECK] -s [BLOCKS] [-a]
+        pacli deck init [DECK] -c [BLOCKS] [-a]
 
         In addition to initializing, store blockheights of transactions relevant for the deck,
         to be used with the block explorer mode of 'transaction list' (-x).
