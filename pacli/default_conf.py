@@ -1,13 +1,13 @@
 '''default settings'''
 
 default_conf = {
-    "network": "tppc",
+    "network": "tslm", # tppc
     "production": True,
     "deck_version": 1,  # deck version
     "change": "default",
-    "provider": "rpcnode", # explorer, cryptoid
-    "rpcuser" : "sdfjkl",
-    "rpcpassword" : "uiofdkfdsfsdf",
+    "provider": "slm_rpcnode", # explorer, cryptoid
+    "rpcuser" : "RPC_USER",
+    "rpcpassword" : "RPC_PASS",
     "rpcport" : 9904,
     "compatibility_mode" : False
     }

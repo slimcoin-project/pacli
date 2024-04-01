@@ -19,7 +19,7 @@ import pacli.dt_commands as dc
 import pacli.blockexp as bx
 
 from pacli.provider import provider
-from pacli.config import Settings, default_conf, write_settings, conf_dir
+from pacli.config import Settings, default_conf, write_settings, conf_dir, conf_file, write_default_config
 from pacli.tui import print_deck_list, print_card_list
 
 # extended_main contains extensions of the main pacli classes only
@@ -287,6 +287,25 @@ class ExtConfig:
 
         ce.update_categories(quiet=quiet)
 
+    def default(self, quiet: bool=False):
+        """Revert the basic configuration file back to default configuration.
+
+        Usage:
+
+            pacli config default
+
+        NOTE: The extended configuration file has no default setting, so it will not be modified.
+
+        Args:
+
+          quiet: Suppress output."""
+
+        if (quiet is False) and (Settings.compatibility_mode != "True"):
+            print("WARNING: Returning to the default configuration can make Pacli unusable.\nYou will have to enter your RPC credentials again in pacli.conf.")
+            if not ei.confirm_continuation():
+                return
+
+        write_default_config(conf_file)
 
 
 class ExtAddress:

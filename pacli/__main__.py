@@ -49,10 +49,12 @@ class Config(ExtConfig):
 
     """Commands to manage configuration settings."""
 
-    def default(self) -> None:
+    pass
+
+    """def default(self) -> None:
         '''revert to default config'''
 
-        write_default_config(conf_file)
+        write_default_config(conf_file)"""
 
     """def set(self, key: str, value: Union[str, bool]) -> None:
         '''change settings'''
