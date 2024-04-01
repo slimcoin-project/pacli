@@ -135,7 +135,7 @@ class Deck(ExtDeck):
                                         Settings.deck_version,
                                         Settings.production)
         print_deck_list(
-            (d for d in decks if key in d.id or (key in d.to_json().values()))
+            (d for d in decks if str(key) in d.id or (str(key) in d.to_json().values()))
             )
 
     @classmethod
