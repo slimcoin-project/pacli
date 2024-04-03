@@ -1095,75 +1095,81 @@ class ExtCard:
 
     def balances(self,
                 param1: str=None,
-                param2: str=None,
-                token_type: str=None,
-                cardholders: bool=False,
+                category: str=None,
+                owners: bool=False,
+                tokendeck: str=None,
                 advanced: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
                 no_labels: bool=False,
-                only_labels: bool=False,
+                labels: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
         """List the token balances of an address, the whole wallet or all users.
 
         Usage modes:
 
-            pacli card balances DECK [ADDRESS|-w]
+            pacli card balances [ADDRESS] -t DECK
+            pacli card balances -t DECK -w
 
-        Shows balances of a single token of all addresses (-w flag) or only the specified address.
-
-            pacli card balances [ADDRESS|-w] -a
-
-        Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
+        Shows balances of a single token with deck DECK on all addresses (-w flag) or only the specified address.
+        If ADDRESS is not given and -w is not selected, the current main address is used.
 
             pacli card balances [ADDRESS|-w]
 
         Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
+        If ADDRESS is not given and -w is not selected, the current main address is used.
 
-            pacli card balances DECK -c
+            pacli card balances DECK -o
 
-        Shows balances of all holders of a token (addresses with cards of this deck). Similar to 'card balances' command.
-        If compatibility mode is active, this is the standard mode and -c is not necessary.
+        Shows balances of all owners of a token (addresses with cards of this deck). Similar to the vanilla 'card balances' command.
+        If compatibility mode is active, this is the standard mode and -o is not necessary.
 
         Args:
 
-          token_type: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
+          tokendeck: A deck whose balances should be shown. See Usage modes.
+          category: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
           advanced: See above. Shows balances of all tokens in JSON format.
-          cardholders: Show balances of all holders of cards of a token.
-          only_labels: In combination with the first or second option, don't show the addresses, only the labels.
+          owners: Show balances of all holders of cards of a token.
+          labels: In combination with the first or second option, don't show the addresses, only the labels.
           no_labels: In combination with the first or second option, don't show the labels, only the addresses.
           keyring: In combination with the first or second option, use an address stored in the keyring.
           quiet: Suppresses information about the deck when a label is used.
           debug: Display debug info.
-          param1: Deck or address. To be used as a positional argument (flag name not necessary).
-          param2: Address. To be used as a positional argument (flag name not necessary).
+          param1: Deck or address. To be used as a positional argument (flag keyword not necessary). See usage modes.
           wallet: Show balances of all addresses in the wallet."""
 
         # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
         # allowed are: "at" / "pob", "dt" / "pod" (in all capitalizations)
+        # ---
+        # changes (can be deleted if tested well)
+        # "cardholders" > "owners"
+        # "only_labels" > "labels"
+        # "tokendeck" => new for DECK
+        # "token_type" => category
+
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(self.__balance, **kwargs)
 
     def __balance(self,
                 param1: str=None,
-                param2: str=None,
-                token_type: str=None,
-                cardholders: bool=False,
+                category: str=None,
+                owners: bool=False,
+                tokendeck: str=None,
                 advanced: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
                 no_labels: bool=False,
-                only_labels: bool=False,
+                labels: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
 
-        if cardholders is True or Settings.compatibility_mode == "True":
+        if owners is True or Settings.compatibility_mode == "True":
 
             deck_str = param1
             if deck_str is None:
-                raise ei.PacliInputDataError("Cardholder mode requires a deck.")
+                raise ei.PacliInputDataError("Owner mode requires a deck.")
 
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
 
@@ -1177,9 +1183,11 @@ class ExtCard:
 
             pprint(dict(zip(state.balances.keys(), balances)))
 
-        elif (param1 is not None) and ((param2 is not None) or (wallet is True)): # single token mode
-            deck_str = param1
-            addr_str = param2
+        elif tokendeck is not None: # single token mode
+            addr_str = param1
+            deck_str = tokendeck
+            if addr_str is None:
+                addr_str = Settings.key.address
             address = ec.process_address(addr_str) if addr_str is not None else Settings.key.address
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
             return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, quiet=quiet)
@@ -1191,8 +1199,8 @@ class ExtCard:
                 advanced = True
             # without advanced flag, advanced mode is only set if the user requires it.
             address = ec.process_address(param1) if wallet is False else None
-            deck_type = c.get_deck_type(token_type.lower()) if token_type is not None else None
-            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=only_labels, deck_type=deck_type, quiet=quiet, debug=debug)
+            deck_type = c.get_deck_type(category.lower()) if category is not None else None
+            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=labels, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
     def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
