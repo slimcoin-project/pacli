@@ -40,13 +40,13 @@ def run_command(c, *args, **kwargs) -> object:
             raise
         sys.exit()
 
-    except TypeError:
+    except (TypeError, KeyError) as e:
 
         # a TypeError complaining is often raised if a deck wasn't initialized:
         # TypeError: argument of type 'NoneType' is not iterable
-        err_str = """\n        General error raised by PeerAssets.
+        err_str = """\n        General error raised by PeerAssets. Check if your input is correct."""
 
-        Check if your input is correct.
+        err_str2 = """
 
         If you gave a deck as an argument, a possible reason for this error is that you need to initialize the deck.
 
@@ -58,15 +58,16 @@ def run_command(c, *args, **kwargs) -> object:
 
         pacli deck init DECKID
         """
+
+        if "txid" in e.args or type(e) == TypeError:
+            err_str += err_str2
+
         print_red(err_str)
         if debug:
             raise
 
         sys.exit()
 
-    #except requests.exceptions.ConnectionError:
-    #    # TODO: this doesn't catch it, it seems to be outside of the trace. Look if this can be catched somewhere, perhaps in __main__.
-    #    print_red("Error: {} daemon is not running. Please start your client.".format(Settings.network.upper()))
 
 def spinner(duration: int) -> None:
     '''Prints a "spinner" for a defined duration in seconds.'''

@@ -60,10 +60,17 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
 
     # NOTE: default view needs no deck labels
     # NOTE2: Silent mode doesn't show labels.
-    if ((advanced is True) and not no_labels) and (not quiet):
-        deck_labels = ce.get_config()["deck"]
-    else:
-        deck_labels = None
+    # if ((advanced is True) and not no_labels) and (not quiet):
+    deck_labels = None
+    if not no_labels and not quiet:
+        if advanced is True:
+            deck_labels = ce.get_config()["deck"]
+        elif wallet is False:
+            try:
+                deck_labels = c.default_token_labels(Settings.network)
+            except KeyError:
+                raise ei.PacliInputDataError("Default PoB and dPoD tokens are not supported on network '{}'.".format(Settings.network))
+
 
     for deck in decks:
         if debug:

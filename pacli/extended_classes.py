@@ -1129,7 +1129,7 @@ class ExtCard:
 
           tokendeck: A deck whose balances should be shown. See Usage modes.
           category: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
-          advanced: See above. Shows balances of all tokens in JSON format.
+          advanced: See above. Shows balances of all tokens in JSON format. Not in combination with -o.
           owners: Show balances of all holders of cards of a token.
           labels: In combination with the first or second option, don't show the addresses, only the labels.
           no_labels: In combination with the first or second option, don't show the labels, only the addresses.
@@ -1165,6 +1165,8 @@ class ExtCard:
                 quiet: bool=False,
                 debug: bool=False):
 
+        if advanced and not quiet:
+                print("Retrieving deck states to show balances ...")
         if owners is True or Settings.compatibility_mode == "True":
 
             deck_str = param1
@@ -1193,13 +1195,17 @@ class ExtCard:
             return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, quiet=quiet)
         else:
             # TODO seems like label names are not given in this mode if a an address is given.
+
             if (wallet, param1) == (False, None):
                 param1 = Settings.key.address
-            if (not wallet):
-                advanced = True
+            #if (not wallet):
+            #    advanced = True
             # without advanced flag, advanced mode is only set if the user requires it.
             address = ec.process_address(param1) if wallet is False else None
-            deck_type = c.get_deck_type(category.lower()) if category is not None else None
+            try:
+                deck_type = c.get_deck_type(category.lower()) if category is not None else None
+            except AttributeError:
+                raise ei.PacliInputDataError("No category specified.")
             return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=labels, deck_type=deck_type, quiet=quiet, debug=debug)
 
 

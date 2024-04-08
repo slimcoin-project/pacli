@@ -5,3 +5,9 @@ DEFAULT_POD_DECK = {"tslm" : "a2459e054ce0f600c90be458915af6bad36a6863a0ce0e33ab
 
 BURN_ADDRESS = {"tslm" : "mmSLiMCoinTestnetBurnAddress1XU5fu",
                 "slm" : "SfSLMCoinMainNetworkBurnAddr1DeTK5"}
+
+
+def default_token_labels(network):
+    return { "PoB tokens (default deck)" : DEFAULT_POB_DECK[network],
+             "dPoD tokens (default deck)" : DEFAULT_POD_DECK[network]}
+
