@@ -740,19 +740,22 @@ class ExtDeck:
             delete: bool=False,
             quiet: bool=False,
             now: bool=False):
-        """Sets, modifies or deletes a label for a deck.
+        """Sets, modifies or deletes a label for a token (deck).
 
         Usage modes:
 
             pacli deck set LABEL DECKID
+            pacli token set LABEL DECKID
 
         Sets LABEL for DECKID.
 
             pacli deck set LABEL -d [--now]
+            pacli token set LABEL -d [--now]
 
         Deletes LABEL from extended configuration file.
 
             pacli deck set NEW_LABEL OLD_LABEL -m
+            pacli token set NEW_LABEL OLD_LABEL -m
 
         Modifies the label, replacing OLD_LABEL by NEW_LABEL.
 
@@ -761,7 +764,7 @@ class ExtDeck:
           modify: Modify the label for a value.
           delete: Delete the specified label. Use --now to delete really.
           quiet: Suppress output, printout in script-friendly way.
-          id_deck: Deck ID or old label. To be used as a positional argument (flag keyword not mandatory), see Usage modes above.
+          id_deck: Deck/Token ID or old label. To be used as a positional argument (flag keyword not mandatory), see Usage modes above.
         """
 
         # (replaces `tools store_deck` - is a power user command because most users would be fine with the default PoB and PoD token)
@@ -783,26 +786,27 @@ class ExtDeck:
              without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
-        """Lists all decks (default), or those of a specified token type, or those with a stored label.
+        """Lists all tokens/decks (default), or those of a specified token type, or those with a stored label.
 
-        Note: The deck's global 'name' is not guaranteed to be unique. To give a deck a (locally) unique identifier, store it with a label.
+        Note: The token's global 'name' is not guaranteed to be unique. To give a token a (locally) unique identifier, store it with a label.
 
         Usage:
 
             pacli deck list
+            pacli token list
 
-        Note: In compatibility mode, the table of 'deck list' without flags is slightly different. It does not include the local label and the initialization status.
+        Note: In compatibility mode, the table of the 'deck list' command without flags is slightly different. It does not include the local label and the initialization status.
 
         Args:
 
-          named: Only show decks with a stored label.
+          named: Only show tokens/decks with a stored label.
           quiet: Suppress output, printout in script-friendly way.
-          burntoken: Only show PoB token decks.
-          podtoken: Only show dPoD token decks.
-          standard: Only show the standard dPoD and PoB decks.
-          attoken: Only show AT token decks.
+          burntoken: Only show PoB tokens/decks.
+          podtoken: Only show dPoD tokens/decks.
+          standard: Only show the standard dPoD and PoB tokens/decks.
+          attoken: Only show AT tokens/decks.
           without_initstate: Don't show initialized status.
-          only_p2th: Shows only the P2TH address of each deck. When used with -d, shows all P2TH addresses of the dPoD decks.
+          only_p2th: Shows only the P2TH address of each token/deck. When used with -d, shows all P2TH addresses of the dPoD tokens.
           debug: Show debug information.
         """
 
@@ -890,16 +894,18 @@ class ExtDeck:
         Usage modes:
 
             pacli deck show LABEL
+            pacli token show LABEL
 
-        Shows deck stored with label LABEL.
+        Shows token (deck) stored with label LABEL.
 
             pacli deck show STRING -f
+            pacli token show STRING -f
 
         Searches for a stored deck containing string STRING.
 
         Args:
 
-          info: Shows deck values.
+          info: Shows the Deck object values.
           find: Searches for a string in the Deck ID.
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -i/--info).
@@ -948,15 +954,18 @@ class ExtDeck:
 
         Usage modes:
 
-        pacli deck init
+            pacli deck init
+            pacli token init
 
-            Initialize the default PoB and dPoD tokens of this network.
+        Initialize the default PoB and dPoD tokens of this network.
 
-        pacli deck init DECK
+            pacli deck init DECK
+            pacli token init DECK
 
-            Initialize a single deck. DECK can be a Deck ID or a label.
+        Initialize a single deck. DECK can be a Deck ID or a label.
 
-        pacli deck init [DECK] -c [BLOCKS] [-a]
+            pacli deck init [DECK] -c [BLOCKS] [-a]
+            pacli token init [DECK] -c [BLOCKS] [-a]
 
         In addition to initializing, store blockheights of transactions relevant for the deck,
         to be used with the block explorer mode of 'transaction list' (-x).
@@ -970,8 +979,8 @@ class ExtDeck:
           label: Store a custom label. Does only work if a DECK is given.
           no_label: Do not store any label.
           quiet: Suppress output.
-          all_decks: In combination with -s, store blockheights for all initialized decks.
-          id_deck: Deck ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
+          all_decks: In combination with -s, store blockheights for all initialized tokens/decks.
+          id_deck: Deck/Token ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
           cache: Cache the deck's state, storing the blockheights with state changes.
           debug: Show debug information.
         """
@@ -1020,23 +1029,26 @@ class ExtDeck:
         Usage modes:
 
             pacli deck cache
+            pacli token cache
 
-        Cache deck state info for the standard PoB and dPoD decks.
+        Cache deck state info for the standard PoB and dPoD tokens.
 
             pacli deck cache DECK
+            pacli token cache DECK
 
         Cache deck state info for a deck. DECK can be label or deck ID.
 
             pacli deck cache -a
+            pacli token cache -a
 
         Cache deck state for all initialized decks.
 
         Args:
 
           blocks: Number of blocks to store (default: 50000).
-          all_decks: Store blockheights for all initialized decks.
+          all_decks: Store blockheights for all initialized tokens/decks.
           quiet: Suppress output.
-          idstr: Deck label or Deck ID. To be used as a positional argument
+          idstr: Token/Deck label or ID. To be used as a positional argument.
           debug: Show additional debug information."""
 
 
@@ -1060,22 +1072,24 @@ class ExtDeck:
 
 
 class ExtCard:
-    def list(self, deck: str, quiet: bool=False, valid: bool=False):
-        """List all cards of a deck (with support for deck labels).
+
+    def list(self, deck: str, quiet: bool=False, valid: bool=False, debug: bool=False):
+        """List all transactions (cards, i.e. issues, transfers, burns) of a token (with support for deck labels).
 
         Usage:
 
         pacli card list
+        pacli token list
 
         Args:
 
           quiet: Suppresses additional output, printout in script-friendly way.
-          valid: Only shows valid cards according to Proof-of-Timeline rules, where no double spend has been recorded."""
+          valid: Only shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-        return ei.run_command(self.__listext, deckid, quiet=quiet, valid=valid)
+        return ei.run_command(self.__listext, deckid, quiet=quiet, valid=valid, debug=debug)
 
-    def __listext(self, deckid: str, quiet: bool=False, valid: bool=False):
+    def __listext(self, deckid: str, quiet: bool=False, valid: bool=False, debug: bool=False):
 
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
@@ -1109,25 +1123,27 @@ class ExtCard:
 
         Usage modes:
 
-            pacli card balances [ADDRESS] -t DECK
-            pacli card balances -t DECK -w
+            pacli card balances [ADDRESS|-w] -t DECK
+            pacli token balances [ADDRESS|-w] -t DECK
 
-        Shows balances of a single token with deck DECK on all addresses (-w flag) or only the specified address.
+        Shows balances of a single token DECK on all addresses (-w flag) or only the specified address.
         If ADDRESS is not given and -w is not selected, the current main address is used.
 
             pacli card balances [ADDRESS|-w]
+            pacli token balances [ADDRESS|-w]
 
         Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
         If ADDRESS is not given and -w is not selected, the current main address is used.
 
             pacli card balances DECK -o
+            pacli token balances DECK -o
 
         Shows balances of all owners of a token (addresses with cards of this deck). Similar to the vanilla 'card balances' command.
-        If compatibility mode is active, this is the standard mode and -o is not necessary.
+        If compatibility mode is active, this is the standard mode and -o is not required.
 
         Args:
 
-          tokendeck: A deck whose balances should be shown. See Usage modes.
+          tokendeck: A token/deck whose balances should be shown. See Usage modes.
           category: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
           advanced: See above. Shows balances of all tokens in JSON format. Not in combination with -o.
           owners: Show balances of all holders of cards of a token.
@@ -1210,15 +1226,17 @@ class ExtCard:
 
 
     def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
-        """Transfer tokens/cards to one or multiple receivers in a single transaction.
+        """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
 
             pacli card transfer DECK RECEIVER AMOUNT
+            pacli token transfer DECK RECEIVER AMOUNT
 
         Transfer AMOUNT of a token of deck DECK to a single receiver RECEIVER.
 
             pacli card transfer DECK [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
+            pacli token transfer DECK [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
 
         Transfer to multiple receivers. AMOUNT1 goes to RECEIVER1 and so on.
         The brackets are mandatory, but they don't have to be escaped.
@@ -1270,7 +1288,6 @@ class ExtCard:
                                  verify=verify,
                                  debug=debug
                                  )
-
 
 class ExtTransaction:
 
@@ -1481,11 +1498,12 @@ class ExtTransaction:
             ADDRESS is optional. In the case no address is given, the main address is used.
 
         pacli transaction list [RECEIVER_ADDRESS] -x [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
+        pacli transaction list DECK -g [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
 
             Block explorer mode: List all transactions between two block heights.
             RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is an address of a sender.
             STARTHEIGHT and ENDHEIGHT can be block heights or dates of block timestamps (format YYYY-MM-DD).
-            -f and -t options are not mandatory but highly recommended.
+            -f and -e options are not mandatory but highly recommended.
             WARNING: VERY SLOW if used with large block height ranges!
             Note: In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
 
@@ -1516,7 +1534,7 @@ class ExtTransaction:
           quiet: Suppress additional output, printout in script-friendly way.
           sent: Only show sent transactions (not in combination with -n, -c, -b or -g).
           total: Only count transactions, do not display them.
-          unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified).
+          unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified, -x not supported).
           wallet: Show all specified transactions of all addresses in the wallet.
           view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).

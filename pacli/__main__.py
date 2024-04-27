@@ -443,6 +443,8 @@ def main():
 
     init_keystore()
 
+    from pacli.token_class import Token
+
     fire.Fire({
         'config': Config(),
         'deck': Deck(),
@@ -452,6 +454,7 @@ def main():
         'coin': Coin(),
         'proposal' : Proposal(),
         'donation' : Donation(),
+        'token' : Token(),
         'attoken' : ATToken(),
         'pobtoken' : PoBToken(),
         'podtoken' : PoDToken(),
