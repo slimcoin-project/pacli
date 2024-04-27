@@ -1498,7 +1498,7 @@ class ExtTransaction:
             ADDRESS is optional. In the case no address is given, the main address is used.
 
         pacli transaction list [RECEIVER_ADDRESS] -x [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
-        pacli transaction list DECK -g [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
+        pacli transaction list DECK -x -g [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
 
             Block explorer mode: List all transactions between two block heights.
             RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is an address of a sender.
@@ -1532,7 +1532,8 @@ class ExtTransaction:
           origin: Show transactions sent by a specific sender address (only in combination with -x).
           param: Show the value of a specific parameter/variable of the transaction.
           quiet: Suppress additional output, printout in script-friendly way.
-          sent: Only show sent transactions (not in combination with -n, -c, -b or -g).
+          sent: Only show sent transactions (not in combination with -x, -n, -c, -b or -g).
+          received: Only show received transactions (not in combination with -x, -n, -c, -b or -g).
           total: Only count transactions, do not display them.
           unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified, -x not supported).
           wallet: Show all specified transactions of all addresses in the wallet.
