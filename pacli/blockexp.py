@@ -395,6 +395,10 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
         print("Locator data (heights, last block):", blockheights, lastblock)
     if not start_block:
         start_block = lastblock
+    elif lastblock > 0:
+        print("There was a previous caching process, continuing it.")
+        print("To cache other block heights, first erase the affected addresses with 'address cache -e'.")
+        start_block = lastblock
     else:
         if start_block > (lastblock + 1):
             if not quiet:

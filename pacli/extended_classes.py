@@ -562,7 +562,6 @@ class ExtAddress:
             if (labels is True) or (full_labels is True):
                 named = True
 
-            # address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, exclude=excluded_addresses)
             address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only)
 
             if (labels is True) or (full_labels is True):
@@ -682,7 +681,7 @@ class ExtAddress:
 
             lastblockheight = integrity_test if type(integrity_test) == int else None
             print("Getting RPC txes ...")
-            rpc_txes = ec.get_address_transactions(addr_string=address, sent=True, received=True, advanced=True, include_coinbase=True, include_p2th=True, sort=True, debug=False)
+            rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, debug=False)
             return bx.integrity_test([address], rpc_txes, lastblockheight=lastblockheight, debug=debug) # TODO: implement lastblockheight
 
         pprint(
@@ -1079,7 +1078,7 @@ class ExtCard:
         Usage:
 
         pacli card list
-        pacli token list
+        pacli token transfers
 
         Args:
 
