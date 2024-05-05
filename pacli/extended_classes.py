@@ -1545,7 +1545,6 @@ class ExtTransaction:
           xplore: Block explorer mode (see Usage modes).
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
           _value2: Address (in some modes). Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
-          received: Only show received transactions (not in combination with -n, -c, -b or -g).
         """
         kwargs = locals()
         del kwargs["self"]
