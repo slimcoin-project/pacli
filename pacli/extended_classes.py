@@ -805,7 +805,7 @@ class ExtDeck:
           standard: Only show the standard dPoD and PoB tokens/decks.
           attoken: Only show AT tokens/decks.
           without_initstate: Don't show initialized status.
-          only_p2th: Shows only the P2TH address of each token/deck. When used with -d, shows all P2TH addresses of the dPoD tokens.
+          only_p2th: Shows only the P2TH address of each token/deck. When used with -p, shows all P2TH addresses of the dPoD tokens.
           debug: Show debug information.
         """
 
@@ -1072,7 +1072,7 @@ class ExtDeck:
 
 class ExtCard:
 
-    def list(self, deck: str, quiet: bool=False, valid: bool=False, debug: bool=False):
+    def list(self, idstr: str, quiet: bool=False, valid: bool=False, debug: bool=False):
         """List all transactions (cards, i.e. issues, transfers, burns) of a token (with support for deck labels).
 
         Usage:
@@ -1085,8 +1085,8 @@ class ExtCard:
           quiet: Suppresses additional output, printout in script-friendly way.
           valid: Only shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-        return ei.run_command(self.__listext, deckid, quiet=quiet, valid=valid, debug=debug)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr else None
+        return ei.run_command(self.__listext, deckid=deckid, quiet=quiet, valid=valid, debug=debug)
 
     def __listext(self, deckid: str, quiet: bool=False, valid: bool=False, debug: bool=False):
 
@@ -1131,6 +1131,11 @@ class ExtCard:
             pacli card balances [ADDRESS|-w]
             pacli token balances [ADDRESS|-w]
 
+        Shows balances of the standard PoB and dPoD tokens.
+
+            pacli card balances [ADDRESS|-w] -a
+            pacli token balances [ADDRESS|-w] -a
+
         Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
         If ADDRESS is not given and -w is not selected, the current main address is used.
 
@@ -1144,7 +1149,7 @@ class ExtCard:
 
           tokendeck: A token/deck whose balances should be shown. See Usage modes.
           category: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
-          advanced: See above. Shows balances of all tokens in JSON format. Not in combination with -o.
+          advanced: See above. Shows balances of all tokens in JSON format. Not in combination with -o nor -t.
           owners: Show balances of all holders of cards of a token.
           labels: In combination with the first or second option, don't show the addresses, only the labels.
           no_labels: In combination with the first or second option, don't show the labels, only the addresses.
@@ -1525,7 +1530,7 @@ class ExtTransaction:
           gatewaytxes: Only show transactions going to a gateway address of an AT token.
           ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
-          locator: Use block locator (only in combination with -x).
+          locator: Use existing block locators to speed up the blockchain retrieval (only in combination with -x).
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           named: Show only transactions stored with a label (see Usage modes).
           origin: Show transactions sent by a specific sender address (only in combination with -x).

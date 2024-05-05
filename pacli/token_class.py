@@ -16,8 +16,8 @@ class Token(VanillaDeck, VanillaCard):
     'card parse' becomes 'token parse_transfer'
     """
 
-    def transfers(self, deck: str, quiet: bool=False, valid: bool=False, debug: bool=False):
-        return VanillaCard().list(deck=deck, quiet=quiet, valid=valid, debug=debug)
+    def transfers(self, idstr: str, quiet: bool=False, valid: bool=False, debug: bool=False):
+        return VanillaCard().list(idstr=idstr, quiet=quiet, valid=valid, debug=debug)
 
     def encode_transfer(self, deckid: str, receiver: list=None, amount: list=None,
                asset_specific_data: str=None, json: bool=False):
