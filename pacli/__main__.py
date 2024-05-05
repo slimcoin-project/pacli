@@ -373,8 +373,23 @@ class Card(ExtCard):
     @classmethod
     def encode(self, deckid: str, receiver: list=None, amount: list=None,
                asset_specific_data: str=None, json: bool=False) -> str:
-        '''compose a new card and print out the protobuf which
-           is to be manually inserted in the OP_RETURN of the transaction.'''
+        """Encodes a token transaction (card) into protobuf format.
+
+        Usage:
+
+            pacli card encode TOKENID [RECEIVERS] [AMOUNTS]
+            pacli token encode_transfer TOKENID [RECEIVERS] [AMOUNTS]
+
+        Compose a new card and print out the protobuf which
+        is to be manually inserted in the OP_RETURN of the transaction.
+
+        Args:
+
+            receiver: List of receivers.
+            amount: List of amounts, in the same order and number as the receivers.
+            asset_specific_data: Arbitrary data attached to the card.
+            json: Use JSON output."""
+
 
         card = self.__new(deckid, receiver, amount, asset_specific_data)
 
@@ -384,10 +399,18 @@ class Card(ExtCard):
         pprint({'hex': card.metainfo_to_protobuf.hex()})
 
     @classmethod
-    def decode(self, hex: str) -> dict:
-        '''decode card protobuf'''
+    def decode(self, encoded: str) -> dict:
+        """Decodes a token transfer (card) protobuf string.
 
-        script = NulldataScript.unhexlify(hex).decompile().split(' ')[1]
+        Usage:
+
+            pacli card decode HEX
+            pacli token decode_transfer HEX
+
+        HEX is the encoded transaction/card in protobuf format (see 'card decode'/'token decode')"""
+        ### MODIFIED, parameter was first called "hex", which conflicts with "help"
+
+        script = NulldataScript.unhexlify(encoded).decompile().split(' ')[1]
 
         pprint(parse_card_transfer_metainfo(bytes.fromhex(script),
                                             Settings.deck_version)
@@ -412,7 +435,15 @@ class Card(ExtCard):
         export_to_csv(cards=list(cards), filename=filename)
 
     def parse(self, deckid: str, cardid: str) -> None:
-        '''parse card from txid and print data'''
+        """Parses a token transfer (card) from txid and print data.
+
+        Usage:
+
+             pacli card parse DECKID CARDID
+             pacli token parse_transfer DECKID CARDID
+
+        CARDID is the transaction ID of the card.
+        """
 
         deck = self.__find_deck(deckid)
         cards = list(get_card_transfer(provider, deck, cardid))
