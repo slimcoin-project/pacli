@@ -329,7 +329,7 @@ def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: 
     locator.store(quiet=quiet, debug=debug)
 
 
-def store_deck_blockheights(decks: list, quiet: bool=False, debug: bool=False, blocks: int=50000):
+def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, debug: bool=False, blocks: int=50000):
 
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
@@ -376,8 +376,14 @@ def store_deck_blockheights(decks: list, quiet: bool=False, debug: bool=False, b
         start_block = min_spawn_blockheight
     else:
         start_block = lastblock
-    # start_block = min(lastblock, min_spawn_blockheight)
-    end_block = start_block + blocks
+
+    if full is True:
+        end_block = provider.getblockcount()
+        if not quiet:
+            print("Full blockchain scan selected. WARNING: This can take several days!")
+            print("You can interrupt the scan at any time with KeyboardInterrupt (e.g. CTRL-C) and continue later, calling the same command.")
+    else:
+        end_block = start_block + blocks
     if not quiet:
         print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
     txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)

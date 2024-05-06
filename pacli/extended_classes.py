@@ -687,7 +687,7 @@ class ExtAddress:
             {'balance': float(balance)}
             )
 
-    def cache(self, addr_str: str, blocks: int=50000, keyring: bool=False, startblock: int=0, erase: bool=False, quiet: bool=False, debug: bool=False):
+    def cache(self, addr_str: str, blocks: int=50000, keyring: bool=False, startblock: int=0, erase: bool=False, full: bool=False, quiet: bool=False, debug: bool=False):
         """Cache the state of an address.
 
            Usage:
@@ -704,17 +704,18 @@ class ExtAddress:
            Args:
 
              startblock: Block to start the cache process. Use this parameter if you know when the address was first used.
-             blocks: Number of blocks to scan. Can be used as a positional argument.
+             blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks.
+             full: Scans whole blockchain. WARNING: Can take several hours up to days!
              erase: Delete address entry in blocklocator.json. To be used when the locator data is wrong.
              quiet: Suppress output.
              debug: Show additional debug information.
              keyring: Use addresses/label(s) stored in keyring."""
 
 
-        return ei.run_command(self.__cache, addr_str, startblock=startblock, blocks=blocks, keyring=keyring, erase=erase, quiet=quiet, debug=debug)
+        return ei.run_command(self.__cache, addr_str, startblock=startblock, blocks=blocks, full=full, keyring=keyring, erase=erase, quiet=quiet, debug=debug)
 
 
-    def __cache(self, addr_str: str, startblock: int=0, blocks: int=50000, keyring: bool=False, erase: bool=False, quiet: bool=False, debug: bool=False):
+    def __cache(self, addr_str: str, startblock: int=0, blocks: int=50000, keyring: bool=False, full: bool=False, erase: bool=False, quiet: bool=False, debug: bool=False):
 
         if type(addr_str) == str:
             addresses = [ec.process_address(addr_str, keyring=keyring)]
@@ -726,6 +727,11 @@ class ExtAddress:
         if erase is True:
             return bx.erase_blocklocator_entries(addresses) # TODO: improve this allowing startblock and endblock.
         else:
+            if full:
+                blocks = provider.getblockcount() - startblock
+                if not quiet:
+                    print("Full blockchain scan selected. WARNING: This can take several days!")
+                    print("You can interrupt the scan at any time with KeyboardInterrupt (e.g. CTRL-C) and continue later, calling the same command.")
             return bx.store_address_blockheights(addresses, start_block=startblock, blocks=blocks, quiet=quiet, debug=debug)
 
 
@@ -1021,7 +1027,7 @@ class ExtDeck:
             self.__cache(idstr=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
 
-    def cache(self, idstr: str=None, blocks: int=50000, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+    def cache(self, idstr: str=None, blocks: int=50000, full: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
         """Stores data about deck state changes (blockheights).
 
         Usage modes:
@@ -1044,15 +1050,16 @@ class ExtDeck:
         Args:
 
           blocks: Number of blocks to store (default: 50000).
+          full: Store blockheights for the whole blockchain (since the start block).
           all_decks: Store blockheights for all initialized tokens/decks.
           quiet: Suppress output.
           idstr: Token/Deck label or ID. To be used as a positional argument.
           debug: Show additional debug information."""
 
 
-        ei.run_command(self.__cache, idstr=idstr, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
+        ei.run_command(self.__cache, idstr=idstr, blocks=blocks, full=full, all_decks=all_decks, quiet=quiet, debug=debug)
 
-    def __cache(self, idstr: str, blocks: int=None, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+    def __cache(self, idstr: str, blocks: int=None, full: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
 
         deckid = eu.search_for_stored_tx_label("deck", idstr, quiet=quiet) if idstr is not None else None
 
@@ -1065,7 +1072,8 @@ class ExtDeck:
              netw = Settings.network
              decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
                       pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)]
-        ei.run_command(bx.store_deck_blockheights, decks, quiet=quiet, debug=debug, blocks=blocks)
+
+        ei.run_command(bx.store_deck_blockheights, decks, quiet=quiet, full=full, debug=debug, blocks=blocks)
 
 
 
