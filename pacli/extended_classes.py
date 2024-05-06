@@ -654,7 +654,6 @@ class ExtAddress:
            debug: Show debug information.
         """
 
-        # REPLACES address balance
         return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, integrity_test=integrity_test, wallet=wallet, debug=debug)
 
     def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False, debug: bool=False):

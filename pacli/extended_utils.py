@@ -392,8 +392,13 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
     """Gets all valid CardIssues of a deck."""
     # NOTE: Sender no longer necessary.
+    # TODO: seems the restriction to wallet does not work correctly, also other txes are shown.
 
-    wallet_txids = set([t["txid"] for t in get_wallet_transactions()]) if (only_wallet and not input_address) else None
+    if (only_wallet and not input_address):
+        p2th_accounts = get_p2th(accounts=True)
+        wallet_txids = set([t["txid"] for t in get_wallet_transactions(exclude=p2th_accounts)])
+    else:
+        wallet_txids = None
 
     try:
         cards = pa.find_all_valid_cards(provider, deck)
@@ -481,7 +486,7 @@ def get_wallet_token_balances(deck: object) -> dict:
     return balances
 
 def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None, quiet: bool=False, debug: bool=False):
-    '''Shows all valid claim transactions for a deck, rewards and tracked transactions enabling them.'''
+    '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
 
     if deck_str is None:
         raise ei.PacliInputDataError("No deck given, for --claim options the deck is mandatory.")
