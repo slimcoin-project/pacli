@@ -131,23 +131,25 @@ def confirm_tx(orig_tx: dict, quiet: bool=False) -> None:
 
 
 def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settings.network, suppress_addresses: bool=False):
-    # balancedict contains: { address : balance, ... }
+    # balancedict contains: { address : balance, ... }, labeldict: { full_label : address }
     balances = {}
     for address, balance in balancedict.items():
         for full_label, labeled_addr in labeldict.items():
 
             if labeled_addr == address:
                 prefix = network_name + "_"
-                # workaround until keystore_extended is finally removed
+                # workaround for keystore_extended
                 # remove key_, but only if it's at the start.
                 if full_label[:4] == "key_":
                     full_label = full_label[4:]
                 label = full_label.replace(prefix, "")
-                if not suppress_addresses:
-                    if label.startswith("(unlabeled"):
-                        label = address
-                    else:
-                        label = "{} ({})".format(label, address)
+
+                if label.startswith("(unlabeled"):
+                    label = address
+                elif not suppress_addresses:
+                    label = "{} ({})".format(label, address)
+                # Note: else not necessary, only label will be shown.
+
                 balances.update({label : balance})
                 break
         else:

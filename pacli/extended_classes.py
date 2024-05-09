@@ -1083,7 +1083,7 @@ class ExtDeck:
 class ExtCard:
 
     def list(self, idstr: str, quiet: bool=False, valid: bool=False, debug: bool=False):
-        """List all transactions (cards, i.e. issues, transfers, burns) of a token (with support for deck labels).
+        """List all transactions (cards, i.e. issues, transfers, burns) of a token.
 
         Usage:
 
@@ -1135,7 +1135,7 @@ class ExtCard:
             pacli card balances [ADDRESS|-w] -t DECK
             pacli token balances [ADDRESS|-w] -t DECK
 
-        Shows balances of a single token DECK on all addresses (-w flag) or only the specified address.
+        Shows balances of a single token DECK (ID, global name or local label) on all addresses (-w flag) or only the specified address.
         If ADDRESS is not given and -w is not selected, the current main address is used.
 
             pacli card balances [ADDRESS|-w]
@@ -1149,24 +1149,25 @@ class ExtCard:
         Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
         If ADDRESS is not given and -w is not selected, the current main address is used.
 
-            pacli card balances DECK -o
-            pacli token balances DECK -o
+            pacli card balances TOKEN -o
+            pacli token balances TOKEN -o
 
-        Shows balances of all owners of a token (addresses with cards of this deck). Similar to the vanilla 'card balances' command.
+        Shows balances of all owners of a token (addresses with cards of this deck) TOKEN (ID, global name or local label).
+        Similar to the vanilla 'card balances' command.
         If compatibility mode is active, this is the standard mode and -o is not required.
 
         Args:
 
-          tokendeck: A token/deck whose balances should be shown. See Usage modes.
+          tokendeck: A token (deck) whose balances should be shown. See Usage modes.
           category: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
           advanced: See above. Shows balances of all tokens in JSON format. Not in combination with -o nor -t.
-          owners: Show balances of all holders of cards of a token.
-          labels: In combination with the first or second option, don't show the addresses, only the labels.
-          no_labels: In combination with the first or second option, don't show the labels, only the addresses.
-          keyring: In combination with the first or second option, use an address stored in the keyring.
-          quiet: Suppresses information about the deck when a label is used.
+          owners: Show balances of all holders of cards of a token. Cannot be combined with other options except -q.
+          labels: In combination with -w and -a, don't show the addresses, only the labels (except when the address has no label).
+          no_labels: In combination with -w and either -a or -t, don't show the address labels, only the addresses.
+          keyring: In combination with -a or -t (not -w), use an address stored in the keyring.
+          quiet: Suppresses informative messages.
           debug: Display debug info.
-          param1: Deck or address. To be used as a positional argument (flag keyword not necessary). See usage modes.
+          param1: Token (deck) or address. To be used as a positional argument (flag keyword not necessary). See Usage modes.
           wallet: Show balances of all addresses in the wallet."""
 
         # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
@@ -1196,12 +1197,13 @@ class ExtCard:
                 debug: bool=False):
 
         if advanced and not quiet:
-                print("Retrieving deck states to show balances ...")
+                print("Retrieving token states to show balances ...")
+
         if owners is True or Settings.compatibility_mode == "True":
 
             deck_str = param1
             if deck_str is None:
-                raise ei.PacliInputDataError("Owner mode requires a deck.")
+                raise ei.PacliInputDataError("Owner mode requires a token (deck) ID, global name or local label.")
 
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
 
@@ -1228,14 +1230,14 @@ class ExtCard:
 
             if (wallet, param1) == (False, None):
                 param1 = Settings.key.address
-            #if (not wallet):
-            #    advanced = True
-            # without advanced flag, advanced mode is only set if the user requires it.
+
             address = ec.process_address(param1) if wallet is False else None
             try:
                 deck_type = c.get_deck_type(category.lower()) if category is not None else None
             except AttributeError:
                 raise ei.PacliInputDataError("No category specified.")
+            if not advanced:
+                no_labels = False
             return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=labels, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
@@ -1244,13 +1246,13 @@ class ExtCard:
 
         Usage modes:
 
-            pacli card transfer DECK RECEIVER AMOUNT
-            pacli token transfer DECK RECEIVER AMOUNT
+            pacli card transfer TOKEN RECEIVER AMOUNT
+            pacli token transfer TOKEN RECEIVER AMOUNT
 
-        Transfer AMOUNT of a token of deck DECK to a single receiver RECEIVER.
+        Transfer AMOUNT of a token (deck) TOKEN (ID, global name or label) to a single receiver RECEIVER.
 
-            pacli card transfer DECK [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
-            pacli token transfer DECK [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
+            pacli card transfer TOKEN [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
+            pacli token transfer TOKEN [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
 
         Transfer to multiple receivers. AMOUNT1 goes to RECEIVER1 and so on.
         The brackets are mandatory, but they don't have to be escaped.
