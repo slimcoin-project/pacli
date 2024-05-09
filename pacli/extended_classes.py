@@ -321,6 +321,7 @@ class ExtAddress:
             keyring: bool=False,
             now: bool=False,
             import_all_keyring_addresses: bool=False,
+            check_usage: bool=False,
             show_debug_info: bool=False):
 
         """Sets the current main address or stores / deletes a label for an address.
@@ -351,6 +352,7 @@ class ExtAddress:
         Args:
 
           fresh: Creates an address/key with the wallet software and assigns it a label.
+          check_usage: In combination with -f/--fresh, will check if a new address was already used (can happen in some cases if the node was mining).
           delete: Deletes the specified address label. Use --now to delete really.
           modify: Replaces the label for an address by another one.
           now: Really delete an entry.
@@ -382,6 +384,7 @@ class ExtAddress:
             quiet: bool=False,
             keyring: bool=False,
             now: bool=False,
+            check_usage: bool=False,
             import_all_keyring_addresses: bool=False,
             show_debug_info: bool=False):
 
@@ -394,7 +397,7 @@ class ExtAddress:
                 raise ei.PacliInputDataError("No label provided. See -h for options.")
 
         elif fresh is True:
-            return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, quiet=quiet)
+            return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, check_usage=check_usage, quiet=quiet)
 
         elif delete is True:
             """deletes a key with an user-defined label. Cannot be used to delete main key."""
@@ -406,7 +409,7 @@ class ExtAddress:
 
         elif label is not None and address is not None: # ex: tools store_address
             """Stores a label for an address in the extended config file."""
-            # ec.store_address(label, address=address, modify=modify)
+
             ec.set_label(label, address, set_main=True, keyring=keyring, modify=modify, network_name=Settings.network)
             if not quiet:
                 print("Stored address {} with label {}.".format(address, label))

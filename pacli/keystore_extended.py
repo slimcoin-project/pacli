@@ -204,16 +204,12 @@ def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, le
 
     return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address
 
-def fresh_address(label: str, backup: str=None, set_main: bool=False, legacy: bool=False, quiet: bool=False):
+def store_address_in_keyring(label: str, addr: str, backup: str=None, set_main: bool=False, legacy: bool=False, quiet: bool=False):
     # NOTE: This command does not assign the address an account name or label in the wallet.
 
-    label = str(label)
-    addr = provider.getnewaddress()
     privkey_wif = provider.dumpprivkey(addr)
     privk_kutil = pa.Kutil(network=Settings.network, from_wif=privkey_wif)
-    privkey = privk_kutil.privkey
-
-    full_label = get_key_prefix(Settings.network, legacy=legacy) + label
+    full_label = get_key_prefix(Settings.network, legacy=legacy) + str(label)
 
     try:
         if full_label in get_labels_from_keyring(): # get_all_labels(Settings.network):
@@ -221,9 +217,7 @@ def fresh_address(label: str, backup: str=None, set_main: bool=False, legacy: bo
     except ImportError:
         print("NOTE: If you do not use SecretStorage, which is likely if you use Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
 
-    set_key(full_label, privkey)
-
-    return privk_kutil.address
+    set_key(full_label, privk_kutil.privkey)
 
 def show_all_keys(debug: bool=False, legacy: bool=False):
 
@@ -284,9 +278,3 @@ def delete_key_from_keyring(label: str, network_name: str=Settings.network, lega
 def label_to_kutil(full_label: str) -> pa.Kutil:
     raw_key = bytearray.fromhex(get_key(full_label))
     return pa.Kutil(network=Settings.network, privkey=raw_key)
-
-
-
-
-
-

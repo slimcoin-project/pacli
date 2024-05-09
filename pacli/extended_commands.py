@@ -10,19 +10,36 @@ from pacli.provider import provider
 
 # Address "bifurcations": can be either used with the legacy keystore_extended module or with the new Tools module.
 
-def fresh_address(label: str, set_main: bool=False, backup: str=None, keyring: bool=False, legacy: bool=False, quiet: bool=False):
+def fresh_address(label: str, set_main: bool=False, backup: str=None, check_usage: bool=False, keyring: bool=False, legacy: bool=False, quiet: bool=False):
 
     label = str(label)
+    addr_txes = 1
+
+    while addr_txes:
+        address = provider.getnewaddress()
+
+        if check_usage:
+            if not quiet:
+                print("Checking usage of new address {} (can take some minutes) ...".format(address))
+            addr_txes = len(get_address_transactions(addr_string=address, include_coinbase=True))
+            if not quiet:
+                if addr_txes > 0 :
+                    print("Address was already used with {} transactions. Trying new address.".format(addr_txes))
+                else:
+                    print("Usage check PASSED, no recorded transactions.")
+        else:
+            addr_txes = 0
+
     if keyring:
-        address = ke.fresh_address(label, backup=backup, legacy=legacy, quiet=quiet)
+        ke.store_address_in_keyring(label, address, backup=backup, legacy=legacy, quiet=quiet)
     elif legacy or backup:
         if not quiet:
             print("--legacy and --backup are only supported when using --keyring.")
         return None
+
     else:
-        address = provider.getnewaddress()
-        ei.run_command(store_address, label, address=address)
-        # ei.run_command(ce.write_item, "address", label, address)
+        store_address(label, address=address)
+
 
     if not quiet:
         print("New address created:", address, "with label (name):", label)
@@ -114,6 +131,9 @@ def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
 # extended config
 
 def set_label(label: str, address: str, network_name: str=Settings.network, set_main: bool=False, modify: bool=False, keyring: bool=False):
+
+    if not eu.is_possible_address(address):
+        raise ei.PacliInputDataError("Value must be a valid address.")
 
     if keyring:
         ke.set_new_key(label=str(label), new_address=address, modify=modify, network_name=Settings.network)
