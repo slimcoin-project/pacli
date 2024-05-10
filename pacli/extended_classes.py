@@ -1522,6 +1522,7 @@ class ExtTransaction:
             -f and -e options are not mandatory but highly recommended.
             WARNING: VERY SLOW if used with large block height ranges!
             Note: In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
+            Note 2: To use the locator feature -l an origin or receiver address or a deck has to be provided.
 
         pacli transaction list [ADDRESS] -p PARAM
 
@@ -1542,7 +1543,7 @@ class ExtTransaction:
           gatewaytxes: Only show transactions going to a gateway address of an AT token.
           ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
-          locator: Use existing block locators to speed up the blockchain retrieval (only in combination with -x).
+          locator: In -x mode, use existing block locators to speed up the blockchain retrieval. See Usage modes above.
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           named: Show only transactions stored with a label (see Usage modes).
           origin: Show transactions sent by a specific sender address (only in combination with -x).

@@ -76,7 +76,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         print("""
               NOTE: This commands cycles through all blocks and will take very long
               to finish. It's recommended to use it for block ranges of less than 10000 blocks.
-              Abort and get results with CTRL-C.
+              Abort and get results with KeyboardInterrupt (e.g. CTRL-C).
               """)
 
     if deckid:
@@ -98,18 +98,23 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         locator_list = []
 
     if use_locator:
-        blockheights, last_checked_block = get_locator_data(locator_list)
-        if last_checked_block == 0: # TODO this in theory has to be done separately for each address
-            if debug:
-                print("Addresses", locator_list, "were not checked. Storing locator data now.")
-            blockheights = range(startblock, endblock + 1)
-            store_locator = True
+        loc_blockheights, last_checked_block = get_locator_data(locator_list)
 
-        elif endblock > last_checked_block:
-            if debug:
-                print("Endblock {} is over the last checked block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
-            blockheights = blockheights + list(range(last_checked_block, endblock + 1))
-            store_locator = True
+        if endblock > last_checked_block:
+            if startblock <= last_checked_block:
+                if debug:
+                    if last_checked_block == 0:
+                        print("Addresses", locator_list, "were not cached. Storing locator data now.")
+                    else:
+                        print("Endblock {} is higher than the last cached block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
+                blockheights = blockheights + list(range(last_checked_block, endblock + 1))
+                store_locator = True
+            else:
+                if debug:
+                    print("Provided start block is above the cached range. Not using nor storing locators to avoid inconsistencies.")
+                blockheights = range(startblock, endblock + 1)
+        else:
+            blockheights = [b for b in loc_blockheights if b <= endblock]
 
     else:
         blockheights = range(startblock, endblock + 1)
@@ -307,6 +312,9 @@ def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0
 
 
 def get_locator_data(address_list: list, filename: str=None, debug: bool=False):
+
+    if not address_list:
+        raise ei.PacliInputDataError("If you use the locator feature you have to provide address(es) or deck/tokens.")
     locator = loc.BlockLocator.from_file(locatorfilename=filename)
     raw_blockheights = []
     last_checked_blocks = []
