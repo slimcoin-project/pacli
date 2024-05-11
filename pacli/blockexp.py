@@ -109,7 +109,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                         print("Addresses", locator_list, "were not cached. Storing locator data now.")
                     else:
                         print("Endblock {} is higher than the last cached block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
-                blockheights = blockheights + list(range(last_checked_block, endblock + 1))
+                blockheights = loc_blockheights + list(range(last_checked_block, endblock + 1))
                 store_locator = True
             else:
                 if debug:
@@ -368,19 +368,7 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
     addresses = []
     for deck in decks:
         addresses.append(eu.get_deck_p2th_addresses(deck))
-        """addresses.append(deck.p2th_address)
-        try:
-            if deck.at_type == c.ID_DT:
-                dt_p2th = list(eu.get_dt_p2th_addresses(deck).values())
-                addresses += dt_p2th
-            elif deck.at_type == c.ID_AT:
-                # AT addresses can have duplicates, others not
-                if deck.at_address not in addresses:
-                    addresses.append(deck.at_address)
-                if debug:
-                    print("AT address appended:", deck.at_address)
-        except AttributeError:
-            continue""" # outsourced into eu.get_deck_p2th_addresses
+
     #if not without_burn_address: # probably unnecessary
     #   addresses.append(au.burn_address())
 
