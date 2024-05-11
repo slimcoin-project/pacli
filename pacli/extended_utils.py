@@ -451,7 +451,7 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
             raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
 
     elif category == "deck":
-        result = search_global_deck_name(identifier)
+        result = search_global_deck_name(identifier, quiet=quiet)
         if result:
             return result
 
@@ -665,4 +665,20 @@ def get_dt_p2th_accounts(deck):
             "p2th_locking" : deck.id + "LOCKING",
             "p2th_donation" : deck.id + "DONATION",
             "p2th_voting" : deck.id + "VOTING"}
+
+def get_deck_p2th_addresses(deck):
+    addresses = [deck.p2th_address]
+
+    if "at_type" in deck.__dict__:
+        if deck.at_type == ID_DT:
+            dt_p2th = list(get_dt_p2th_addresses(deck).values())
+            addresses += dt_p2th
+        elif deck.at_type == ID_AT:
+            # AT addresses can have duplicates, others not
+            if deck.at_address not in addresses:
+                addresses.append(deck.at_address)
+            if debug:
+                print("AT address appended:", deck.at_address)
+
+    return addresses
 

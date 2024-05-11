@@ -171,7 +171,9 @@ class ExtConfig:
              label: bool=False,
              find: bool=False,
              quiet: bool=False,
-             extended: str=None):
+             extended: str=None,
+             blocklocators: bool=False,
+             debug: bool=False):
         """Shows a setting in the basic or extended configuration file.
 
         Usage modes:
@@ -194,14 +196,21 @@ class ExtConfig:
             The CATEGORY value refers to a category in the extended config file.
             Get all categories with: `pacli config list -e -c`
 
+        pacli config show ADDRESS_OR_DECK -b
+
+            Show block locators for an address or token/deck.
+            Block locators show the heights of transactions to/from the addresses.
+
         Args:
 
           extended: Use the extended configuration file (see above).
           quiet: Suppress output, printout the result in script-friendly way.
           label: Find label for an exact value.
-          find: Find label for a string which is present in the value."""
+          find: Find label for a string which is present in the value.
+          blocklocators: Show block locator values. See Usage modes.
+          debug: Show exception tracebacks and debug info."""
 
-        return ei.run_command(self.__show, value_or_label, category=extended, label=label, find=find, quiet=quiet)
+        return ei.run_command(self.__show, value_or_label, category=extended, label=label, blocklocators=blocklocators, find=find, quiet=quiet, debug=debug)
 
 
     def __show(self,
@@ -209,9 +218,15 @@ class ExtConfig:
              category: str=None,
              label: bool=False,
              find: bool=False,
-             quiet: bool=False):
+             blocklocators: bool=False,
+             quiet: bool=False,
+             debug: bool=False):
 
-        if category is None:
+
+        if blocklocators is True:
+            return bx.show_locators(value=value_or_label, quiet=quiet, debug=debug)
+
+        elif category is None:
             result = []
             if find or label:
                 searchstr = value_or_label

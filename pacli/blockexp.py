@@ -1,10 +1,12 @@
 import datetime
 from decimal import Decimal
 from typing import Union
+from prettyprinter import cpprint as pprint
 import pypeerassets as pa
 import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
+import pacli.extended_commands as ec
 import pacli.at_utils as au
 import pacli.blocklocator as loc
 from pacli.provider import provider
@@ -311,23 +313,29 @@ def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0
     return bh
 
 
-def get_locator_data(address_list: list, filename: str=None, debug: bool=False):
+def get_locator_data(address_list: list, filename: str=None, show_hash: bool=False, debug: bool=False):
+    # Note: This command "unifies" the data for several addresses, i.e. it doesn't differentiate per address.
 
     if not address_list:
         raise ei.PacliInputDataError("If you use the locator feature you have to provide address(es) or deck/tokens.")
     locator = loc.BlockLocator.from_file(locatorfilename=filename)
     raw_blockheights = []
-    last_checked_blocks = []
+    last_checked_blocks = {}
     for addr in address_list:
         if addr is not None:
             loc_addr = locator.get_address(addr)
             raw_blockheights += loc_addr.heights
-            last_checked_blocks.append(loc_addr.lastblockheight)
+            last_checked_blocks.update({loc_addr.lastblockheight : loc_addr.lastblockhash})
 
     blockheights = list(set(raw_blockheights))
     blockheights.sort()
-    last_checked_block = min(last_checked_blocks) # returns the last commonly checked block for all addresses.
-    return (blockheights, last_checked_block)
+    last_blockheight = min(last_checked_blocks.keys()) # returns the last commonly checked block for all addresses.
+
+    if show_hash:
+        last_blockhash = last_checked_blocks[last_blockheight]
+        return (blockheights, last_blockhash)
+    else:
+        return (blockheights, last_blockheight)
 
 def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, filename: str=None, quiet: bool=False, debug: bool=False):
     locator = loc.BlockLocator.from_file(locatorfilename=filename)
@@ -359,7 +367,8 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
 
     addresses = []
     for deck in decks:
-        addresses.append(deck.p2th_address)
+        addresses.append(eu.get_deck_p2th_addresses(deck))
+        """addresses.append(deck.p2th_address)
         try:
             if deck.at_type == c.ID_DT:
                 dt_p2th = list(eu.get_dt_p2th_addresses(deck).values())
@@ -371,7 +380,7 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
                 if debug:
                     print("AT address appended:", deck.at_address)
         except AttributeError:
-            continue
+            continue""" # outsourced into eu.get_deck_p2th_addresses
     #if not without_burn_address: # probably unnecessary
     #   addresses.append(au.burn_address())
 
@@ -506,22 +515,6 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
             print(btxes - set(utxids))
 
 
-def get_balances_from_structs(address_list: list, txes: list, endblock: int=None, debug: bool=False):
-    balances = {}
-    for address in address_list:
-        balances.update({address : {"balance" : Decimal(0), "observed" : False}})
-        for tx in txes:
-            if endblock is not None and tx["blockheight"] > endblock:
-                continue
-            tx_balance, observed = get_tx_address_balance(address, tx)
-            if observed:
-                balances[address]["observed"] = True
-            balances[address]["balance"] += tx_balance
-            if debug:
-                print("TX {} adding balance: {}".format(tx["txid"], tx_balance))
-    return balances
-
-
 def get_tx_address_balance(address: str, tx: dict):
     # this takes TX Structure as a dict!
     # print("TX", tx)
@@ -539,5 +532,48 @@ def get_tx_address_balance(address: str, tx: dict):
 
     return (balance, observed)
 
+def show_locators(value: str, quiet: bool=False, debug: bool=False):
+    # first we look if it's a deck
+    try:
+        deckid = eu.search_for_stored_tx_label("deck", value, quiet=True)
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        addresses = eu.get_deck_p2th_addresses(deck)
+        checktype = "token"
+    except ei.PacliInputDataError:
+        try:
+            addresses = [ec.process_address(value)]
+            checktype = "address"
+        except:
+            raise ei.PacliInputDataError("You need to enter a valid address or token (deck).")
+
+    locators, last_checked_block = get_locator_data(address_list=addresses, debug=debug, show_hash=True)
+    last_blockheight = provider.getblock(last_checked_block).get("height")
+
+    result = {"blockheights" : locators,
+             "lastblockhash" : last_checked_block,
+             "lastblockheight" : last_blockheight}
+    readable = {"blockheights" : "Block heights",
+                "lastblockhash" : "Last checked block (hash)",
+                "lastblockheight" : "Last checked block (height)"}
+    if quiet:
+        print(result)
+    else:
+        pprint("Result for {} {}:".format(checktype, value))
+        for k, v in result.items():
+            print("{}: {}".format(readable[k], v))
 
 
+def get_balances_from_structs(address_list: list, txes: list, endblock: int=None, debug: bool=False):
+    balances = {}
+    for address in address_list:
+        balances.update({address : {"balance" : Decimal(0), "observed" : False}})
+        for tx in txes:
+            if endblock is not None and tx["blockheight"] > endblock:
+                continue
+            tx_balance, observed = get_tx_address_balance(address, tx)
+            if observed:
+                balances[address]["observed"] = True
+            balances[address]["balance"] += tx_balance
+            if debug:
+                print("TX {} adding balance: {}".format(tx["txid"], tx_balance))
+    return balances
