@@ -27,7 +27,7 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
         else:
             return None
     try:
-        senders = find_tx_senders(tx)
+        senders = ec.find_tx_senders(tx)
     except KeyError:
         raise ei.PacliInputDataError("Transaction does not exist or is corrupted.")
 
@@ -194,24 +194,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
     if store_locator and len(list(blockheights)) > 0:
         store_locator_data(address_blocks, lastblockheight, lastblockhash, quiet=quiet, debug=debug)
     return tracked_txes
-
-
-def find_tx_senders(tx: dict) -> list:
-    """Finds all known senders of a transaction."""
-    # find_tx_sender from pypeerassets only finds the first sender.
-    # this variant returns a list of all input senders.
-
-    senders = []
-    for vin in tx["vin"]:
-        try:
-            sending_tx = provider.getrawtransaction(vin["txid"], 1)
-            vout = vin["vout"]
-            sender = sending_tx["vout"][vout]["scriptPubKey"]["addresses"]
-            value = sending_tx["vout"][vout]["value"]
-            senders.append({"sender" : sender, "value" : value})
-        except KeyError: # coinbase transactions
-            continue
-    return senders
 
 
 def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=None, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False, use_locator: bool=True) -> None:

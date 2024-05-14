@@ -4,7 +4,6 @@ import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.config_extended as ce
-import pacli.blockexp as bx
 from pacli.config import Settings
 from pacli.provider import provider
 
@@ -381,7 +380,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
         if ("send" in categories) and ((all_txes or sent) or (received and ("receive" in categories))):
 
             try:
-                senders = bx.find_tx_senders(tx)
+                senders = find_tx_senders(tx)
             except KeyError: # coinbase txes should not be canceled here as they should give []
                 if debug:
                     print("Transaction aborted.")
@@ -464,3 +463,22 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
         result.sort(key=lambda x: x["confirmations"])
 
     return result
+
+
+def find_tx_senders(tx: dict) -> list:
+    """Finds all known senders of a transaction."""
+    # find_tx_sender from pypeerassets only finds the first sender.
+    # this variant returns a list of all input senders.
+    # TODO: evaluate to move this to one of the "utils" modules.
+
+    senders = []
+    for vin in tx["vin"]:
+        try:
+            sending_tx = provider.getrawtransaction(vin["txid"], 1)
+            vout = vin["vout"]
+            sender = sending_tx["vout"][vout]["scriptPubKey"]["addresses"]
+            value = sending_tx["vout"][vout]["value"]
+            senders.append({"sender" : sender, "value" : value})
+        except KeyError: # coinbase transactions
+            continue
+    return senders
