@@ -107,7 +107,10 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
 
 def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
     if keyring:
-        label = ke.show_label(address)
+        try:
+            label = ke.show_keyring_label(address)
+        except ImportError:
+            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
 
     else:
         # extended_config address category has only one entry per value
@@ -170,7 +173,10 @@ def get_address(label: str, network_name: str=Settings.network, noprefix: bool=F
 
 def get_all_labels(prefix: str=Settings.network, keyring: bool=False) -> list:
     if keyring:
-        return ke.get_labels_from_keyring(prefix)
+        try:
+            return ke.get_labels_from_keyring(prefix)
+        except ImportError:
+            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
 
     labels = list(ce.get_config()["address"].keys())
     # TODO: investigate reason for the following lines
@@ -218,7 +224,10 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
     else:
         result = {}
 
-        keyring_labels = ke.get_labels_from_keyring(prefix)
+        try:
+            keyring_labels = ke.get_labels_from_keyring(prefix)
+        except ImportError:
+            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
 
         for label in keyring_labels:
             address = show_stored_address(label=label, noprefix=True, keyring=True)
@@ -261,7 +270,10 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
     if not quiet:
         print("Storing all addresses of network", network_name, "from keyring into extended config file.")
         print("The config file will NOT store private keys. It only allows faster access to addresses.")
-    keyring_labels = ke.get_labels_from_keyring(network_name)
+    try:
+        keyring_labels = ke.get_labels_from_keyring(network_name)
+    except ImportError:
+        raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
     if debug:
         print("Labels (with prefixes) retrieved from keyring:", keyring_labels)
 

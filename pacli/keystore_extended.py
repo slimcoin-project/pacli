@@ -56,12 +56,11 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
     if label:
         if modify:
             try:
-                raw_old_label = show_label(new_address)["label"]
+                raw_old_label = show_keyring_label(new_address)["label"]
                 old_label = kprefix + raw_old_label
                 delete_key(old_label)
             except ImportError:
-                ei.print_red("Error: Feature --modify not available, secretstorage missing (probably not supported by your operating system)")
-                return
+                raise ei.PacliInputDataError("Option --modify not available, secretstorage missing (probably not supported by your operating system)")
             except (KeyError, TypeError):
                 print("Note: This address/key wasn't stored in the keyring before. No keyring entry was deleted.")
         set_key(kprefix + label, key)
@@ -96,8 +95,11 @@ def get_labels_from_keyring(prefix: str=Settings.network):
 
     try:
         import secretstorage
-    except ImportError:
-        print("This feature needs secretstorage. It is probably currently not supported by your operating system or desktop environment.")
+    except (ImportError, ModuleNotFoundError):
+        print("""This feature needs the 'secretstorage' package, which is currently not installed.
+It may not be supported by your operating system or desktop environment.
+In this case, it is recommended to use the extended configuration file to store address labels.""")
+        raise ImportError
 
     bus = secretstorage.dbus_init()
     collection = secretstorage.get_default_collection(bus)
@@ -142,10 +144,12 @@ def show_stored_key(label: str, network_name: str=Settings.network, pubkey: bool
     else:
         return key.address
 
-def show_label(address: str, set_main: bool=False) -> dict:
+def show_keyring_label(address: str, set_main: bool=False) -> dict:
     # Function is now reserved for usage with keyring.
 
+    # NOTE: The ImportError has to be catched in all commands using this function.
     labels = get_labels_from_keyring(Settings.network)
+
     for full_label in labels:
         legacy = is_legacy_label(full_label)
         try:
@@ -212,7 +216,7 @@ def store_address_in_keyring(label: str, addr: str, backup: str=None, set_main: 
     full_label = get_key_prefix(Settings.network, legacy=legacy) + str(label)
 
     try:
-        if full_label in get_labels_from_keyring(): # get_all_labels(Settings.network):
+        if full_label in get_labels_from_keyring():
             return "ERROR: Label already used. Please choose another one."
     except ImportError:
         print("NOTE: If you do not use SecretStorage, which is likely if you use Windows, you currently have to make sure yourself you don't use the same label for two or more addresses.")
@@ -223,7 +227,10 @@ def show_all_keys(debug: bool=False, legacy: bool=False):
 
     net_prefix = "bak" if legacy else Settings.network
 
-    labels = get_labels_from_keyring(net_prefix)
+    try:
+        labels = get_labels_from_keyring(net_prefix)
+    except ImportError:
+        raise ei.PacliInputDataError("This feature is not available if you don't use 'secretstore'.")
 
     prefix = "key_" + net_prefix + "_"
     print("Address".ljust(35), "Balance".ljust(15), "Label".ljust(15))
