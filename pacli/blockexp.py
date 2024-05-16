@@ -90,23 +90,26 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
     tracked_txes = []
 
-    if use_locator or store_locator:
-        if sending_address or receiving_address:
-            locator_list = [sending_address, receiving_address]
+    # address_list -> list of all addresses to query. Will be created always, with the exception of the mode showing all transactions.
+
+    if locator_list:
+        address_list = locator_list
+    elif sending_address or receiving_address:
+        address_list = [a for a in [sending_address, receiving_address] if a is not None]
+    else:
+        address_list = None # this means all transactions will be preselected
 
         #else: # whole wallet mode, not recommended with locators at this time!
-        #    locator_list = list(eu.get_wallet_address_set())
-    else:
-        locator_list = []
+        #    address_list = list(eu.get_wallet_address_set())
 
     if use_locator:
-        loc_blockheights, last_checked_block = get_locator_data(locator_list)
+        loc_blockheights, last_checked_block = get_locator_data(address_list)
 
         if endblock > last_checked_block:
             if startblock <= last_checked_block:
                 if debug:
                     if last_checked_block == 0:
-                        print("Addresses", locator_list, "were not cached. Storing locator data now.")
+                        print("Addresses", address_list, "were not cached. Storing locator data now.")
                     else:
                         print("Endblock {} is higher than the last cached block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
                 blockheights = loc_blockheights + list(range(last_checked_block, endblock + 1))
@@ -122,10 +125,10 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         blockheights = range(startblock, endblock + 1)
 
     if store_locator:
-        address_blocks = {a : [] for a in locator_list}
+        address_blocks = {a : [] for a in address_list}
 
     if locator_list:
-        receiving_address = None
+        receiving_address = None # TODO re-check if still necessary. Probably prevented one of the branches of the complex if-else tree before ...
 
     for bh in blockheights:
         if bh < startblock:
@@ -160,16 +163,19 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
                 receivers = [r for o in tx_struct["outputs"] for r in o["receivers"]]
                 senders = [s for i in tx_struct["inputs"] for s in i["sender"]]
-                recv = receiving_address in receivers
-                send = sending_address in senders
+
+                if address_list:
+                    addr_present = not set(address_list).isdisjoint(set(senders + receivers))
+                    print("LOCPRESENT", addr_present, set(address_list))
                 # print(recv, send, sending_address, receiving_address)
                 # print([o["receivers"] for o in tx_struct["outputs"]])
-                if ((not show_locator_txes and ((recv and send) or
-                    (recv and sending_address is None) or
-                    (send and receiving_address is None) or
-                    (sending_address is None and receiving_address is None))) or
-                    (show_locator_txes and (locator_list is not None) and (not set(locator_list).isdisjoint(set(senders + receivers))))
-                    ):
+                if (not address_list) or addr_present:
+                    """if ((not show_locator_txes and ((receiver_present and sender_present) or
+                    (receiver_present and sending_address is None) or
+                    (sender_present and receiving_address is None) or # sender and
+                    (sending_address is None and receiving_address is None))) or # all transactions shown
+                    (show_locator_txes and (locator_list is not None) and loc_present)
+                    ):"""
                     if advanced:
                         tx_dict = provider.getrawtransaction(txid, 1)
                     else:
@@ -178,10 +184,15 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                         if debug:
                             print("TX added: {} struct: {}".format(txid, tx_struct))
 
-                    tracked_txes.append(tx_dict)
+                    receiver_present = receiving_address in receivers
+                    sender_present = sending_address in senders
+                    all_txes = (sending_address is None and receiving_address is None)
+
+                    if receiver_present or sender_present or all_txes:
+                        tracked_txes.append(tx_dict)
 
                     if store_locator:
-                       for a in locator_list:
+                       for a in address_list:
                            if (a in senders) or (a in receivers):
                                address_blocks[a].append(bh)
 
@@ -258,7 +269,7 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
 
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator)
+    txes = ei.run_command(show_txes_by_block, receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, show_locator_txes=use_locator)
 
     if (not quiet) and (len(txes) == 0):
         print("No transactions found.")
