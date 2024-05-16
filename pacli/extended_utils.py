@@ -471,12 +471,12 @@ def get_address_token_balance(deck: object, address: str) -> Decimal:
     else:
         return 0
 
-def get_wallet_token_balances(deck: object) -> dict:
+def get_wallet_token_balances(deck: object, include_named: bool=False) -> dict:
     """Gets token balances of a single deck, of all wallet addresses, as a Decimal value."""
 
     cards = pa.find_all_valid_cards(provider, deck)
     state = pa.protocol.DeckState(cards)
-    addresses = list(get_wallet_address_set())
+    addresses = list(get_wallet_address_set(empty=True, include_named=include_named)) # token balances can be on empty addresses, thus empty must be set to True
     balances = {}
     for address in state.balances:
 
@@ -570,10 +570,17 @@ def get_safe_block_timeframe(period_start, period_end, security_level=1):
     safe_end = period_end - max(period_length * level[0], level[1])
     return (safe_start, safe_end)
 
-def get_wallet_address_set(empty: bool=False) -> set:
+def get_wallet_address_set(empty: bool=False, include_named: bool=False) -> set:
     """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
+    # TODO: listreceivedbyaddress seems to be unreliable.
     addr_entries = provider.listreceivedbyaddress(0, empty)
-    return set([e["address"] for e in addr_entries])
+    addresses = [e["address"] for e in addr_entries]
+
+    if include_named:
+        named_addresses = ce.list("address", quiet=True).values()
+        addresses += named_addresses
+
+    return set(addresses)
 
 def is_possible_txid(txid: str) -> bool:
     """Very simple TXID format verification."""

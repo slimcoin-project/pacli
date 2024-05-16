@@ -45,7 +45,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
             if no_labels is False:
                 labeled_addresses = labeldict.values()
             else:
-                labeled_addresses = eu.get_wallet_address_set(empty=empty)
+                labeled_addresses = eu.get_wallet_address_set(empty=empty, include_named=True)
         else:
             labeled_addresses = [address]
 
@@ -78,7 +78,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         try:
             if wallet:
                 # Note: returns a dict, structure of balances var is thus different.
-                balance = eu.get_wallet_token_balances(deck)
+                balance = eu.get_wallet_token_balances(deck, include_named=True)
 
                 if (advanced is True) and (not no_labels) and (not quiet):
                     balance = ei.format_balances(balance, labeldict, suppress_addresses=only_labels)
