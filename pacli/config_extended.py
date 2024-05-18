@@ -191,6 +191,7 @@ def update_categories(configfilename: str=EXT_CONFIGFILE, quiet: bool=False):
 
 def delete_category(category, configfilename: str=EXT_CONFIGFILE):
     # no tools command for this one. Should be used only manually.
+    # to empty a category, use flush.
     config = get_config(configfilename)
     del config[category]
     write_config(config, configfilename)
@@ -202,7 +203,7 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
 ### Extended helper tools (api)
 
 def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, debug: bool=False):
-    cfg = ei.run_command(get_config, quiet=quiet, debug=debug)
+    cfg = get_config(quiet=quiet, debug=debug)
     rawdict = cfg[category]
     result_keys = [k for k in rawdict.keys()]
     result_keys.sort()
@@ -246,4 +247,15 @@ def delete(category: str, label: str, now: bool=False, debug: bool=False) -> Non
        Specify category and label.
        Use --now to delete really."""
     return ei.run_command(delete_item, category, str(label), now=now, debug=debug)
+
+def flush(category: str, now: bool=False, quiet: bool=False, configfilename: str=EXT_CONFIGFILE) -> None:
+    """Deletes all entries in a category."""
+    config = get_config(configfilename)
+    config.update({category : {}})
+    if now is True:
+        if not quiet:
+            print("Deleting all entries of category '{}'".format(category))
+        write_config(config, configfilename)
+    elif not quiet:
+        print("This is a dry run, add --now to delete really.")
 

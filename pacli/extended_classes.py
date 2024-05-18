@@ -41,6 +41,7 @@ class ExtConfig:
             replace: bool=False,
             now: bool=False,
             quiet: bool=False,
+            flush_category: bool=False,
             extended: str=None,
             compatibility_mode: bool=False) -> None:
         """Changes configuration settings of the basic or extended configuration file.
@@ -79,6 +80,11 @@ class ExtConfig:
                and ensures the original commands and their flags work as expected.
                Please refer to the original PeerAssets README.
 
+           pacli config set CATEGORY -f
+
+               Flush (delete) the contents of an entire category. Requires confirmation.
+               Useful when switching to a new wallet file. In this case flush the 'address' category.
+
            Notes:
 
                The basic configuration settings 'network', 'provider' 'rpcuser', 'rpcpassword' and 'rpcport'
@@ -105,7 +111,7 @@ class ExtConfig:
 
 """
 
-        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, compatibility_mode=compatibility_mode)
+        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, flush_category=flush_category, compatibility_mode=compatibility_mode)
 
     def __set(self,
               label: str,
@@ -116,7 +122,16 @@ class ExtConfig:
               replace: bool=False,
               now: bool=False,
               quiet: bool=False,
+              flush_category: bool=False,
               compatibility_mode: bool=False) -> None:
+
+        if flush_category is True:
+            category = label
+            if not quiet:
+                print("WARNING: This deletes the whole content of category '{}' in the extended configuration file.".format(category))
+                print("A backup is highly recommended.")
+                ei.confirm_continuation()
+            return ce.flush(category, quiet=quiet, now=now)
 
         if category is not None:
             if type(category) != str:
