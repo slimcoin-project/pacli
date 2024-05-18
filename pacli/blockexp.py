@@ -166,7 +166,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
                 if address_list:
                     addr_present = not set(address_list).isdisjoint(set(senders + receivers))
-                    print("LOCPRESENT", addr_present, set(address_list))
+                    # print("LOCPRESENT", addr_present, set(address_list))
                 # print(recv, send, sending_address, receiving_address)
                 # print([o["receivers"] for o in tx_struct["outputs"]])
                 if (not address_list) or addr_present:
