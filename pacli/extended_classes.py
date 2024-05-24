@@ -1143,8 +1143,11 @@ class ExtCard:
         else:
             result = cards
 
-        print_card_list(list(result))
-
+        try:
+            print_card_list(list(result))
+        except IndexError:
+            if not quiet:
+                print("No transfers (cards) found.")
 
     def balances(self,
                 param1: str=None,

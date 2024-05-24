@@ -95,7 +95,7 @@ def get_labels_from_keyring(prefix: str=Settings.network):
 
     try:
         import secretstorage
-    except (ImportError, ModuleNotFoundError):
+    except (ImportError, ModuleNotFoundError, secretstorage.exceptions.SecretServiceNotAvailableException):
         print("""This feature needs the 'secretstorage' package, which is currently not installed.
 It may not be supported by your operating system or desktop environment.
 In this case, it is recommended to use the extended configuration file to store address labels.""")
