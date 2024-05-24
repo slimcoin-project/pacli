@@ -11,19 +11,28 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.at_utils as au
 import pacli.extended_commands as ec
+import pacli.config_extended as ce
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATToken():
 
     """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
 
-    def create_tx(self, address: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
+    def create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
         The purpose of this command is to be able to use the address labels from Pacli,
         above all to make fast transactions to a tracked address of an AT token.
 
-        Usage:
-        pacli attoken create_tx ADDRESS AMOUNT
+        Usage modes:
+
+           pacli attoken create_tx TOKEN AMOUNT
+
+        Send coins to the gateway (e.g. donation, investment) address of token (deck) TOKEN.
+
+           pacli attoken create_tx ADDRESS AMOUNT
+
+        Send coins to the gateway address ADDRESS.
+        This should be considered an advanced mode. It will not check compatibility of deadlines.
 
         Args:
 
@@ -34,15 +43,45 @@ class ATToken():
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit.
           quiet: Suppress output and print it out in a script-friendly way.
-          debug: Show additional debug information.'''
-        # TODO: this could benefit from a deck parameter, so you could automatically send to the deck's tracked address.
+          debug: Show additional debug information.
+          address_or_deck: To be used as a positional argument (flag name not necessary).
+          amount: To be used as a positional argument (flag name not necessary).
+          no_confirmation: Don't require a confirmation if no compatibility check (e.g. deadlines) is performed.'''
+
+        return ei.run_command(self.__create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=no_confirmation)
+
+    def __create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
+
+        if address_or_deck in ce.list("deck", quiet=True) or eu.is_possible_txid(address_or_deck):
+            deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet)
+            deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+            try:
+                address = deck.at_address
+            except AttributeError:
+                raise ei.PacliInputDataError("The given deck is not an AT deck.")
+            if not quiet:
+                print("Sending transaction to burn or AT gateway address:", address)
+
+            currentblock = provider.getblockcount()
+            if deck.endblock is not None and currentblock > deck.endblock:
+                raise ei.PacliInputDataError("End deadline for burn or gateway transactions of this token is is block {}.".format(deck.endblock))
+            elif deck.startblock is not None and currentblock < deck.startblock:
+                raise ei.PacliInputDataError("Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
+
+        else:
+            if not no_confirmation and not quiet:
+                print("WARNING: If you send the coins directly to a gateway address, then possible incompatibilities (e.g. deadlines) will not be checked.")
+                print("Consider using the token ID or label/name as first argument instead.")
+                ei.confirm_continuation()
+            address = ec.process_address(address_or_deck)
+
 
         change_address = ec.process_address(change)
-
         dec_amount = Decimal(str(amount))
-        rawtx = ei.run_command(au.create_simple_transaction, amount=dec_amount, dest_address=address, change_address=change_address, debug=debug)
 
-        return ei.run_command(eu.finalize_tx, rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, debug=debug)
+        rawtx = au.create_simple_transaction(amount=dec_amount, dest_address=address, change_address=change_address, debug=debug)
+
+        return eu.finalize_tx(rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, debug=debug)
 
 
     @classmethod
@@ -176,15 +215,22 @@ class PoBToken(ATToken):
         return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, locktime=locktime, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
-    def burn_coins(self, amount: str, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, idstr: str=None, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address.
 
-        Usage:
+        Usage modes:
 
-        pacli pobtoken burn_coins AMOUNT
+            pacli pobtoken burn_coins AMOUNT
+
+        Burns coins. Does not check deadlines or compatibility of any tokens.
+
+            pacli pobtoken burn_coins AMOUNT -i TOKEN
+
+        Burns coins checking for compatibility (e.g. deadlines) with token (deck) TOKEN.
 
         Args:
 
+          idstr: ID of the Token or Deck you want to check compatibility with.
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           sign: Sign the transaction (True by default).
@@ -194,4 +240,7 @@ class PoBToken(ATToken):
           quiet: Suppress output and print it out in a script-friendly way.
           debug: Show additional debug information."""
 
-        return super().create_tx(address=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, confirm=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)
+        if idstr is None:
+            return super().create_tx(address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=True)
+        else:
+            return super().create_tx(address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)
