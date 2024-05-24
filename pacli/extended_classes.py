@@ -874,7 +874,8 @@ class ExtDeck:
                 table_title = "PoB token decks:"
                 decks = [d for d in decks if d.at_address == au.burn_address()]
             else:
-                table_title = "AT token decks (including PoB):"
+                table_title = "AT token decks (not including PoB):"
+                decks = [d for d in decks if d.at_address != au.burn_address()]
 
         elif dpodtoken is True:
             decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT))
