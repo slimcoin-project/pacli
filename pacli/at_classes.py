@@ -72,7 +72,8 @@ class ATToken():
             if not no_confirmation and not quiet:
                 print("WARNING: If you send the coins directly to a gateway address, then possible incompatibilities (e.g. deadlines) will not be checked.")
                 print("Consider using the token ID or label/name as first argument instead.")
-                ei.confirm_continuation()
+                if not ei.confirm_continuation():
+                    return
             address = ec.process_address(address_or_deck)
 
 
