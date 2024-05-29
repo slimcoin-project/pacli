@@ -144,13 +144,12 @@ def get_deckinfo(deckid, p2th: bool=False):
         # the following code generates the addresses, so it's not necessary to add them to the dict.
         # TODO shouldn't it be possible simply to use a list?
         p2th_dict = {"p2th_main": d.p2th_address}
-        p2th_dict.update(get_dt_p2th_addresses(d))
-                      #"p2th_proposal" : d.derived_p2th_address("proposal"),
-                      #"p2th_signalling" : d.derived_p2th_address("signalling"),
-                      #"p2th_locking" : d.derived_p2th_address("locking"),
-                      #"p2th_donation" : d.derived_p2th_address("donation"),
-                      #"p2th_voting" : d.derived_p2th_address("voting")}
-        # d_dict.update(p2th_dict)
+        try:
+            if d.at_type == 1:
+                p2th_dict.update(get_dt_p2th_addresses(d))
+        except AttributeError:
+            pass
+
     return d_dict
 
 def get_initialized_decks(decks: list, debug: bool=False) -> list:
