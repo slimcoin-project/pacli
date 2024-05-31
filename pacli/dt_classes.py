@@ -25,7 +25,7 @@ class PoDToken():
     """General commands to manage dPoD (decentralized proof-of-donation) tokens."""
 
     @classmethod
-    def deck_spawn(self,
+    def spawn(self,
                    name: str,
                    epoch_length: int,
                    reward: int,
@@ -43,7 +43,7 @@ class PoDToken():
 
         Usage:
 
-            pacli podtoken deck_spawn NAME EPOCHLENGTH REWARD
+            pacli podtoken spawn NAME EPOCHLENGTH REWARD
 
         Args:
 
@@ -66,12 +66,12 @@ class PoDToken():
                              confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
-    def deck_state(self, deck: str, debug: bool=False) -> None:
+    def state(self, deck: str, debug: bool=False) -> None:
         """Prints the DT deck state (the current state of the deck variables).
 
         Usage:
 
-            pacli podtoken deck_state DECK
+            pacli podtoken state DECK
 
         Args:
 
