@@ -42,7 +42,7 @@ def fresh_address(label: str, set_main: bool=False, backup: str=None, check_usag
 
     if not quiet:
         print("New address created:", address, "with label (name):", label)
-        print("Address already is saved in your wallet, ready to use.")
+        print("Address already is saved in your wallet, ready to use, and set as the current main address.")
 
     if set_main:
         return set_main_key(label, keyring=keyring, legacy=legacy, quiet=quiet)

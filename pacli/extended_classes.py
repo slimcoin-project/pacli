@@ -365,7 +365,7 @@ class ExtAddress:
         pacli address set LABEL [-f]
 
             Without flags, sets the LABEL as the main address.
-            If -f/--fresh is used, a new address is generated with label LABEL.
+            If -f/--fresh is used, a new address is generated with label LABEL and set as main address.
 
         pacli address set -a ADDRESS
 
@@ -381,7 +381,7 @@ class ExtAddress:
 
         Args:
 
-          fresh: Creates an address/key with the wallet software and assigns it a label.
+          fresh: Creates an address/key with the wallet software, assigns it a label and sets it as the main address.
           check_usage: In combination with -f/--fresh, will check if a new address was already used (can happen in some cases if the node was mining).
           delete: Deletes the specified address label. Use --now to delete really.
           modify: Replaces the label for an address by another one.
@@ -737,7 +737,7 @@ class ExtAddress:
            Args:
 
              startblock: Block to start the cache process. Use this parameter if you know when the address was first used.
-             blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks.
+             blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks (ignored in combination with -f).
              full: Scans whole blockchain. WARNING: Can take several hours up to days!
              erase: Delete address entry in blocklocator.json. To be used when the locator data is wrong.
              quiet: Suppress output.
@@ -944,7 +944,7 @@ class ExtDeck:
         Args:
 
           info: Shows the Deck object values.
-          find: Searches for a string in the Deck ID.
+          find: Searches for a string in the Deck ID. Cannot be combined with -i, -p and -s flags.
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -i/--info).
           show_p2th: Shows P2TH address(es) (only in combination with -i/--info)
@@ -1017,7 +1017,7 @@ class ExtDeck:
           label: Store a custom label. Does only work if a DECK is given.
           no_label: Do not store any label.
           quiet: Suppress output.
-          all_decks: In combination with -s, store blockheights for all initialized tokens/decks.
+          all_decks: In combination with -c, store blockheights for all initialized tokens/decks.
           id_deck: Deck/Token ID. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
           cache: Cache the deck's state, storing the blockheights with state changes.
           debug: Show debug information.
@@ -1083,7 +1083,7 @@ class ExtDeck:
 
         Args:
 
-          blocks: Number of blocks to store (default: 50000).
+          blocks: Number of blocks to store (default: 50000) (ignored in combination with -f).
           full: Store blockheights for the whole blockchain (since the start block).
           all_decks: Store blockheights for all initialized tokens/decks.
           quiet: Suppress output.
