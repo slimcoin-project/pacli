@@ -947,7 +947,7 @@ class ExtDeck:
           find: Searches for a string in the Deck ID.
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -i/--info).
-          show_p2th: Shows P2TH addresses (only in combination with -i/--info, only dPoD tokens)
+          show_p2th: Shows P2TH address(es) (only in combination with -i/--info)
         """
         # TODO: add --show_p2th address to all decks, not only dPoD.
         #TODO: an option to search by name would be fine here.
@@ -1275,7 +1275,7 @@ class ExtCard:
             return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=labels, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
-    def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
+    def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1297,6 +1297,7 @@ class ExtCard:
           verify: Verify transaction with Cointoolkit.
           quiet: Suppress output and printout in a script-friendly way.
           debug: Show additional debug information.
+          nocheck: Do not perform a balance check (faster).
           sign: Signs the transaction (True by default, use --send=False for a dry run)
           send: Sends the transaction (True by default, use --send=False for a dry run)
         """
@@ -1307,7 +1308,7 @@ class ExtCard:
         return ei.run_command(self.__transfer, **kwargs)
 
 
-    def __transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
+    def __transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
 
         (sign, send) = (False, False) if ((Settings.compatibility_mode == "True") and (sign, send) == (None, None)) else (True, True)
 
@@ -1323,6 +1324,7 @@ class ExtCard:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         receiver_addresses = [ec.process_address(r) for r in receiver]
         change_address = ec.process_address(change)
+        balance_check = False if nocheck is True else True
 
         if not quiet:
             print("Sending tokens to the following receivers:", receiver)
@@ -1335,6 +1337,7 @@ class ExtCard:
                                  asset_specific_data=None,
                                  sign=sign,
                                  send=send,
+                                 balance_check=balance_check,
                                  verify=verify,
                                  debug=debug
                                  )

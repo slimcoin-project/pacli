@@ -359,11 +359,19 @@ def get_input_types(rawtx):
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
-                 sign: bool=False, send: bool=False, debug: bool=False, quiet: bool=False, confirm: bool=False) -> Optional[dict]:
+                 sign: bool=False, send: bool=False, balance_check: bool=False, debug: bool=False, quiet: bool=False, confirm: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
 
     if not deck:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+
+    # balance check
+    if balance_check:
+        if not quiet:
+            print("Checking sender balance ...")
+        balance = Decimal(str(get_address_token_balance(deck, Settings.key.address)))
+        if balance < sum(amount):
+            raise ei.PacliInputDataError("Not enough balance of this token.")
 
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,
