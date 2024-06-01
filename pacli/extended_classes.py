@@ -1123,8 +1123,10 @@ class ExtCard:
 
         Args:
 
+          address: Filter transfers by address. Labels are permitted. If no address is given after -a, use the current main address.
           quiet: Suppresses additional output, printout in script-friendly way.
-          valid: Only shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded."""
+          valid: Only shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded.
+          debug: Show debug information."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr else None
         return ei.run_command(self.__listext, deckid=deckid, address=address, quiet=quiet, valid=valid, debug=debug)
@@ -1142,7 +1144,7 @@ class ExtCard:
         if valid is True:
             result = pa.protocol.DeckState(cards).valid_cards
         elif address:
-            if address is True:
+            if type(address) == bool:
                 address = Settings.key.address
             else:
                 address = ec.process_address(address)
