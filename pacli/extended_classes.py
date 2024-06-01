@@ -864,9 +864,19 @@ class ExtDeck:
 
         if standard is True:
             netw = Settings.network
-            decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
-                     pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)]
-            table_title = "Standard PoB and dPoD decks (in this order):"
+
+            pob_default = pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production)
+            dpod_default = pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)
+
+            if dpodtoken is True:
+                decks = [dpod_default]
+                table_title = "Standard dPoD token:"
+            elif pobtoken is True:
+                decks = [pob_default]
+                table_title = "Standard PoB token:"
+            else:
+                decks = [pob_default, dpod_default]
+                table_title = "Standard PoB and dPoD tokens (in this order):"
 
         elif (pobtoken is True) or (attoken is True):
             decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT))
