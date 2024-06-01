@@ -212,9 +212,12 @@ def reorg_check(quiet: bool=False) -> None:
         bheights = sorted([ int(h) for h in config["checkpoint"] ])
         last_height = bheights[-1]
     except IndexError: # first reorg check
+
+        store_checkpoint()
         if not quiet:
             print("A reorg check was never performed on this node.")
-            print("Saving first checkpoint.")
+            print("Saved last block as first checkpoint.")
+            return
         else:
             return 0
 
