@@ -1317,8 +1317,10 @@ class ExtCard:
 
         if type(receiver) == str:
             receiver = [receiver]
-        if type(amount) != list:
+        if type(amount) in (int, float):
             amount = [Decimal(str(amount))]
+        elif type(amount) != list:
+            raise ei.PacliInputDataError("Amount must be a number.")
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)

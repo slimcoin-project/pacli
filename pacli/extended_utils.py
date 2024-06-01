@@ -9,6 +9,7 @@ from pypeerassets.pa_constants import param_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
+from pypeerassets.exceptions import InsufficientFunds
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
 import pacli.extended_constants as c
@@ -386,12 +387,16 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
         raise ei.PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
-    issue_tx = pa.card_transfer(provider=provider,
+    try:
+        issue_tx = pa.card_transfer(provider=provider,
                                  inputs=provider.select_inputs(Settings.key.address, 0.02),
                                  card=card,
                                  change_address=change_address,
                                  locktime=locktime
                                  )
+
+    except InsufficientFunds:
+        raise ei.PacliInputDataError("Insufficient funds.")
 
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, confirm=confirm, debug=debug)
 
