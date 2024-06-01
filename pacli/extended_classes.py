@@ -1113,7 +1113,7 @@ class ExtDeck:
 
 class ExtCard:
 
-    def list(self, idstr: str, quiet: bool=False, valid: bool=False, debug: bool=False):
+    def list(self, idstr: str, address: str=None, quiet: bool=False, valid: bool=False, debug: bool=False):
         """List all transactions (cards, i.e. issues, transfers, burns) of a token.
 
         Usage:
@@ -1127,9 +1127,9 @@ class ExtCard:
           valid: Only shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr else None
-        return ei.run_command(self.__listext, deckid=deckid, quiet=quiet, valid=valid, debug=debug)
+        return ei.run_command(self.__listext, deckid=deckid, address=address, quiet=quiet, valid=valid, debug=debug)
 
-    def __listext(self, deckid: str, quiet: bool=False, valid: bool=False, debug: bool=False):
+    def __listext(self, deckid: str, address: str=None, quiet: bool=False, valid: bool=False, debug: bool=False):
 
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
@@ -1141,6 +1141,13 @@ class ExtCard:
 
         if valid is True:
             result = pa.protocol.DeckState(cards).valid_cards
+        elif address:
+            if address is True:
+                address = Settings.key.address
+            else:
+                address = ec.process_address(address)
+            result = [c for c in cards if (address in c.sender) or (address in c.receiver)]
+
         else:
             result = cards
 
