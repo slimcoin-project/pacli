@@ -111,7 +111,7 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
 
             if local_name: # is empty list if no label is found
                if not quiet:
-                   print("Aborted. There is already at least one local name (label) for the deck: {}".format(local_name))
+                   print("Label not stored. There is already at least one local name (label) for the deck: {}".format(local_name))
                    return
 
         if deck.name in existing_labels:

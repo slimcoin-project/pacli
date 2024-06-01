@@ -112,16 +112,15 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
     """Shows the balance of a single token (deck) on the current main address or another address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
-    # TODO: also affected by wallet issue. (which?)
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if wallet:
-        wallet_addresses = list(eu.get_wallet_address_set())
+        wallet_addresses = list(eu.get_wallet_address_set(empty=True, include_named=True))
         # addrdict = { address : label for label, address in ec.get_labels_and_addresses(keyring=keyring).items() }
         labeldict = ec.get_labels_and_addresses(keyring=keyring)
-        balances = eu.get_wallet_token_balances(deck)
+        balances = eu.get_wallet_token_balances(deck, include_named=True)
 
         if (not no_labels) and (not quiet):
             balances = ei.format_balances(balances, labeldict)

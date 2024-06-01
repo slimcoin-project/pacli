@@ -1153,15 +1153,15 @@ class ExtCard:
 
         if valid is True:
             result = pa.protocol.DeckState(cards).valid_cards
-        elif address:
+        else:
+            result = cards
+
+        if address:
             if type(address) == bool:
                 address = Settings.key.address
             else:
                 address = ec.process_address(address)
-            result = [c for c in cards if (address in c.sender) or (address in c.receiver)]
-
-        else:
-            result = cards
+            result = [c for c in result if (address in c.sender) or (address in c.receiver)]
 
         try:
             print_card_list(list(result))
