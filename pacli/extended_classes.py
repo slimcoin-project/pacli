@@ -57,7 +57,7 @@ class ExtConfig:
                WARNING: If changing the parameters of the basic configuration file,
                the application may not work anymore! In this case you have to modify
                the file manually.
-               (NOTE: In compatibility mode, the -r flag can be omitted.)
+               (NOTE: In compatibility mode using the basic configuration file, the -r flag can be omitted.)
 
            pacli config set LABEL VALUE -e CATEGORY
 

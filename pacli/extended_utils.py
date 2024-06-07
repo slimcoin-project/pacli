@@ -625,7 +625,17 @@ def is_possible_base58_address(address: str, network_name: str):
     else:
         return True
 
-def is_possible_address(address: str, network_name: str=Settings.network):
+def is_possible_address(address: str, network_name: str=Settings.network, validate: bool=True):
+
+    if validate is True:
+        try:
+            if provider.validateaddress(address).get("isvalid") == True:
+                return True
+            else:
+                return False
+        except:
+             # if validateaddress command is not supported on blockchain, this fallbacks to the old method
+             pass
 
     try:
         assert len(address) > 0

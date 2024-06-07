@@ -50,7 +50,12 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
             labeled_addresses = [address]
 
         for addr in labeled_addresses:
-            balance = float(str(provider.getbalance(addr)))
+            try:
+                balance = float(str(provider.getbalance(addr)))
+            except TypeError: # non-wallet addresses can throw this error
+                balance = 0
+                if debug:
+                    print("WARNING: Invalid address: {}.".format(addr))
             coin_balances.update({addr: balance})
 
         if (advanced is True) and (not no_labels):

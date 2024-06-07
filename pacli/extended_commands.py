@@ -134,7 +134,7 @@ def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
 
 def set_label(label: str, address: str, network_name: str=Settings.network, set_main: bool=False, modify: bool=False, keyring: bool=False, quiet: bool=False):
 
-    if (not modify) and (not eu.is_possible_address(address)):
+    if (not modify) and (not eu.is_possible_address(address, network_name)):
         raise ei.PacliInputDataError("Value must be a valid address.")
 
     if keyring:
