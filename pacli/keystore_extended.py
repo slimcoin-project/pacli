@@ -12,7 +12,7 @@ import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 
-def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=Settings.network, modify: bool=False, legacy: bool=False) -> None:
+def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=Settings.network, modify: bool=False, legacy: bool=False, quiet: bool=False) -> None:
     '''save/import new key, can be as main address or with a label, old key can be backed up
        this feature allows to import keys and generate new addresses'''
 
@@ -22,7 +22,8 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
         if new_key:
             checkkey = int(new_key, 16)
     except ValueError:
-        ei.print_red("Key in wrong format.")
+        if not quiet:
+            ei.print_red("Key in wrong format.")
         return
 
     kprefix = get_key_prefix(network_name, legacy)
@@ -33,7 +34,8 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
             old_key = get_key("key")
             set_key(kprefix + backup_id, old_key)
         elif existing_label == "key":
-            ei.print_red("Error: Trying to replace main key without providing backup ID. Use --force if you really want to do that.")
+            if not quiet:
+                ei.print_red("Error: Trying to replace main key without providing backup ID. Use --force if you really want to do that.")
             return
     else:
         label = str(label)
@@ -45,7 +47,8 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
         try:
             key = pa.Kutil(network=network_name, from_wif=wif_key).privkey
         except ValueError:
-            ei.print_red("Error: Invalid address or private key.")
+            if not quiet:
+                ei.print_red("Error: Invalid address or private key.")
             return
 
     elif existing_label:
@@ -62,7 +65,8 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
             except ImportError:
                 raise ei.PacliInputDataError("Option --modify not available, secretstorage missing (probably not supported by your operating system)")
             except (KeyError, TypeError):
-                print("Note: This address/key wasn't stored in the keyring before. No keyring entry was deleted.")
+                if not quiet:
+                    print("Note: This address/key wasn't stored in the keyring before. No keyring entry was deleted.")
         set_key(kprefix + label, key)
     else:
         set_key('key', key)

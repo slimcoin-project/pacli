@@ -132,20 +132,20 @@ def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
 
 # extended config
 
-def set_label(label: str, address: str, network_name: str=Settings.network, set_main: bool=False, modify: bool=False, keyring: bool=False):
+def set_label(label: str, address: str, network_name: str=Settings.network, set_main: bool=False, modify: bool=False, keyring: bool=False, quiet: bool=False):
 
-    if not eu.is_possible_address(address):
+    if (not modify) and (not eu.is_possible_address(address)):
         raise ei.PacliInputDataError("Value must be a valid address.")
 
     if keyring:
-        ke.set_new_key(label=str(label), new_address=address, modify=modify, network_name=Settings.network)
+        ke.set_new_key(label=str(label), new_address=address, modify=modify, network_name=Settings.network, quiet=quiet)
     else:
-        store_address(str(label), address=address, network_name=network_name, modify=modify)
+        store_address(str(label), address=address, network_name=network_name, modify=modify, quiet=quiet)
 
     if set_main:
         return set_main_key(str(label), keyring=keyring)
 
-def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False, replace: bool=False, to_wallet: bool=False):
+def store_address(label: str, network_name: str=Settings.network, address: str=None, full: bool=False, modify: bool=False, replace: bool=False, to_wallet: bool=False, quiet: bool=False):
     keyring_prefix = "key_"
     # ext_label is the extended config label, full_label includes the 'key_' prefix used in the keyring.
     # full option means that full keyring labels are processed.
@@ -161,7 +161,7 @@ def store_address(label: str, network_name: str=Settings.network, address: str=N
     if not address:
         address = ke.label_to_kutil(full_label).address
 
-    ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name, replace=replace)
+    ce.write_item(category="address", key=ext_label, value=address, modify=modify, network_name=network_name, replace=replace, quiet=quiet)
 
     if to_wallet is True:
         ke.import_key_to_wallet("keyring_addresses", ext_label[len(network_name + "_"):])

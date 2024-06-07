@@ -440,9 +440,7 @@ class ExtAddress:
         elif label is not None and address is not None: # ex: tools store_address
             """Stores a label for an address in the extended config file."""
 
-            ec.set_label(label, address, keyring=keyring, modify=modify, network_name=Settings.network)
-            if not quiet:
-                print("Stored address {} with label {}.".format(address, label))
+            ec.set_label(label, address, keyring=keyring, modify=modify, network_name=Settings.network, quiet=quiet)
             return
 
         else: # set_main
@@ -804,13 +802,23 @@ class ExtDeck:
           id_deck: Deck/Token ID or old label. To be used as a positional argument (flag keyword not mandatory), see Usage modes above.
         """
 
-        # (replaces `tools store_deck` - is a power user command because most users would be fine with the default PoB and PoD token)
+        return ei.run_command(self.__setcfg, label=label, id_deck=id_deck, modify=modify, delete=delete, quiet=quiet, now=now)
+
+    def __setcfg(self,
+            label: str,
+            id_deck: str=None,
+            modify: bool=False,
+            delete: bool=False,
+            quiet: bool=False,
+            now: bool=False):
 
         deckid = id_deck
         if delete is True:
             return ce.delete("deck", label=str(label), now=now)
-        else:
+        elif modify or eu.is_possible_txid(deckid):
             return ce.setcfg("deck", label, deckid, modify=modify, quiet=quiet)
+        else:
+            raise ei.PacliInputDataError("Value is not a valid deck ID.")
 
 
     def list(self,
