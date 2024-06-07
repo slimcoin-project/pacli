@@ -1333,14 +1333,14 @@ class ExtCard:
 
         (sign, send) = (False, False) if ((Settings.compatibility_mode == "True") and (sign, send) == (None, None)) else (True, True)
 
-        if not set((type(receiver), type(amount))).issubset(set((list, str, int, float))):
+        if not set((type(receiver), type(amount))).issubset(set((list, tuple, str, int, float))):
             raise ei.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
 
         if type(receiver) == str:
             receiver = [receiver]
         if type(amount) in (int, float):
             amount = [Decimal(str(amount))]
-        elif type(amount) != list:
+        elif type(amount) not in (list, tuple):
             raise ei.PacliInputDataError("Amount must be a number.")
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
