@@ -590,8 +590,8 @@ class ExtAddress:
             include_only = None
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
-            # TODO: doesn't seem towork with keyring.
-            # ex tools show_addresses
+            # TODO: at least coinbalances shows P2TH.
+
             if (labels is True) or (full_labels is True):
                 named = True
 
@@ -840,7 +840,7 @@ class ExtDeck:
           quiet: Suppress output, printout in script-friendly way.
           burntoken: Only show PoB tokens/decks.
           podtoken: Only show dPoD tokens/decks.
-          standard: Only show the standard dPoD and PoB tokens/decks.
+          standard: Only show the standard dPoD and PoB tokens/decks. Combined with -b, only the standard PoB token is shown, and with -p, only the dPoD token.
           attoken: Only show AT tokens/decks.
           without_initstate: Don't show initialized status.
           only_p2th: Shows only the P2TH address of each token/deck. When used with -p, shows all P2TH addresses of the dPoD tokens.
@@ -1124,12 +1124,14 @@ class ExtDeck:
 class ExtCard:
 
     def list(self, idstr: str, address: str=None, quiet: bool=False, valid: bool=False, debug: bool=False):
-        """List all transactions (cards, i.e. issues, transfers, burns) of a token.
+        """List all existing transactions (cards, i.e. issues, transfers, burns) of a token.
 
         Usage:
 
-        pacli card list
-        pacli token transfers
+            pacli card list TOKEN
+            pacli token transfers TOKEN
+
+        TOKEN can be a token/deck ID or a label.
 
         Args:
 
@@ -1294,7 +1296,7 @@ class ExtCard:
             return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=labels, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
-    def transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, quiet: bool=False, debug: bool=False):
+    def transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1327,7 +1329,7 @@ class ExtCard:
         return ei.run_command(self.__transfer, **kwargs)
 
 
-    def __transfer(self, deck: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
+    def __transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
 
         (sign, send) = (False, False) if ((Settings.compatibility_mode == "True") and (sign, send) == (None, None)) else (True, True)
 
@@ -1341,7 +1343,7 @@ class ExtCard:
         elif type(amount) != list:
             raise ei.PacliInputDataError("Amount must be a number.")
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         receiver_addresses = [ec.process_address(r) for r in receiver]
         change_address = ec.process_address(change)

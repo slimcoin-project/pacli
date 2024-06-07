@@ -17,12 +17,14 @@ class Token(VanillaDeck, VanillaCard):
     """
 
     def transfers(self, idstr: str, address: str=None, quiet: bool=False, valid: bool=False, debug: bool=False):
-        """List all transactions (cards, i.e. issues, transfers, burns) of a token (with support for deck labels).
+        """List all existing transactions (cards, i.e. issues, transfers, burns) of a token.
 
         Usage:
 
-            pacli card list
-            pacli token transfers
+            pacli card list TOKEN
+            pacli token transfers TOKEN
+
+        TOKEN can be a token/deck ID or a label.
 
         Args:
 

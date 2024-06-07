@@ -59,7 +59,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         balances = { Settings.network : coin_balances }
 
     # NOTE: default view needs no deck labels
-    # NOTE2: Silent mode doesn't show labels.
+    # NOTE2: Quiet mode doesn't show labels.
     # if ((advanced is True) and not no_labels) and (not quiet):
     deck_labels = None
     if not no_labels and not quiet:
