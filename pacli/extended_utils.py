@@ -701,3 +701,17 @@ def get_deck_p2th_addresses(deck):
 
     return addresses
 
+
+def manage_send(sign, send):
+    result = []
+    for setting in [sign, send]:
+        if setting is None:
+            if Settings.compatibility_mode is True:
+                setting = False
+            else:
+                setting = True
+        result.append(setting)
+    return result
+
+
+

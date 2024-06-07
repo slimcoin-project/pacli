@@ -1306,8 +1306,8 @@ class ExtCard:
 
         Transfer AMOUNT of a token (deck) TOKEN (ID, global name or label) to a single receiver RECEIVER.
 
-            pacli card transfer TOKEN [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
-            pacli token transfer TOKEN [RECEIVER1, RECEIVER2, ...] [AMOUNT1, AMOUNT2, ...]
+            pacli card transfer TOKEN "[RECEIVER1, RECEIVER2, ...]" "[AMOUNT1, AMOUNT2, ...]"
+            pacli token transfer TOKEN "[RECEIVER1, RECEIVER2, ...]" "[AMOUNT1, AMOUNT2, ...]"
 
         Transfer to multiple receivers. AMOUNT1 goes to RECEIVER1 and so on.
         The brackets are mandatory, but they don't have to be escaped.
@@ -1331,7 +1331,7 @@ class ExtCard:
 
     def __transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
 
-        (sign, send) = (False, False) if ((Settings.compatibility_mode == "True") and (sign, send) == (None, None)) else (True, True)
+        sign, send = eu.manage_send(sign, send)
 
         if not set((type(receiver), type(amount))).issubset(set((list, tuple, str, int, float))):
             raise ei.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
