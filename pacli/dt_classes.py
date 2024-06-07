@@ -56,7 +56,7 @@ class PoDToken():
           sign: Sign the transaction (False by default).
           send: Send the transaction (False by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit."""
+          verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, deck_sdp)
         change_address = ec.process_address(change)
@@ -125,7 +125,7 @@ class PoDToken():
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Suppress output.
           txhex: Print out the transaction as a HEX string.
           debug: Show additional debug information.
@@ -630,7 +630,7 @@ class Proposal:
           modify: Modify the proposal (see Usage modes).
           tx_fee: Set custom transaction fee.
           wait_for_confirmation: Wait for a confirmation and show a message until then.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only output the transaction hexstring (script-friendly).
           debug: Display debugging information.
           req_amount: Requested amount. To be used as positional argument (flag name not necessary). See Usage modes.
@@ -672,7 +672,7 @@ class Proposal:
           level_security: Security level.
           wait_for_confirmation: Wait for a confirmation and show a message until then.
           match_round: Wait for the next suitable voting round to broadcast the transaction.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information."""
 
@@ -711,7 +711,7 @@ class Donation:
           change: Set change address
           tx_fee: Set custom transaction fee.
           wait_for_confirmation: Wait for a confirmation and show a message until then.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information.
           force: Send the transaction even if some parameters are wrong (debugging option)."""
@@ -751,7 +751,7 @@ class Donation:
           change: Set change address
           tx_fee: Set custom transaction fee.
           wait_for_confirmation: Wait for a confirmation and show a message until then.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information.
           force: Send the transaction even if some parameters are wrong (debugging option).
@@ -789,7 +789,7 @@ class Donation:
           change: Set change address
           tx_fee: Set custom transaction fee.
           wait_for_confirmation: Wait for a confirmation and show a message until then.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information.
           force: Send the transaction even if some parameters are wrong (debugging option).

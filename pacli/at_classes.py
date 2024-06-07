@@ -41,7 +41,7 @@ class ATToken():
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Suppress output and print it out in a script-friendly way.
           debug: Show additional debug information.
           address_or_deck: To be used as a positional argument (flag name not necessary).
@@ -115,7 +115,7 @@ class ATToken():
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           payto: Pay to a single address (see above).
           payamount: Pay a single amount (see above).
           amounts: List of amounts (see above) to be paid to multiple receivers.
@@ -172,7 +172,7 @@ class ATToken():
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit."""
+          verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
 
         change_address = ec.process_address(change)
@@ -208,7 +208,7 @@ class PoBToken(ATToken):
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit."""
+          verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
@@ -237,7 +237,7 @@ class PoBToken(ATToken):
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Suppress output and print it out in a script-friendly way.
           debug: Show additional debug information."""
 

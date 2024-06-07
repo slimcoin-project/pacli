@@ -223,22 +223,29 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
     """Final steps of a transaction creation. Checks, verifies, signs and sends the transaction, and waits for confirmation if the 'confirm' option is used."""
     # Important function called by all AT, DT and Dex transactions and groups several checks and the last steps (signing) together.
 
-    if not ignore_checkpoint:
-        # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
-        from pacli.extended_checkpoints import reorg_check, store_checkpoint
-        if reorg_check(quiet=quiet) and not ei.confirm_continuation():
-            return
-        store_checkpoint(quiet=quiet)
-
     if verify:
-        print(
-            cointoolkit_verify(rawtx.hexlify())
-             )  # link to cointoolkit - verify
+        if Settings.network in ("ppc", "tppc"):
+
+            print(
+                cointoolkit_verify(rawtx.hexlify())
+                 )  # link to cointoolkit - verify
+
+        else:
+            raise ei.PacliInputDataError("Verifying by Cointoolkit is not possible on other chains than Peercoin.")
+
 
     if (False in (sign, send)) and (not quiet):
         print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
 
     dict_key = 'hex' # key of dict returned to the user.
+
+    if not ignore_checkpoint and (send is True):
+        # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
+        from pacli.extended_checkpoints import reorg_check, store_checkpoint
+        if reorg_check(quiet=quiet) and not ei.confirm_continuation():
+            return
+
+        store_checkpoint(quiet=quiet)
 
     if sign:
 

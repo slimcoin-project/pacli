@@ -1315,7 +1315,7 @@ class ExtCard:
         Args:
 
           change: Specify a change address.
-          verify: Verify transaction with Cointoolkit.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Suppress output and printout in a script-friendly way.
           debug: Show additional debug information.
           nocheck: Do not perform a balance check (faster).
