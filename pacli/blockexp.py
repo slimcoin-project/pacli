@@ -104,6 +104,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
     if use_locator:
         loc_blockheights, last_checked_block = get_locator_data(address_list)
+        print("LOC", loc_blockheights)
 
         if endblock > last_checked_block:
             if startblock <= last_checked_block:
@@ -360,7 +361,7 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
 
     addresses = []
     for deck in decks:
-        addresses.append(eu.get_deck_p2th_addresses(deck))
+        addresses += eu.get_deck_p2th_addresses(deck, debug=debug)
 
     #if not without_burn_address: # probably unnecessary
     #   addresses.append(au.burn_address())
@@ -518,7 +519,7 @@ def show_locators(value: str, quiet: bool=False, debug: bool=False):
     try:
         deckid = eu.search_for_stored_tx_label("deck", value, quiet=True)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        addresses = eu.get_deck_p2th_addresses(deck)
+        addresses = eu.get_deck_p2th_addresses(deck, debug=debug)
         checktype = "token"
     except ei.PacliInputDataError:
         try:

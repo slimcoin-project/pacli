@@ -702,7 +702,7 @@ def get_dt_p2th_accounts(deck):
             "p2th_donation" : deck.id + "DONATION",
             "p2th_voting" : deck.id + "VOTING"}
 
-def get_deck_p2th_addresses(deck):
+def get_deck_p2th_addresses(deck, debug: bool=False):
     addresses = [deck.p2th_address]
 
     if "at_type" in deck.__dict__:

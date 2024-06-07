@@ -268,14 +268,14 @@ def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, in
     # prepare deck dictionary for inclusion in the table
 
     deck_list = []
-    # for label, deckid in decks.items():
     for deck in decks:
         #if debug:
         #    print("Checking deck", deck.id)
         try:
             matching_labels = [lb for lb, did in deck_label_dict.items() if did == deck.id]
             if matching_labels:
-                label = matching_labels[0]
+                # label = matching_labels[0]
+                label = "\n".join(matching_labels)
             else:
                 if only_named:
                     continue

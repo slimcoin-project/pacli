@@ -80,18 +80,25 @@ class BlockLocator:
         with open(self.filename, "w") as locatorfile:
             json.dump(self.to_dict(), locatorfile)
 
-    def store_blockheights(self, address: str, heights: list, lastblockheight: int, lastblockhash: str=None, quiet: bool=False):
+    def store_blockheights(self, address: str, heights: list, lastblockheight: int, lastblockhash: str=None, quiet: bool=False, debug: bool=False):
         """Updates block heights of an address in the locator file."""
         # Storage should be done always at the end of a block exploring step.
         # locator = get_locator(quiet=quiet)
-
 
         if address in self.addresses:
             last_stored_height = self.addresses[address].lastblockheight
             # prevents block heights being overwritten
             if lastblockheight < last_stored_height:
+                if debug:
+                    print("Lastblockheight {} ignored for address {}: stored lastblockheight {} is higher.".format(lastblockheight, address, last_stored_height))
                 return
             existing_heights = self.addresses[address].heights
+            max_height = max(existing_heights)
+            if lastblockheight < max_height:
+                if debug:
+                    print("Lastblockheight {} ignored for address {}: highest stored block {} is higher and becomes new lastblockheight.".format(lastblockheight, address, max_height))
+                lastblockheight, lastblockhash = max_height, None
+
             self.addresses[address].update_lastblock(lastblockheight=lastblockheight, lastblockhash=lastblockhash)
         else:
             existing_heights = []
