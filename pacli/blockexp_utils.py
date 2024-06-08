@@ -70,13 +70,18 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                     else:
                         print("Endblock {} is higher than the last cached block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
 
-                blockheights = blockrange if only_store else loc_blockheights + list(blockrange)
+                if only_store:
+                    blockheights = blockrange
+                else:
+                    blockheights = [b for b in loc_blockheights if b >= startblock] + [b for b in blockrange if b > last_checked_block]
+
                 # blockheights = loc_blockheights + list(blockrange)
-                store_locator = True
+                store_locator = True # probably unnecessary!
             else:
                 if debug:
                     print("Provided start block is above the cached range. Not using nor storing locators to avoid inconsistencies.")
                 blockheights = blockrange
+                store_locator = False
         else:
             blockheights = [b for b in loc_blockheights if b <= endblock]
             # store_locator = False # could make sense here
