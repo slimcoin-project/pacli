@@ -17,6 +17,7 @@ import pacli.extended_interface as ei
 import pacli.token_commands as tc
 import pacli.dt_commands as dc
 import pacli.blockexp as bx
+import pacli.blockexp_utils as bu
 
 from pacli.provider import provider
 from pacli.config import Settings, default_conf, write_settings, conf_dir, conf_file, write_default_config
@@ -1489,7 +1490,7 @@ class ExtTransaction:
             if not eu.is_possible_txid(label_or_txid):
                 raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s mode currently doesn't support labels.")
 
-            tx_structure = ei.run_command(bx.get_tx_structure, txid=label_or_txid)
+            tx_structure = ei.run_command(bu.get_tx_structure, txid=label_or_txid)
 
             if quiet is True:
                 return tx_structure

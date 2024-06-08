@@ -11,11 +11,12 @@ import pacli.at_utils as au
 import pacli.blocklocator as loc
 from pacli.provider import provider
 from pacli.config import Settings
+from pacli.blockexp_utils import show_txes_by_block, date_to_blockheight, get_tx_structure
 
-# block exploring utilities are now bundled here
+# higher level block exploring utilities are now bundled here
 
 
-def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None, add_txid: bool=False) -> dict:
+'''def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None, add_txid: bool=False) -> dict:
     """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""
     # TODO: could see an usability improvement for coinbase txes.
@@ -64,9 +65,10 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
     return result
 
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, show_locator_txes: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, show_locator_txes: bool=False, only_store: bool=False, debug: bool=False) -> list:
 
     # locator_list parameter only stores the locator
+    # locator call: (locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
 
     lastblockheight, lastblockhash = None, None
 
@@ -102,28 +104,31 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         #else: # whole wallet mode, not recommended with locators at this time!
         #    address_list = list(eu.get_wallet_address_set())
 
+    blockrange = range(startblock, endblock + 1)
     if use_locator:
         loc_blockheights, last_checked_block = get_locator_data(address_list)
-        print("LOC", loc_blockheights)
 
         if endblock > last_checked_block:
+
             if startblock <= last_checked_block:
                 if debug:
                     if last_checked_block == 0:
                         print("Addresses", address_list, "were not cached. Storing locator data now.")
                     else:
                         print("Endblock {} is higher than the last cached block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
-                blockheights = loc_blockheights + list(range(last_checked_block, endblock + 1))
+                # blockheights = blockrange if only_store else loc_blockheights + list(blockrange)
+                blockheights = loc_blockheights + list(blockrange)
                 store_locator = True
             else:
                 if debug:
                     print("Provided start block is above the cached range. Not using nor storing locators to avoid inconsistencies.")
-                blockheights = range(startblock, endblock + 1)
+                blockheights = blockrange
         else:
             blockheights = [b for b in loc_blockheights if b <= endblock]
+            # store_locator = False # could make sense here
 
     else:
-        blockheights = range(startblock, endblock + 1)
+        blockheights = blockrange
 
     if store_locator:
         address_blocks = {a : [] for a in address_list}
@@ -134,9 +139,13 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
     for bh in blockheights:
         if bh < startblock:
             continue # this can happen when loading locator data
+        # Note: loc_blockheights contains data about ALL checked addresses.
+        # The following should work anyway, because the blocks not checked will be added to the blocks.
+        # if only_store is True and bh in loc_blockheights:
+        #    continue
 
         try:
-            if not quiet and bh % 100 == 0:
+            if (not quiet) and (bh % 100 == 0) and (bh not in loc_blockheights):
                 print("Processing block:", bh)
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)
@@ -205,7 +214,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
     if store_locator and len(list(blockheights)) > 0:
         store_locator_data(address_blocks, lastblockheight, lastblockhash, quiet=quiet, debug=debug)
-    return tracked_txes
+    return tracked_txes'''
 
 
 def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=None, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False, use_locator: bool=True) -> None:
@@ -277,7 +286,7 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
     return txes
 
 
-def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0, debug: bool=False):
+'''def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0, debug: bool=False):
     """Returns the first block created after 00:00 UTC the given date.
        This means the block can also be created at a later date (e.g. in testnets with irregular block creation)."""
     # block time format: 2022-04-26 20:31:22 UTC
@@ -304,7 +313,7 @@ def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0
                 print("Best block found", bh, blocktime, date)
             break
 
-    return bh
+    return bh'''
 
 
 def get_locator_data(address_list: list, filename: str=None, show_hash: bool=False, debug: bool=False):
@@ -385,9 +394,13 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
         end_block = start_block + blocks
     if not quiet:
         print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
-    txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
+    matching_blocks = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, only_store=True, debug=debug).get("blocks")
+
     if not quiet:
-        print(len(txes), "matching transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
+        print(len(matching_blocks), "matching blocks found for all checked addresses or decks.")
+    # txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
+    #if not quiet:
+    #    print(len(txes), "matching transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
 
 
 def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=50000, quiet: bool=False, debug: bool=False):
