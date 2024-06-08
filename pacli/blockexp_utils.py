@@ -3,15 +3,19 @@ import pypeerassets as pa
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
+import pacli.blocklocator as loc
 from pacli.provider import provider
 from pacli.config import Settings
 
 # lower level block exploring utilities are now bundled here
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, show_locator_txes: bool=False, only_store: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, only_store: bool=False, debug: bool=False) -> list:
+
+    # TODO: probably this would work better as a generator.
+    # NOTE: show_locator_txes was removed, is not used anymore.
 
     # locator_list parameter only stores the locator
-    # locator call: (locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
+    # locator call: (locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
 
     lastblockheight, lastblockhash = None, None
 
@@ -48,6 +52,12 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         #    address_list = list(eu.get_wallet_address_set())
 
     blockrange = range(startblock, endblock + 1)
+
+    if store_locator:
+        # address_blocks = {a : [] for a in address_list}
+        # address_blocks = {a : get_address_blockheights(a) for a in address_list} ## CHANGED, this will led to the existing blocks being present from the start on in this list, i.e. storage must only happen for non-locator blocks.
+        address_blocks = get_address_blockheights(address_list)
+
     if use_locator:
         loc_blockheights, last_checked_block = get_locator_data(address_list)
 
@@ -59,8 +69,9 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                         print("Addresses", address_list, "were not cached. Storing locator data now.")
                     else:
                         print("Endblock {} is higher than the last cached block {}. Storing locator data for blocks after the last checked block.".format(endblock, last_checked_block))
-                # blockheights = blockrange if only_store else loc_blockheights + list(blockrange)
-                blockheights = loc_blockheights + list(blockrange)
+
+                blockheights = blockrange if only_store else loc_blockheights + list(blockrange)
+                # blockheights = loc_blockheights + list(blockrange)
                 store_locator = True
             else:
                 if debug:
@@ -73,15 +84,14 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
     else:
         blockheights = blockrange
 
-    if store_locator:
-        address_blocks = {a : [] for a in address_list}
+
 
     if locator_list:
         receiving_address = None # TODO re-check if still necessary. Probably prevented one of the branches of the complex if-else tree before ...
 
     for bh in blockheights:
-        if bh < startblock:
-            continue # this can happen when loading locator data
+        #if bh < startblock:
+        #    continue # this can happen when loading locator data
         # Note: loc_blockheights contains data about ALL checked addresses.
         # The following should work anyway, because the blocks not checked will be added to the blocks.
         # if only_store is True and bh in loc_blockheights:
@@ -119,9 +129,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
                 if address_list:
                     addr_present = not set(address_list).isdisjoint(set(senders + receivers))
-                    # print("LOCPRESENT", addr_present, set(address_list))
-                # print(recv, send, sending_address, receiving_address)
-                # print([o["receivers"] for o in tx_struct["outputs"]])
+
                 if (not address_list) or addr_present:
                     """if ((not show_locator_txes and ((receiver_present and sender_present) or
                     (receiver_present and sending_address is None) or
@@ -135,7 +143,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                         tx_dict = {"txid" : txid}
                         tx_dict.update(tx_struct)
                         if debug:
-                            print("TX added: {} struct: {}".format(txid, tx_struct))
+                            print("TX detected: {} struct: {}".format(txid, tx_struct))
 
                     receiver_present = receiving_address in receivers
                     sender_present = sending_address in senders
@@ -144,20 +152,29 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                     if receiver_present or sender_present or all_txes:
                         tracked_txes.append(tx_dict)
 
-                    if store_locator:
+                    if store_locator and bh not in loc_blockheights: ## CHANGED: we now only store if the blocks were not checked before.
                        for a in address_list:
-                           if (a in senders) or (a in receivers):
+                           if (a in senders) or (a in receivers) and (bh not in address_blocks[a]):
                                address_blocks[a].append(bh)
 
             lastblockhash = blockhash
             lastblockheight = bh
 
         except KeyboardInterrupt:
-            break
+            if use_locator and bh in loc_blockheights:
+                raise ei.PacliInputDataError("Interrupted while initializing blockheights. No block processing was done, so nothing is shown nor stored.")
+            else:
+                break
 
-    if store_locator and len(list(blockheights)) > 0:
-        store_locator_data(address_blocks, lastblockheight, lastblockhash, quiet=quiet, debug=debug)
-    return tracked_txes
+    result = {}
+    if store_locator is True:
+        result.update({"blocks" : address_blocks, "bhash" : lastblockhash, "bheight" : lastblockheight})
+    if not only_store:
+        result.update({"txes" : tracked_txes})
+    #if store_locator and len(list(blockheights)) > 0:
+        # store_locator_data(address_blocks, lastblockheight, lastblockhash, quiet=quiet, debug=debug)
+    # return tracked_txes
+    return result
 
 
 def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0, debug: bool=False):
@@ -237,3 +254,59 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
         result.update({"txid" : tx["txid"]})
 
     return result
+
+
+def get_locator_data(address_list: list, filename: str=None, show_hash: bool=False, debug: bool=False):
+    # Note: This command "unifies" the data for several addresses, i.e. it doesn't differentiate per address.
+
+    if not address_list:
+        raise ei.PacliInputDataError("If you use the locator feature you have to provide address(es) or deck/tokens.")
+    locator = loc.BlockLocator.from_file(locatorfilename=filename)
+    raw_blockheights = []
+    last_checked_blocks = {}
+    for addr in address_list:
+        if addr is not None:
+            loc_addr = locator.get_address(addr)
+            raw_blockheights += loc_addr.heights
+            last_checked_blocks.update({loc_addr.lastblockheight : loc_addr.lastblockhash})
+
+    blockheights = list(set(raw_blockheights))
+    blockheights.sort()
+    last_blockheight = min(last_checked_blocks.keys()) # returns the last commonly checked block for all addresses.
+
+    if show_hash:
+        last_blockhash = last_checked_blocks[last_blockheight]
+        return (blockheights, last_blockhash)
+    else:
+        return (blockheights, last_blockheight)
+
+
+def get_address_blockheights(address_list: list, filename: str=None):
+    # this will return blockheights per address, as needed in the address_list.
+    locator  = loc.BlockLocator.from_file(locatorfilename=filename)
+    block_dict = {}
+    for addr in address_list:
+        if addr is not None:
+            loc_addr = locator.get_address(addr)
+            block_dict.update({addr : loc_addr.heights})
+
+    return block_dict
+
+def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, filename: str=None, quiet: bool=False, debug: bool=False):
+    locator = loc.BlockLocator.from_file(locatorfilename=filename)
+    for address, values in address_dict.items():
+        if address:
+            locator.store_blockheights(address, values, lastblockheight, lastblockhash=lastblockhash)
+    locator.store(quiet=quiet, debug=debug)
+
+def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None, debug: bool=False):
+    if not quiet:
+        print("Deleting block locator entries of addresses:", addresses)
+        print("Please type 'yes' to confirm.")
+        if not ei.confirm_continuation():
+            print("Aborted.")
+            return
+    locator = loc.BlockLocator.from_file(locatorfilename=filename)
+    for address in addresses:
+        locator.delete_address(address)
+    locator.store(quiet=quiet, debug=debug)

@@ -751,13 +751,14 @@ class ExtAddress:
 
         if type(addr_str) == str:
             addresses = [ec.process_address(addr_str, keyring=keyring)]
-        elif type(addr_str) == list:
+        elif type(addr_str) in (list, tuple):
             addresses = [ec.process_address(a, keyring=keyring) for a in addr_str]
+            print(addresses)
         else:
             raise ei.PacliInputDataError("No valid address(es) entered.")
 
         if erase is True:
-            return bx.erase_blocklocator_entries(addresses) # TODO: improve this allowing startblock and endblock.
+            return bu.erase_locator_entries(addresses) # TODO: improve this allowing startblock and endblock.
         else:
             if full:
                 blocks = provider.getblockcount() - startblock

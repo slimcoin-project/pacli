@@ -93,7 +93,7 @@ class BlockLocator:
                     print("Lastblockheight {} ignored for address {}: stored lastblockheight {} is higher.".format(lastblockheight, address, last_stored_height))
                 return
             existing_heights = self.addresses[address].heights
-            max_height = max(existing_heights)
+            max_height = max(existing_heights) if existing_heights else 0
             if lastblockheight < max_height:
                 if debug:
                     print("Lastblockheight {} ignored for address {}: highest stored block {} is higher and becomes new lastblockheight.".format(lastblockheight, address, max_height))
