@@ -554,7 +554,7 @@ class ExtAddress:
           keyring: Uses the keyring of your operating system.
           coinbalances: Only shows coin balances, not tokens (faster).
           quiet: Suppress output, printout in script-friendly way.
-          blockchain: If pacli is used with various blockchains, Limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
+          blockchain: Only with -l or -f options: If pacli is used with various blockchains, limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
           debug: Show debug information.
           only_labels: In advanced mode, if a label is present, show only the label.
           p2th: Show only P2TH addresses.
@@ -600,7 +600,8 @@ class ExtAddress:
                 if full_labels is True:
                     result = address_labels
                 else:
-                    result = [{ke.format_label(l, keyring=keyring) : address_labels[l]} for l in address_labels]
+                     # keyring label is already pre-formatted, so we don't need the keyring param for format_label
+                    result = [{ke.format_label(l) : address_labels[l]} for l in address_labels]
                 if quiet is True:
                     return result
                 else:
@@ -613,24 +614,24 @@ class ExtAddress:
                     network_name, label = ce.process_fulllabel(full_label)
                     if "(unlabeled" in label:
                         label = ""
-
                     try:
                         balance = str(provider.getbalance(address))
                     except TypeError:
                         balance = "0"
                         if debug is True:
-                            print("No valid balance for address with label {}. Probably not a valid address.".format(label))
+                            print("No valid balance for address {} with label {}. Probably not a valid address.".format(address, label))
 
                     if balance != "0":
                         balance = balance.rstrip("0")
 
-                    if (network is None) or (network == network_name):
-                        addr_dict = {"label": label,
-                                     "address" : address,
-                                     "network" : network_name,
-                                     "balance" : balance}
-                        if p2th:
-                            addr_dict.update({"account" : p2th_dict.get(address)})
+                    #if (network is None) or (network == network_name):
+                    addr_dict = {"label": label,
+                                 "address" : address,
+                                 "network" : network_name,
+                                 "balance" : balance}
+
+                    if p2th:
+                        addr_dict.update({"account" : p2th_dict.get(address)})
                         addresses.append(addr_dict)
 
                 ei.print_address_list(addresses, p2th=p2th)

@@ -54,8 +54,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
     blockrange = range(startblock, endblock + 1)
 
     if store_locator:
-        # address_blocks = {a : [] for a in address_list}
-        # address_blocks = {a : get_address_blockheights(a) for a in address_list} ## CHANGED, this will led to the existing blocks being present from the start on in this list, i.e. storage must only happen for non-locator blocks.
         address_blocks = get_address_blockheights(address_list)
 
     if use_locator:
@@ -84,7 +82,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                 store_locator = False
         else:
             blockheights = [b for b in loc_blockheights if b <= endblock]
-            # store_locator = False # could make sense here
+            store_locator = False # makes sense here as there are no new blocks cached.
 
     else:
         blockheights = blockrange

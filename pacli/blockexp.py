@@ -134,8 +134,6 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
         print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
     blockdata = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, only_store=True, debug=debug)
 
-    if not quiet:
-        print(len(blockdata["blocks"]), "matching blocks found for all checked addresses or decks.")
     # txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
     #if not quiet:
     #    print(len(txes), "matching transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
@@ -170,14 +168,13 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     end_block = start_block + blocks
 
     blockdata = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
+    new_blockheights = blockdata["blocks"]
     if debug:
         print("Block data:", blockdata)
     if not quiet:
-        print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
-    store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
-    # txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug).get("txes")
-    #if not quiet:
-    #    print(len(txes), "matching transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
+        print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"], ".\nBlock heights for the checked addresses:", new_blockheights)
+    store_locator_data(new_blockheights, blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
+
 
 def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
     tx = provider.getrawtransaction(txid, 1)
