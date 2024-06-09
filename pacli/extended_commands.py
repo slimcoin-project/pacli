@@ -233,6 +233,8 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
 
         for label in keyring_labels:
             address = show_stored_address(label=label, noprefix=True, keyring=True)
+            if include_only and (address not in include_only):
+                continue
             label = label[4:] # wipes key_ out.
             result.update({label : address})
 
