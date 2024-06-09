@@ -559,9 +559,10 @@ class ExtAddress:
           only_labels: In advanced mode, if a label is present, show only the label.
           p2th: Show only P2TH addresses.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
-          without_labels: In advanced mode, never show labels, only addresses.
+          without_labels: In advanced mode (-a), never show labels, only addresses.
         """
         # TODO: P2TH addresses should normally not be shown, implement a flag for them.
+        # TODO: catch labeldict error when using -w without -a.
 
         return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, debug=debug)
 
@@ -581,6 +582,9 @@ class ExtAddress:
                include_all: bool=False):
 
         # excluded_addresses = eu.get_p2th() if p2th is False else []
+        if no_labels and not advanced:
+            raise ei.PacliInputDataError("Wrong input option combination, read help.")
+
         if p2th:
             p2th_dict = eu.get_p2th_dict()
             include_only = p2th_dict.keys()
