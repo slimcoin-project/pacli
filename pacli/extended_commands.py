@@ -217,7 +217,9 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
        Addresses without label are not included if "named" is True."""
 
     if not keyring:
-        result = ce.get_config()["address"]
+        #conf_dict = ce.get_config()["address"]
+        #result = {e : conf_dict[e] for e in conf_dict if e.startswith(prefix)}
+        result = ce.list("address", prefix=prefix, quiet=True)
         if include_only:
             result = {k : result[k] for k in result if result[k] in include_only}
 

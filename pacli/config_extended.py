@@ -202,10 +202,15 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
 
 ### Extended helper tools (api)
 
-def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, debug: bool=False):
+def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, debug: bool=False, prefix: str=None):
     cfg = get_config(quiet=quiet, debug=debug)
     rawdict = cfg[category]
-    result_keys = [k for k in rawdict.keys()]
+
+    if prefix:
+        result_keys = [k for k in rawdict.keys() if ("_" in k) and (k.split("_")[0] == prefix)]
+    else:
+        result_keys = [k for k in rawdict.keys()]
+
     result_keys.sort()
     result = {k : rawdict[k] for k in result_keys}
 

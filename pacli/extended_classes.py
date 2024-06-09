@@ -538,8 +538,8 @@ class ExtAddress:
             Advanced mode. Shows a JSON string of all stored addresses and all or some tokens.
             -o/--only_labels and -w/--without_labels are exclusive flags for this mode.
 
-        pacli address list -l
-        pacli address list -f
+        pacli address list -l [-b CHAIN]
+        pacli address list -f [-b CHAIN]
 
             Shows only the labels which were stored.
             These modes only accept the -b/--blockchain and -k/--keyring additional flags.
@@ -554,7 +554,7 @@ class ExtAddress:
           keyring: Uses the keyring of your operating system.
           coinbalances: Only shows coin balances, not tokens (faster).
           quiet: Suppress output, printout in script-friendly way.
-          blockchain: Only with -l or -f options: If pacli is used with various blockchains, limit the results to those for a specific blockchain network. By default, it's the network used in the config file.
+          blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
           debug: Show debug information.
           only_labels: In advanced mode, if a label is present, show only the label.
           p2th: Show only P2TH addresses.
@@ -584,6 +584,8 @@ class ExtAddress:
         # excluded_addresses = eu.get_p2th() if p2th is False else []
         if no_labels and not advanced:
             raise ei.PacliInputDataError("Wrong input option combination, read help.")
+        if True not in (labels, full_labels) and (network != Settings.network):
+            raise ei.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
 
         if p2th:
             p2th_dict = eu.get_p2th_dict()
@@ -598,6 +600,7 @@ class ExtAddress:
             if (labels is True) or (full_labels is True):
                 named = True
 
+
             address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only)
 
             if (labels is True) or (full_labels is True):
@@ -609,6 +612,8 @@ class ExtAddress:
                 if quiet is True:
                     return result
                 else:
+                    if not result:
+                        return("No results found.")
                     pprint(result)
                     return
 
