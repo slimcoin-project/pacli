@@ -996,12 +996,16 @@ class Donation:
           my: Show donations made from an address or the user's wallet. See Usage modes.
           value: Deck or proposal. See Usage modes. To be used as a positional argument (flag name not mandatory).
         """
+
         # TODO: an option --wallet for the variant with DECK would be useful.
 
         if basic:
             mode = "simplified"
         elif short:
             mode = "short"
+        else:
+            mode = None
+
         if my:
              if proposal is not None:
                  return ei.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all=all_states, keyring=keyring, mode=mode, debug=debug)
@@ -1013,7 +1017,7 @@ class Donation:
              proposal = value
              return ei.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all=all_states, mode=mode, debug=debug)
         else:
-             ei.print_red("Invalid option, you have to provide a proposal or a deck.")
+             ei.print_red("Invalid option, you have to provide a proposal or a token (deck).")
 
 
     def __available_slot_amount(self, proposal_id: str, dist_round: int=None, current: bool=False, quiet: bool=False, debug: bool=False):
