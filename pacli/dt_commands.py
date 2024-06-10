@@ -54,11 +54,20 @@ def show_votes_by_address(deckid: str, address: str) -> None:
                     pprint("Weight: " + str(vtx.weight))
 
 
-def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None:
+def show_donations_by_address(deckid: str, address: str=None, wallet: bool=False, mode: str=None, quiet: bool=False, debug: bool=False) -> None:
     # shows all valid donation transactions from a specific address, for all proposals.
-    # TODO it should be easy to add a --wallet mode here.
 
-    pprint("Donations realized from address: " + address)
+    if wallet is True:
+        addresses = eu.get_wallet_address_set(empty=True, include_named=True)
+    else:
+        addresses = [address]
+
+    if not quiet:
+        if wallet:
+            pprint("Donations realized from all wallet addresses:")
+        else:
+            pprint("Donations realized from address: " + address)
+
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     try:
@@ -78,7 +87,8 @@ def show_donations_by_address(deckid: str, address: str, mode: str=None) -> None
         for rd, rdlist in enumerate(pstates[proposal].donation_states):
             for dstate in rdlist.values():
                 # print(dstate.__dict__)
-                if (dstate.donor_address == address) and (dstate.donation_tx is not None):
+                if (dstate.donor_address in addresses) and (dstate.donation_tx is not None):
+                #if (dstate.donor_address == address) and (dstate.donation_tx is not None):
                     di.display_donation_state(dstate, mode=mode)
 
 # Deck

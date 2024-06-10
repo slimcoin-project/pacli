@@ -66,7 +66,7 @@ class PoDToken():
                              confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
-    def state(self, deck: str, debug: bool=False) -> None:
+    def state(self, idstr: str, debug: str=None) -> None:
         """Prints the DT deck state (the current state of the deck variables).
 
         Usage:
@@ -78,8 +78,13 @@ class PoDToken():
           debug: Shows debug information.
 
         """
-        deckid = eu.search_for_stored_tx_label("deck", deck)
-        ei.run_command(dc.dt_state, deckid, debug)
+        deckid = eu.search_for_stored_tx_label("deck", idstr)
+        if debug is not None:
+            debug_standard = True if debug == True else False
+            debug_donations = True if "donations" in debug else False
+            debug_voting = True if "voting" in debug else False
+
+        ei.run_command(dc.dt_state, deckid, debug=debug_standard, debug_donations=debug_donations, debug_voting=debug_voting)
 
 
     def claim(self,
@@ -982,7 +987,7 @@ class Donation:
 
         Args:
 
-          wallet: In combination with -m and -p, show all donations made from the wallet.
+          wallet: In combination with -m, show all donations made from the wallet.
           examine_address: In combination with -m, specify another donor address (labels allowed).
           all_states: In combination with -m, printout all donation states (also abandoned ones).
           incomplete: In combination with -m, only show incomplete states.
@@ -1011,7 +1016,7 @@ class Donation:
                  return ei.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all=all_states, keyring=keyring, mode=mode, debug=debug)
              else:
                  deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", value)
-                 return ei.run_command(dc.show_donations_by_address, deckid, examine_address, mode=mode)
+                 return ei.run_command(dc.show_donations_by_address, deckid, examine_address, wallet=wallet, mode=mode, debug=debug)
 
         elif value is not None:
              proposal = value
