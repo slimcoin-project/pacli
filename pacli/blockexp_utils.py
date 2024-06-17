@@ -113,9 +113,10 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
             try:
                 block_txes = block["tx"]
             except KeyError:
-                print("You have reached the tip of the blockchain.")
+                if not quiet:
+                    print("You have reached the tip of the blockchain.")
                 if lastblockheight is None:
-                    raise ei.PacliInputDataError("Start block is after the current block height.")
+                    raise ei.PacliInputDataError("Start block is after the current block height.\nIf you didn't specify a start block, this probably means there are no new blocks to cache.")
                 else:
                     break
 
