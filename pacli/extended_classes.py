@@ -1143,8 +1143,8 @@ class ExtDeck:
 
 class ExtCard:
 
-    def list(self, idstr: str, address: str=None, quiet: bool=False, valid: bool=False, debug: bool=False):
-        """List all existing transactions (cards, i.e. issues, transfers, burns) of a token.
+    def list(self, idstr: str, address: str=None, quiet: bool=False, show_invalid: bool=False, only_invalid: bool=False, valid: bool=False, debug: bool=False):
+        """List all transactions (cards, i.e. issues, transfers, burns) of a token.
 
         Usage:
 
@@ -1152,18 +1152,22 @@ class ExtCard:
             pacli token transfers TOKEN
 
         TOKEN can be a token/deck ID or a label.
+        In standard mode, only valid transfers will be shown.
+        In compatibility mode, standard output includes some invalid transfers: those in valid transactions which aren't approved by the Proof-of-Timeline rules.
 
         Args:
 
           address: Filter transfers by address. Labels are permitted. If no address is given after -a, use the current main address.
           quiet: Suppresses additional output, printout in script-friendly way.
-          valid: Only shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded.
+          show_invalid: If compatibility mode is turned off, with this flag on also invalid transfers are shown.
+          only_invalid: Show only invalid transfers.
+          valid: If compatibility mode is turned on, this shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded.
           debug: Show debug information."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr else None
-        return ei.run_command(self.__listext, deckid=deckid, address=address, quiet=quiet, valid=valid, debug=debug)
+        return ei.run_command(self.__listext, deckid=deckid, address=address, quiet=quiet, valid=valid, show_invalid=show_invalid, only_invalid=only_invalid, debug=debug)
 
-    def __listext(self, deckid: str, address: str=None, quiet: bool=False, valid: bool=False, debug: bool=False):
+    def __listext(self, deckid: str, address: str=None, quiet: bool=False, valid: bool=False, show_invalid: bool=False, only_invalid: bool=False, debug: bool=False):
 
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
@@ -1173,10 +1177,24 @@ class ExtCard:
             # return err
             raise PacliInputDataError(err)
 
-        if valid is True:
+        if Settings.compatibility_mode == "True" or show_invalid == True:
+            valid = False
+        else:
+            valid = True
+
+        if only_invalid is True:
+            if not quiet:
+                print("Showing only invalid transfers.")
+            # result = [t for t in cards if t not in pa.protocol.DeckState(cards).valid_cards]
+            clist = list(cards)
+            valid_clist = pa.protocol.DeckState(clist).valid_cards
+            result = [t for t in clist if (t.txid, t.blockseq, t.cardseq) not in [(t.txid, t.blockseq, t.cardseq) for t in valid_clist]]
+
+        elif valid is True:
             result = pa.protocol.DeckState(cards).valid_cards
         else:
             result = cards
+
 
         if address:
             if type(address) == bool:

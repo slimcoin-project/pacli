@@ -16,8 +16,8 @@ class Token(VanillaDeck, VanillaCard):
     'card parse' becomes 'token parse_transfer'
     """
 
-    def transfers(self, idstr: str, address: str=None, quiet: bool=False, valid: bool=False, debug: bool=False):
-        """List all existing transactions (cards, i.e. issues, transfers, burns) of a token.
+    def transfers(self, idstr: str, address: str=None, quiet: bool=False, valid: bool=False, show_invalid: bool=False, only_invalid: bool=False, debug: bool=False):
+        """List all transactions (cards, i.e. issues, transfers, burns) of a token.
 
         Usage:
 
@@ -25,15 +25,19 @@ class Token(VanillaDeck, VanillaCard):
             pacli token transfers TOKEN
 
         TOKEN can be a token/deck ID or a label.
+        In standard mode, only valid transfers will be shown.
+        In compatibility mode, standard output includes some invalid transfers: those in valid transactions which aren't approved by the Proof-of-Timeline rules.
 
         Args:
 
           address: Filter transfers by address. Labels are permitted. If no address is given after -a, use the current main address.
           quiet: Suppresses additional output, printout in script-friendly way.
-          valid: Only shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded.
+          show_invalid: If compatibility mode is turned off, with this flag on also invalid transfers are shown.
+          only_invalid: Show only invalid transfers.
+          valid: If compatibility mode is turned on, this shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded.
           debug: Show debug information."""
 
-        return VanillaCard().list(idstr=idstr, address=address, quiet=quiet, valid=valid, debug=debug)
+        return VanillaCard().list(idstr=idstr, address=address, quiet=quiet, valid=valid, show_invalid=show_invalid, debug=debug)
 
     def encode_transfer(self, deckid: str, receiver: list=None, amount: list=None,
                asset_specific_data: str=None, json: bool=False):
