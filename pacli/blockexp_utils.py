@@ -73,14 +73,14 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                 else:
                     blockheights = [b for b in loc_blockheights if b >= startblock] + [b for b in blockrange if b > last_checked_block]
 
-                # blockheights = loc_blockheights + list(blockrange)
-                store_locator = True # probably unnecessary!
             else:
                 if debug:
                     print("Provided start block is above the cached range. Not using nor storing locators to avoid inconsistencies.")
                 blockheights = blockrange
                 store_locator = False
         else:
+            if debug:
+                print("Only showing already cached blockheights. No caching will be done.")
             blockheights = [b for b in loc_blockheights if b <= endblock]
             store_locator = False # makes sense here as there are no new blocks cached.
 
@@ -101,7 +101,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         #    continue
 
         try:
-            if (not quiet) and (bh % 100 == 0) and (bh not in loc_blockheights):
+            if (not quiet) and (bh % 100 == 0) and (use_locator and (bh not in loc_blockheights)):
                 print("Processing block:", bh)
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)
