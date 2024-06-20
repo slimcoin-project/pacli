@@ -1740,7 +1740,6 @@ class ExtTransaction:
         elif len(txes) == 0 and not quiet:
             print("No matching transactions found.")
 
-
         elif (ids is True) and (not zraw):
             if claimtxes is True:
                 txes = ([{"txid" : t["TX ID"]} for t in txes]) # TODO: ugly hack, improve this

@@ -310,6 +310,12 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
     if debug:
         print("Get wallet transactions ...")
+
+    if address is not None and not include_p2th:
+        # special case: P2TH address is checked
+        if address in eu.get_p2th():
+            include_p2th = True
+
     if include_p2th:
         wallet_txes = eu.get_wallet_transactions(debug=debug)
         excluded_addresses = []
@@ -360,7 +366,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
         if txid not in txes.keys():
             if debug:
-                print("New tx", txid)
+                print("New tx", txid, "with category", category)
             txes.update({ txid : [category]})
         else:
             if category not in txes[txid]:
@@ -391,9 +397,12 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
         if debug:
             print("Categories of tx {}: {}".format(tx["txid"], categories))
-            print("Checking if wallet or address has sent transaction {} ...".format(tx["txid"]), end="")
 
+        # checking sender(s) and sent value(s) (also for transactions in the "receive" category).
         if ("send" in categories) and ((all_txes or sent) or (received and ("receive" in categories))):
+
+            if debug:
+                print("Checking if wallet or address has sent transaction {} ...".format(tx["txid"]), end="")
 
             try:
                 senders = find_tx_senders(tx)
@@ -402,15 +411,11 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                     print("Transaction aborted.")
                 continue
 
-            if debug:
-                print("True.")
-
             value_sent = 0
 
             for sender_dict in senders:
                 if (wallet and not set(sender_dict["sender"]).isdisjoint(wallet_addresses)) or (address in sender_dict["sender"]):
-                    if not wallet and debug:
-                        print("Address detected as sender in transaction:", tx["txid"])
+
                     value_sent += sender_dict["value"]
 
                     if txdict is None:
@@ -420,14 +425,16 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                     else:
                         txdict.update({"value_sent" : value_sent})
 
-        else:
             if debug:
-               print("False.")
-
-        if debug:
-            print("Checking if address or wallet is a receiver of transaction: {} ... ".format(tx["txid"]), end="")
+                if value_sent > 0:
+                    print("True.")
+                else:
+                    print("False.")
 
         if ("receive" in categories or "generate" in categories or "immature" in categories) and ((all_txes or received) or (sent and ("send" in categories))):
+
+            if debug:
+                print("Checking if address or wallet is a receiver of transaction: {} ... ".format(tx["txid"]), end="")
 
             if "send" in categories:
                 categories.remove("send")
@@ -438,8 +445,6 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
                 if debug:
                     print("WARNING: Invalid transaction. TXID:", tx.get("txid"))
                 continue
-            if debug:
-                print("True.")
 
             value_received = 0
 
@@ -452,23 +457,26 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
                     value_received += output["value"]
 
+            # TODO: if receiver or not depends on value.
+            # This could be problematic in the future if 0-value-txes are allowed.
             if value_received > 0:
                 if txdict is not None:
                     if not advanced and "type" in txdict:
                         # print(txdict["type"], categories)
                         txdict["type"] += categories
-                        # txdict.update({"type" : ["send", "receive"]})
                         txdict.update({"value_received" : value_received})
                 else:
-                    # txdict = tx if advanced else {"txid" : tx["txid"], "type" : ["receive"], "value_received": value_received, "confirmations": confs}
                     txdict = tx if advanced else {"txid" : tx["txid"], "type" : categories, "value_received": value_received, "confirmations": confs}
 
-            if debug and not wallet:
-                print("Address detected as receiver in transaction: {}. Received value in this output: {}".format(tx["txid"], output["value"]))
+                if debug:
+                    print("True.")
+                    if not wallet:
+                        print("Address detected as receiver in transaction: {}. Received value in this output: {}".format(tx["txid"], output["value"]))
 
-        else:
-            if debug:
-                print("False.")
+
+            else:
+                if debug:
+                    print("False.")
 
         if txdict is not None:
             result.append(txdict)
