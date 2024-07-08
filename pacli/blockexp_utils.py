@@ -44,6 +44,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
     if locator_list:
         address_list = locator_list
     elif sending_address or receiving_address:
+        # add sending or receiving address or both (None values are ignored)
         address_list = [a for a in [sending_address, receiving_address] if a is not None]
     else:
         address_list = None # this means all transactions will be preselected
@@ -85,13 +86,11 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         else:
             if debug:
                 print("Only showing already cached blockheights. No caching will be done.")
-            blockheights = [b for b in loc_blockheights if b <= endblock]
+            blockheights = [b for b in loc_blockheights if (startblock <= b <= endblock)]
             store_locator = False # makes sense here as there are no new blocks cached.
 
     else:
         blockheights = blockrange
-
-
 
     if locator_list:
         receiving_address = None # TODO re-check if still necessary. Probably prevented one of the branches of the complex if-else tree before ...
@@ -139,12 +138,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                     addr_present = not set(address_list).isdisjoint(set(senders + receivers))
 
                 if (not address_list) or addr_present:
-                    """if ((not show_locator_txes and ((receiver_present and sender_present) or
-                    (receiver_present and sending_address is None) or
-                    (sender_present and receiving_address is None) or # sender and
-                    (sending_address is None and receiving_address is None))) or # all transactions shown
-                    (show_locator_txes and (locator_list is not None) and loc_present)
-                    ):"""
+
                     if advanced:
                         tx_dict = provider.getrawtransaction(txid, 1)
                     else:
