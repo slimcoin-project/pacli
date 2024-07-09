@@ -1822,13 +1822,29 @@ class ExtTransaction:
           _value1: TXID or old label. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
           _value2: Output. To be used as a positional argument (flag keyword not mandatory). See Usage modes above."""
 
+        return ei.run_command(self.__set_utxo, label, _value1, _value2, modify, delete, now, quiet)
+
+    def __set_utxo(self,
+                 label: str,
+                 _value1: str=None,
+                 _value2: int=None,
+                 modify: bool=False,
+                 delete: bool=False,
+                 now: bool=False,
+                 quiet: bool=False) -> None:
+
         txid_or_oldlabel = _value1
-        outut = _value2
+        output = _value2
+
         if delete is True:
             return ce.delete("utxo", str(label), now=now)
 
-        if (modify is True) and (output is None):
-            utxo = txid_or_oldlabel
+        if output is None:
+            if modify is True:
+                utxo = txid_or_oldlabel
+            elif delete is False:
+                raise ei.PacliInputDataError("You need to specify an output number.")
+
         else:
             utxo = "{}:{}".format(txid_or_oldlabel, str(output))
         return ce.setcfg("utxo", label, value=utxo, quiet=quiet, modify=modify)
