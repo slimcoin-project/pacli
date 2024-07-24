@@ -223,7 +223,7 @@ def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: 
         pprint(result)
 
 def setcfg(category: str, label: str, value: str, modify: bool=False, replace: bool=False, quiet: bool=False, debug: bool=False):
-    return ei.run_command(write_item, category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet, debug=debug)
+    return write_item(category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet, debug=debug)
 
 def show(category: str, label: str, quiet: bool=False, debug: bool=False):
     result = ei.run_command(read_item, category=category, key=label, debug=debug)

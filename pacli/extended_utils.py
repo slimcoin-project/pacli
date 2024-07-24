@@ -130,8 +130,7 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
                         label = input_name
 
     try:
-        # ce.write_item("deck", label, deckid)
-        ce.setcfg("deck", label, deck.id)
+        ce.setcfg("deck", label, deck.id, quiet=quiet, debug=debug)
     except ei.ValueExistsError:
         raise ei.PacliInputDataError(value_exists_errmsg.format(deck.id, label, deck.id))
 

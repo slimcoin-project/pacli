@@ -1072,7 +1072,7 @@ class ExtDeck:
             pob_deck = pc.DEFAULT_POB_DECK[netw]
             dpod_deck = pc.DEFAULT_POD_DECK[netw]
 
-            eu.init_deck(netw, pob_deck, quiet=quiet, no_label=no_label)
+            eu.init_deck(netw, pob_deck, quiet=quiet, no_label=no_label, debug=debug)
             dc.init_dt_deck(netw, dpod_deck, quiet=quiet, no_label=no_label)
             deckid = None
         else:
@@ -1081,7 +1081,7 @@ class ExtDeck:
             if "at_type" in deck.__dict__ and deck.at_type == c.ID_DT:
                 dc.init_dt_deck(netw, deckid, quiet=quiet, label=label, debug=debug, no_label=no_label)
             else:
-                eu.init_deck(netw, deckid, quiet=quiet, label=label, no_label=no_label)
+                eu.init_deck(netw, deckid, quiet=quiet, label=label, no_label=no_label, debug=debug)
 
         if cache:
             if cache == True:
@@ -1411,7 +1411,8 @@ class ExtTransaction:
             modify: bool=False,
             delete: bool=False,
             now: bool=False,
-            quiet: bool=False) -> None:
+            quiet: bool=False,
+            show_debug_info: bool=False) -> None:
         """Stores a transaction with label and hex string.
 
            Usage modes:
@@ -1443,17 +1444,18 @@ class ExtTransaction:
              delete: Delete a transaction label/value pair.
              now: Really delete a transaction label/value pair.
              txdata: Transaction data. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
+             show_debug_info: Show debug information.
 
         """
-
-        return ei.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet)
+        return ei.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, show_debug_info=show_debug_info)
 
     def __set(self, label_or_tx: str,
             tx: str=None,
             modify: bool=False,
             delete: bool=False,
             now: bool=False,
-            quiet: bool=False) -> None:
+            quiet: bool=False,
+            show_debug_info: bool=False) -> None:
 
         if delete is True:
             return ce.delete("transaction", label=label_or_tx, now=now)
@@ -1463,11 +1465,11 @@ class ExtTransaction:
             if not quiet:
                 print("No label provided, TXID is used as label.")
         else:
-            try:
-                # if "tx" is a TXID, get the transaction hex from blockchain
-                value = provider.getrawtransaction(tx)
-            except:
+            # if "tx" is a TXID, get the transaction hex string from blockchain
+            value = provider.getrawtransaction(tx)
+            if modify or type(value) != str:
                 value = tx
+
 
         if not modify:
             # we can't do this check with modify enabled, as the value here isn't a TXHEX
@@ -1478,7 +1480,7 @@ class ExtTransaction:
 
         label = txid if tx is None else label_or_tx
 
-        return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify)
+        return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify, debug=show_debug_info)
 
 
     def show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, id: bool=False):
@@ -1651,7 +1653,7 @@ class ExtTransaction:
           received: Only show received transactions (not in combination with -x, -n, -c, -b or -g).
           total: Only count transactions, do not display them.
           unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified, -x not supported).
-          wallet: Show all specified transactions of all addresses in the wallet.
+          wallet: Show all specified transactions of all addresses in the wallet (not in combination with -x).
           view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
