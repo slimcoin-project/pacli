@@ -59,7 +59,7 @@ class ATToken():
             try:
                 address = deck.at_address
             except AttributeError:
-                raise ei.PacliInputDataError("The given deck is not an AT deck.")
+                raise ei.PacliInputDataError("Wrong type of deck.")
             if not quiet:
                 print("Sending transaction to burn or AT gateway address:", address)
 
@@ -153,14 +153,14 @@ class ATToken():
                                  )
 
     @classmethod
-    def deck_spawn(self, name, tracked_address, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
+    def spawn(self, token_name, address, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, change: str=Settings.change, locktime: int=0, verify: bool=False,
-              wait_for_confirmation: bool=False, sign: bool=True, send: bool=True) -> None:
+              wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
         """Spawns a new AT deck.
 
         Usage:
 
-        pacli attoken deck_spawn NAME TRACKED_ADDRESS
+        pacli attoken deck_spawn TOKEN_NAME TRACKED_ADDRESS
 
         Args:
 
@@ -176,10 +176,11 @@ class ATToken():
           verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
 
+        tracked_address = ec.process_address(address)
         change_address = ec.process_address(change)
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block)
 
-        return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
+        return ei.run_command(eu.advanced_deck_spawn, name=token_name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, locktime=locktime, change_address=change_address, asset_specific_data=asset_specific_data,
                confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
@@ -188,7 +189,7 @@ class PoBToken(ATToken):
 
     """Commands to deal with PoB (proof-of-burn) tokens, which reward burn transactions."""
 
-    def deck_spawn(self, name, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
+    def spawn(self, token_name, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
               wait_for_confirmation: bool=False, send: bool=True, locktime: int=0):
 
@@ -214,7 +215,7 @@ class PoBToken(ATToken):
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
 
-        return super().deck_spawn(name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, locktime=locktime, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send)
+        return super().spawn(token_name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, locktime=locktime, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
     def burn_coins(self, amount: str, idstr: str=None, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
