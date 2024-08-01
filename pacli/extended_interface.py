@@ -3,6 +3,7 @@ from time import sleep
 import pacli.tui as tui
 from pacli.provider import provider
 from pacli.config import Settings
+from pypeerassets.exceptions import InsufficientFunds
 
 def output_tx(txdict: dict, txhex: bool=False) -> object:
 
@@ -33,7 +34,7 @@ def run_command(c, *args, **kwargs) -> object:
         result = c(*args, **kwargs)
         return result
 
-    except (PacliInputDataError, ValueExistsError) as e:
+    except (PacliInputDataError, ValueExistsError, InsufficientFunds) as e:
 
         print_red("\nError: {}".format(e.args[0]))
         if debug:

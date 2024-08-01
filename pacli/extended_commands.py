@@ -83,7 +83,7 @@ def show_stored_address(label: str, network_name: str=Settings.network, keyring:
     else:
         return get_address(str(label), network_name=network_name, noprefix=noprefix)
 
-def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=False, network_name: str=Settings.network) -> str:
+def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=False, network_name: str=Settings.network, debug: bool=False) -> str:
     """Allows to use a label or an address; you'll get an address back."""
     # TODO it is not clear if the branch with try_alternative is still needed. For now it's set to false.
     try:

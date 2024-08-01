@@ -22,12 +22,14 @@ from pacli.utils import (sendtx, cointoolkit_verify)
 
 # Deck tools
 
-def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None):
+def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None, debug: bool=False):
     """Creates a Protobuf datastring with the deck metadata."""
 
     # note: we use an additional identifier only for this function, to avoid having to import extension
     # data into __main__.
     # TODO: this note is obsolete as we now have extended_classes. Can be refactored.
+    if multiplier % 1 != 0:
+        raise ei.PacliInputDataError("The multiplier has to be an integer number.")
 
     if identifier == ID_DT:
 
@@ -51,7 +53,7 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
     return data
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
-                        confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0) -> None:
+                        confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, debug: bool=False) -> None:
     """Alternative function for deck spawns. Allows p2pk inputs."""
 
     network = Settings.network
@@ -67,6 +69,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
                           change_address=change_address,
                           locktime=locktime
                           )
+
     return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, send=send)
 
 
