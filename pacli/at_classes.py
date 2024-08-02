@@ -87,7 +87,7 @@ class ATToken():
 
 
     @classmethod
-    def claim(self, deck_str: str, txid: str, receivers: list=None, amounts: list=None,
+    def claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
               locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
@@ -132,7 +132,7 @@ class ATToken():
                 print("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
                 return None
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         dec_payamount = Decimal(str(payamount)) if (payamount is not None) else None
         change_address = ec.process_address(change)

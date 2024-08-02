@@ -375,6 +375,8 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     if not deck:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
+    amount_list = [amount_to_exponent(i, deck.number_of_decimals) for i in amount]
+
     # balance check
     if balance_check:
         if not quiet:
@@ -386,8 +388,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,
                                receiver=receiver,
-                               amount=[amount_to_exponent(i, deck.number_of_decimals)
-                                       for i in amount],
+                               amount=amount_list,
                                version=deck.version,
                                asset_specific_data=asset_specific_data
                                )

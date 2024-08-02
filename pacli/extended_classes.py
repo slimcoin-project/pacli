@@ -523,7 +523,7 @@ class ExtAddress:
              quiet: bool=False,
              blockchain: str=Settings.network,
              debug: bool=False,
-             include_all: bool=False):
+             include_all: bool=None):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
 
         Usage modes:
@@ -579,7 +579,7 @@ class ExtAddress:
                quiet: bool=False,
                network: str=Settings.network,
                debug: bool=False,
-               include_all: bool=False):
+               include_all: bool=None):
 
         # excluded_addresses = eu.get_p2th() if p2th is False else []
         if no_labels and not advanced:
@@ -587,12 +587,15 @@ class ExtAddress:
         if True not in (labels, full_labels) and (network != Settings.network):
             raise ei.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
 
+        # include_all is standard for P2TH, otherwise not.
         if p2th:
             p2th_dict = eu.get_p2th_dict()
             include_only = p2th_dict.keys()
             coinbalances = True
+            include_all = True if include_all in (None, True) else False
         else:
             include_only = None
+            include_all = False if include_all in (None, False) else True
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             # TODO: at least coinbalances shows P2TH.
