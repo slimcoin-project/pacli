@@ -1570,6 +1570,7 @@ class ExtTransaction:
              ids: bool=False,
              keyring: bool=False,
              named: bool=False,
+             mempool: bool=False,
              advanced: bool=False,
              burntxes: bool=None,
              claimtxes: bool=None,
@@ -1648,6 +1649,7 @@ class ExtTransaction:
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
           locator: In -x mode, use existing block locators to speed up the blockchain retrieval. See Usage modes above.
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
+          mempool: Show also unconfirmed transactions in the mempool (not in combination with -x).
           named: Show only transactions stored with a label (see Usage modes).
           origin: Show transactions sent by a specific sender address (only in combination with -x).
           param: Show the value of a specific parameter/variable of the transaction.
@@ -1679,6 +1681,7 @@ class ExtTransaction:
              ids: bool=False,
              keyring: bool=False,
              locator: bool=False,
+             mempool: bool=False,
              named: bool=False,
              param: str=None,
              origin: str=None,
@@ -1738,6 +1741,19 @@ class ExtTransaction:
 
             address = Settings.key.address if address_or_deck is None else address_or_deck
             txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
+
+        if mempool is False and xplore is False:
+            if (burntxes or gatewaytxes) and (not advanced):
+                confpar = "height"
+            elif claimtxes:
+                if advanced:
+                    confpar = "tx_confirmations"
+                else:
+                    confpar = "Block height"
+            else:
+                confpar = "confirmations"
+
+            txes = [t for t in txes if (confpar in t) and (t[confpar] is not None and t[confpar] > 0)]
 
         if total is True:
             return len(txes)

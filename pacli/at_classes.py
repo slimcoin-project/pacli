@@ -104,9 +104,11 @@ class ATToken():
 
         Claim the tokens and make a payment with the issued tokens in the same transaction to one specific address.
 
-        pacli [pobtoken|attoken] claim DECK TXID -r [ADDR1, ADDR2, ...] -a [AM1, AM2, ...]
+        pacli [pobtoken|attoken] claim DECK TXID -r "[ADDR1, ADDR2, ...]" -a "[AM1, AM2, ...]"
 
-        Claim the tokens and make a payment with the issued tokens to multiple receivers (put the lists into brackets)
+        Claim the tokens and make a payment with the issued tokens to multiple receivers.
+        The lists must be put between brackets and quotes.
+        The amount list lenght must be exactly as long as the address list.
 
         Args:
 
