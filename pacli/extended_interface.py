@@ -60,7 +60,7 @@ def run_command(c, *args, **kwargs) -> object:
         pacli deck init DECKID
         """
 
-        if "txid" in e.args or type(e) == TypeError:
+        if "txid" in e.args or ("deck" in kwargs or "deckid" in kwargs):
             err_str += err_str2
 
         print_red(err_str)

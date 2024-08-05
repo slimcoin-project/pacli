@@ -603,7 +603,6 @@ class ExtAddress:
             if (labels is True) or (full_labels is True):
                 named = True
 
-
             address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only)
 
             if (labels is True) or (full_labels is True):
@@ -644,7 +643,7 @@ class ExtAddress:
 
                     if p2th:
                         addr_dict.update({"account" : p2th_dict.get(address)})
-                        addresses.append(addr_dict)
+                    addresses.append(addr_dict)
 
                 ei.print_address_list(addresses, p2th=p2th)
                 return
