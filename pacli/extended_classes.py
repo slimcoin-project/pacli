@@ -1601,33 +1601,34 @@ class ExtTransaction:
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list DECK [ADDRESS] -b -u
-        pacli transaction list [ADDRESS] -b
-        pacli transaction list DECK [ADDRESS] -g [-u]
+        pacli transaction list DECK [ORIGIN_ADDRESS] -b [-u]
+        pacli transaction list -b [-o ORIGIN_ADDRESS]
+        pacli transaction list DECK [ORIGIN_ADDRESS] -g [-u]
 
-            Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens stored in wallet.
+            Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens or sent from a specific ORIGIN_ADDRESS in the wallet.
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
             In the case of -b, DECK is only necessary if combined with -u.
-            ADDRESS is optional. In the case no address is given, the main address is used.
+            ORIGIN_ADDRESS is optional. In the case no address is given, the main address is used.
+            -o can be omitted if a deck is provided.
 
-        pacli transaction list DECK [ADDRESS] -c
+        pacli transaction list DECK [ORIGIN_ADDRESS] -c
 
-            List token claim transactions.
+            List token claim transactions, either all in the wallet or those sent from a specific ORIGIN_ADDRESS in the wallet.
             DECK can be a label or a deck ID.
-            ADDRESS is optional. In the case no address is given, the main address is used.
+            ORIGIN_ADDRESS is optional. In the case no address is given, the main address is used.
 
         pacli transaction list [RECEIVER_ADDRESS] -x [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
         pacli transaction list DECK -x -g [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
 
             Block explorer mode: List all transactions between two block heights.
-            RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is an address of a sender.
+            RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is the address of a sender.
             STARTHEIGHT and ENDHEIGHT can be block heights or dates of block timestamps (format YYYY-MM-DD).
             -f and -e options are not mandatory but highly recommended.
             WARNING: VERY SLOW if used with large block height ranges!
             Note: In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
             Note 2: To use the locator feature -l an origin or receiver address or a deck has to be provided.
 
-        pacli transaction list [ADDRESS] -p PARAM
+        pacli transaction list [DECK] [ADDRESS] -p PARAM
 
             Show a single parameter or variable of the transactions, together with the TXID.
             This mode can be combined with all other modes.
@@ -1650,7 +1651,7 @@ class ExtTransaction:
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           mempool: Show unconfirmed transactions in the mempool. Adding 'only' shows only unconfirmed ones (not in combination with -x).
           named: Show only transactions stored with a label (see Usage modes).
-          origin: Show transactions sent by a specific sender address (only in combination with -x).
+          origin: Show transactions sent by a specific sender address (only necessary in combination with -x, -b and -g, optional with -c).
           param: Show the value of a specific parameter/variable of the transaction.
           quiet: Suppress additional output, printout in script-friendly way.
           sent: Only show sent transactions (not in combination with -x, -n, -c, -b or -g).
@@ -1705,11 +1706,14 @@ class ExtTransaction:
         address_or_deck = _value1
         address = _value2
 
-        if (burntxes is True) and (_value2 is None) and (_value1 is not None) and (not unclaimed):
-           # special case: burns is selected without DECK and unclaimed
-           # then address can be given as first argument
-           address = _value1
-           address_or_deck = None
+        if (burntxes or gatewaytxes or claimtxes) and origin:
+            address = origin
+
+        #if (burntxes is True) and (_value2 is None) and (_value1 is not None) and (not unclaimed):
+        #   # special case: burns is selected without DECK and unclaimed
+        #   # then address can be given as first argument
+        #   address = _value1
+        #   address_or_deck = None
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
