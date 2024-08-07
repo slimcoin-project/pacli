@@ -254,64 +254,32 @@ class Proposal:
     """Commands to manage, show and vote for proposals in dPoD tokens."""
 
 
-    def __info(self, proposal: str) -> None:
-        """Get basic info of a proposal."""
+    def __get(self, searchstring: str, miniid: bool=False, advanced: bool=False, require_states: bool=False, label_priority: bool=False, debug: bool=False) -> dict:
 
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        proposal_tx = du.find_proposal(proposal_id, provider)
-        pprint(proposal_tx.__dict__)
+        proposal_id = None
+        if (miniid is False and label_priority is True) or (require_states is False):
+            try:
+                proposal_id = eu.search_for_stored_tx_label("proposal", str(searchstring))
+                proposal_states = None
+            except ei.PacliInputDataError:
+                require_states = True
 
-    def __find(self, searchstring: str, advanced: bool=False, shortid: bool=False) -> None:
-        """finds a proposal based on its description string or short id"""
-
-        pstates = ei.run_command(du.find_proposal_state_by_string, searchstring, advanced=advanced, shortid=shortid)
-        for pstate in pstates:
-            # this should go into dt_interface
-            pprint(pstate.idstring)
-            pprint("Donation Address: {}".format(pstate.donation_address))
-            pprint("ID: {}".format(pstate.id))
-            if advanced:
-                pprint("State: {}".format(pstate.state))
-
-    def __state(self, proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, quiet: bool=False, search: bool=False, debug: bool=False, ) -> None:
-        """Shows a single proposal state. You can search also for a short id (length 16 characters) or parts of the description."""
-
-        if (search is True):
-            pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True)[0]
-        else:
-            if len(proposal_string) == 16:
-                # if the length is 16 like in the short id, we search this id.
-                pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True, shortid=True)[0]
+        if require_states is True or miniid is True:
+            if proposal_id is not None:
+                proposal_state = dmu.get_proposal_state(provider, proposal_id, debug=debug)
+                proposal_states = [proposal_state]
             else:
-                proposal_id = eu.search_for_stored_tx_label("proposal", proposal_string)
-                try:
-                    pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
-                except (IndexError, KeyError) as e:
-                    ei.print_red("Error: {}".format(e))
+                proposal_states = du.find_proposal_state_by_string(str(searchstring), advanced=advanced, shortid=miniid)
+            if len(proposal_states) > 1 and debug:
+                print("Note: There are more than one proposal states matching the string. Displaying the first one.")
+            try:
+                proposal_id = proposal_states[0].id
+            except IndexError:
+                raise ei.PacliInputDataError("Proposal not found.")
 
-        pdict = pstate.__dict__
-        if param is not None:
-            result = pdict.get(param)
-            if quiet:
-                di.prepare_complete_collection(result)
-                print(result)
-            else:
-                di.prepare_dict({"result" : result})
-                pprint("Value of parameter {} for proposal {}:".format(param, proposal_id))
-                pprint(result)
-        elif quiet is True:
-            di.prepare_complete_collection(pdict)
-            print(pdict)
-        elif simple is True:
-            pprint(pdict)
-        elif complete is True:
-            di.prepare_complete_collection(pdict)
-            pprint(pdict)
-        else:
-            pprint("Proposal State - " + pstate.idstring)
-            # in the standard mode, some objects are shown in a simplified way.
-            di.prepare_dict(pdict)
-            pprint(pdict)
+        return {"id" : proposal_id, "states" : proposal_states}
+
+
 
     def set(self,
             label: str,
@@ -359,17 +327,20 @@ class Proposal:
             pacli proposal show LABEL_OR_ID -i
 
         Shows basic information about a proposal.
+        Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
 
             pacli proposal show LABEL_OR_ID -s [-p PARAM] [-a]
 
         Shows a dictionary with the current state of a proposal.
         If -p is given, display only a specific parameter of the dictionary.
         If -a is given, show advanced information.
+        Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
+        If -f is given in addition to -s, local labels will be ignored and instead the string will be searched if possible.
 
             pacli proposal show STRING -f [-m]
 
-        Find a proposal containing STRING in its ID or description.
-        If -m is given, the STRING must match the mini ID (first 8 characters) of the proposal.
+        Find all proposals containing STRING in their ID or description.
+        Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
 
         Args:
 
@@ -377,7 +348,7 @@ class Proposal:
             basic: Show a simplified version of the proposal state (only in combination with -s).
             find: Search for a proposal containing a string (see Usage modes).
             info: Show basic info about a proposal.
-            miniid: Use the mini id (short id) to identify the proposal (only in combination with -f)
+            miniid: Use the mini id (short id) to identify the proposal.
             param: Show a parameter of the proposal state dictionary (only in combination with -s)
             quiet: Suppress addiitonal output, print information in raw format (script-friendly).
             state: Show the state of the proposal with all variables (see Usage modes).
@@ -385,15 +356,75 @@ class Proposal:
 
         """
 
+        pp_data = ei.run_command(self.__get, label_or_id, require_states=(state or find), miniid=miniid, label_priority=(not find), advanced=advanced, debug=debug)
+
         if info is True:
-            return self.__info(label_or_id)
+            return self.__info(pp_data["id"])
         elif state is True:
-            # note: --state and --find can be together.
-            # proposal_string: str, param: str=None, simple: bool=False, complete: bool=False, raw: bool=False, search: bool=False, debug: bool=False, ) -> None:
-            return self.__state(label_or_id, param=param, complete=advanced, simple=basic, quiet=quiet, search=find, debug=debug)
+            return self.__state(pp_data["states"][0], param=param, complete=advanced, simple=basic, quiet=quiet, search=find, debug=debug)
         elif find is True:
-            return self.__find(label_or_id, advanced=advanced, shortid=miniid)
+            return self.__find(pp_data["states"], advanced=advanced, shortid=miniid)
+
         return ce.show("proposal", label_or_id, quiet=quiet)
+
+    def __info(self, proposal_id: str) -> None:
+        """Get basic info of a proposal."""
+
+        proposal_tx = du.find_proposal(proposal_id, provider)
+        pprint(proposal_tx.__dict__)
+
+    def __find(self, pstates: str, advanced: bool=False, shortid: bool=False) -> None:
+        """finds a proposal based on its description string or short id"""
+
+        for pstate in pstates:
+            # this should go into dt_interface
+            pprint(pstate.idstring)
+            pprint("Donation Address: {}".format(pstate.donation_address))
+            pprint("ID: {}".format(pstate.id))
+            if advanced:
+                pprint("State: {}".format(pstate.state))
+
+    def __state(self, pstate: str, param: str=None, simple: bool=False, complete: bool=False, quiet: bool=False, search: bool=False, debug: bool=False, ) -> None:
+        """Shows a single proposal state. You can search also for a short id (length 16 characters) or parts of the description."""
+
+        # if (search is True) or (len(proposal_string) == 16):
+        #if pstates is not None:
+            # pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True)[0]
+        #    pstate = pstates[0]
+        #elif proposal_id is not None:
+            #if len(proposal_string) == 16:
+            #    # if the length is 16 like in the short id, we search this id.
+            #    pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True, shortid=True)[0]
+            #else:
+            #    proposal_id = eu.search_for_stored_tx_label("proposal", proposal_string)
+        #    try:
+        #        pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
+        #    except (IndexError, KeyError) as e:
+        #        ei.print_red("Error: {}".format(e))
+
+        pdict = pstate.__dict__
+        if param is not None:
+            result = pdict.get(param)
+            if quiet:
+                di.prepare_complete_collection(result)
+                print(result)
+            else:
+                di.prepare_dict({"result" : result})
+                pprint("Value of parameter {} for proposal {}:".format(param, proposal_id))
+                pprint(result)
+        elif quiet is True:
+            di.prepare_complete_collection(pdict)
+            print(pdict)
+        elif simple is True:
+            pprint(pdict)
+        elif complete is True:
+            di.prepare_complete_collection(pdict)
+            pprint(pdict)
+        else:
+            pprint("Proposal State - " + pstate.idstring)
+            # in the standard mode, some objects are shown in a simplified way.
+            di.prepare_dict(pdict)
+            pprint(pdict)
 
     def list(self,
              id_or_label: str=None,
@@ -438,6 +469,7 @@ class Proposal:
                proposal: str,
                debug: bool=False,
                blockheight: int=None,
+               miniid: bool=False,
                quiet: bool=False,
                listvoters: bool=False) -> None:
         """Shows enabled voters and their balance at the start of the current epoch of a proposal, or at a defined blockheight.
@@ -447,18 +479,23 @@ class Proposal:
             pacli proposal voters PROPOSAL
 
         Shows list of voters for proposal PROPOSAL.
+        PROPOSAL can be an ID, a local label, a part of the description or the mini ID (with -m option).
 
         Args:
 
           quiet: Suppress additional output and print out a script-friendly dictionary.
           listvoters: Print out only a list of voters.
           blockheight: Block height to consider for the voters' balances (mainly debugging command)
+          miniid: Use the mini id (short id) to identify the proposal.
           debug: Show additional debug information."""
 
         # TODO: if blockheight option is given, proposal isn't strictly necessary. But the code would have to be changed for that.
         # TODO: the voter weight is shown in scientific notation. Should be re-formatted.
 
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
+        pp_data = ei.run_command(self.__get, proposal, require_states=False, miniid=miniid, label_priority=True, debug=debug)
+        proposal_id = pp_data["id"]
+
+        # proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         proposal_tx = dmu.find_proposal(proposal_id, provider)
         deck = proposal_tx.deck
 
@@ -494,6 +531,69 @@ class Proposal:
             pprint("The tokens' numbers of decimals don't matter for this view.")
 
 
+    def period(self,
+              label_or_id: str,
+              period: str=None,
+              all_periods: bool=False,
+              blockheight: int=None,
+              miniid: bool=False,
+              start: bool=False,
+              end: bool=False,
+              debug: bool=False):
+        """Shows information about the periods of a proposal.
+        Proposal can be given as an ID, local label, mini ID (-m option) or as part of the description string.
+
+        Usage options:
+
+            pacli proposal period PROPOSAL
+
+        Shows the current period of the proposal.
+
+            pacli proposal period PROPOSAL -a
+
+        Shows info about all periods of the proposal.
+
+            pacli proposal period PROPOSAL PERIOD
+
+        Shows info about a certain period of the proposal.
+        PERIOD has to be entered as a string, combining a letter and a number (e.g. b20, e1)
+        By default, the start and end block of the period are shown.
+
+            pacli proposal period PROPOSAL -b BLOCK
+
+        Shows info about the period of a proposal active at block BLOCK.
+
+        NOTE: -e option can give nothing as a result, if the last period (E) is chosen.
+
+        Args:
+
+           start: If used with a PERIOD, shows only the start block of the period (script-friendly).
+           end: If used with a PERIOD, shows only the end block of the period (script-friendly).
+           debug: Show debug information.
+           miniid: Use the short ID of the proposal.
+           period: Period (see Usage modes). To be used as a positional argument (flag name not mandatory).
+           all_periods: Show all periods (see Usage modes).
+           blockheight: Show period at a block height (see Usage modes).
+
+
+        """
+
+        pp_data = ei.run_command(self.__get, label_or_id, require_states=False, miniid=miniid, label_priority=True, debug=debug)
+        proposal_id = pp_data["id"]
+
+        if start is True:
+            mode = "start"
+        elif end is True:
+            mode = "end"
+        else:
+            mode = None
+
+        if all_periods is True:
+            return ei.run_command(self.__all_periods, proposal_id, debug=debug)
+        elif period is not None:
+            return ei.run_command(self.__get_period, proposal_id, period, mode=mode, debug=debug)
+        else:
+            return ei.run_command(self.__current_period, proposal_id, blockheight=blockheight, show_blockheights=True, mode=mode, debug=debug)
 
     # TODO: the period methods could be simplified, much code redundance.
     def __current_period(self, proposal: str, blockheight: int=None, show_blockheights: bool=True, mode: str=None, quiet: bool=False, debug: bool=False) -> None:
@@ -506,8 +606,8 @@ class Proposal:
             blockheight = provider.getblockcount() + 1
             if not quiet:
                 pprint("Next block: {}".format(blockheight))
-        deck = ei.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
-        period, blockheights = ei.run_command(du.get_period, proposal_id, deck, blockheight)
+        deck = du.deck_from_ttx_txid(proposal_id, "proposal", provider, debug=debug)
+        period, blockheights = du.get_period(proposal_id, deck, blockheight)
 
         if mode == "start":
             return blockheights[0]
@@ -546,63 +646,6 @@ class Proposal:
             return period_heights[1]
         else:
             return period_heights
-
-    def period(self,
-              proposal: str,
-              period: str=None,
-              all_periods: bool=False,
-              blockheight: int=None,
-              start: bool=False,
-              end: bool=False,
-              debug: bool=False):
-        """Shows information about the periods of a proposal.
-
-        Usage options:
-
-            pacli proposal period
-
-        Shows the current period of the proposal.
-
-            pacli proposal period -a
-
-        Shows info about all periods of the proposal.
-
-            pacli proposal period PERIOD
-
-        Shows info about a certain period of the proposal.
-        PERIOD has to be entered as a string, combining a letter and a number (e.g. b20, e1)
-        By default, the start and end block of the period are shown.
-
-            pacli proposal period -b BLOCK
-
-        Shows info about the period of a proposal active at block BLOCK.
-
-        NOTE: -e option can give nothing as a result, if the last period (E) is chosen.
-
-        Args:
-
-           start: If used with a PERIOD, shows only the start block of the period (script-friendly).
-           end: If used with a PERIOD, shows only the end block of the period (script-friendly).
-           debug: Show debug information.
-           period: Period (see Usage modes). To be used as a positional argument (flag name not mandatory).
-           all_periods: Show all periods (see Usage modes).
-           blockheight: Show period at a block height (see Usage modes).
-
-
-        """
-        if start is True:
-            mode = "start"
-        elif end is True:
-            mode = "end"
-        else:
-            mode = None
-
-        if all_periods is True:
-            return self.__all_periods(proposal, debug=debug)
-        elif period is not None:
-            return self.__get_period(proposal, period, mode=mode)
-        else:
-            return self.__current_period(proposal, blockheight=blockheight, show_blockheights=True, mode=mode, debug=debug)
 
 
     # Tracked Transactions in Proposal class
@@ -843,7 +886,7 @@ class Donation:
         elif proposal is not None:
             proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
             deck = deck_from_ttx_txid(proposal_id)
-            proposal_state = get_proposal_state(provider, proposal_id=proposal_id)
+            proposal_state = dmu.get_proposal_state(provider, proposal_id=proposal_id)
             dstate = get_dstates_from_donor_address(Settings.key.address, proposal_state)[0]
         else:
             print("You must provide either a proposal state or a donation state.")

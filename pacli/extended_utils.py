@@ -448,7 +448,7 @@ def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
     if not quiet:
         print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
 
-def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True) -> str:
+def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True, debug: bool=False) -> str:
     """If the identifier is a label stored in the extended config file, return the associated txid."""
     # returns first the identifier if it's already in txid format.
 
@@ -476,6 +476,7 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
         result = search_global_deck_name(identifier, quiet=quiet)
         if result:
             return result
+
 
     raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
 
