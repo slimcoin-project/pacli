@@ -648,7 +648,7 @@ class Proposal:
             print(di.printout_period(period, blockheights, blockheights_first=True))
 
 
-    def __get_period(self, proposal: str, period: str, mode: str=None) -> object:
+    def __get_period(self, proposal: str, period: str, mode: str=None, debug: bool=False) -> object:
         """Shows the start or end block of a period. Use letter-number combination for the 'period' parameter ,e.g. 'b2'."""
         try:
             pletter = period[0].upper()
