@@ -349,7 +349,7 @@ class Proposal:
 
         Args:
 
-            advanced: Show advanced information about a proposal or its state (only in combination with -s and -i).
+            advanced: Show advanced information about a proposal or its state (only in combination with -f, -s and -i).
             basic: Show a simplified version of the proposal state (only in combination with -s).
             find: Search for a proposal containing a string (see Usage modes).
             info: Show basic info about a proposal.
@@ -364,7 +364,7 @@ class Proposal:
         pp_data = ei.run_command(self.__get, label_or_id, require_states=(state or find), miniid=miniid, label_priority=(not find), advanced=advanced, debug=debug)
 
         if info is True:
-            return self.__info(pp_data["id"])
+            return self.__info(pp_data["id"], advanced=advanced)
         elif state is True:
             return self.__state(pp_data["states"][0], param=param, complete=advanced, simple=basic, quiet=quiet, search=find, debug=debug)
         elif find is True:
@@ -424,7 +424,7 @@ class Proposal:
                 print(result)
             else:
                 di.prepare_dict({"result" : result})
-                pprint("Value of parameter {} for proposal {}:".format(param, proposal_id))
+                pprint("Value of parameter {} for proposal {}:".format(param, pstate.id))
                 pprint(result)
         elif quiet is True:
             di.prepare_complete_collection(pdict)
