@@ -232,7 +232,7 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
     return asset_specific_data, receiver, payment, deckid
 
 
-def list_current_proposals(deck: str, block: int=None, only_active: bool=False, all: bool=False, simple: bool=False, debug: bool=False) -> None:
+def list_current_proposals(deck: str, block: int=None, searchstring: str=None, only_active: bool=False, all_states: bool=False, simple: bool=False, debug: bool=False) -> None:
     # TODO re-check: it seems that if we use Decimal for values like req_amount scientific notation is used.
     # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
     # TODO ensure that the simple mode also takes into account Proposal Modifications
@@ -245,7 +245,7 @@ def list_current_proposals(deck: str, block: int=None, only_active: bool=False, 
     statelist, advanced = ["active"], True
     if not only_active:
         statelist.append("completed")
-    if all:
+    if all_states:
         statelist.append("abandoned")
     if simple:
         advanced = False
@@ -275,6 +275,10 @@ def list_current_proposals(deck: str, block: int=None, only_active: bool=False, 
             startblock = pstate_data["startblock"]
             endblock = pstate_data["endblock"]
 
+            if searchstring is not None:
+                if str(searchstring) not in pstate.idstring:
+                    continue
+
             if pstate.state in statelist:
                 if not shown_pstates:
                     shown_pstates = True
@@ -303,6 +307,6 @@ def list_current_proposals(deck: str, block: int=None, only_active: bool=False, 
 
     if not shown_pstates:
 
-        pmsg = "" if all else "active and/or completed "
+        pmsg = "" if all_states else "active and/or completed "
         print("No {}proposal states found for deck {}.".format(pmsg, deckid))
 

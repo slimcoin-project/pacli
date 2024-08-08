@@ -344,7 +344,7 @@ class Proposal:
 
         Args:
 
-            advanced: Show advanced information about a proposal state (only in combination with -s).
+            advanced: Show advanced information about a proposal or its state (only in combination with -s and -i).
             basic: Show a simplified version of the proposal state (only in combination with -s).
             find: Search for a proposal containing a string (see Usage modes).
             info: Show basic info about a proposal.
@@ -367,11 +367,19 @@ class Proposal:
 
         return ce.show("proposal", label_or_id, quiet=quiet)
 
-    def __info(self, proposal_id: str) -> None:
+    def __info(self, proposal_id: str, advanced: bool=False) -> None:
         """Get basic info of a proposal."""
 
         proposal_tx = du.find_proposal(proposal_id, provider)
-        pprint(proposal_tx.__dict__)
+        if advanced:
+            pprint(proposal_tx.__dict__)
+        else:
+            pprint({"Proposal ID" : proposal_id,
+                    "Description" : proposal_tx.description,
+                    "Donation address" : proposal_tx.donation_address,
+                    "Block height" : proposal_tx.blockheight,
+                    "Token/Deck ID" : proposal_tx.deck.id})
+
 
     def __find(self, pstates: str, advanced: bool=False, shortid: bool=False) -> None:
         """finds a proposal based on its description string or short id"""
@@ -381,6 +389,7 @@ class Proposal:
             pprint(pstate.idstring)
             pprint("Donation Address: {}".format(pstate.donation_address))
             pprint("ID: {}".format(pstate.id))
+            pprint("Token/Deck ID: {}".format(pstate.deck.id))
             if advanced:
                 pprint("State: {}".format(pstate.state))
 
@@ -429,6 +438,7 @@ class Proposal:
     def list(self,
              id_or_label: str=None,
              blockheight: int=False,
+             find: str=None,
              only_active: bool=False,
              all_proposals: bool=False,
              simple: bool=False,
@@ -444,6 +454,10 @@ class Proposal:
         Shows proposals of DECK. By default, shows active and completed proposals.
         DECK can be a deck ID or a label.
 
+           pacli proposal list DECK -f STRING
+
+        Shows proposals of DECK matching a string STRING in its ID string / description.
+
            pacli proposal list -n
 
         Shows proposals a label was assigned to.
@@ -452,6 +466,7 @@ class Proposal:
 
           only_active: shows only currently active proposals (not in combination with -n).
           all_proposals: in addition to active and completed, shows also abandoned proposals.
+          find: Search by string in the list (not in combination with -n).
           simple: Like --all, but doesn't show proposals' state (much faster).
           named: Only shows proposals with labels/names assigned to them.
           blockheight: Block height to consider for the proposals' state (debugging option)
@@ -463,7 +478,7 @@ class Proposal:
         if named:
             return ce.list("proposal", quiet=quiet)
         else:
-            return ei.run_command(dc.list_current_proposals, id_or_label, block=blockheight, only_active=only_active, all=all_proposals, simple=simple, debug=debug)
+            return ei.run_command(dc.list_current_proposals, id_or_label, block=blockheight, searchstring=find, only_active=only_active, all_states=all_proposals, simple=simple, debug=debug)
 
     def voters(self,
                proposal: str,
