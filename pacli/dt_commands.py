@@ -1,13 +1,16 @@
 # Commands specific for DT tokens in standard pacli classes
 
+
+import pypeerassets as pa
+import pypeerassets.at.dt_misc_utils as dmu
+import pypeerassets.at.constants as c
 import pacli.dt_utils as du
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.dt_interface as di
 import pacli.config_extended as ce
-import pypeerassets as pa
-import pypeerassets.at.dt_misc_utils as dmu
-import pypeerassets.at.constants as c
+import pacli.extended_constants as eco
+
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data, serialize_deck_extended_data
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
@@ -237,10 +240,12 @@ def list_current_proposals(deck: str, block: int=None, searchstring: str=None, o
     # Using float instead seems to work well when it's only divided by the "Coin" value (1000000 in PPC)
     # TODO ensure that the simple mode also takes into account Proposal Modifications
 
-    try:
-        deckid = eu.search_for_stored_tx_label("deck", deck)
-    except (ValueError, TypeError):
-        raise ei.PacliInputDataError("No deck provided.")
+    deckid = du.default_deck() if deck is None else eu.search_for_stored_tx_label("deck", deck)
+    #else:
+    #    try:
+    #        deckid = eu.search_for_stored_tx_label("deck", deck)
+    #    except (ValueError, TypeError):
+    #        raise ei.PacliInputDataError("No deck provided.")
 
     statelist, advanced = ["active"], True
     if not only_active:

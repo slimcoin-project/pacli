@@ -19,7 +19,7 @@ import pacli.dt_interface as di
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
-
+import pacli.extended_constants as eco
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -34,6 +34,13 @@ def deck_from_ttx_txid(txid: str, tx_type: str, provider: object, debug: bool=Fa
         return dmu.deck_from_p2th(ttx, tx_type, provider)
     except ValueError:
         raise PacliInputDataError("Incorrect input, no deck found based on this transaction or proposal ID.")
+
+def default_deck(quiet: bool=False):
+
+    deckid = eco.DEFAULT_POD_DECK[Settings.network]
+    if not quiet:
+        print("Using default dPoD token with deck ID {}.".format(deckid))
+    return deckid
 
 # Proposal states and periods
 

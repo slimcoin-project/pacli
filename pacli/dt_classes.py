@@ -66,23 +66,27 @@ class PoDToken():
                              confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
 
 
-    def state(self, idstr: str, debug: str=None) -> None:
+    def state(self, idstr: str=None, debug: str=None) -> None:
         """Prints the DT deck state (the current state of the deck variables).
 
         Usage:
 
-            pacli podtoken state DECK
+            pacli podtoken state [DECK]
+
+        If no DECK is given, the default dPoD token is used.
 
         Args:
 
           debug: Shows debug information.
 
         """
-        deckid = eu.search_for_stored_tx_label("deck", idstr)
+        deckid = du.default_deck() if idstr is None else ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
         if debug is not None:
             debug_standard = True if debug == True else False
             debug_donations = True if "donations" in debug else False
             debug_voting = True if "voting" in debug else False
+        else:
+            debug_standard, debug_donations, debug_voting = None, None, None
 
         ei.run_command(dc.dt_state, deckid, debug=debug_standard, debug_donations=debug_donations, debug_voting=debug_voting)
 
@@ -177,15 +181,14 @@ class PoDToken():
             approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
             pprint("In this round, the proposal was {}.".format(approval_state))
 
-    def __my_votes(self, deck: str, address: str=Settings.key.address) -> None:
-        """shows votes cast from this address, for all proposals of a deck."""
+    #def __my_votes(self, deck: str, address: str=Settings.key.address) -> None:
+    #    """shows votes cast from this address, for all proposals of a deck."""
 
-        deckid = eu.search_for_stored_tx_label("deck", deck)
-        return ei.run_command(dc.show_votes_by_address, deckid, address)
+
 
     def votes(self,
-              proposal_or_deck: str,
-              address: str=Settings.key.address,
+              proposal_or_deck: str=None,
+              address: str=None,
               my: bool=False,
               debug: bool=False):
         """Shows votes, either of the current address, or of a specific proposal.
@@ -196,20 +199,25 @@ class PoDToken():
 
         Shows all votes from all users on the proposal PROPOSAL.
 
-            pacli podtoken votes DECK [-m/--my|ADDRESS]
+            pacli podtoken votes [DECK] [-m/--my|-a ADDRESS]
 
         Shows all votes cast from the current address (-m/--my) or another ADDRESS for the specified deck DECK.
+        If deck is not specified, the default dPoD deck is used.
 
         Args:
 
-          address: See votes from the specified address.
+          address: See votes from the specified address. Can be used as a positional argument if a deck is given.
           my: See votes of current main address.
-          debug: prints debug information
+          debug: Prints debug information.
+          proposal_or_deck: Proposal or deck. To be used as a positional argument (flag name not necessary).
 
         """
 
         if (my is True) or (address is not None):
-            return self.__my_votes(proposal_or_deck, address=address)
+            deckid = du.default_deck() if proposal_or_deck is None else ei.run_command(eu.search_for_stored_tx_label, "deck", proposal_or_deck, debug=debug)
+            if my is True:
+                address = Settings.key.address
+            return ei.run_command(dc.show_votes_by_address, deckid, address)
         else:
             return self.__get_votes(proposal_or_deck, debug=debug)
 
@@ -446,15 +454,16 @@ class Proposal:
              named: bool=False,
              debug: bool=False) -> None:
         """Shows a list of proposals.
+        In all modes without -n, if DECK is not given the standard dPoD token is used.
 
         Usage modes:
 
-           pacli proposal list DECK [-o|-a]
+           pacli proposal list [DECK] [-o|-a]
 
         Shows proposals of DECK. By default, shows active and completed proposals.
         DECK can be a deck ID or a label.
 
-           pacli proposal list DECK -f STRING
+           pacli proposal list [DECK] -f STRING
 
         Shows proposals of DECK matching a string STRING in its ID string / description.
 
@@ -478,7 +487,7 @@ class Proposal:
         if named:
             return ce.list("proposal", quiet=quiet)
         else:
-            return ei.run_command(dc.list_current_proposals, id_or_label, block=blockheight, searchstring=find, only_active=only_active, all_states=all_proposals, simple=simple, debug=debug)
+            return ei.run_command(dc.list_current_proposals, deck=id_or_label, block=blockheight, searchstring=find, only_active=only_active, all_states=all_proposals, simple=simple, debug=debug)
 
     def voters(self,
                proposal: str,
