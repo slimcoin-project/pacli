@@ -161,31 +161,6 @@ class PoDToken():
         return ei.output_tx(tx, txhex=txhex)
 
 
-    def __get_votes(self, proposal: str, debug: bool=False) -> None:
-        """Displays the result of both voting rounds."""
-        # TODO: ideally there may be a variable indicating the second round has not started yet.
-
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        all_votes = dmu.get_votestate(provider, proposal_id, debug)
-
-        for phase in (0, 1):
-            try:
-                votes = all_votes[phase]
-            except IndexError:
-                pprint("Votes of round {} not available.".format(str(phase + 1)))
-                continue
-
-            pprint("Voting round {}:".format(str(phase + 1)))
-            pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
-            pprint("Negative votes (weighted): {}".format(str(votes["negative"])))
-            approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
-            pprint("In this round, the proposal was {}.".format(approval_state))
-
-    #def __my_votes(self, deck: str, address: str=Settings.key.address) -> None:
-    #    """shows votes cast from this address, for all proposals of a deck."""
-
-
-
     def votes(self,
               proposal_or_deck: str=None,
               address: str=None,
@@ -199,7 +174,8 @@ class PoDToken():
 
         Shows all votes from all users on the proposal PROPOSAL.
 
-            pacli podtoken votes [DECK] [-m/--my|-a ADDRESS]
+            pacli podtoken votes [DECK] -m
+            pacli podtoken votes [DECK] -a ADDRESS
 
         Shows all votes cast from the current address (-m/--my) or another ADDRESS for the specified deck DECK.
         If deck is not specified, the default dPoD deck is used.
@@ -219,7 +195,28 @@ class PoDToken():
                 address = Settings.key.address
             return ei.run_command(dc.show_votes_by_address, deckid, address)
         else:
-            return self.__get_votes(proposal_or_deck, debug=debug)
+            return ei.run_command(self.__get_votes, proposal_or_deck, debug=debug)
+
+
+    def __get_votes(self, proposal: str, debug: bool=False) -> None:
+        """Displays the result of both voting rounds."""
+        # TODO: ideally there may be a variable indicating the second round has not started yet.
+
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
+        all_votes = dmu.get_votestate(provider, proposal_id, debug)
+
+        for phase in (0, 1):
+            try:
+                votes = all_votes[phase]
+            except IndexError:
+                pprint("Votes of round {} not available.".format(str(phase + 1)))
+                continue
+
+            pprint("Voting round {}:".format(str(phase + 1)))
+            pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
+            pprint("Negative votes (weighted): {}".format(str(votes["negative"])))
+            approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
+            pprint("In this round, the proposal was {}.".format(approval_state))
 
 
     def check_tx(self, proposal: str=None, txid: str=None, fulltx: str=None, include_badtx: bool=False, light: bool=False) -> None:

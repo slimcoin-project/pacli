@@ -451,6 +451,8 @@ def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
 def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True, debug: bool=False) -> str:
     """If the identifier is a label stored in the extended config file, return the associated txid."""
     # returns first the identifier if it's already in txid format.
+    if identifier is None:
+        raise ei.PacliInputDataError("No label provided. Please provide a valid {}.".format(category))
 
     identifier = str(identifier) # will not work with int values, but we want ints to be possible as identifiers
     if is_possible_txid(identifier):
@@ -478,7 +480,7 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
             return result
 
 
-    raise ei.PacliInputDataError("Label '{}' not found.".format(identifier))
+    raise ei.PacliInputDataError("Label '{}' not found. Please provide a valid {}.".format(identifier, category))
 
 # General token tools
 
