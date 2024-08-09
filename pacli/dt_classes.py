@@ -624,7 +624,7 @@ class Proposal:
         if blockheight is None:
             blockheight = provider.getblockcount() + 1
             if not quiet:
-                pprint("Next block: {}".format(blockheight))
+                pprint("Next block in the chain: {}".format(blockheight))
         deck = du.deck_from_ttx_txid(proposal_id, "proposal", provider, debug=debug)
         period, blockheights = du.get_period(proposal_id, deck, blockheight)
 
@@ -651,8 +651,11 @@ class Proposal:
         try:
             pletter = period[0].upper()
             pnumber = int(period[1:])
-        except:
-            ei.print_red("Error: Period entered in wrong format. You have to enter a letter-number combination, e.g. b10 or d50.")
+        except ValueError:
+            if period in ("C", "E"):
+                pnumber = 0
+            else:
+                raise ei.PacliInputDataError("Period entered in wrong format. You have to enter a letter-number combination, e.g. b10 or d50. Only periods C and E are accepted without number.")
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         proposal_tx = dmu.find_proposal(proposal_id, provider)

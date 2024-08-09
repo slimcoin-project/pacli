@@ -50,7 +50,7 @@ def printout_period(period: tuple, blockheights: list, show_blockheights: bool=F
              return "{}Period D{}: Final Slot Distribution, round {} Donation Phase.{}".format(bf, period[1], period[1]//10, bhs)
 
     elif period == ("E", 0):
-        return "{}Period E. Distribution finished (reward claiming allowed if proposal was successful).{}".format(bf, bhs)
+        return "{}Period E0. Distribution finished (reward claiming allowed if proposal was successful).{}".format(bf, bhs)
 
 ## Display info about decks, transactions, proposals etc.
 
