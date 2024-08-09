@@ -268,7 +268,7 @@ def find_proposal_state_by_string(searchstring: str, advanced: bool=False, short
                 if shortid:
                     if proposal.id.startswith(searchstring):
                         matching_proposals.append(proposal)
-                elif searchstring in proposal.idstring:
+                elif (searchstring in proposal.idstring) or (searchstring in proposal.id):
                     matching_proposals.append(proposal)
         if require_state:
             assert matching_proposals

@@ -1613,7 +1613,7 @@ class ExtTransaction:
 
         pacli transaction list DECK [ORIGIN_ADDRESS] -c
 
-            List token claim transactions, either all in the wallet or those sent from a specific ORIGIN_ADDRESS in the wallet.
+            List token claim transactions, either all, those sent from wallet addresses (-w) or those sent from a specific ORIGIN_ADDRESS (-o) in the wallet.
             DECK can be a label or a deck ID.
             ORIGIN_ADDRESS is optional. In the case no address is given, the main address is used.
 
@@ -1714,6 +1714,9 @@ class ExtTransaction:
         #   # then address can be given as first argument
         #   address = _value1
         #   address_or_deck = None
+        # TODO: -g mode has duplicates in some cases, results differ according to addresses (d1 and f1). Check if -b mode has this problem too.
+        # TODO: -c should show senders if -o is not given.
+        # TODO: best would be to show the "structure" by default, or at least provide this option for all variants (only -x has it at this time).
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)

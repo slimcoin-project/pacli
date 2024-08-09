@@ -562,7 +562,9 @@ class Proposal:
               end: bool=False,
               debug: bool=False):
         """Shows information about the periods of a proposal.
-        Proposal can be given as an ID, local label, mini ID (-m option) or as part of the description string.
+        Proposal can be given as an ID, local label, mini ID (-m option) or as part of the ID string or description.
+
+        NOTE: -e option can give nothing as a result, if the last period (E) is chosen.
 
         Usage options:
 
@@ -584,19 +586,15 @@ class Proposal:
 
         Shows info about the period of a proposal active at block BLOCK.
 
-        NOTE: -e option can give nothing as a result, if the last period (E) is chosen.
-
         Args:
 
-           start: If used with a PERIOD, shows only the start block of the period (script-friendly).
-           end: If used with a PERIOD, shows only the end block of the period (script-friendly).
+           start: Shows only the start block of the period (script-friendly), current period is used if no PERIOD was given.
+           end: Shows only the end block of the period (script-friendly), current period is used if no PERIOD was given.
            debug: Show debug information.
            miniid: Use the short ID of the proposal.
            period: Period (see Usage modes). To be used as a positional argument (flag name not mandatory).
            all_periods: Show all periods (see Usage modes).
            blockheight: Show period at a block height (see Usage modes).
-
-
         """
 
         pp_data = ei.run_command(self.__get, label_or_id, require_states=False, miniid=miniid, label_priority=True, debug=debug)
