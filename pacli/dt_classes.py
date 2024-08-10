@@ -31,14 +31,15 @@ class PoDToken():
                    reward: int,
                    min_vote: int=0,
                    periods_sdp: int=None,
-                   deck_sdp: str=None,
+                   token_sdp: str=None,
                    number_of_decimals=2,
                    change: str=Settings.change,
                    wait_for_confirmation: bool=False,
                    verify: bool=False,
                    sign: bool=True,
                    send: bool=True,
-                   locktime: int=0) -> None:
+                   locktime: int=0,
+                   debug: bool=False) -> None:
         """Spawns a new DT deck.
 
         Usage:
@@ -49,21 +50,22 @@ class PoDToken():
 
           min_vote: Voting threshold (percentage) to approve a proposal (default: 0).
           periods_sdp: Number of Special Distribution Periods.
-          deck_sdp: Deck for the Special Distribution Periods (can be ID or label)
+          token_sdp: Deck for the Special Distribution Periods (can be ID or label)
           number_of_decimals: Number of decimals of the token (default: 2).
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           sign: Sign the transaction (False by default).
           send: Send the transaction (False by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit (Peercoin only)."""
+          verify: Verify transaction with Cointoolkit (Peercoin only).
+          debug: Show additional debug information."""
 
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, deck_sdp)
-        change_address = ec.process_address(change)
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, token_sdp, debug=debug)
+        change_address = ec.process_address(change, debug=debug)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data,
-                             confirm=wait_for_confirmation, verify=verify, sign=sign, send=send)
+                             confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
 
     def state(self, idstr: str=None, debug: str=None) -> None:
@@ -499,7 +501,7 @@ class Proposal:
 
             pacli proposal voters PROPOSAL
 
-        Shows list of voters for proposal PROPOSAL.
+        Shows list of enabled addresses to vote for proposal PROPOSAL.
         PROPOSAL can be an ID, a local label, a part of the description or the mini ID (with -m option).
 
         Args:

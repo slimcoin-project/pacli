@@ -25,6 +25,9 @@ from pacli.utils import (sendtx, cointoolkit_verify)
 def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None, debug: bool=False):
     """Creates a Protobuf datastring with the deck metadata."""
 
+    if multiplier is None:
+        multiplier = 1
+
     # note: we use an additional identifier only for this function, to avoid having to import extension
     # data into __main__.
     # TODO: this note is obsolete as we now have extended_classes. Can be refactored.

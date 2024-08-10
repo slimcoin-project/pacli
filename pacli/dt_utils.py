@@ -261,9 +261,15 @@ def find_proposal_state_by_string(searchstring: str, advanced: bool=False, short
     try:
         for deck in dmu.list_decks_by_at_type(provider, c.ID_DT):
             if advanced:
-                pstates = get_parser_state(provider, deck, force_continue=True).proposal_states
+                try:
+                    pstates = get_parser_state(provider, deck, force_continue=True).proposal_states
+                except KeyError: # uninitialized decks
+                    continue
             else:
-                pstates = get_proposal_states(provider, deck)
+                try:
+                    pstates = get_proposal_states(provider, deck)
+                except KeyError:
+                    continue
             for proposal in pstates.values():
                 if shortid:
                     if proposal.id.startswith(searchstring):
