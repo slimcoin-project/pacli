@@ -21,15 +21,17 @@ import json
 from decimal import Decimal
 from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 import pacli.extended_utils as eu
-import pacli.dt_interface as di
+import pacli.extended_interface as ei
 from pypeerassets.pa_constants import param_query
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=False, send: bool=False, txhex: bool=False, quiet: bool=False):
+def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, change: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=True, send: bool=True, txhex: bool=False, quiet: bool=False, debug: bool=False):
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
+    change_address = Settings.change if change is None else change
+
     quiet = True if True in (quiet, txhex) else False
     current_blockheight = provider.getblockcount()
     if absolute:
@@ -67,10 +69,10 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
     issue = pa.card_transfer(provider=provider,
                              inputs=provider.select_inputs(Settings.key.address, 0.03),
                              card=card,
-                             change_address=Settings.change,
+                             change_address=change_address,
                              )
 
-    return di.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send, confirm=confirm), txhex=txhex)
+    return ei.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send, confirm=confirm), txhex=txhex)
 
 # main function to be changed:
 # - coinseller_address (formerly partner_address) is now the card receiver.
@@ -147,7 +149,7 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, send: bool=Fals
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
-    return di_output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, confirm=confirm), txhex=txhex)
+    return ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, confirm=confirm), txhex=txhex)
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False):
 

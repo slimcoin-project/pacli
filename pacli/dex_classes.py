@@ -12,7 +12,7 @@ class Dex:
 
     @classmethod
     def lock(self,
-            deck: str,
+            idstr: str,
             amount: int,
             lock: int,
             lockaddr: str,
@@ -21,9 +21,10 @@ class Dex:
             addrtype: str="p2pkh",
             change: str=Settings.change,
             wait_for_confirmation: bool=False,
-            sign: bool=False,
-            send: bool=False,
-            quiet: bool=False):
+            sign: bool=True,
+            send: bool=True,
+            quiet: bool=False,
+            debug: bool=False):
         """Locks a number of tokens on the receiving address.
         By default, you specify the number of blocks to lock the tokens; with --height you specify the final block height.
         Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the DEX.
@@ -31,7 +32,7 @@ class Dex:
 
         Usage:
 
-        dex lock DECK AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER] [--sign --send]
+        dex lock TOKEN AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER] [--sign --send]
 
         Args:
 
@@ -45,13 +46,14 @@ class Dex:
           quiet: Output only the transaction in hexstring format (script-friendly).
          """
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
-        change_address = ec.process_address(change)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
+        change_address = ec.process_address(change, debug=debug)
+        lock_address = ec.process_address(lockaddr, debug=debug)
         if receiver is None:
             receiver_address = Settings.key.address
         else:
             receiver_address = ec.process_address(receiver)
-        return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lockaddr, addrtype=addrtype, absolute=blockheight, change_address=change_address, receiver=receiver_address, sign=sign, send=send, confirm=wait_for_confirmation, txhex=quiet)
+        return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
     def exchange(self,
@@ -63,7 +65,7 @@ class Dex:
                  coinseller_change_address: str=None,
                  label: str=None,
                  quiet: bool=False,
-                 sign: bool=False):
+                 sign: bool=True):
         """Creates a new exchange transaction, signs it partially and outputs it in hex format to be submitted to the exchange partner.
 
         Usage:
