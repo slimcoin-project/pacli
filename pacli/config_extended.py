@@ -1,4 +1,4 @@
-import json, os
+import json, os, re
 import pacli.extended_interface as ei
 from prettyprinter import cpprint as pprint
 from pacli.config import conf_dir, Settings
@@ -9,6 +9,7 @@ from pacli.config import conf_dir, Settings
 EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
 CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo"]
 CAT_INIT = {c : {} for c in CATEGORIES}
+ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
 
 # Common error messages
 ERR_NOCAT = "Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'."
@@ -49,6 +50,9 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     # this listcomp generates the mode from the add and modify bool variables.
     # the True value at the end means that "protect" (MODES[-1]) is the default.
     mode = [MODES[i] for i, m in enumerate([replace, modify, add, True]) if m][0]
+
+    if not ALLOWED_CHARACTERS.match(key):
+        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are lettere (A-Z, a-z), numbers (0-9) and underscore (_).")
 
     config = get_config(configfilename)
 
