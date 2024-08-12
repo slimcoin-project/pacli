@@ -141,15 +141,25 @@ class ATToken():
             payto = ec.process_address(payto)
             dec_payamount = Decimal(str(payamount)) if payamount is not None else None
         elif payamount is not None:
-            print("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
-            return None
+            raise ei.PacliInputDataError("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
+        else:
+            dec_payamount = None
+
+        if receivers:
+            receiver_list = []
+            for receiver in receivers:
+                try:
+                    receiver_list.append(ec.process_address(receiver))
+                except:
+                    raise ei.PacliInputDataError("Receiver invalid: {}".format(receiver))
+
 
         deckid = eu.search_for_stored_tx_label("deck", idstr)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
         change_address = ec.process_address(change)
 
-        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=dec_payamount, debug=debug, force=force)
+        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receiver_list, payto=payto, payamount=dec_payamount, debug=debug, force=force)
 
         return eu.advanced_card_transfer(deck,
                                  amount=amount,

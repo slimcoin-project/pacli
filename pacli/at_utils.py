@@ -221,6 +221,13 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
 
         if not amounts:
             amounts = [claimable_amount]
+            amounts_sum = claimable_amount
+        else:
+            amounts_sum = Decimal("0")
+            for amount in amounts:
+                amounts_sum  += Decimal(str(amount))
+
+        amounts_sum = Decimal(str(sum(amounts)))
 
         if debug:
            print("Amount(s) to send:", amounts)
@@ -229,8 +236,8 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
         if len(amounts) != len(receivers):
             raise ei.PacliInputDataError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amounts)))
 
-        if (sum(amounts) != claimable_amount) and (not force): # force option overcomplicates things.
-            raise ei.PacliInputDataError("Amount of cards does not correspond to the spent coins. Use --force to override.")
+        if (amounts_sum != claimable_amount) and (not force): # force option overcomplicates things.
+            raise ei.PacliInputDataError("Amount of cards ({}) does not correspond to the claimable amount ({}).".format(amounts_sum, claimable_amount))
 
         if debug:
             print("You are enabled to claim {} tokens.".format(claimable_amount))
