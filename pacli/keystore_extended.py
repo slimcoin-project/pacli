@@ -3,6 +3,7 @@ This module contains basic and high-level commands."""
 
 import os
 import keyring
+import re
 import pypeerassets as pa
 from pypeerassets.networks import networks as supported_networks
 from pacli.provider import provider
@@ -12,9 +13,14 @@ import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 
+ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
+
 def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=Settings.network, modify: bool=False, legacy: bool=False, quiet: bool=False) -> None:
     '''save/import new key, can be as main address or with a label, old key can be backed up
        this feature allows to import keys and generate new addresses'''
+
+    if ((label is not None) and (not ALLOWED_CHARACTERS.match(label))) or ((backup_id is not None) and (not ALLOWED_CHARACTERS.match(backup_id))):
+        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
 
     try:
         # to prevent malfunction if "--wif" is forgot or format is wrong, this checks if the key is a hex number
@@ -42,7 +48,8 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
 
     if new_key is not None:
         key = new_key
-    elif new_address is not None:
+    elif new_address is not None and not modify:
+
         wif_key = provider.dumpprivkey(new_address)
         try:
             key = pa.Kutil(network=network_name, from_wif=wif_key).privkey
@@ -59,8 +66,10 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
     if label:
         if modify:
             try:
-                raw_old_label = show_keyring_label(new_address)["label"]
-                old_label = kprefix + raw_old_label
+                # raw_old_label = show_keyring_label(new_address)["label"]
+                # old_label = kprefix + raw_old_label
+                old_label = kprefix + new_address
+                key = get_key(old_label)
                 delete_key(old_label)
             except ImportError:
                 raise ei.PacliInputDataError("Option --modify not available, secretstorage missing (probably not supported by your operating system)")
@@ -90,6 +99,8 @@ def delete_key(full_label: str) -> None:
 
 def set_key(full_label: str, key: str) -> None:
     '''set new key, simple way'''
+    if not ALLOWED_CHARACTERS.match(full_label):
+        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
     keyring.set_password("pacli", full_label, key)
 
 def get_labels_from_keyring(prefix: str=Settings.network):
