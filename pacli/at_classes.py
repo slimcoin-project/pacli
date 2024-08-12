@@ -152,6 +152,8 @@ class ATToken():
                     receiver_list.append(ec.process_address(receiver))
                 except:
                     raise ei.PacliInputDataError("Receiver invalid: {}".format(receiver))
+        else:
+            receiver_list = None
 
 
         deckid = eu.search_for_stored_tx_label("deck", idstr)
