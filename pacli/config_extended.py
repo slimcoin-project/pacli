@@ -51,7 +51,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     # the True value at the end means that "protect" (MODES[-1]) is the default.
     mode = [MODES[i] for i, m in enumerate([replace, modify, add, True]) if m][0]
 
-    if not ALLOWED_CHARACTERS.match(key):
+    if not ALLOWED_CHARACTERS.match(str(key)):
         raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
 
     config = get_config(configfilename)

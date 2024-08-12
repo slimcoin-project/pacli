@@ -87,7 +87,7 @@ class ATToken():
 
 
     def claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
-              locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
+              payto: str=None, payamount: str=None, change: str=Settings.change,
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
         '''Claims the token reward for a burn transaction (PoB tokens) or a transaction to a tracked address (AT tokens) referenced by a transaction ID.
@@ -112,7 +112,6 @@ class ATToken():
 
         Args:
 
-          locktime: Lock the transaction until a block or a time (not recommended, buggy in SLM).
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           sign: Sign the transaction (True by default).
@@ -133,7 +132,7 @@ class ATToken():
 
 
     def __claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
-              locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
+              payto: str=None, payamount: str=None, change: str=Settings.change,
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
 
@@ -166,7 +165,6 @@ class ATToken():
         return eu.advanced_card_transfer(deck,
                                  amount=amount,
                                  receiver=receiver,
-                                 locktime=locktime,
                                  change_address=change_address,
                                  asset_specific_data=asset_specific_data,
                                  sign=sign,
@@ -178,7 +176,7 @@ class ATToken():
 
     @classmethod
     def spawn(self, token_name, address, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
-              end_block: int=None, change: str=Settings.change, locktime: int=0, verify: bool=False,
+              end_block: int=None, change: str=Settings.change, verify: bool=False,
               wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
         """Spawns a new AT deck.
 
@@ -196,7 +194,6 @@ class ATToken():
           change: Specify a change address.
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
-          locktime: Lock the transaction to a block or Unix time (not recommended, buggy in SLM).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
@@ -206,7 +203,7 @@ class ATToken():
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block, debug=debug)
 
         return ei.run_command(eu.advanced_deck_spawn, name=token_name, number_of_decimals=number_of_decimals,
-               issue_mode=0x01, locktime=locktime, change_address=change_address, asset_specific_data=asset_specific_data,
+               issue_mode=0x01, change_address=change_address, asset_specific_data=asset_specific_data,
                confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
 
@@ -216,7 +213,7 @@ class PoBToken(ATToken):
 
     def spawn(self, token_name, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
-              wait_for_confirmation: bool=False, send: bool=True, locktime: int=0, debug: bool=False):
+              wait_for_confirmation: bool=False, send: bool=True, debug: bool=False):
 
         """Spawn a new PoB token, uses automatically the burn address of the network.
 
@@ -234,14 +231,13 @@ class PoBToken(ATToken):
           change: Specify a change address.
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
-          locktime: Lock the transaction until a block or an Unix time (not recommended, buggy in SLM).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
         tracked_address = au.burn_address()
         print("Using burn address:", tracked_address)
 
-        return super().spawn(token_name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, locktime=locktime, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
+        return super().spawn(token_name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
 
     def burn_coins(self, amount: str, idstr: str=None, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:

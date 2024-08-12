@@ -170,7 +170,7 @@ def check_donation_tx_validity(txid: str, tracked_address: str, startblock: int=
 
 
 def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: list=None, amounts: list=None, payto: str=None, payamount: Decimal=None, debug: bool=False, force: bool=False) -> tuple:
-        # note: uses now the "claim once per transaction" approach.
+        # note: uses the "claim once per transaction" approach.
 
         spending_tx = provider.getrawtransaction(donation_txid, 1) # changed from txid
 
@@ -226,8 +226,6 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
             amounts_sum = Decimal("0")
             for amount in amounts:
                 amounts_sum  += Decimal(str(amount))
-
-        amounts_sum = Decimal(str(sum(amounts)))
 
         if debug:
            print("Amount(s) to send:", amounts)
