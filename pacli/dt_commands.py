@@ -195,6 +195,8 @@ def dt_state(deckid: str, debug: bool=False, debug_voting: bool=False, debug_don
 
 def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, donation_state: str=None, payment: list=None, receiver: list=None, proposer: bool=False, force: bool=False, debug: bool=False, quiet: bool=False) -> tuple:
 
+    # TODO: recheck the numbers of decimals problem (if donations have more decimals than token txes) here too!
+
     if not receiver: # if there is no receiver, the coins are directly allocated to the donor.
         receiver = [donor_address]
 

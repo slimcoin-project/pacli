@@ -200,7 +200,9 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
             print("AT Address:", deck.at_address)
             print("Donation output indexes (vouts):", vouts)
 
-        claimable_amount = spent_amount * deck.multiplier
+        # min_claimable_amount = Decimal(str(1 / (10 ** deck.number_of_decimals)))
+        min_claimable_amount = 10 ** -Decimal(str(deck.number_of_decimals))
+        claimable_amount = ((spent_amount * deck.multiplier) // min_claimable_amount) * (10**-Decimal(str(deck.number_of_decimals)))
 
         if not receivers:
             # payto and payamount enable easy payment to a second address,
@@ -235,7 +237,11 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
             raise ei.PacliInputDataError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amounts)))
 
         if (amounts_sum != claimable_amount) and (not force): # force option overcomplicates things.
-            raise ei.PacliInputDataError("Amount of cards ({}) does not correspond to the claimable amount ({}).".format(amounts_sum, claimable_amount))
+            if abs(amounts_sum - claimable_amount) < min_claimable_amount:
+                msg_decimals = " You cannot claim amounts with more than {} decimals for this token. Please round the provided amount(s).".format(deck.number_of_decimals)
+            else:
+                msg_decimals = ""
+            raise ei.PacliInputDataError("The sum of the claimed tokens ({}) does not correspond to the claimable amount ({}).{}".format(amounts_sum, claimable_amount, msg_decimals))
 
         if debug:
             print("You are enabled to claim {} tokens.".format(claimable_amount))
