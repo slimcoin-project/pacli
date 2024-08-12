@@ -56,6 +56,7 @@ class PoDToken():
           change: Specify a change address.
           sign: Sign the transaction (False by default).
           send: Send the transaction (False by default).
+          locktime: Lock the transaction until a block or a time (not recommended, buggy in SLM).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only).
           debug: Show additional debug information."""
@@ -129,7 +130,7 @@ class PoDToken():
           proposer: Claim the proposer reward.
           state: Allows to specify a donation state (TXID of signalling transaction) if there are any ambiguities, for example if an incomplete donation was made from the same address.
           examine_address: Allows to specify a different donor address to check if a claim from there is possible (--sign and --send are disabled).
-          locktime: Lock the transaction until a block or a time.
+          locktime: Lock the transaction until a block or a time (not recommended, buggy in SLM).
           change: Specify a change address.
           receivers: List of receivers of the transaction (see above).
           amounts: List of amounts sent to the receivers (see above).

@@ -86,7 +86,6 @@ class ATToken():
         return eu.finalize_tx(rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, debug=debug)
 
 
-    @classmethod
     def claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
               locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
@@ -100,9 +99,10 @@ class ATToken():
         Claim the tokens and store them on the current main address, which has to be the sender of the rewarded transaction.
         TXID is the transaction ID to reference the rewarded transaction (e.g. burn transaction, donation or ICO payment).
 
-        pacli [pobtoken|attoken] claim DECK TXID --payto=ADDRESS --payamount=AMOUNT
+        pacli [pobtoken|attoken] claim DECK TXID --payto=ADDRESS [--payamount=AMOUNT]
 
         Claim the tokens and make a payment with the issued tokens in the same transaction to one specific address.
+        If --payamount is not provided, the whole amount will be sent to the address specified after --payto.
 
         pacli [pobtoken|attoken] claim DECK TXID -r "[ADDR1, ADDR2, ...]" -a "[AM1, AM2, ...]"
 
@@ -112,7 +112,7 @@ class ATToken():
 
         Args:
 
-          locktime: Lock the transaction until a block or a time.
+          locktime: Lock the transaction until a block or a time (not recommended, buggy in SLM).
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           sign: Sign the transaction (True by default).
@@ -127,21 +127,31 @@ class ATToken():
           debug: Show additional debug information.
           force: Create the transaction even if the reward does not match the transaction (only for debugging!).'''
 
-        if payamount is not None:
-            if payto is not None:
-                payto = ec.process_address(payto)
-            else:
-                print("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
-                return None
+        kwargs = locals()
+        del kwargs["self"]
+        ei.run_command(self.__claim, **kwargs)
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr)
+
+    def __claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
+              locktime: int=0, payto: str=None, payamount: str=None, change: str=Settings.change,
+              wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
+              verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
+
+        if payto is not None:
+            payto = ec.process_address(payto)
+            dec_payamount = Decimal(str(payamount)) if payamount is not None else None
+        elif payamount is not None:
+            print("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
+            return None
+
+        deckid = eu.search_for_stored_tx_label("deck", idstr)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        dec_payamount = Decimal(str(payamount)) if (payamount is not None) else None
+
         change_address = ec.process_address(change)
 
-        asset_specific_data, amount, receiver = ei.run_command(au.create_at_issuance_data, deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=dec_payamount, debug=debug, force=force)
+        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receivers, payto=payto, payamount=dec_payamount, debug=debug, force=force)
 
-        return ei.run_command(eu.advanced_card_transfer, deck,
+        return eu.advanced_card_transfer(deck,
                                  amount=amount,
                                  receiver=receiver,
                                  locktime=locktime,
@@ -174,6 +184,7 @@ class ATToken():
           change: Specify a change address.
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
+          locktime: Lock the transaction to a block or Unix time (not recommended, buggy in SLM).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
@@ -211,6 +222,7 @@ class PoBToken(ATToken):
           change: Specify a change address.
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
+          locktime: Lock the transaction until a block or an Unix time (not recommended, buggy in SLM).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
