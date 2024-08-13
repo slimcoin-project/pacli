@@ -86,6 +86,7 @@ def show_stored_address(label: str, network_name: str=Settings.network, keyring:
 def process_address(addr_string: str, keyring: bool=False, try_alternative: bool=False, network_name: str=Settings.network, debug: bool=False) -> str:
     """Allows to use a label or an address; you'll get an address back."""
     # TODO it is not clear if the branch with try_alternative is still needed. For now it's set to false.
+    result = None
     try:
         address = show_stored_address(addr_string, keyring=keyring, raise_if_invalid_label=True)
         assert address is not None
@@ -102,7 +103,7 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
 
     if not eu.is_possible_address(result, network_name):
         msg_keyring = "keyring" if keyring is True else "extended configuration file"
-        raise ei.PacliInputDataError("No valid address string or non-existing label in the {}.".format(msg_keyring))
+        raise ei.PacliInputDataError("Value {} is neither a valid address nor an existing label in the {}.".format(result, msg_keyring))
     return result
 
 def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:

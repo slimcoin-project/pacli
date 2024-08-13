@@ -14,43 +14,9 @@ import pacli.extended_commands as ec
 import pacli.config_extended as ce
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
-class ATToken():
+class ATTokenBase():
 
-    """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
-
-    def create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
-        '''Creates a simple transaction from an address (default: current main address) to another one.
-        The purpose of this command is to be able to use the address labels from Pacli,
-        above all to make fast transactions to a tracked address of an AT token.
-
-        Usage modes:
-
-           pacli attoken create_tx TOKEN AMOUNT
-
-        Send coins to the gateway (e.g. donation, investment) address of token (deck) TOKEN.
-
-           pacli attoken create_tx ADDRESS AMOUNT
-
-        Send coins to the gateway address ADDRESS.
-        This should be considered an advanced mode. It will not check compatibility of deadlines.
-
-        Args:
-
-          tx_fee: Specify a transaction fee.
-          change: Specify a change address.
-          sign: Sign the transaction (True by default).
-          send: Send the transaction (True by default).
-          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
-          verify: Verify transaction with Cointoolkit (Peercoin only).
-          quiet: Suppress output and print it out in a script-friendly way.
-          debug: Show additional debug information.
-          address_or_deck: To be used as a positional argument (flag name not necessary).
-          amount: To be used as a positional argument (flag name not necessary).
-          no_confirmation: Don't require a confirmation if no compatibility check (e.g. deadlines) is performed.'''
-
-        return ei.run_command(self.__create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=no_confirmation)
-
-    def __create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
+    def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
 
         # if address_or_deck in ce.list("deck", quiet=True) or eu.is_possible_txid(address_or_deck):
         if not eu.is_possible_address(address_or_deck):
@@ -206,8 +172,44 @@ class ATToken():
                issue_mode=0x01, change_address=change_address, asset_specific_data=asset_specific_data,
                confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
+class ATToken(ATTokenBase):
 
-class PoBToken(ATToken):
+    """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
+
+    def create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
+        '''Creates a simple transaction from an address (default: current main address) to another one.
+        The purpose of this command is to be able to use the address labels from Pacli,
+        above all to make fast transactions to a tracked address of an AT token.
+
+        Usage modes:
+
+           pacli attoken create_tx TOKEN AMOUNT
+
+        Send coins to the gateway (e.g. donation, investment) address of token (deck) TOKEN.
+
+           pacli attoken create_tx ADDRESS AMOUNT
+
+        Send coins to the gateway address ADDRESS.
+        This should be considered an advanced mode. It will not check compatibility of deadlines.
+
+        Args:
+
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
+          quiet: Suppress output and print it out in a script-friendly way.
+          debug: Show additional debug information.
+          address_or_deck: To be used as a positional argument (flag name not necessary).
+          amount: To be used as a positional argument (flag name not necessary).
+          no_confirmation: Don't require a confirmation if no compatibility check (e.g. deadlines) is performed.'''
+
+        return ei.run_command(super()._create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=no_confirmation)
+
+
+class PoBToken(ATTokenBase):
 
     """Commands to deal with PoB (proof-of-burn) tokens, which reward burn transactions."""
 
@@ -265,7 +267,9 @@ class PoBToken(ATToken):
           quiet: Suppress output and print it out in a script-friendly way.
           debug: Show additional debug information."""
 
+
+        # return ei.run_command(self.__create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=no_confirmation)
         if idstr is None:
-            return super().create_tx(address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=True)
+            return ei.run_command(super()._create_tx, address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=True)
         else:
-            return super().create_tx(address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)
+            return ei.run_command(super()._create_tx, address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)
