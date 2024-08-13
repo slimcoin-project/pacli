@@ -24,11 +24,12 @@ from pacli.extended_interface import PacliInputDataError
 
 # Address
 
-def show_votes_by_address(deckid: str, address: str) -> None:
+def show_votes_by_address(deckid: str, address: str, debug: bool=False) -> None:
     # shows all valid voting transactions from a specific address, for all proposals.
 
     pprint("Votes cast from address: " + address)
-    vote_readable = { b'+' : 'Positive', b'-' : 'Negative' }
+    # vote_readable = { b'+' : 'Positive', b'-' : 'Negative' }
+    vote_readable = { True : 'Positive', False : 'Negative' }
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     try:

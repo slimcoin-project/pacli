@@ -165,61 +165,39 @@ class PoDToken():
 
 
     def votes(self,
-              proposal_or_deck: str=None,
+              idstr: str=None,
               address: str=None,
-              my: bool=False,
               debug: bool=False):
-        """Shows votes, either of the current address, or of a specific proposal.
+
+        """Shows votes cast by an address for a deck.
+        If no deck is specified, the default dPoD deck is used.
 
         Usage modes:
 
-            pacli podtoken votes PROPOSAL
+            pacli podtoken votes [DECK]
 
-        Shows all votes from all users on the proposal PROPOSAL.
+        Shows all votes cast from the current address for the specified deck DECK.
 
-            pacli podtoken votes [DECK] -m
-            pacli podtoken votes [DECK] -a ADDRESS
+            pacli podtoken votes [DECK] [-a] ADDRESS
 
-        Shows all votes cast from the current address (-m/--my) or another ADDRESS for the specified deck DECK.
-        If deck is not specified, the default dPoD deck is used.
+        Shows all votes cast from the address ADDRESS for the specified deck DECK.
+        The flag name -a has to be given if no deck is provided.
 
         Args:
 
-          address: See votes from the specified address. Can be used as a positional argument if a deck is given.
-          my: See votes of current main address.
+          address: Show votes from the specified address. Can be used as a positional argument if a deck is given.
+          my: Show votes of the current main address.
           debug: Prints debug information.
-          proposal_or_deck: Proposal or deck. To be used as a positional argument (flag name not necessary).
+          token: Token/Deck ID or global or local label/name. To be used as a positional argument (flag name not necessary).
 
         """
 
-        if (my is True) or (address is not None):
-            deckid = du.default_deck() if proposal_or_deck is None else ei.run_command(eu.search_for_stored_tx_label, "deck", proposal_or_deck, debug=debug)
-            if my is True:
-                address = Settings.key.address
-            return ei.run_command(dc.show_votes_by_address, deckid, address)
+        deckid = du.default_deck() if idstr is None else ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
+        if address is None:
+            address = Settings.key.address
         else:
-            return ei.run_command(self.__get_votes, proposal_or_deck, debug=debug)
-
-
-    def __get_votes(self, proposal: str, debug: bool=False) -> None:
-        """Displays the result of both voting rounds."""
-        # TODO: ideally there may be a variable indicating the second round has not started yet.
-
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        all_votes = dmu.get_votestate(provider, proposal_id, debug)
-
-        for phase in (0, 1):
-            try:
-                votes = all_votes[phase]
-            except IndexError:
-                pprint("Votes of round {} not available.".format(str(phase + 1)))
-                continue
-
-            pprint("Voting round {}:".format(str(phase + 1)))
-            pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
-            pprint("Negative votes (weighted): {}".format(str(votes["negative"])))
-            approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
-            pprint("In this round, the proposal was {}.".format(approval_state))
+            address = ec.process_address(address)
+        return ei.run_command(dc.show_votes_by_address, deckid, address, debug=debug)
 
 
     def check_tx(self, proposal: str=None, txid: str=None, fulltx: str=None, include_badtx: bool=False, light: bool=False) -> None:
@@ -332,16 +310,18 @@ class Proposal:
 
         Shows a proposal ID stored with a label LABEL.
 
-            pacli proposal show LABEL_OR_ID -i
+            pacli proposal show LABEL_OR_ID -i [-a]
 
         Shows basic information about a proposal.
         Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
+        If -a is given, show advanced information (all parameters of the proposal transaction).
 
             pacli proposal show LABEL_OR_ID -s [-p PARAM] [-a]
 
         Shows a dictionary with the current state of a proposal.
+        In the standard mode, some of the elements are simplified.
+        If -a is given, show the complete elements of the proposal state (long output).
         If -p is given, display only a specific parameter of the dictionary.
-        If -a is given, show advanced information.
         Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
         If -f is given in addition to -s, local labels will be ignored and instead the string will be searched if possible.
 
@@ -349,10 +329,11 @@ class Proposal:
 
         Find all proposals containing STRING in their ID or description.
         Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
+        If -a is given, show information about activity state (slower).
 
         Args:
 
-            advanced: Show advanced information about a proposal or its state (only in combination with -f, -s and -i).
+            advanced: Show advanced information about a proposal or its state. Exact additions depend on the flag combination (only with -f, -s and -i).
             basic: Show a simplified version of the proposal state (only in combination with -s).
             find: Search for a proposal containing a string (see Usage modes).
             info: Show basic info about a proposal.
@@ -488,6 +469,41 @@ class Proposal:
             return ce.list("proposal", quiet=quiet)
         else:
             return ei.run_command(dc.list_current_proposals, deck=id_or_label, block=blockheight, searchstring=find, only_active=only_active, all_states=all_proposals, simple=simple, debug=debug)
+
+
+    def approval(self, proposal: str, debug: bool=False) -> None:
+        """Show the approval state of a proposal (all votes cast by all enabled voters).
+
+        Usage:
+             pacli proposal approval PROPOSAL
+
+        Shows all votes from all users on the proposal PROPOSAL.
+
+        Args:
+
+            debug: Show additional debug information."""
+
+        return ei.run_command(self.__get_votes, proposal, debug=debug)
+
+    def __get_votes(self, proposal: str, debug: bool=False) -> None:
+        """Displays the result of both voting rounds."""
+        # TODO: ideally there may be a variable indicating the second round has not started yet.
+
+        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
+        all_votes = dmu.get_votestate(provider, proposal_id, debug)
+
+        for phase in (0, 1):
+            try:
+                votes = all_votes[phase]
+            except IndexError:
+                pprint("Votes of round {} not available.".format(str(phase + 1)))
+                continue
+
+            pprint("Voting round {}:".format(str(phase + 1)))
+            pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
+            pprint("Negative votes (weighted): {}".format(str(votes["negative"])))
+            approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
+            pprint("In this round, the proposal was {}.".format(approval_state))
 
     def voters(self,
                proposal: str,
