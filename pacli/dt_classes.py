@@ -201,7 +201,7 @@ class PoDToken():
 
 
     def check_tx(self, proposal: str=None, txid: str=None, fulltx: str=None, include_badtx: bool=False, light: bool=False) -> None:
-        """Creates a TrackedTransaction object and shows its properties. Primarily for debugging.
+        """Shows properties of TrackedTransactions. Primarily for debugging.
 
         Usage modes:
 

@@ -1021,6 +1021,7 @@ class ExtDeck:
         """Initializes a deck (token).
         This is mandatory to be able to use a token with pacli.
         By default, the global deck name is stored as a local label in the extended configuration file.
+        IMPORTANT: After initializating a token, the client must be restarted with -rescan option to avoid issues.
 
         Usage modes:
 
@@ -1485,7 +1486,7 @@ class ExtTransaction:
         return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify, debug=show_debug_info)
 
 
-    def show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, id: bool=False):
+    def show(self, label_or_idstr: str, claim: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, id: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
@@ -1503,27 +1504,39 @@ class ExtTransaction:
 
             Shows senders and receivers of any transaction.
 
+        pacli transaction show TOKEN -c TXID
+
+            Shows a claim transaction for token TOKEN corresponding to a burn, gateway or donation transaction TXID.
+
         Args:
 
            structure: Show senders and receivers (not supported in the mode with LABELs).
+           claim: Shows a claim transaction corresponding to a burn, gateway or donation transaction.
            quiet: Suppress output, printout in script-friendly way.
            decode: Show transaction in JSON format (default: hex format).
            id: Show transaction ID.
 
         """
-        return ei.run_command(self.__show, label_or_txid, quiet=quiet, structure=structure, decode=decode, txid=id)
+        return ei.run_command(self.__show, label_or_idstr, claim=claim, quiet=quiet, structure=structure, decode=decode, txid=id)
 
-    def __show(self, label_or_txid: str, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
+    def __show(self, idstr: str, claim: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
 
         hexstr = decode is False and structure is False
 
-        if structure is True:
+        if claim:
+            txes = eu.show_claims(deck_str=idstr, quiet=quiet)
+            if quiet:
+                return txes
+            else:
+                pprint(txes)
 
-            if not eu.is_possible_txid(label_or_txid):
+        elif structure is True:
+
+            if not eu.is_possible_txid(idstr):
                 raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s mode currently doesn't support labels.")
 
-            tx_structure = ei.run_command(bu.get_tx_structure, txid=label_or_txid)
+            tx_structure = ei.run_command(bu.get_tx_structure, txid=idstr)
 
             if quiet is True:
                 return tx_structure
@@ -1531,10 +1544,10 @@ class ExtTransaction:
                 pprint(tx_structure)
 
         else:
-            result = ce.show("transaction", label_or_txid, quiet=True)
+            result = ce.show("transaction", idstr, quiet=True)
             if result is None:
                 try:
-                    result = provider.getrawtransaction(label_or_txid)
+                    result = provider.getrawtransaction(idstr)
                     assert type(result) == str
                 except AssertionError:
                     if not quiet:
@@ -1607,7 +1620,7 @@ class ExtTransaction:
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens or sent from a specific ORIGIN_ADDRESS in the wallet.
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
-            In the case of -b, DECK is only necessary if combined with -u.
+            In the case of burn transactions (-b), DECK is only necessary if combined with -u. Without DECK all burn transactions will be listed.
             ORIGIN_ADDRESS is optional. In the case no address is given, the main address is used.
             -o can be omitted if a deck is provided.
 
@@ -1768,7 +1781,7 @@ class ExtTransaction:
             print("No matching transactions found.")
 
         elif (ids is True) and (not zraw):
-            if claimtxes is True:
+            if claimtxes is True and not quiet:
                 txes = ([{"txid" : t["TX ID"]} for t in txes]) # TODO: ugly hack, improve this
 
             if named is True:

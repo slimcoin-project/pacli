@@ -168,7 +168,6 @@ def check_donation_tx_validity(txid: str, tracked_address: str, startblock: int=
         return None
 
 
-
 def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: list=None, amounts: list=None, payto: str=None, payamount: Decimal=None, debug: bool=False, force: bool=False) -> tuple:
         # note: uses the "claim once per transaction" approach.
 

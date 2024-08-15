@@ -10,6 +10,7 @@ from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
 from pypeerassets.exceptions import InsufficientFunds
+from pypeerassets.__main__ import get_card_transfer
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
 import pacli.extended_constants as c
@@ -513,32 +514,41 @@ def get_wallet_token_balances(deck: object, include_named: bool=False) -> dict:
 
     return balances
 
-def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool=False, param: str=None, quiet: bool=False, debug: bool=False):
+def show_claims(deck_str: str, address: str=None, donation_txid: str=None, wallet: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
     '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
+    # NOTE: added new "basic" mode, like quiet with simplified dict, but with printouts.
 
     if deck_str is None:
         raise ei.PacliInputDataError("No deck given, for --claim options the deck is mandatory.")
 
-    param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
+    if quiet or basic:
+        param_names = {"txid" : "txid", "amount": "amount", "receiver" : "receiver", "blocknum" : "blockheight"}
+    else:
+        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
-    deckid = search_for_stored_tx_label("deck", deck_str)
+    deckid = search_for_stored_tx_label("deck", deck_str, quiet=quiet)
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if "at_type" not in deck.__dict__:
         raise ei.PacliInputDataError("{} is not a DT/dPoD or AT/PoB deck.".format(deckid))
 
-    try:
-        assert deck.at_address == c.BURN_ADDRESS[provider.network]
-        param_names.update({"donation_txid" : "Burn transaction"})
-        if debug:
-            print("PoB token detected.")
-    except (AssertionError, AttributeError) as e:
-        # AssertionError gets thrown by a non-PoB AT token, AttributeError by dPoD token
-        param_names.update({"donation_txid" : "Referenced transaction"})
-        if debug:
-            token_type = "dPoD" if type(e) == AttributeError else "AT"
-            print("{} token detected.".format(token_type))
+    if deck.at_type == 2:
+        if deck.at_address == c.BURN_ADDRESS[provider.network]:
+            dtx_param = "burn_tx" if (quiet or basic) else "Burn transaction"
+            token_type = "PoB"
+        else:
+            # AssertionError gets thrown by a non-PoB AT token, AttributeError by dPoD token
+            # param_names.update({"donation_txid" : "Gateway transaction"})
+            dtx_param = "gateway_tx" if (quiet or basic) else "Gateway transaction"
+            token_type = "AT"
+    elif deck.at_type == 1:
+        dtx_param = "donation_tx" if (quiet or basic) else "Donation transaction"
+        token_type = "dPoD"
+    if debug:
+        #    token_type = "dPoD" if type(e) == AttributeError else "AT"
+        print("{} token detected.".format(token_type))
 
+    param_names.update({"donation_txid" : dtx_param})
     raw_claims = get_valid_cardissues(deck, input_address=address, only_wallet=wallet)
     claim_txids = set([c.txid for c in raw_claims])
     if debug:
@@ -546,6 +556,8 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
     claims = []
 
     for claim_txid in claim_txids:
+        if donation_txid is not None and claim.donation_txid != donation_txid:
+            continue
         bundle = [c for c in raw_claims if c.txid == claim_txid]
         claim = bundle[0]
         if len(bundle) > 1:
@@ -573,6 +585,7 @@ def show_claims(deck_str: str, address: str=None, wallet: bool=False, full: bool
     if (not quiet) and len(result) == 0:
         print("No claim transactions found.")
 
+    print(result)
     return result
 
 # Misc tools
@@ -738,6 +751,55 @@ def manage_send(sign, send):
                 setting = True
         result.append(setting)
     return result
+
+
+def get_claim_tx(txid: str, deckid: str, quiet: bool=False, donation_txout: int=0, debug: bool=False):
+    """Parses a claim transaction, even if it's not recognized as a card."""
+    #TODO for now only supports AT/PoB.
+
+    rawtx = provider.getrawtransaction(txid, 1)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    if not quiet:
+        pprint("Complete transaction:")
+        pprint(rawtx)
+
+    # Step 1: check P2TH address
+    expected_p2th_addr = deck.p2th_address
+    used_p2th_addr = rawtx["vout"][0]["scriptPubKey"]["addresses"][0]
+    if used_p2th_addr != expected_p2th_addr and not quiet:
+        print("P2TH address wrong: expected {}, used {}".format(expected_p2th_addr, used_p2th_addr))
+    elif not quiet:
+        print("P2TH address correct:", used_p2th_addr)
+
+    # Step 2: Get cards in this transfer
+    cardid = txid
+    cards = list(get_card_transfer(provider, deck, cardid))
+    for card in cards:
+        pprint(card.to_json())
+        try:
+            donation_txid = card.extended_data["txid"].hex()
+        except KeyError:
+            if not quiet:
+                print("Extended data wrong: no txid found.")
+
+    print("Donation txid:", donation_txid)
+    donationtx = provider.getrawtransaction(donation_txid, 1)
+
+    # Step 2: check donation transaction, address & amount
+    used_daddr = donationtx["vout"][donation_txout]["scriptPubKey"]["addresses"][0]
+    spent_value = donationtx["vout"][donation_txout]["scriptPubKey"]["value"]
+
+    if deck.at_type == 2:
+        expected_daddr = deck.at_address
+        multiplier = deck.multiplier
+    if used_daddr != expected_daddr and not quiet:
+        print("Donation/Gateway/Burn address wrong: expected {}, used {}".format(expected_daddr, used_daddr))
+    elif not quiet:
+        print("Donation/Gateway/Burn address correct:", used_daddr)
+
+    expected_claim_amount = deck.multiplier * Decimal(str(10 ** deck.number_of_decimals))
+
+
 
 
 
