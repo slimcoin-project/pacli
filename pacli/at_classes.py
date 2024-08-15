@@ -172,7 +172,7 @@ class ATTokenBase():
                issue_mode=0x01, change_address=change_address, asset_specific_data=asset_specific_data,
                confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
-    def check_claim(self, txid: str, idstr: str, quiet: bool=False, txout: int=0, debug: bool=False):
+    def check_claim(self, txid: str, idstr: str, quiet: bool=False, debug: bool=False):
         """Shows an AT or PoB claim transaction's contents.
 
         Usage:
@@ -182,11 +182,10 @@ class ATTokenBase():
         Args:
 
             quiet: Only check transaction with minimal output, suppress printouts.
-            txout: TX output of the "gateway", "donation" or "burn" transaction (default: 0).
             debug: Show additional debug information."""
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr)
-        return ei.run_command(eu.get_claim_tx, txid, deckid, donation_txout=txout, quiet=quiet, debug=debug)
+        return ei.run_command(eu.get_claim_tx, txid, deckid, quiet=quiet, debug=debug)
 
 class ATToken(ATTokenBase):
 

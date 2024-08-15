@@ -753,7 +753,7 @@ def manage_send(sign, send):
     return result
 
 
-def get_claim_tx(txid: str, deckid: str, quiet: bool=False, donation_txout: int=0, debug: bool=False):
+def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
     """Parses a claim transaction, even if it's not recognized as a card."""
     #TODO for now only supports AT/PoB.
 
@@ -763,11 +763,14 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, donation_txout: int=
         pprint("Complete transaction:")
         pprint(rawtx)
 
+    fails = 0
     # Step 1: check P2TH address
     expected_p2th_addr = deck.p2th_address
     used_p2th_addr = rawtx["vout"][0]["scriptPubKey"]["addresses"][0]
-    if used_p2th_addr != expected_p2th_addr and not quiet:
-        print("P2TH address wrong: expected {}, used {}".format(expected_p2th_addr, used_p2th_addr))
+    if used_p2th_addr != expected_p2th_addr:
+        fails += 1
+        if not quiet:
+            print("P2TH address wrong: expected {}, used {}".format(expected_p2th_addr, used_p2th_addr))
     elif not quiet:
         print("P2TH address correct:", used_p2th_addr)
 
@@ -779,27 +782,45 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, donation_txout: int=
         try:
             donation_txid = card.extended_data["txid"].hex()
         except KeyError:
+            fails += 1
             if not quiet:
                 print("Extended data wrong: no txid found.")
 
-    print("Donation txid:", donation_txid)
+    print("Spending txid:", donation_txid)
     donationtx = provider.getrawtransaction(donation_txid, 1)
 
-    # Step 2: check donation transaction, address & amount
-    used_daddr = donationtx["vout"][donation_txout]["scriptPubKey"]["addresses"][0]
-    spent_value = donationtx["vout"][donation_txout]["scriptPubKey"]["value"]
-
+    # Step 3: check donation transaction, address & amount
     if deck.at_type == 2:
         expected_daddr = deck.at_address
         multiplier = deck.multiplier
-    if used_daddr != expected_daddr and not quiet:
-        print("Donation/Gateway/Burn address wrong: expected {}, used {}".format(expected_daddr, used_daddr))
+
+    spent_value = 0
+    for output in donationtx["vout"]:
+        if expected_daddr == output["scriptPubKey"]["addresses"][0]:
+            spent_value += Decimal(str(output["value"]))
+
+
+    if spent_value == 0:
+        fails += 1
+        if not quiet:
+            print("Donation/Gateway/Burn address wrong: no output spends to expected address {}.".format(expected_daddr))
     elif not quiet:
-        print("Donation/Gateway/Burn address correct:", used_daddr)
+        print("Donation/Gateway/Burn address correct:", expected_daddr)
 
-    expected_claim_amount = deck.multiplier * Decimal(str(10 ** deck.number_of_decimals))
+    claimed_amount = sum([card.amount[0] for card in cards])
+    expected_claim_amount = spent_value * deck.multiplier * Decimal(str(10 ** deck.number_of_decimals))
+    if claimed_amount != expected_claim_amount:
+        fails += 1
+        if not quiet:
+            print("Claimed value wrong: expected {}, claimed {}.".format(expected_claim_amount, claimed_amount))
+    elif not quiet:
+        print("Claimed value correct: {}.".format(claimed_amount))
 
-
-
-
+    if quiet:
+        return fails
+    else:
+        if fails == 0:
+            pprint("Claim transaction appears valid, no fails found.")
+        else:
+            ei.print_red("Claim transactions appears invalid, contains {} errors.".format(fails))
 
