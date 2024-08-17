@@ -26,13 +26,14 @@ class Swap:
             quiet: bool=False,
             debug: bool=False):
         """Locks a number of tokens on the receiving address.
-        By default, you specify the number of blocks to lock the tokens; with --height you specify the final block height.
-        Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the DEX.
-        Card default receiver is the sender (the current main address).
 
         Usage:
 
-            pacli swap lock TOKEN AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER] [--sign --send]
+            pacli swap lock TOKEN AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER]
+
+        By default, you specify the number of blocks to lock the tokens; with --blockheight you specify the final block height.
+        Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the swap DEX.
+        Card default receiver is the sender (the current main address).
 
         Args:
 
@@ -103,7 +104,7 @@ class Swap:
         return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, confirm=confirm)
 
     @classmethod
-    def list_locks(self, deck: str, blockheight: int=None, raw: bool=False, quiet: bool=False):
+    def list_locks(self, idstr: str, blockheight: int=None, quiet: bool=False, debug: bool=False):
         """Shows all current locks of a deck.
 
         Usage:
@@ -113,18 +114,18 @@ class Swap:
         Args:
 
           blockheight: Specify a block height to show locks at (BUGGY). To be used as a positional argument (flag name not necessary).
-          raw: Don't prettyprint the lock dictionary
-          quiet: Suppress output.
+          quiet: Don't prettyprint the lock dictionary and suppress additional output.
+          debug: Show debug information.
         """
         # TODO: blockheight seems not to work.
 
         blockheight = provider.getblockcount() if blockheight is None else blockheight
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         cards = pa.find_all_valid_cards(dxu.provider, deck)
-        state = pa.protocol.DeckState(cards, cleanup_height=blockheight)
+        state = pa.protocol.DeckState(cards, cleanup_height=blockheight, debug=debug)
 
-        if raw is True:
+        if quiet is True:
             return state.locks
         else:
             return dxu.prettyprint_locks(state.locks, blockheight)

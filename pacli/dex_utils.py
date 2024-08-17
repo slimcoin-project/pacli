@@ -61,7 +61,7 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
                                receiver=[receiver],
                                amount=[amount_to_exponent(amount, deck.number_of_decimals)],
                                version=deck.version,
-                               locktime=lock,
+                               locktime=locktime,
                                lockhash=lockhash,
                                lockhash_type=lockhash_type
                                )
@@ -289,6 +289,8 @@ def select_utxos(minvalue: Decimal, address: str=None, minconf: int=1, maxconf: 
 
 def prettyprint_locks(locks: dict, blockheight: int):
     print("Locks at blockheight {}:".format(blockheight))
+    if len(locks) == 0:
+        print("No locks found.")
     for address in locks.keys():
         pprint("Address: {}".format(address))
         for lock in locks.get(address):
