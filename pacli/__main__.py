@@ -38,7 +38,7 @@ from pacli.extended_classes import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtT
 from pacli.at_classes import ATToken, PoBToken
 from pacli.at_utils import create_at_issuance_data, at_deckinfo
 from pacli.dt_classes import PoDToken, Proposal, Donation
-from pacli.dex_classes import Dex
+from pacli.dex_classes import Swap
 from pacli.extended_checkpoints import Checkpoint
 
 # NOTE: pacli-extended overrides some vanilla methods due to its usage of an extended config file.
@@ -489,7 +489,7 @@ def main():
         'attoken' : ATToken(),
         'pobtoken' : PoBToken(),
         'podtoken' : PoDToken(),
-        'dex' : Dex(),
+        'swap' : Swap(),
         'checkpoint' : Checkpoint()
         })
 

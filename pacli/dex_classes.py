@@ -7,7 +7,7 @@ from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
 
-class Dex:
+class Swap:
     """Commands allowing the decentralized exchange of tokens for coins."""
 
     @classmethod
@@ -32,7 +32,7 @@ class Dex:
 
         Usage:
 
-        dex lock TOKEN AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER] [--sign --send]
+            pacli swap lock TOKEN AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER] [--sign --send]
 
         Args:
 
@@ -56,7 +56,7 @@ class Dex:
         return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
-    def exchange(self,
+    def create(self,
                  deck: str,
                  partner_address: str,
                  partner_input: str,
@@ -70,7 +70,7 @@ class Dex:
 
         Usage:
 
-        pacli dex exchange DECK PARTNER_ADDRESS PARTNER_INPUT CARD_AMOUNT COIN_AMOUNT
+            pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT CARD_AMOUNT COIN_AMOUNT
 
         PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual)
 
@@ -86,12 +86,12 @@ class Dex:
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save=label)
 
     @classmethod
-    def finalize_exchange(self, txstr: str, send: bool=True, confirm: bool=False):
+    def finalize(self, txstr: str, send: bool=True, confirm: bool=False):
         """Signs and broadcasts an exchange transaction.
 
         Usage:
 
-        pacli dex finalize_exchange TX_HEXSTRING
+            pacli swap finalize TX_HEXSTRING
 
         TX_HEXSTRING is the partially signed transaction as an hex string.
 
@@ -108,7 +108,7 @@ class Dex:
 
         Usage:
 
-        pacli dex list_locks DECK
+            pacli swap list_locks DECK
 
         Args:
 
@@ -135,7 +135,7 @@ class Dex:
 
         Usage:
 
-        pacli dex select_coins AMOUNT [ADDRESS]
+            pacli swap select_coins AMOUNT [ADDRESS]
 
         If ADDRESS is not given, the current main address is used.
 
