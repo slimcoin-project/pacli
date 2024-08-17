@@ -14,6 +14,7 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.extended_constants as extc
+import pacli.blockexp_utils as bu
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -71,12 +72,12 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     processed_txids = []
     for tx in raw_txes:
         try:
-            processed_txids.append(tx["txid"])
+            assert tx["txid"] not in processed_txids ### RE-CHECK!
+            # print(tx["txid"]) ####
             assert tx["category"] not in ("generate", "receive", "orphan")
             assert tx["address"] == tracked_address
+
         except (AssertionError, KeyError):
-            #if debug:
-            #    print("No valid donation/burn tx: id: {} category {}, destination address {}".format(tx["txid"], tx["category"], tx.get("address")))
             continue
         try:
             if deck is not None:
@@ -86,6 +87,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
                 full_tx = provider.getrawtransaction(tx["txid"], 1)
             if unclaimed:
                 assert tx["txid"] not in claimed_txes
+
+            processed_txids.append(tx["txid"])
             valid_txes.append(full_tx)
 
         except AssertionError:
@@ -106,38 +109,18 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     for tx in valid_txes:
 
-        # TODO most of this can be replaced with bx.get_tx_structure(tx) after debugging
-        try:
-            tx_sender = find_tx_sender(provider, tx)
-        except KeyError:
-            if debug:
-                print("Transaction without known sender (probably coinbase tx)")
-            continue
-        try:
+        txstruct = bu.get_tx_structure(tx=tx, tracked_address=tracked_address)
 
-            if sender is not None:
-                assert sender == tx_sender
-            height = provider.getblock(tx["blockhash"])["height"]
-        except KeyError:
-            height = None
-        except AssertionError:
+        if txstruct is None:
             continue
+        elif debug:
+            print("Burn/Gateway TX found:", txstruct)
+        tx_sender = txstruct["sender"]["sender"]
 
-        value, indexes = 0, []
-        for index, output in enumerate(tx["vout"]):
-            try:
-                if output["scriptPubKey"]["addresses"][0] == tracked_address:
-                    value += Decimal(str(output["value"]))
-                    indexes.append(index)
-            except KeyError:
-                continue
-        if value == 0:
-            continue
-
-        if advanced:
+        if advanced is True:
             tx_dict = tx
         else:
-            tx_dict = {"txid" : tx["txid"], "value" : value, "outputs" : indexes, "height" : height}
+            tx_dict = {"txid" : tx["txid"], "value" : txstruct["ovalue"], "outputs" : txstruct["oindices"], "height" : txstruct["height"]}
 
             if not sender:
                 if not no_labels:
@@ -285,7 +268,7 @@ def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
     if sender is None:
         sender = Settings.key.address if not wallet else None
-    txes = ei.run_command(show_wallet_dtxes, tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug)
+    txes = show_wallet_dtxes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug)
 
     return txes
 

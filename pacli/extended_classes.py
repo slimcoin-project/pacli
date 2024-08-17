@@ -1662,7 +1662,7 @@ class ExtTransaction:
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
           locator: In -x mode, use existing block locators to speed up the blockchain retrieval. See Usage modes above.
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
-          mempool: Show unconfirmed transactions in the mempool. Adding 'only' shows only unconfirmed ones (not in combination with -x).
+          mempool: Show unconfirmed transactions in the mempool or the wallet. Adding 'only' shows only unconfirmed ones (not in combination with -x).
           named: Show only transactions stored with a label (see Usage modes).
           origin: Show transactions sent by a specific sender address (only necessary in combination with -x, -b and -g, optional with -c).
           param: Show the value of a specific parameter/variable of the transaction.
@@ -1713,7 +1713,7 @@ class ExtTransaction:
         # -x: tx_structure or tx JSON
         # -a: always tx JSON
         # without any label: custom dict with main parameters
-        # -c: very custom "embellished" dict, should be changed #TODO
+        # -c: very custom "embellished" dict, should be changed -> "basic" mode now shows a more "standard" dict
         # TODO how to properly ignore values for bool arguments which are not True but some incorrect value? perhaps with an additional function?
 
         address_or_deck = _value1
@@ -1727,7 +1727,7 @@ class ExtTransaction:
         #   # then address can be given as first argument
         #   address = _value1
         #   address_or_deck = None
-        # TODO: -g mode has duplicates in some cases, results differ according to addresses (d1 and f1). Check if -b mode has this problem too.
+        # TODO: -g mode has duplicates in some cases. Check if -b mode has this problem too.
         # TODO: -c should show senders if -o is not given.
         # TODO: best would be to show the "structure" by default, or at least provide this option for all variants (only -x has it at this time).
 

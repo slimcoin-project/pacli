@@ -244,11 +244,22 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
             receivers = []
         outputs.append({"receivers" : receivers, "value" : value})
 
-    if tracked_address:
-        outputs_to_tracked = [o for o in outputs if (o.get("receivers") is not None and tracked_address in o["receivers"])]
-        sender = senders[0] if len(senders) > 0 else "" # fix for coinbase txes
-        result = {"sender" : sender, "outputs" : outputs, "height" : height}
+    if not senders:
+        senders = ["COINBASE"]
 
+    if tracked_address:
+        outputs_to_tracked, oindices = [], []
+        for oindex, o in enumerate(outputs):
+            if (o.get("receivers") is not None and tracked_address in o["receivers"]):
+                outputs_to_tracked.append(o)
+                oindices.append(oindex)
+
+        if outputs_to_tracked:
+            tracked_value = sum([o["value"] for o in outputs_to_tracked])
+            sender = senders[0] if len(senders) > 0 else "COINBASE" # fix for coinbase txes
+            result = {"sender" : sender, "outputs" : outputs, "height" : height, "oindices": oindices, "ovalue" : tracked_value}
+        else:
+           return None
     else:
         result = {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
