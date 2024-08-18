@@ -813,7 +813,7 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
         print("Donation/Gateway/Burn address correct:", expected_daddr)
 
     claimed_amount = sum([card.amount[0] for card in cards])
-    expected_claim_amount = spent_value * deck.multiplier * Decimal(str(10 ** deck.number_of_decimals))
+    expected_claim_amount = int(spent_value * deck.multiplier * Decimal(str(10 ** deck.number_of_decimals)))
     if claimed_amount != expected_claim_amount:
         fails += 1
         if not quiet:
