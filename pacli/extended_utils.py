@@ -514,12 +514,12 @@ def get_wallet_token_balances(deck: object, include_named: bool=False) -> dict:
 
     return balances
 
-def show_claims(deck_str: str, address: str=None, donation_txid: str=None, wallet: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
+def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim_tx: str=None, wallet: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
     '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
     # NOTE: added new "basic" mode, like quiet with simplified dict, but with printouts.
 
     if deck_str is None:
-        raise ei.PacliInputDataError("No deck given, for --claim options the deck is mandatory.")
+        raise ei.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
 
     if quiet or basic:
         param_names = {"txid" : "txid", "amount": "amount", "receiver" : "receiver", "blocknum" : "blockheight"}
@@ -530,7 +530,7 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, walle
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if "at_type" not in deck.__dict__:
-        raise ei.PacliInputDataError("{} is not a DT/dPoD or AT/PoB deck.".format(deckid))
+        raise ei.PacliInputDataError("{} is not a DT/dPoD or AT/PoB token.".format(deckid))
 
     if deck.at_type == 2:
         if deck.at_address == c.BURN_ADDRESS[provider.network]:
@@ -549,17 +549,23 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, walle
         print("{} token detected.".format(token_type))
 
     param_names.update({"donation_txid" : dtx_param})
+
     raw_claims = get_valid_cardissues(deck, input_address=address, only_wallet=wallet)
-    claim_txids = set([c.txid for c in raw_claims])
-    if debug:
+    if claim_tx is None:
+        claim_txids = set([c.txid for c in raw_claims])
+    else:
+        claim_txids = [claim_tx]
+    if debug and not claim_tx:
         print("{} claim transactions found.".format(len(claim_txids)))
     claims = []
 
     for claim_txid in claim_txids:
-        if donation_txid is not None and claim.donation_txid != donation_txid:
-            continue
+
         bundle = [c for c in raw_claims if c.txid == claim_txid]
         claim = bundle[0]
+        if donation_txid is not None and claim.donation_txid != donation_txid:
+            continue
+
         if len(bundle) > 1:
             for b in bundle[1:]:
                 claim.amount.append(b.amount[0])
@@ -585,7 +591,6 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, walle
     if (not quiet) and len(result) == 0:
         print("No claim transactions found.")
 
-    print(result)
     return result
 
 # Misc tools

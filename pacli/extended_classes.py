@@ -1486,7 +1486,7 @@ class ExtTransaction:
         return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify, debug=show_debug_info)
 
 
-    def show(self, label_or_idstr: str, claim: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, id: bool=False):
+    def show(self, label_or_idstr: str, claim: str=None, txref: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, id: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
@@ -1504,28 +1504,39 @@ class ExtTransaction:
 
             Shows senders and receivers of any transaction.
 
-        pacli transaction show TOKEN -c TXID
+        pacli transaction show TOKEN -c CLAIM_TXID
+
+            Shows parameters of a claim transaction CLAIM_TXID.
+
+        pacli transaction show TOKEN -c -t TXID
 
             Shows a claim transaction for token TOKEN corresponding to a burn, gateway or donation transaction TXID.
 
         Args:
 
            structure: Show senders and receivers (not supported in the mode with LABELs).
-           claim: Shows a claim transaction corresponding to a burn, gateway or donation transaction.
+           claim: Shows a claim transaction.
+           txref: In combination with -c, shows a claim corresponding to a burn, gateway or donation transaction.
            quiet: Suppress output, printout in script-friendly way.
            decode: Show transaction in JSON format (default: hex format).
            id: Show transaction ID.
 
         """
-        return ei.run_command(self.__show, label_or_idstr, claim=claim, quiet=quiet, structure=structure, decode=decode, txid=id)
+        return ei.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, decode=decode, txid=id)
 
-    def __show(self, idstr: str, claim: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
+    def __show(self, idstr: str, claim: str=None, txref: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
 
         hexstr = decode is False and structure is False
 
         if claim:
-            txes = eu.show_claims(deck_str=idstr, quiet=quiet)
+            if type(claim) == str:
+                txes = eu.show_claims(deck_str=idstr, quiet=quiet, claim_tx=claim)
+            elif type(claim) == bool and txref is not None:
+                txes = eu.show_claims(deck_str=idstr, quiet=quiet, donation_txid=txref)
+            else:
+                raise ei.PacliInputDataError("You have to provide a claim transaction or the corresponding burn/gateway/donation transaction.")
+
             if quiet:
                 return txes
             else:
