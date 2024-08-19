@@ -471,7 +471,7 @@ class Proposal:
             return ei.run_command(dc.list_current_proposals, deck=id_or_label, block=blockheight, searchstring=find, only_active=only_active, all_states=all_proposals, simple=simple, debug=debug)
 
 
-    def approval(self, proposal: str, debug: bool=False) -> None:
+    def approval(self, proposal: str, voters: bool=False, quiet: bool=False, debug: bool=False) -> None:
         """Show the approval state of a proposal (all votes cast by all enabled voters).
 
         Usage:
@@ -481,29 +481,79 @@ class Proposal:
 
         Args:
 
-            debug: Show additional debug information."""
+            debug: Show additional debug information.
+            voters: Show voters and their transactions and weights.
+            quiet: Suppress additional information (script-friendly)"""
 
-        return ei.run_command(self.__get_votes, proposal, debug=debug)
+        proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet, debug=debug)
 
-    def __get_votes(self, proposal: str, debug: bool=False) -> None:
+        if voters is True:
+            return ei.run_command(self.__all_votes, proposal_id, quiet=quiet, debug=debug)
+        else:
+            return ei.run_command(self.__votestate, proposal_id, quiet=quiet, debug=debug)
+
+
+    def __votestate(self, proposal_id: str, quiet: bool=False, debug: bool=False) -> None:
         """Displays the result of both voting rounds."""
         # TODO: ideally there may be a variable indicating the second round has not started yet.
 
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        all_votes = dmu.get_votestate(provider, proposal_id, debug)
 
+        all_votes = dmu.get_votestate(provider, proposal_id, debug)
+        votestate = []
         for phase in (0, 1):
             try:
                 votes = all_votes[phase]
             except IndexError:
-                pprint("Votes of round {} not available.".format(str(phase + 1)))
+                if not quiet:
+                    pprint("Votes of round {} not available.".format(str(phase + 1)))
                 continue
 
-            pprint("Voting round {}:".format(str(phase + 1)))
-            pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
-            pprint("Negative votes (weighted): {}".format(str(votes["negative"])))
-            approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
-            pprint("In this round, the proposal was {}.".format(approval_state))
+            # approval_state = "approved" if votes["positive"] > votes["negative"] else "not approved"
+            if votes["positive"] > votes["negative"]:
+                approval_state = "approved"
+            else:
+                approval_state = "not approved"
+
+            if quiet is True:
+                votestate.append({"round" : phase, "state" : approval_state, "votes" : votes})
+            else:
+                pprint("Voting round {}:".format(str(phase + 1)))
+                pprint("Positive votes (weighted): {}".format(str(votes["positive"])))
+                pprint("Negative votes (weighted): {}".format(str(votes["negative"])))
+                pprint("In this round, the proposal was {}.".format(approval_state))
+
+        if quiet:
+            print(votestate)
+
+
+    def __all_votes(self, proposal_id: str, quiet: bool=False, debug: bool=False):
+
+        proposal_state = dmu.get_proposal_state(provider, proposal_id, debug=debug)
+        vtxes = proposal_state.voting_txes
+        votestate = []
+
+        for phase in (0, 1):
+            for vtx in vtxes[phase]:
+                if quiet:
+                    vote = vtx.vote
+                    weight = vtx.vote_weight
+                else:
+                    vote = "positive" if vtx.vote is True else "negative"
+                    weight = str(vtx.vote_weight)
+                vdict = {"txid" : vtx.txid,
+                        "sender" : vtx.sender,
+                        "vote" : vote,
+                        "weight" : weight,
+                        "blockheight" : vtx.blockheight}
+                votestate.append(vdict)
+        if quiet:
+            print(votestate)
+        else:
+            pprint("Initial voting round transactions:")
+            pprint(votestate[0])
+            pprint("Final voting round transactions:")
+            pprint(votestate[1])
+
 
     def voters(self,
                proposal: str,

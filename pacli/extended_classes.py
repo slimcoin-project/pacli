@@ -1664,7 +1664,7 @@ class ExtTransaction:
 
           advanced: Show complete transaction JSON or card transfer dictionary of claim transactions.
           burntxes: Only show burn transactions.
-          claimtxes: Show reward claim transactions (see Usage modes).
+          claimtxes: Show reward claim transactions (see Usage modes) (not in combination with -x).
           debug: Provide debugging information.
           end_height: Block height or date to end the search at (only in combination with -x).
           from_height: Block height or date to start the search at (only in combination with -x).
