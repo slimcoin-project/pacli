@@ -518,6 +518,11 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
     '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
     # NOTE: added new "basic" mode, like quiet with simplified dict, but with printouts.
 
+    if (donation_txid and not is_possible_txid(donation_txid) or
+        claim_tx and not is_possible_txid(claim_tx)):
+        raise ei.PacliInputDataError("Invalid transaction ID.")
+
+
     if deck_str is None:
         raise ei.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
 
@@ -562,6 +567,8 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
     for claim_txid in claim_txids:
 
         bundle = [c for c in raw_claims if c.txid == claim_txid]
+        if not bundle:
+            continue
         claim = bundle[0]
         if donation_txid is not None and claim.donation_txid != donation_txid:
             continue
@@ -762,6 +769,8 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
     """Parses a claim transaction, even if it's not recognized as a card."""
     #TODO for now only supports AT/PoB.
 
+    if not is_possible_txid(txid):
+        raise ei.PacliInputDataError("No valid transaction ID provided.")
     rawtx = provider.getrawtransaction(txid, 1)
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if not quiet:
@@ -784,15 +793,31 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
     cards = list(get_card_transfer(provider, deck, cardid))
     for card in cards:
         pprint(card.to_json())
+
+        print(card.type)
+        #if card.type != "CardIssue":
+        #    continue # normally this should not be triggered, but in the case there are cards in the same tx which are no Issuances they are ignored
         try:
             donation_txid = card.extended_data["txid"].hex()
         except KeyError:
-            fails += 1
-            if not quiet:
-                print("Extended data wrong: no txid found.")
+            continue
 
-    print("Spending txid:", donation_txid)
-    donationtx = provider.getrawtransaction(donation_txid, 1)
+
+    try:
+        donationtx = provider.getrawtransaction(donation_txid, 1)
+        print("Spending txid:", donation_txid)
+    except UnboundLocalError:
+        fails += 1
+        if not quiet:
+            if not cards:
+                print("This is not a valid PeerAssets token transaction, it contains no card data. Stopping.")
+            else:
+                print("Extended data wrong: no txid found. Probably not a claim transaction but a regular token transfer. Stopping.")
+            ei.print_red("Claim transactions appears invalid. Checks failed: {} from 2.".format(fails))
+            return
+        else:
+            return fails
+
 
     # Step 3: check donation transaction, address & amount
     if deck.at_type == 2:
@@ -825,7 +850,7 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
         return fails
     else:
         if fails == 0:
-            pprint("Claim transaction appears valid, no fails found.")
+            pprint("Claim transaction appears valid. All 3 checks passed.")
         else:
-            ei.print_red("Claim transactions appears invalid, contains {} errors.".format(fails))
+            ei.print_red("Claim transactions appears invalid. Checks failed: {} from 3.".format(fails))
 
