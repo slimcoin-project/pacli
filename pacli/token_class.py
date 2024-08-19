@@ -17,14 +17,14 @@ class Token(VanillaDeck, VanillaCard):
     """
 
     def transfers(self, idstr: str, address: str=None, quiet: bool=False, valid: bool=False, show_invalid: bool=False, only_invalid: bool=False, debug: bool=False):
-        """List all transactions (cards, i.e. issues, transfers, burns) of a token.
+        """List all transactions (cards or CardTransfers, i.e. issues, transfers, burns) of a token.
 
         Usage:
 
             pacli card list TOKEN
             pacli token transfers TOKEN
 
-        TOKEN can be a token/deck ID or a label.
+        TOKEN can be a token (deck) ID or a label.
         In standard mode, only valid transfers will be shown.
         In compatibility mode, standard output includes some invalid transfers: those in valid transactions which aren't approved by the Proof-of-Timeline rules.
 

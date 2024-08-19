@@ -72,7 +72,8 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
     Settings.key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(k.load_key()))
 
     if not quiet:
-        return Settings.key.address
+        print("Main address set to:", Settings.key.address)
+        print("Balance:", provider.getbalance(address))
 
 def show_stored_address(label: str, network_name: str=Settings.network, keyring: bool=False, noprefix: bool=False, raise_if_invalid_label: bool=False, pubkey: bool=False, privkey: bool=False, wif: bool=False, legacy: bool=False):
     # Safer mode for show_stored_key.

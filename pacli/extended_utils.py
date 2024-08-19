@@ -182,7 +182,7 @@ def get_initialized_decks(decks: list, debug: bool=False) -> list:
         initialized_decks.append(deck)
     return initialized_decks
 
-def search_global_deck_name(identifier: str, quiet: bool=False, check_initialized: bool=True):
+def search_global_deck_name(identifier: str, quiet: bool=False, check_initialized: bool=True, prioritize: bool=False):
 
     if not quiet:
         print("Deck not named locally. Searching global deck name ...")
@@ -195,6 +195,10 @@ def search_global_deck_name(identifier: str, quiet: bool=False, check_initialize
         if not quiet:
             if len(matching_decks) > 1:
                 print("More than one matching deck found:", [d.id for d in matching_decks])
+                if not prioritize:
+                    # prioritize is currently not supported, but may be useful for later.
+                    raise ei.PacliInputDataError("Deck global name ambiguity, please use the deck's id or its local label.")
+
                 if deck.issue_time != matching_decks[1].issue_time:
                     print("Using first issued deck with this global name with id:", deck.id)
                 else:

@@ -48,10 +48,10 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         address_list = [a for a in [sending_address, receiving_address] if a is not None]
     else:
         address_list = None # this means all transactions will be preselected
+        if quiet is False and use_locator is True:
+            print("Locator mode not supported if no addresses or decks are selected. Locators will not be used.")
         use_locator = None
         store_locator = None
-        if not quiet:
-            print("Locator mode not supported if no addresses or decks are selected. Locators will not be used.")
 
         #else: # whole wallet mode, not recommended with locators at this time!
         #    address_list = list(eu.get_wallet_address_set())

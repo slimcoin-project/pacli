@@ -30,10 +30,10 @@ class ATTokenBase():
                 print("Sending transaction to burn or AT gateway address:", address)
 
             currentblock = provider.getblockcount()
-            if deck.endblock is not None and currentblock > deck.endblock:
-                raise ei.PacliInputDataError("End deadline for burn or gateway transactions of this token is is block {}.".format(deck.endblock))
-            elif deck.startblock is not None and currentblock < deck.startblock:
-                raise ei.PacliInputDataError("Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
+            if deck.endblock is not None and currentblock >= deck.endblock:
+                raise ei.PacliInputDataError("Token distribution has ended. Final deadline for burn or gateway transactions of this token was block {}.".format(deck.endblock))
+            elif deck.startblock is not None and currentblock < (deck.startblock - 1):
+                raise ei.PacliInputDataError("Token distribution has not started yet. Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
 
         else:
             if not no_confirmation and not quiet:
@@ -272,7 +272,7 @@ class PoBToken(ATTokenBase):
 
         Args:
 
-          idstr: ID of the Token or Deck you want to check compatibility with.
+          idstr: ID of the token (deck) you want to check compatibility with.
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           sign: Sign the transaction (True by default).

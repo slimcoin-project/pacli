@@ -77,6 +77,7 @@ class ExtConfig:
            pacli config set [True|False] -c
 
                Enables (True) or disables (False) the compatibility mode.
+               True and False are case sensitive.
                Compatibility mode will format all outputs of commands like 'vanilla' PeerAssets,
                and ensures the original commands and their flags work as expected.
                Please refer to the original PeerAssets README.
@@ -214,7 +215,7 @@ class ExtConfig:
 
         pacli config show ADDRESS_OR_DECK -b
 
-            Show block locators for an address or token/deck.
+            Show block locators for an address or token (deck).
             Block locators show the heights of transactions to/from the addresses.
 
         Args:
@@ -365,7 +366,7 @@ class ExtAddress:
 
         pacli address set LABEL [-f]
 
-            Without flags, sets the LABEL as the main address.
+            Without flags, sets the main address to the address named with LABEL.
             If -f/--fresh is used, a new address is generated with label LABEL and set as main address.
 
         pacli address set -a ADDRESS
@@ -556,7 +557,7 @@ class ExtAddress:
           quiet: Suppress output, printout in script-friendly way.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
           debug: Show debug information.
-          only_labels: In advanced mode, if a label is present, show only the label.
+          only_labels: In advanced mode (-a), if a label is present, show only the label.
           p2th: Show only P2TH addresses.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           without_labels: In advanced mode (-a), never show labels, only addresses.
@@ -861,10 +862,10 @@ class ExtDeck:
           quiet: Suppress output, printout in script-friendly way.
           burntoken: Only show PoB tokens/decks.
           podtoken: Only show dPoD tokens/decks.
-          standard: Only show the standard dPoD and PoB tokens/decks. Combined with -b, only the standard PoB token is shown, and with -p, only the dPoD token.
+          standard: Only show the standard dPoD and PoB tokens (decks). Combined with -b, only the standard PoB token is shown, and with -p, only the dPoD token.
           attoken: Only show AT tokens/decks.
           without_initstate: Don't show initialized status.
-          only_p2th: Shows only the P2TH address of each token/deck. When used with -p, shows all P2TH addresses of the dPoD tokens.
+          only_p2th: Shows only the P2TH address of each token (deck). When used with -p, shows all P2TH addresses of the dPoD tokens.
           debug: Show debug information.
         """
 
@@ -1119,7 +1120,7 @@ class ExtDeck:
           full: Store blockheights for the whole blockchain (since the start block).
           all_decks: Store blockheights for all initialized tokens/decks.
           quiet: Suppress output.
-          idstr: Token/Deck label or ID. To be used as a positional argument.
+          idstr: Token (deck) label or ID. To be used as a positional argument.
           debug: Show additional debug information."""
 
 
@@ -1146,14 +1147,14 @@ class ExtDeck:
 class ExtCard:
 
     def list(self, idstr: str, address: str=None, quiet: bool=False, show_invalid: bool=False, only_invalid: bool=False, valid: bool=False, debug: bool=False):
-        """List all transactions (cards, i.e. issues, transfers, burns) of a token.
+        """List all transactions (cards or CardTransfers, i.e. issues, transfers, burns) of a token.
 
         Usage:
 
             pacli card list TOKEN
             pacli token transfers TOKEN
 
-        TOKEN can be a token/deck ID or a label.
+        TOKEN can be a token (deck) ID or a label.
         In standard mode, only valid transfers will be shown.
         In compatibility mode, standard output includes some invalid transfers: those in valid transactions which aren't approved by the Proof-of-Timeline rules.
 
@@ -1642,6 +1643,7 @@ class ExtTransaction:
 
         pacli transaction list [RECEIVER_ADDRESS] -x [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
         pacli transaction list DECK -x -g [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
+        pacli transaction list DECK -x -b [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
 
             Block explorer mode: List all transactions between two block heights.
             RECEIVER_ADDRESS is optional. ORIGIN_ADDRESS is the address of a sender.
