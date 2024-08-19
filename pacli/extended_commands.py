@@ -195,9 +195,10 @@ def delete_label(label: str, network_name: str=Settings.network, keyring: bool=F
         ce.delete("address", label, now=now)
 
 
-def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
+"""def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
     # This function "synchronizes" labels and addresses given as lists.
     # Useful if we have an option where we can alternatively input addresses and labels.
+    # TODO probably obsolete.
     if len(addrlist) != len(label_list):
         raise ValueError("Both lists must have the same length.")
     result = []
@@ -211,7 +212,7 @@ def show_addresses(addrlist: list, label_list: list, network: str=Settings.netwo
         else:
             adr = addrlist[lpos]
         result.append(adr)
-    return result
+    return result"""
 
 def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
     """Returns a dict of all labels and addresses which were stored.

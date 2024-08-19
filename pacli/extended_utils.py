@@ -325,6 +325,8 @@ def get_wallet_transactions(fburntx: bool=False, exclude: list=None, debug: bool
     all_accounts.reverse() # retrieve relevant accounts first, then the rest of the txes in "" account
     for account in all_accounts:
         if exclude and (account in exclude):
+            if debug:
+                print("Account excluded:", account)
             continue
         start = 0
         while True:
@@ -421,10 +423,11 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
     # TODO: seems the restriction to wallet does not work correctly, also other txes are shown.
 
     if (only_wallet and not input_address):
-        p2th_accounts = get_p2th(accounts=True)
-        wallet_txids = set([t["txid"] for t in get_wallet_transactions(exclude=p2th_accounts)])
+        #p2th_accounts = get_p2th(accounts=True)
+        #wallet_txids = set([t["txid"] for t in get_wallet_transactions(exclude=p2th_accounts)])
+        wallet_senders = get_wallet_address_set() - set(get_p2th())
     else:
-        wallet_txids = None
+        wallet_senders = []
 
     try:
         cards = pa.find_all_valid_cards(provider, deck)
@@ -435,10 +438,11 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
     claim_cards = []
     for card in ds.valid_cards:
         if card.type == "CardIssue":
-            if (input_address and (card.sender == input_address)) \
-            or (wallet_txids and (card.txid in wallet_txids)) \
-            or ((input_address is None) and not wallet_txids):
+            if ((input_address and (card.sender == input_address))
+            or (only_wallet and (card.sender in wallet_senders))
+            or ((input_address is None) and not only_wallet)): # replaced wallet_txids here.
                 claim_cards.append(card)
+    # removed condition: or (wallet_txids and (card.txid in wallet_txids)) \
     return claim_cards
 
 # Transaction storage tools

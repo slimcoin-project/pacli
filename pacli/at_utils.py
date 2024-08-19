@@ -36,10 +36,18 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
             raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
-def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, quiet: bool=False, no_labels: bool=False, advanced: bool=False, keyring: bool=False, debug: bool=False) -> list:
+def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, quiet: bool=False, no_labels: bool=False, advanced: bool=False, wallet: bool=False, keyring: bool=False, debug: bool=False) -> list:
     """Shows donation/burn/payment transactions made from the user's wallet."""
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
+    # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).
+    if wallet:
+        excluded_accounts = eu.get_p2th(accounts=True)
+        address_set = eu.get_wallet_address_set(empty=True)
+        allowed_addresses = address_set - set(eu.get_p2th())
+    else:
+        excluded_accounts = None
+
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         if unclaimed:
@@ -63,7 +71,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         if not tracked_address:
             raise ei.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
-    raw_txes = eu.get_wallet_transactions()
+    raw_txes = eu.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
 
     if debug:
         print(len(raw_txes), "wallet transactions found.")
@@ -73,9 +81,10 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     for tx in raw_txes:
         try:
             assert tx["txid"] not in processed_txids ### RE-CHECK!
-            # print(tx["txid"]) ####
-            assert tx["category"] not in ("generate", "receive", "orphan")
+            assert tx["category"] not in ("generate", "orphan")
             assert tx["address"] == tracked_address
+            if wallet or sender:
+                assert tx["category"] != "receive"
 
         except (AssertionError, KeyError):
             continue
@@ -99,9 +108,11 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     tx_type_msg = "unclaimed" if unclaimed else "sent"
 
     if not quiet:
-        print("{} {} transactions to {} in this wallet.".format(len(valid_txes), tx_type_msg, tracked_address))
-    if sender is not None:
-        print("Showing only transactions sent from the following address:", sender)
+        print("{} {} total transactions to address {} in this wallet.".format(len(valid_txes), tx_type_msg, tracked_address))
+        if sender is not None:
+            print("Showing only transactions sent from the following address:", sender)
+        elif wallet is True:
+            print("Showing only transaction sent from this wallet (excluding P2TH addresses).")
 
     txes_to_address = []
     if not sender:
@@ -115,7 +126,14 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
             continue
         elif debug:
             print("Burn/Gateway TX found:", txstruct)
-        tx_sender = txstruct["sender"]["sender"]
+
+        # MODIF: sender is always the first sender, as specified in AT protocol.
+        tx_sender = txstruct["sender"]["sender"][0]
+        if wallet:
+            if tx_sender not in allowed_addresses:
+                if debug:
+                    print("Transaction {} excluded: no wallet transaction proper.".format(tx["txid"]))
+                continue
 
         if advanced is True:
             tx_dict = tx
@@ -140,7 +158,8 @@ def check_donation_tx_validity(txid: str, tracked_address: str, startblock: int=
     try:
         raw_tx = ap.check_donation(provider, txid, tracked_address, startblock=startblock, endblock=endblock, debug=debug)
         if expected_sender:
-            if not expected_sender == find_tx_sender(provider, raw_tx):
+            sender = find_tx_sender(provider, raw_tx)
+            if not expected_sender == sender:
                 if debug:
                     print("Unexpected sender", sender)
                 return None
@@ -266,9 +285,9 @@ def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool
          address = burn_address()
 
     deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
-    if sender is None:
-        sender = Settings.key.address if not wallet else None
-    txes = show_wallet_dtxes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug)
+    #if sender is None:
+    #    sender = Settings.key.address if not wallet else None
+    txes = show_wallet_dtxes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, wallet=wallet, quiet=quiet, debug=debug)
 
     return txes
 

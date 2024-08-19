@@ -581,7 +581,6 @@ class ExtAddress:
                debug: bool=False,
                include_all: bool=None):
 
-        # excluded_addresses = eu.get_p2th() if p2th is False else []
         if no_labels and not advanced:
             raise ei.PacliInputDataError("Wrong input option combination, read help.")
         if True not in (labels, full_labels) and (network != Settings.network):
@@ -1625,21 +1624,21 @@ class ExtTransaction:
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list DECK [ORIGIN_ADDRESS] -b [-u]
-        pacli transaction list -b [-o ORIGIN_ADDRESS]
-        pacli transaction list DECK [ORIGIN_ADDRESS] -g [-u]
+        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -b [-u]
+        pacli transaction list -b [-o [ORIGIN_ADDRESS]]
+        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -g [-u]
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens or sent from a specific ORIGIN_ADDRESS in the wallet.
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
             In the case of burn transactions (-b), DECK is only necessary if combined with -u. Without DECK all burn transactions will be listed.
-            ORIGIN_ADDRESS is optional. In the case no address is given, the main address is used.
-            -o can be omitted if a deck is provided.
+            ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
+            If no origin address nor -w is given, all burn/gateway transactions will be shown.
 
-        pacli transaction list DECK [ORIGIN_ADDRESS] -c
+        pacli transaction list DECK [-o ORIGIN_ADDRESS] -c
 
             List token claim transactions, either all, those sent from wallet addresses (-w) or those sent from a specific ORIGIN_ADDRESS (-o) in the wallet.
             DECK can be a label or a deck ID.
-            ORIGIN_ADDRESS is optional. In the case no address is given, the main address is used.
+            ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
 
         pacli transaction list [RECEIVER_ADDRESS] -x [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
         pacli transaction list DECK -x -g [-o ORIGIN_ADDRESS] [-f STARTHEIGHT] [-e ENDHEIGHT]
@@ -1675,7 +1674,7 @@ class ExtTransaction:
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           mempool: Show unconfirmed transactions in the mempool or the wallet. Adding 'only' shows only unconfirmed ones (not in combination with -x).
           named: Show only transactions stored with a label (see Usage modes).
-          origin: Show transactions sent by a specific sender address (only necessary in combination with -x, -b and -g, optional with -c).
+          origin: Show transactions sent by a specific sender address (only necessary in combination with -x, -b, -g and -c).
           param: Show the value of a specific parameter/variable of the transaction.
           quiet: Suppress additional output, printout in script-friendly way.
           sent: Only show sent transactions (not in combination with -x, -n, -c, -b or -g).
@@ -1725,13 +1724,13 @@ class ExtTransaction:
         # -a: always tx JSON
         # without any label: custom dict with main parameters
         # -c: very custom "embellished" dict, should be changed -> "basic" mode now shows a more "standard" dict
-        # TODO how to properly ignore values for bool arguments which are not True but some incorrect value? perhaps with an additional function?
+        # NOTE: harmonization of -o done for -c -g and -b it is mandatory now if result should be restricted to an address.
 
         address_or_deck = _value1
         address = _value2
 
-        if (burntxes or gatewaytxes or claimtxes) and origin:
-            address = origin
+        if (burntxes or gatewaytxes or claimtxes) and (origin == True):
+            origin = Settings.key.address
 
         #if (burntxes is True) and (_value2 is None) and (_value1 is not None) and (not unclaimed):
         #   # special case: burns is selected without DECK and unclaimed
@@ -1754,11 +1753,11 @@ class ExtTransaction:
             else:
                 txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
         elif burntxes is True:
-            txes = au.my_txes(sender=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
+            txes = au.my_txes(sender=origin, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
         elif gatewaytxes is True:
-            txes = au.my_txes(sender=address, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
+            txes = au.my_txes(sender=origin, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
         elif claimtxes is True:
-            txes = eu.show_claims(deck_str=address_or_deck, address=address, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
+            txes = eu.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
         elif named is True:
             """Shows all stored transactions and their labels."""
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
