@@ -158,9 +158,11 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
     return balances
 
 
-def confirm_continuation() -> bool:
+def confirm_continuation(text: str=None) -> bool:
     """UX element to confirm continuation entering 'yes'."""
-    print("Enter 'yes' to confirm to continue")
+
+    text = "Enter 'yes' to confirm to continue" if text is None else text
+    print(text)
     cont = input()
     if cont == "yes":
         return True

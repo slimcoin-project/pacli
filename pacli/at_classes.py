@@ -41,12 +41,16 @@ class ATTokenBase():
                 optimized_amount = (amount // min_token_amount) * min_token_amount
                 print("NOTE: You are spending an amount which will not be fully credited due to the number of decimals the token offers.")
                 print("Do you want to optimize the reward spending exactly {} coins?".format(optimized_amount))
-                print("(To abort the transaction, use KeyboardInterrupt, e.g. Ctrl-C)")
-                if ei.confirm_continuation():
-                    amount = optimized_amount
+                print("Enter 'y', 'Y' or 'yes' to optimize, 'n', 'N' or 'no' to continue with the original amount.")
+                print("A blank line, 'abort' or any other entry aborts the transaction.")
+                conf = input()
+                if conf in ("yes", "y", "Y"):
                     print("Optimized amount.")
-                else:
+                elif conf in ("no", "n", "N"):
                     print("Continuing transaction as originally planned with {} coins.".format(amount))
+                else:
+                    print("Aborting.")
+                    return
 
         else:
             if not no_confirmation and not quiet:
@@ -185,26 +189,26 @@ class ATTokenBase():
                issue_mode=0x01, change_address=change_address, asset_specific_data=asset_specific_data,
                confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
-    def check_claim(self, txid: str, idstr: str, quiet: bool=False, debug: bool=False):
+    def check_claim(self, idstr: str, txid: str, quiet: bool=False, debug: bool=False):
         """Shows an AT or PoB claim transaction's contents.
 
         Usage:
 
-            pacli attoken|pobtoken check_claim TXID TOKEN
+            pacli attoken|pobtoken check_claim TOKEN TXID
 
         Args:
 
             quiet: Only check transaction with minimal output, suppress printouts.
             debug: Show additional debug information."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
         return ei.run_command(eu.get_claim_tx, txid, deckid, quiet=quiet, debug=debug)
 
 class ATToken(ATTokenBase):
 
     """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
 
-    def create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
+    def send_coins(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
         The purpose of this command is to be able to use the address labels from Pacli,
         above all to make fast transactions to a tracked address of an AT token.
