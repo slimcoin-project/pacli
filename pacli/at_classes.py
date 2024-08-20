@@ -18,6 +18,7 @@ class ATTokenBase():
 
     def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
 
+        amount = Decimal(str(amount))
         # if address_or_deck in ce.list("deck", quiet=True) or eu.is_possible_txid(address_or_deck):
         if not eu.is_possible_address(address_or_deck):
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet)
@@ -27,13 +28,25 @@ class ATTokenBase():
             except AttributeError:
                 raise ei.PacliInputDataError("Wrong type of deck.")
             if not quiet:
-                print("Sending transaction to burn or AT gateway address:", address)
+                print("Sending transaction of {} coins to burn or AT gateway address: {}".format(str(amount), address))
 
             currentblock = provider.getblockcount()
             if deck.endblock is not None and currentblock >= deck.endblock:
                 raise ei.PacliInputDataError("Token distribution has ended. Final deadline for burn or gateway transactions of this token was block {}.".format(deck.endblock))
             elif deck.startblock is not None and currentblock < (deck.startblock - 1):
                 raise ei.PacliInputDataError("Token distribution has not started yet. Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
+
+            min_token_amount = Decimal(str(10 ** -deck.number_of_decimals))
+            if (amount % min_token_amount) > 0 and not quiet:
+                optimized_amount = (amount // min_token_amount) * min_token_amount
+                print("NOTE: You are spending an amount which will not be fully credited due to the number of decimals the token offers.")
+                print("Do you want to optimize the reward spending exactly {} coins?".format(optimized_amount))
+                print("(To abort the transaction, use KeyboardInterrupt, e.g. Ctrl-C)")
+                if ei.confirm_continuation():
+                    amount = optimized_amount
+                    print("Optimized amount.")
+                else:
+                    print("Continuing transaction as originally planned with {} coins.".format(amount))
 
         else:
             if not no_confirmation and not quiet:

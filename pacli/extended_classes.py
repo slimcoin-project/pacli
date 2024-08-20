@@ -1633,7 +1633,7 @@ class ExtTransaction:
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
             In the case of burn transactions (-b), DECK is only necessary if combined with -u. Without DECK all burn transactions will be listed.
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
-            If no origin address nor -w is given, all burn/gateway transactions will be shown.
+            If no origin address nor -w is given, all burn transactions will be shown; in the case of gateway transactions all those who touch any address in your wallet.
 
         pacli transaction list DECK [-o ORIGIN_ADDRESS] -c
 
@@ -1785,6 +1785,11 @@ class ExtTransaction:
                 txes = [t for t in txes if (confpar in t) and (t[confpar] is not None and t[confpar] > 0)]
             elif mempool == "only": # show only unconfirmed txes
                 txes = [t for t in txes if (confpar not in t) or t[confpar] in (None, 0)]
+
+        try:
+            txes.sort(key=lambda d: d[confpar])
+        except KeyError:
+            pass
 
         if total is True:
             return len(txes)
