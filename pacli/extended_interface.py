@@ -265,6 +265,30 @@ def print_default_balances_list(balances: dict, labeldict: dict, decks: list, ne
     heading=table_heading,
     data=table_data)
 
+def card_line_item_bheights(card: tui.CardTransfer):
+
+    c = card.__dict__
+    return [c["txid"],
+            c["blocknum"],
+            c['cardseq'],
+            c["sender"],
+            c["receiver"][0],
+            tui.exponent_to_amount(c["amount"][0], c["number_of_decimals"]),
+            c["type"]
+            ]
+
+
+def print_card_list_bheights(cards: list):
+
+    tui.print_table(
+            title="Card transfers of deck {deck}:".format(deck=cards[0].deck_id),
+            heading=("txid", "height", "seq", "sender", "receiver", "amount", "type"),
+            data=map(card_line_item_bheights, cards))
+
+
+
+
+
 def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, initialized_decks: list=[], debug: bool=False):
     # prepare deck dictionary for inclusion in the table
 

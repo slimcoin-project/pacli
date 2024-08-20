@@ -580,7 +580,6 @@ class Proposal:
           debug: Show additional debug information."""
 
         # TODO: if blockheight option is given, proposal isn't strictly necessary. But the code would have to be changed for that.
-        # TODO: the voter weight is shown in scientific notation. Should be re-formatted.
 
         pp_data = ei.run_command(self.__get, proposal, require_states=False, miniid=miniid, label_priority=True, debug=debug)
         proposal_id = pp_data["id"]
