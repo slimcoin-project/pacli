@@ -169,26 +169,26 @@ class PoDToken():
               address: str=None,
               debug: bool=False):
 
-        """Shows votes cast by an address for a deck.
-        If no deck is specified, the default dPoD deck is used.
+        """Shows votes cast by an address for a token (deck).
+        If no token is specified, the default dPoD token is used.
 
         Usage modes:
 
-            pacli podtoken votes [DECK]
+            pacli podtoken votes [TOKEN]
 
-        Shows all votes cast from the current address for the specified deck DECK.
+        Shows all votes cast from the current address for the specified token TOKEN.
 
-            pacli podtoken votes [DECK] [-a] ADDRESS
+            pacli podtoken votes [TOKEN] [-a] ADDRESS
 
-        Shows all votes cast from the address ADDRESS for the specified deck DECK.
-        The flag name -a has to be given if no deck is provided.
+        Shows all votes cast from the address ADDRESS for the specified token TOKEN.
+        The flag name -a has to be given if no token is provided.
 
         Args:
 
-          address: Show votes from the specified address. Can be used as a positional argument if a deck is given.
+          address: Show votes from the specified address. Can be used as a positional argument if a token is given.
           my: Show votes of the current main address.
           debug: Prints debug information.
-          token: Token/Deck ID or global or local label/name. To be used as a positional argument (flag name not necessary).
+          token: Token (deck) ID or global or local label/name. To be used as a positional argument (flag name not necessary).
 
         """
 
@@ -562,7 +562,7 @@ class Proposal:
                miniid: bool=False,
                quiet: bool=False,
                listvoters: bool=False) -> None:
-        """Shows enabled voters and their balance at the start of the current epoch of a proposal, or at a defined blockheight.
+        """Shows enabled voters and their balance at the start of the current epoch, or at a defined blockheight.
 
         Usage:
 

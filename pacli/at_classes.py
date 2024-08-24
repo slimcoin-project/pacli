@@ -19,7 +19,6 @@ class ATTokenBase():
     def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
 
         amount = Decimal(str(amount))
-        # if address_or_deck in ce.list("deck", quiet=True) or eu.is_possible_txid(address_or_deck):
         if not eu.is_possible_address(address_or_deck):
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet)
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)

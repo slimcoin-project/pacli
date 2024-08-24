@@ -189,10 +189,13 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
 
         vouts = []
         for output in spending_tx["vout"]:
-            if deck.at_address in output["scriptPubKey"]["addresses"]: # changed from tracked_address
-                # TODO: maybe we need a check for the script type
-                vouts.append(output["n"]) # used only for debugging/printouts
-                spent_amount += Decimal(str(output["value"]))
+            try:
+                if deck.at_address in output["scriptPubKey"]["addresses"]: # changed from tracked_address
+                    # TODO: maybe we need a check for the script type
+                    vouts.append(output["n"]) # used only for debugging/printouts
+                    spent_amount += Decimal(str(output["value"]))
+            except KeyError: # OP_RETURN or other non-P2[W]PKH outputs
+                continue
 
         if len(vouts) == 0:
             raise ei.PacliInputDataError("This transaction does not spend coins to the tracked address")

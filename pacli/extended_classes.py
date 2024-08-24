@@ -1079,7 +1079,7 @@ class ExtDeck:
             dc.init_dt_deck(netw, dpod_deck, quiet=quiet, no_label=no_label)
             deckid = None
         else:
-            deckid = eu.search_for_stored_tx_label("deck", idstr, quiet=quiet)
+            deckid = eu.search_for_stored_tx_label("deck", idstr, quiet=quiet, check_initialized=False)
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
             if "at_type" in deck.__dict__ and deck.at_type == c.ID_DT:
                 dc.init_dt_deck(netw, deckid, quiet=quiet, label=label, debug=debug, no_label=no_label)
