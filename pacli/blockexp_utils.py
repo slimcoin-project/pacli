@@ -23,19 +23,24 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         use_locator = True
         store_locator = True
 
+    #if deckid:
+    #    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    #    try:
+    #        receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
+    #        if "startblock" in deck.__dict__:
+    #            startblock = deck.startblock if startblock is None else min(deck.startblock, startblock)#
+
+    #        if "endblock" in deck.__dict__:
+    #            endblock = deck.endblock if endblock is None else min(deck.endblock, endblock)
+    #    except AttributeError:
+    #        raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
+
     if (not quiet) and (not use_locator) and ((endblock - startblock) > 10000):
         print("""
               NOTE: This commands cycles through all blocks and will take very long
               to finish. It's recommended to use it for block ranges of less than 10000 blocks.
               Abort and get results with KeyboardInterrupt (e.g. CTRL-C).
               """)
-
-    if deckid:
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        try:
-            receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
-        except AttributeError:
-            raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     tracked_txes = []
 
@@ -126,8 +131,8 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
                     if debug:
                         print("TX {} Error: {}".format(txid, e))
                     continue
-                #if debug:
-                #    # print("TX {} struct: {}".format(txid, tx_struct))
+                #if debug: # enable for deep debugging
+                #    print("TX {} struct: {}".format(txid, tx_struct))
                 if not coinbase and len(tx_struct["inputs"]) == 0:
                     continue
 
@@ -245,7 +250,7 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
         outputs.append({"receivers" : receivers, "value" : value})
 
     if not senders:
-        senders = ["COINBASE"]
+        senders = [{"sender" : ["COINBASE"]}]
 
     if tracked_address:
         outputs_to_tracked, oindices = [], []
@@ -257,7 +262,7 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
         if outputs_to_tracked:
             tracked_value = sum([o["value"] for o in outputs_to_tracked])
             sender = senders[0] if len(senders) > 0 else "COINBASE" # fix for coinbase txes
-            result = {"sender" : sender, "outputs" : outputs, "height" : height, "oindices": oindices, "ovalue" : tracked_value}
+            result = {"sender" : sender, "outputs" : outputs, "blockheight" : height, "oindices": oindices, "ovalue" : tracked_value}
         else:
            return None
     else:

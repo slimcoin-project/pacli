@@ -1738,12 +1738,6 @@ class ExtTransaction:
         if (burntxes or gatewaytxes or claimtxes) and (origin == True):
             origin = Settings.key.address
 
-        #if (burntxes is True) and (_value2 is None) and (_value1 is not None) and (not unclaimed):
-        #   # special case: burns is selected without DECK and unclaimed
-        #   # then address can be given as first argument
-        #   address = _value1
-        #   address_or_deck = None
-        # TODO: -g mode has duplicates in some cases. Check if -b mode has this problem too.
         # TODO: -c should show senders if -o is not given.
         # TODO: best would be to show the "structure" by default, or at least provide this option for all variants (only -x has it at this time).
 
@@ -1777,14 +1771,14 @@ class ExtTransaction:
             address = Settings.key.address if address_or_deck is None else address_or_deck
             txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
-        if mempool in (None, "only") and xplore is False:
-            if (burntxes or gatewaytxes) and (not advanced):
-                confpar = "height"
-            elif claimtxes:
-                confpar = "tx_confirmations" if advanced else "Block height"
-            else:
-                confpar = "confirmations"
+        if (xplore or burntxes or gatewaytxes) and (not advanced):
+            confpar = "blockheight"
+        elif claimtxes:
+            confpar = "tx_confirmations" if advanced else "Block height"
+        else:
+            confpar = "confirmations"
 
+        if mempool in (None, "only") and (xplore != True):
             if mempool is None: # show only confirmed txes
                 txes = [t for t in txes if (confpar in t) and (t[confpar] is not None and t[confpar] > 0)]
             elif mempool == "only": # show only unconfirmed txes

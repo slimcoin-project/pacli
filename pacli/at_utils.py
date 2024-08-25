@@ -138,7 +138,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         if advanced is True:
             tx_dict = tx
         else:
-            tx_dict = {"txid" : tx["txid"], "value" : txstruct["ovalue"], "outputs" : txstruct["oindices"], "height" : txstruct["height"]}
+            tx_dict = {"txid" : tx["txid"], "value" : txstruct["ovalue"], "outputs" : txstruct["oindices"], "blockheight" : txstruct["blockheight"]}
 
             if not sender:
                 if not no_labels:

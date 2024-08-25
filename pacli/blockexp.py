@@ -67,15 +67,28 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
             else:
                 raise ei.PacliInputDataError("End block or date must be after the start block or date.")
 
-        if not quiet:
-            print("Starting at block:", startblock)
-            print("Ending at block:", endblock)
-
     except (IndexError, ValueError):
         raise ei.PacliInputDataError("At least one of the dates you entered is invalid.")
 
 
     deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
+
+    if deckid:
+        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        try:
+            receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
+            if "startblock" in deck.__dict__:
+                startblock = deck.startblock if startblock in (0, None) else min(deck.startblock, startblock)
+
+            if "endblock" in deck.__dict__:
+                endblock = deck.endblock if endblock is None else min(deck.endblock, endblock)
+        except AttributeError:
+            raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
+
+    if not quiet:
+        print("Starting at block:", startblock)
+        print("Ending at block:", endblock)
+
     blockdata = show_txes_by_block(receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
     txes = blockdata["txes"]
 
