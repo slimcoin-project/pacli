@@ -89,7 +89,7 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         print("Starting at block:", startblock)
         print("Ending at block:", endblock)
 
-    blockdata = show_txes_by_block(receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, deckid=deckid, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
+    blockdata = show_txes_by_block(receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
     txes = blockdata["txes"]
 
     if debug:
@@ -146,11 +146,9 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
         end_block = start_block + blocks
     if not quiet:
         print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
+
     blockdata = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, only_store=True, debug=debug)
 
-    # txes = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, show_locator_txes=True, debug=debug)
-    #if not quiet:
-    #    print(len(txes), "matching transactions found in the scanned blocks.") # this is not important here, we'd need the new blockheights
     if debug:
         print("Block data for all addresses:", blockdata)
     if not quiet:

@@ -157,7 +157,7 @@ class ATTokenBase():
                                  )
 
     @classmethod
-    def spawn(self, token_name, address, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
+    def spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, change: str=Settings.change, verify: bool=False,
               wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
         """Spawns a new AT deck.

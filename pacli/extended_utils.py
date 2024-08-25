@@ -3,6 +3,7 @@ from decimal import Decimal
 import pypeerassets as pa
 from typing import Optional, Union
 from prettyprinter import cpprint as pprint
+from btcpy.structs.address import InvalidAddress
 from pypeerassets.transactions import sign_transaction
 from pypeerassets.networks import net_query
 from pypeerassets.pa_constants import param_query
@@ -28,6 +29,8 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
 
     if multiplier is None:
         multiplier = 1
+    if endblock < startblock:
+        raise ei.PacliInputDataError("The end block height has to be at least as high as the start block height.")
 
     # note: we use an additional identifier only for this function, to avoid having to import extension
     # data into __main__.
@@ -53,7 +56,10 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
                   "startblock" : int(startblock) if startblock else 0,
                   "endblock" : int(endblock) if endblock else 0}
 
-    data = serialize_deck_extended_data(net_query(provider.network), params=params)
+    try:
+        data = serialize_deck_extended_data(net_query(provider.network), params=params)
+    except InvalidAddress:
+        raise ei.PacliInputDataError("Invalid address.")
     return data
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,

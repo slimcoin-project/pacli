@@ -9,7 +9,7 @@ from pacli.config import Settings
 
 # lower level block exploring utilities are now bundled here
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, deckid: str=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, only_store: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, only_store: bool=False, debug: bool=False) -> list:
 
     # TODO: probably this would work better as a generator.
     # NOTE: show_locator_txes was removed, is not used anymore.
@@ -22,18 +22,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
     if locator_list:
         use_locator = True
         store_locator = True
-
-    #if deckid:
-    #    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-    #    try:
-    #        receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
-    #        if "startblock" in deck.__dict__:
-    #            startblock = deck.startblock if startblock is None else min(deck.startblock, startblock)#
-
-    #        if "endblock" in deck.__dict__:
-    #            endblock = deck.endblock if endblock is None else min(deck.endblock, endblock)
-    #    except AttributeError:
-    #        raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     if (not quiet) and (not use_locator) and ((endblock - startblock) > 10000):
         print("""
