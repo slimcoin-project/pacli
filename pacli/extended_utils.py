@@ -32,9 +32,6 @@ def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_
     if endblock < startblock:
         raise ei.PacliInputDataError("The end block height has to be at least as high as the start block height.")
 
-    # note: we use an additional identifier only for this function, to avoid having to import extension
-    # data into __main__.
-    # TODO: this note is obsolete as we now have extended_classes. Can be refactored.
     if multiplier % 1 != 0:
         raise ei.PacliInputDataError("The multiplier has to be an integer number.")
 

@@ -151,9 +151,14 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
 
     if debug:
         print("Block data for all addresses:", blockdata)
-    if not quiet:
-        print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
-    store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
+
+    if "bheight" in blockdata:
+        if not quiet:
+            print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
+        store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
+    else:
+        if not quiet:
+            print("No new data was stored to avoid inconsistencies.")
 
 
 def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=50000, quiet: bool=False, debug: bool=False):
@@ -167,7 +172,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     if not start_block:
         start_block = lastblock
     elif lastblock > 0:
-        print("There was a previous caching process, continuing it.")
+        print("There was a previous caching process. Continuing it from last cached block {} on.".format(lastblock))
         print("To cache other block heights, first erase the affected addresses with 'address cache -e'.")
         start_block = lastblock
     else:
@@ -180,12 +185,17 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     end_block = start_block + blocks
 
     blockdata = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
-    new_blockheights = blockdata["blocks"]
+    new_blockheights = blockdata["blocks"] if "blocks" in blockdata else []
     if debug:
         print("Block data:", blockdata)
-    if not quiet:
-        print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"], ".\nBlock heights for the checked addresses:", new_blockheights)
-    store_locator_data(new_blockheights, blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
+
+    if blockdata.get("bheight"):
+        store_locator_data(new_blockheights, blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
+        if not quiet:
+            print("Stored block data until block", blockdata.get("bheight"), "with hash", blockdata.get("bhash"), ".\nBlock heights for the checked addresses:", new_blockheights)
+    else:
+        if not quiet:
+            print("No new data was stored to avoid inconsistencies.")
 
 
 def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
