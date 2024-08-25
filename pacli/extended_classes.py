@@ -731,7 +731,7 @@ class ExtAddress:
             {'balance': float(balance)}
             )
 
-    def cache(self, addr_str: str, blocks: int=50000, keyring: bool=False, startblock: int=0, erase: bool=False, full: bool=False, quiet: bool=False, debug: bool=False):
+    def cache(self, addr_str: str, blocks: int=50000, keyring: bool=False, startblock: int=0, erase: bool=False, chain: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
         """Cache the state of an address.
 
            Usage:
@@ -748,18 +748,19 @@ class ExtAddress:
            Args:
 
              startblock: Block to start the cache process. Use this parameter if you know when the address was first used.
-             blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks (ignored in combination with -f).
-             full: Scans whole blockchain. WARNING: Can take several hours up to days!
+             blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks (ignored in combination with -c).
+             chain: Scans whole blockchain. WARNING: Can take several hours up to days!
+             force: Store the blocks even if there are gaps between caching phases, i.e. your start block is higher than the last checked block. Use with caution!
              erase: Delete address entry in blocklocator.json. To be used when the locator data is wrong.
              quiet: Suppress output.
              debug: Show additional debug information.
              keyring: Use addresses/label(s) stored in keyring."""
 
 
-        return ei.run_command(self.__cache, addr_str, startblock=startblock, blocks=blocks, full=full, keyring=keyring, erase=erase, quiet=quiet, debug=debug)
+        return ei.run_command(self.__cache, addr_str, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, debug=debug)
 
 
-    def __cache(self, addr_str: str, startblock: int=0, blocks: int=50000, keyring: bool=False, full: bool=False, erase: bool=False, quiet: bool=False, debug: bool=False):
+    def __cache(self, addr_str: str, startblock: int=0, blocks: int=50000, keyring: bool=False, chain: bool=False, erase: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
 
         if type(addr_str) == str:
             addresses = [ec.process_address(addr_str, keyring=keyring)]
@@ -772,12 +773,12 @@ class ExtAddress:
         if erase is True:
             return bu.erase_locator_entries(addresses) # TODO: improve this allowing startblock and endblock.
         else:
-            if full:
+            if chain:
                 blocks = provider.getblockcount() - startblock
                 if not quiet:
-                    print("Full blockchain scan selected. WARNING: This can take several days!")
+                    print("Full chain scan selected. WARNING: This can take several days!")
                     print("You can interrupt the scan at any time with KeyboardInterrupt (e.g. CTRL-C) and continue later, calling the same command.")
-            return bx.store_address_blockheights(addresses, start_block=startblock, blocks=blocks, quiet=quiet, debug=debug)
+            return bx.store_address_blockheights(addresses, start_block=startblock, blocks=blocks, force=force, quiet=quiet, debug=debug)
 
 
 class ExtDeck:
@@ -1019,9 +1020,10 @@ class ExtDeck:
              quiet: bool=False,
              debug: bool=False) -> None:
         """Initializes a deck (token).
+
         This is mandatory to be able to use a token with pacli.
         By default, the global deck name is stored as a local label in the extended configuration file.
-        IMPORTANT: After initializating a token, the client must be restarted with -rescan option to avoid issues.
+        IMPORTANT: After initializating a token which was already used, the client must be restarted with -rescan option to avoid issues.
 
         Usage modes:
 
@@ -1094,7 +1096,7 @@ class ExtDeck:
             self.__cache(idstr=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
 
-    def cache(self, idstr: str=None, blocks: int=50000, full: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+    def cache(self, idstr: str=None, blocks: int=50000, chain: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
         """Stores data about deck state changes (blockheights).
 
         Usage modes:
@@ -1117,16 +1119,16 @@ class ExtDeck:
         Args:
 
           blocks: Number of blocks to store (default: 50000) (ignored in combination with -f).
-          full: Store blockheights for the whole blockchain (since the start block).
+          chain: Store blockheights for the whole blockchain (since the start block).
           all_decks: Store blockheights for all initialized tokens/decks.
           quiet: Suppress output.
           idstr: Token (deck) label or ID. To be used as a positional argument.
           debug: Show additional debug information."""
 
 
-        ei.run_command(self.__cache, idstr=idstr, blocks=blocks, full=full, all_decks=all_decks, quiet=quiet, debug=debug)
+        ei.run_command(self.__cache, idstr=idstr, blocks=blocks, chain=chain, all_decks=all_decks, quiet=quiet, debug=debug)
 
-    def __cache(self, idstr: str, blocks: int=None, full: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+    def __cache(self, idstr: str, blocks: int=None, chain: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
 
         deckid = eu.search_for_stored_tx_label("deck", idstr, quiet=quiet) if idstr is not None else None
 
@@ -1140,7 +1142,7 @@ class ExtDeck:
              decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
                       pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)]
 
-        ei.run_command(bx.store_deck_blockheights, decks, quiet=quiet, full=full, debug=debug, blocks=blocks)
+        ei.run_command(bx.store_deck_blockheights, decks, quiet=quiet, full=chain, debug=debug, blocks=blocks)
 
 
 

@@ -9,13 +9,10 @@ from pacli.config import Settings
 
 # lower level block exploring utilities are now bundled here
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, use_locator: bool=False, store_locator: bool=False, only_store: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(receiving_address: str=None, sending_address: str=None, locator_list: list=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, force_storing: bool=False, use_locator: bool=False, store_locator: bool=False, only_store: bool=False, debug: bool=False) -> list:
+    """Shows or stores transaction data from the blocks directly."""
 
-    # TODO: probably this would work better as a generator.
-    # NOTE: show_locator_txes was removed, is not used anymore.
-
-    # locator_list parameter only stores the locator
-    # locator call: (locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
+    # NOTE: locator_list parameter only stores the locator
 
     lastblockheight, lastblockhash = None, None
 
@@ -32,8 +29,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
 
     tracked_txes = []
 
-    # address_list -> list of all addresses to query. Will be created always, with the exception of the mode showing all transactions.
-
     if locator_list:
         address_list = locator_list
     elif sending_address or receiving_address:
@@ -45,9 +40,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
             print("Locator mode not supported if no addresses or decks are selected. Locators will not be used.")
         use_locator = None
         store_locator = None
-
-        #else: # whole wallet mode, not recommended with locators at this time!
-        #    address_list = list(eu.get_wallet_address_set())
 
     blockrange = range(startblock, endblock + 1)
 
@@ -74,7 +66,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
             else:
                 blockheights = blockrange
                 # if it's the first caching process, store anyway.
-                if last_checked_block > 0:
+                if last_checked_block > 0 and not force_storing:
                     if debug:
                         print("Provided start block is above the cached range. Not using nor storing locators to avoid inconsistencies.")
                     store_locator = False

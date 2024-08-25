@@ -161,7 +161,7 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
             print("No new data was stored to avoid inconsistencies.")
 
 
-def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=50000, quiet: bool=False, debug: bool=False):
+def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=50000, force: bool=False, quiet: bool=False, debug: bool=False):
     # addresses need to be scanned from 0, as we don't know when they were created
     # An exception could be made for addresses in the wallet.
     if not quiet:
@@ -172,11 +172,19 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     if not start_block:
         start_block = lastblock
     elif lastblock > 0:
-        print("There was a previous caching process. Continuing it from last cached block {} on.".format(lastblock))
-        print("To cache other block heights, first erase the affected addresses with 'address cache -e'.")
-        start_block = lastblock
+        if force is True:
+            if start_block < lastblock:
+                raise ei.PacliInputDataError("Starting caching before the last stored block is not supported, as this might lead to inconsistencies.")
+            if not quiet:
+                print("Forcing to cache block heights as required. Last stored block was {}, continuing from block {} on.".format(lastblock, start_block))
+
+        else:
+            if not quiet:
+                print("There was a previous caching process. Continuing it from last cached block {} on.".format(lastblock))
+                print("To cache other block heights, use -f / --force or erase the affected addresses from the block locator file with 'address cache -e'.")
+            start_block = lastblock
     else:
-        if start_block > (lastblock + 1):
+        if start_block > (lastblock + 1) and not force:
             if not quiet:
                 print("WARNING: Block heights between {} and {} not checked.".format(lastblock, start_block))
                 if not ei.confirm_continuation():
@@ -184,7 +192,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
                     return
     end_block = start_block + blocks
 
-    blockdata = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, quiet=quiet, debug=debug)
+    blockdata = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, force_storing=force, quiet=quiet, debug=debug)
     new_blockheights = blockdata["blocks"] if "blocks" in blockdata else []
     if debug:
         print("Block data:", blockdata)
@@ -195,7 +203,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
             print("Stored block data until block", blockdata.get("bheight"), "with hash", blockdata.get("bhash"), ".\nBlock heights for the checked addresses:", new_blockheights)
     else:
         if not quiet:
-            print("No new data was stored to avoid inconsistencies.")
+            print("Start block located before last checked block. No new data was stored to avoid inconsistencies.")
 
 
 def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
