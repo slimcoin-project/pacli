@@ -18,6 +18,7 @@ import pacli.extended_commands as ec
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.dt_txtools as dtx
+from pacli.extended_constants import DEFAULT_POD_DECK
 
 
 class PoDToken():
@@ -200,6 +201,101 @@ class PoDToken():
         return ei.run_command(dc.show_votes_by_address, deckid, address, debug=debug)
 
 
+    def electorate(self,
+               idstr: str=None,
+               phase: str=None,
+               blockheight: int=None,
+               miniid: bool=False,
+               quiet: bool=False,
+               listvoters: bool=False,
+               debug: bool=False) -> None:
+        """Shows the potential 'electorate' of enabled voters and their balance at the start of the current epoch, for a proposal's voting round, or at a defined blockheight.
+
+        Usage modes:
+
+            pacli proposal electorate [TOKEN]
+
+        Shows list of enabled addresses to vote for a token.
+        If TOKEN is not given, the defauld proof-of-donation token is used.
+        TOKEN can be a token (deck) ID, a local label or the global name.
+
+            pacli proposal electorate PROPOSAL -p [PHASE]
+
+        Shows list of enabled addresses to vote for proposal PROPOSAL in a voting phase (1 or 2).
+        If PHASE is not given, the first phase is used.
+        PROPOSAL can be an ID, a local label, a part of the description or the mini ID (with -m option).
+
+        Args:
+
+          quiet: Suppress additional output and print out a script-friendly dictionary.
+          listvoters: Print out only a list of voters.
+          blockheight: Block height to consider for the voters' balances.
+          phase: Show voters for a voting phase of a proposal. See Usage modes.
+          miniid: Use the mini id (short id) to identify the proposal.
+          debug: Show additional debug information."""
+
+        return ei.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=blockheight, miniid=miniid, quiet=quiet, listvoters=listvoters, debug=debug)
+
+    def __electorate(self,
+               idstr: str=None,
+               phase: str=None,
+               blockheight: int=None,
+               miniid: bool=False,
+               quiet: bool=False,
+               listvoters: bool=False,
+               debug: bool=False) -> None:
+
+        # TODO check if future blockheights and proposals in the future are correctly catched
+        if phase is None:
+            deckid = eu.search_for_stored_tx_label("deck", idstr, debug=debug) if idstr is not None else DEFAULT_POD_DECK[Settings.network]
+            deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        else:
+            phase = 1 if phase == True else phase
+            pp_data = Proposal()._get(idstr, require_states=True, miniid=miniid, label_priority=True, debug=debug)
+            proposal_id = pp_data["id"]
+            proposal = pp_data["states"][0]
+            deck = proposal.deck
+            epoch = proposal.end_epoch if phase == 2 else proposal.start_epoch
+            blockheight = deck.epoch_length * epoch # first block of the epoch
+
+        current_block = provider.getblockcount()
+        if blockheight is None:
+            epoch = current_block // deck.epoch_length
+            blockheight = deck.epoch_length * epoch
+        else:
+            if blockheight > current_block:
+                if phase is not None:
+                    msg_futureblock = "Impossible to show the electorate for this voting round as the epoch begins in the future."
+                else:
+                    msg_futureblock = "Selected block height is in the future."
+                raise ei.PacliInputDataError(msg_futureblock)
+            epoch = blockheight // deck.epoch_length
+
+        parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
+
+        if listvoters is True:
+            print(", ".join(parser_state.enabled_voters.keys()))
+        elif quiet is True:
+            print(parser_state.enabled_voters)
+        else:
+            if phase is not None:
+               pprint("Enabled voters and weights for proposal {}, for voting phase {}".format(proposal_id, phase))
+            else:
+               pprint("Enabled voters and weights for token (deck) {}".format(deckid))
+
+            # TODO: improve printout (decimals)
+            pprint(parser_state.enabled_voters)
+            # pprint(parser_state.__dict__)
+
+            if blockheight is None:
+                pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch {} which started at block {}.".format(epoch, blockheight))
+            else:
+                pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
+
+            pprint("Weights are shown in minimum token units.")
+            pprint("The tokens' numbers of decimals don't matter for this view.")
+
+
     def check_tx(self, proposal: str=None, txid: str=None, fulltx: str=None, include_badtx: bool=False, light: bool=False) -> None:
         """Shows properties of TrackedTransactions. Primarily for debugging.
 
@@ -240,7 +336,7 @@ class Proposal:
     """Commands to manage, show and vote for proposals in dPoD tokens."""
 
 
-    def __get(self, searchstring: str, miniid: bool=False, advanced: bool=False, require_states: bool=False, label_priority: bool=False, debug: bool=False) -> dict:
+    def _get(self, searchstring: str, miniid: bool=False, advanced: bool=False, require_states: bool=False, label_priority: bool=False, debug: bool=False) -> dict:
 
         proposal_id = None
         if (miniid is False and label_priority is True) or (require_states is False):
@@ -345,7 +441,7 @@ class Proposal:
 
         """
 
-        pp_data = ei.run_command(self.__get, label_or_id, require_states=(state or find), miniid=miniid, label_priority=(not find), advanced=advanced, debug=debug)
+        pp_data = ei.run_command(self._get, label_or_id, require_states=(state or find), miniid=miniid, label_priority=(not find), advanced=advanced, debug=debug)
 
         if info is True:
             return self.__info(pp_data["id"], advanced=advanced)
@@ -384,21 +480,6 @@ class Proposal:
 
     def __state(self, pstate: str, param: str=None, simple: bool=False, complete: bool=False, quiet: bool=False, search: bool=False, debug: bool=False, ) -> None:
         """Shows a single proposal state. You can search also for a short id (length 16 characters) or parts of the description."""
-
-        # if (search is True) or (len(proposal_string) == 16):
-        #if pstates is not None:
-            # pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True)[0]
-        #    pstate = pstates[0]
-        #elif proposal_id is not None:
-            #if len(proposal_string) == 16:
-            #    # if the length is 16 like in the short id, we search this id.
-            #    pstate = ei.run_command(du.find_proposal_state_by_string, proposal_string, advanced=True, require_state=True, shortid=True)[0]
-            #else:
-            #    proposal_id = eu.search_for_stored_tx_label("proposal", proposal_string)
-        #    try:
-        #        pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
-        #    except (IndexError, KeyError) as e:
-        #        ei.print_red("Error: {}".format(e))
 
         pdict = pstate.__dict__
         if param is not None:
@@ -554,72 +635,6 @@ class Proposal:
             pprint("Final voting round transactions:")
             pprint(votestate[1])
 
-
-    def voters(self,
-               proposal: str,
-               debug: bool=False,
-               blockheight: int=None,
-               miniid: bool=False,
-               quiet: bool=False,
-               listvoters: bool=False) -> None:
-        """Shows enabled voters and their balance at the start of the current epoch, or at a defined blockheight.
-
-        Usage:
-
-            pacli proposal voters PROPOSAL
-
-        Shows list of enabled addresses to vote for proposal PROPOSAL.
-        PROPOSAL can be an ID, a local label, a part of the description or the mini ID (with -m option).
-
-        Args:
-
-          quiet: Suppress additional output and print out a script-friendly dictionary.
-          listvoters: Print out only a list of voters.
-          blockheight: Block height to consider for the voters' balances (mainly debugging command)
-          miniid: Use the mini id (short id) to identify the proposal.
-          debug: Show additional debug information."""
-
-        # TODO: if blockheight option is given, proposal isn't strictly necessary. But the code would have to be changed for that.
-
-        pp_data = ei.run_command(self.__get, proposal, require_states=False, miniid=miniid, label_priority=True, debug=debug)
-        proposal_id = pp_data["id"]
-
-        # proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        proposal_tx = dmu.find_proposal(proposal_id, provider)
-        deck = proposal_tx.deck
-
-        # parser_state = dmu.get_parser_state(provider, deck=proposal_tx.deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
-
-        if blockheight is None:
-            # epoch = parser_state.epoch
-            epoch = provider.getblockcount() // deck.epoch_length
-            blockheight = deck.epoch_length * epoch
-            # blockheight = parser_state.deck.epoch_length * epoch
-        else:
-            # epoch = blockheight // parser_state.deck.epoch_length
-            epoch = blockheight // deck.epoch_length
-
-        parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
-
-        if listvoters is True:
-            print(", ".join(parser_state.enabled_voters.keys()))
-        elif quiet is True:
-            print(parser_state.enabled_voters)
-        else:
-            pprint("Enabled voters and weights for proposal {}".format(proposal_id))
-
-            pprint(parser_state.enabled_voters)
-            # pprint(parser_state.__dict__)
-
-            if blockheight is None:
-                pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch {} which started at block {}.".format(epoch, blockheight))
-            else:
-                pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
-
-            pprint("Weights are shown in minimum token units.")
-            pprint("The tokens' numbers of decimals don't matter for this view.")
-
-
     def period(self,
               label_or_id: str,
               period: str=None,
@@ -665,7 +680,7 @@ class Proposal:
            blockheight: Show period at a block height (see Usage modes).
         """
 
-        pp_data = ei.run_command(self.__get, label_or_id, require_states=False, miniid=miniid, label_priority=True, debug=debug)
+        pp_data = ei.run_command(self._get, label_or_id, require_states=False, miniid=miniid, label_priority=True, debug=debug)
         proposal_id = pp_data["id"]
 
         if start is True:
@@ -745,12 +760,14 @@ class Proposal:
 
         Usage modes:
 
-            pacli proposal create DECK REQ_AMOUNT PERIODS [BRIEF]
+            pacli proposal create TOKEN REQ_AMOUNT PERIODS [INTRO]
 
-        Creates a new proposal on deck DECK with parameters:
+        Creates a new proposal on token (deck) TOKEN with parameters:
+
         - requested amount REQ_AMOUNT
         - length of the working period in distribution periods: PERIODS
         - short introduction/description: INTRO (optional, but recommended)
+
         DECK can be a label or a deck ID.
 
             pacli proposal create PROPOSAL [[-r] REQ_AMOUNT] [[-p] PERIODS] [[-i] INTRO]
@@ -782,15 +799,10 @@ class Proposal:
 
         if modify is True:
             kwargs.update({"proposal" : identifier})
-            del kwargs["modify"]
         else:
             kwargs.update({"deck" : identifier})
-        kwargs.update({"description" : intro},
-                      {"txhex" : quiet})
-        del kwargs["self"]
-        del kwargs["identifier"]
-        del kwargs["intro"]
-        del kwargs["quiet"]
+        kwargs.update({"description" : intro, "txhex" : quiet})
+        del kwargs["self"], kwargs["identifier"], kwargs["intro"], kwargs["quiet"], kwargs["modify"]
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
 
@@ -816,14 +828,8 @@ class Proposal:
 
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round})
-        del kwargs["match_round"]
-        del kwargs["level_security"]
-        del kwargs["self"]
-        del kwargs["quiet"]
+        del kwargs["self"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
         return ei.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
-
-
-
 
 class Donation:
 
@@ -856,11 +862,7 @@ class Donation:
 
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
-        del kwargs["round_number"]
-        del kwargs["match_round"]
-        del kwargs["level_security"]
-        del kwargs["quiet"]
-        del kwargs["self"]
+        del kwargs["self"], kwargs["round_number"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
         return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
 
 
@@ -898,11 +900,7 @@ class Donation:
 
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
-        del kwargs["round_number"]
-        del kwargs["match_round"]
-        del kwargs["level_security"]
-        del kwargs["quiet"]
-        del kwargs["self"]
+        del kwargs["self"], kwargs["round_number"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
         return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
 
 
@@ -935,11 +933,8 @@ class Donation:
 
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
-        del kwargs["round_number"]
-        del kwargs["match_round"]
-        del kwargs["level_security"]
-        del kwargs["quiet"]
-        del kwargs["self"]
+        del kwargs["self"], kwargs["round_number"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
+
         return ei.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
 
     def proceed(self, proposal: str=None, donation: str=None, amount: str=None, label: str=None, send: bool=False):
