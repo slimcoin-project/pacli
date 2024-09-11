@@ -245,7 +245,6 @@ class PoDToken():
                listvoters: bool=False,
                debug: bool=False) -> None:
 
-        # TODO check if future blockheights and proposals in the future are correctly catched
         if phase is None:
             deckid = eu.search_for_stored_tx_label("deck", idstr, debug=debug) if idstr is not None else DEFAULT_POD_DECK[Settings.network]
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -260,8 +259,7 @@ class PoDToken():
 
         current_block = provider.getblockcount()
         if blockheight is None:
-            epoch = current_block // deck.epoch_length
-            blockheight = deck.epoch_length * epoch
+            blockheight = current_block
         else:
             if blockheight > current_block:
                 if phase is not None:
@@ -269,9 +267,11 @@ class PoDToken():
                 else:
                     msg_futureblock = "Selected block height is in the future."
                 raise ei.PacliInputDataError(msg_futureblock)
+        if phase is None:
             epoch = blockheight // deck.epoch_length
+        last_epoch_start = (epoch - 1) * deck.epoch_length
 
-        parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=blockheight)
+        parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=last_epoch_start) # was lastblock=blockheight
 
         if listvoters is True:
             print(", ".join(parser_state.enabled_voters.keys()))
@@ -285,7 +285,6 @@ class PoDToken():
 
             # TODO: improve printout (decimals)
             pprint(parser_state.enabled_voters)
-            # pprint(parser_state.__dict__)
 
             if blockheight is None:
                 pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch {} which started at block {}.".format(epoch, blockheight))
