@@ -24,12 +24,12 @@ from pacli.utils import (sendtx, cointoolkit_verify)
 
 # Deck tools
 
-def create_deckspawn_data(identifier, epoch_length=None, epoch_reward=None, min_vote=None, sdp_periods=None, sdp_deckid=None, at_address=None, multiplier=None, addr_type=2, startblock=None, endblock=None, debug: bool=False):
+def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward: int=None, min_vote: int=None, sdp_periods: int=None, sdp_deckid: str=None, at_address: str=None, multiplier: int=None, addr_type: int=2, startblock: int=None, endblock: int=None, debug: bool=False) -> str:
     """Creates a Protobuf datastring with the deck metadata."""
 
     if multiplier is None:
         multiplier = 1
-    if endblock < startblock:
+    if (endblock and startblock) and (endblock < startblock):
         raise ei.PacliInputDataError("The end block height has to be at least as high as the start block height.")
 
     if multiplier % 1 != 0:
