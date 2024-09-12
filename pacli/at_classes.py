@@ -19,6 +19,9 @@ class ATTokenBase():
     def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
 
         amount = Decimal(str(amount))
+        if (amount == 0) or (amount < 0):
+            raise ei.PacliInputDataError("Invalid amount, amount must be above zero.")
+
         if not eu.is_possible_address(address_or_deck):
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet)
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
