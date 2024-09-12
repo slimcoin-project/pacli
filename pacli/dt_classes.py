@@ -283,8 +283,9 @@ class PoDToken():
             else:
                pprint("Enabled voters and weights for token (deck) {}".format(deckid))
 
-            # TODO: improve printout (decimals)
-            pprint(parser_state.enabled_voters)
+            voters = parser_state.enabled_voters
+            for voter, vbalance in voters.items():
+                print("{}: {}".format(voter, float(vbalance)))
 
             if blockheight is None:
                 pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch {} which started at block {}.".format(epoch, blockheight))
