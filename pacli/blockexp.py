@@ -100,8 +100,6 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
                 print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
             store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
 
-    #if (not quiet) and (len(txes) == 0):
-    #    print("No transactions found.") # there is already a message.
     return txes
 
 
