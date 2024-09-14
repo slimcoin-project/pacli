@@ -12,6 +12,7 @@ from pypeerassets.at.constants import ID_AT, ID_DT
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
 from pypeerassets.exceptions import InsufficientFunds
 from pypeerassets.__main__ import get_card_transfer
+from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
 import pacli.extended_constants as c
@@ -70,8 +71,17 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     new_deck = pa.Deck(name, number_of_decimals, issue_mode, network,
                            production, version, asset_specific_data)
 
+    # TODO re-check: in some occasions this produced a change output even if there are exact coins
+    # fix attempt: originally 0.02 were as a fix value in select_inputs, now dynamic based on minimum values for each network.
+    # perhaps also revise pypeerassets
+
+    min_tx_value = dmu.sats_to_coins(legacy_mintx(Settings.network), network_name=Settings.network)
+    p2th_fee = min_tx_value if min_tx_value else net_query(Settings.network).from_unit
+    op_return_fee = p2th_fee if is_legacy_blockchain(Settings.network, "nulldata") else 0
+    all_fees = net_query(Settings.network).min_tx_fee + p2th_fee + op_return_fee
+
     spawn_tx = pa.deck_spawn(provider=provider,
-                          inputs=provider.select_inputs(Settings.key.address, 0.02),
+                          inputs=provider.select_inputs(Settings.key.address, all_fees),
                           deck=new_deck,
                           change_address=change_address,
                           locktime=locktime
