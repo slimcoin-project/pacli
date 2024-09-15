@@ -205,6 +205,7 @@ class PoDToken():
                idstr: str=None,
                phase: str=None,
                blockheight: int=None,
+               epoch: int=None,
                miniid: bool=False,
                listvoters: bool=False,
                next: bool=False,
@@ -231,17 +232,19 @@ class PoDToken():
           quiet: Suppress additional output and print out a script-friendly dictionary.
           listvoters: Print out only a list of voters.
           blockheight: Block height to consider for the voters' balances.
+          epoch: Calculate the state at the start of a specific epoch.
           phase: Show voters for a voting phase of a proposal. See Usage modes.
           miniid: Use the mini id (short id) to identify the proposal.
           next: Show potential balance of the next epoch after the current or selected block, taking into account recent token transfers (not in combination with -p).
           debug: Show additional debug information."""
 
-        return ei.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=blockheight, miniid=miniid, listvoters=listvoters, next=next, quiet=quiet, debug=debug)
+        return ei.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=blockheight, miniid=miniid, epoch=epoch, listvoters=listvoters, next=next, quiet=quiet, debug=debug)
 
     def __electorate(self,
                idstr: str=None,
                phase: str=None,
                blockheight: int=None,
+               epoch: int=None,
                miniid: bool=False,
                listvoters: bool=False,
                next: bool=False,
@@ -261,7 +264,10 @@ class PoDToken():
             blockheight = deck.epoch_length * epoch # first block of the epoch
 
         current_block = provider.getblockcount()
-        if blockheight is None:
+        if epoch:
+            pass
+        #    blockheight = epoch * deck.epoch_length
+        elif blockheight is None:
             blockheight = current_block
         else:
             if blockheight > current_block:
@@ -271,10 +277,12 @@ class PoDToken():
                     msg_futureblock = "Selected block height is in the future."
                 raise ei.PacliInputDataError(msg_futureblock)
         if phase is None:
-            epoch = blockheight // deck.epoch_length
+            if not epoch:
+                epoch = blockheight // deck.epoch_length
             if next:
                 epoch += 1
 
+        # last_epoch_start is the start of the last epoch which will be completely processed.
         last_epoch_start = (epoch - 1) * deck.epoch_length
 
         parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=last_epoch_start) # was lastblock=blockheight
@@ -294,14 +302,15 @@ class PoDToken():
                 print("{}: {}".format(voter, float(vbalance)))
 
             if next is True:
-                pprint("Note: The weight corresponds to the *potential* adjusted PoD and voting token balances at the start of the epoch {} which starts at block {}. Note that there may be token transfers after the last checked block height {} which will change the outcome.".format(epoch, last_epoch_start, blockheight))
+                print("\nNote: The weight corresponds to the *potential* adjusted PoD and voting token balances at the start of the epoch {} which starts at block {}.".format(epoch, last_epoch_start))
+                if not blockheight:
+                    print("Note that there may be token transfers after the current block which will change the outcome.")
             elif blockheight is None:
-                pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the current epoch {} which started at block {}.".format(epoch, last_epoch_start))
+                print("\nNote: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} which started at block {}.".format(epoch, last_epoch_start))
             else:
-                pprint("Note: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
+                print("\nNote: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
 
-            pprint("Weights are shown in minimum token units.")
-            pprint("The tokens' numbers of decimals don't matter for this view.")
+            print("Weights are shown in minimum token units. The tokens' numbers of decimals don't matter for this view.")
 
 
     def check_tx(self, proposal: str=None, txid: str=None, fulltx: str=None, include_badtx: bool=False, light: bool=False) -> None:
