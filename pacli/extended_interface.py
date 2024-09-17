@@ -41,7 +41,7 @@ def run_command(c, *args, **kwargs) -> object:
             raise
         sys.exit()
 
-    except (TypeError, KeyError) as e:
+    except (TypeError, KeyError, PacliGeneralError) as e:
 
         # a TypeError complaining is often raised if a deck wasn't initialized:
         # TypeError: argument of type 'NoneType' is not iterable
@@ -339,4 +339,8 @@ class PacliInputDataError(Exception):
 
 class ValueExistsError(Exception):
     # exception thrown when a key already exists in the extended config file and protected mode is used.
+    pass
+
+class PacliGeneralError(Exception):
+    # exception to throw the "General Error" error.
     pass

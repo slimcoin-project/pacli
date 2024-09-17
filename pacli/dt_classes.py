@@ -203,23 +203,34 @@ class PoDToken():
 
     def electorate(self,
                idstr: str=None,
+               state_at_block: int=None,
                phase: str=None,
-               blockheight: int=None,
                epoch: int=None,
                miniid: bool=False,
                listvoters: bool=False,
-               next: bool=False,
+               next_state: int=None,
                quiet: bool=False,
                debug: bool=False) -> None:
-        """Shows the potential 'electorate' of enabled voters and their balance at the start of the current epoch, for a proposal's voting round, or at a defined blockheight.
+        """Shows the potential 'electorate' of enabled voters, i.e. the list of enabled addresses to vote for a dPoD token, and their voting weight at the start of the current epoch, for a proposal's voting round, or at a defined blockheight.
 
         Usage modes:
 
             pacli proposal electorate [TOKEN]
 
-        Shows list of enabled addresses to vote for a token.
+        Shows the electorate at the start of the current epoch.
         If TOKEN is not given, the defauld proof-of-donation token is used.
         TOKEN can be a token (deck) ID, a local label or the global name.
+
+            pacli proposal electorate [TOKEN] -s BLOCKHEIGHT
+
+        Takes a block height BLOCKHEIGHT and calculates the state at the start of the epoch the block belongs to.
+        This shows how the electorate would look if a proposal was voted at this block.
+
+            pacli proposal electorate [TOKEN] -n [BLOCKHEIGHT]
+
+        Show potential balance of the next epoch after the current or selected block, taking into account token transfers.
+        If BlOCKHEIGHT is given, then the state is calculated for the epoch start following the given block height.
+        If no block height is given, the potential state taking into account the transactions of voting and dPoD tokens at the current block is calculated. This state however can change until the end of the epoch.
 
             pacli proposal electorate PROPOSAL -p [PHASE]
 
@@ -231,14 +242,14 @@ class PoDToken():
 
           quiet: Suppress additional output and print out a script-friendly dictionary.
           listvoters: Print out only a list of voters.
-          blockheight: Block height to consider for the voters' balances.
+          state_at_block: See Usage modes (not in combination with -p).
           epoch: Calculate the state at the start of a specific epoch.
           phase: Show voters for a voting phase of a proposal. See Usage modes.
           miniid: Use the mini id (short id) to identify the proposal.
-          next: Show potential balance of the next epoch after the current or selected block, taking into account recent token transfers (not in combination with -p).
+          next_state: See Usage modes (not in combination with -p).
           debug: Show additional debug information."""
 
-        return ei.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=blockheight, miniid=miniid, epoch=epoch, listvoters=listvoters, next=next, quiet=quiet, debug=debug)
+        return ei.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=state_at_block, next=next_state, miniid=miniid, epoch=epoch, listvoters=listvoters, quiet=quiet, debug=debug)
 
     def __electorate(self,
                idstr: str=None,
@@ -251,9 +262,18 @@ class PoDToken():
                quiet: bool=False,
                debug: bool=False) -> None:
 
+        if type(next) == int:
+            blockheight = next
+
+        if type(blockheight) == bool:
+           raise ei.PacliGeneralError()
+
         if phase is None:
             deckid = eu.search_for_stored_tx_label("deck", idstr, debug=debug) if idstr is not None else DEFAULT_POD_DECK[Settings.network]
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+            if "epoch_length" not in deck.__dict__:
+                raise ei.PacliInputDataError("Not a Proof of Donation token (deck).")
+
         else:
             phase = 1 if phase == True else phase
             pp_data = Proposal()._get(idstr, require_states=True, miniid=miniid, label_priority=True, debug=debug)
@@ -263,29 +283,30 @@ class PoDToken():
             epoch = proposal.end_epoch if phase == 2 else proposal.start_epoch
             blockheight = deck.epoch_length * epoch # first block of the epoch
 
+
         current_block = provider.getblockcount()
-        if epoch:
-            pass
-        #    blockheight = epoch * deck.epoch_length
+        if epoch is not None:
+            blockheight = epoch * deck.epoch_length
         elif blockheight is None:
             blockheight = current_block
-        else:
-            if blockheight > current_block:
-                if phase is not None:
-                    msg_futureblock = "Impossible to show the electorate for this voting round as the epoch begins in the future."
-                else:
-                    msg_futureblock = "Selected block height is in the future."
-                raise ei.PacliInputDataError(msg_futureblock)
+
+        if blockheight > current_block:
+            if phase is not None:
+                msg_futureblock = "Impossible to show the electorate for this voting round as the epoch begins in the future."
+            else:
+                msg_futureblock = "You can't select a future epoch or block height."
+            raise ei.PacliInputDataError(msg_futureblock)
+
         if phase is None:
-            if not epoch:
+            if epoch is None:
                 epoch = blockheight // deck.epoch_length
             if next:
                 epoch += 1
 
         # last_epoch_start is the start of the last epoch which will be completely processed.
-        last_epoch_start = (epoch - 1) * deck.epoch_length
+        last_epoch_start = max(0, (epoch - 1) * deck.epoch_length)
 
-        parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=last_epoch_start) # was lastblock=blockheight
+        parser_state = dmu.get_parser_state(provider, deck=deck, debug_voting=debug, force_continue=True, lastblock=last_epoch_start)
 
         if listvoters is True:
             print(", ".join(parser_state.enabled_voters.keys()))
@@ -296,16 +317,21 @@ class PoDToken():
                pprint("Enabled voters and weights for proposal {}, for voting phase {}".format(proposal_id, phase))
             else:
                pprint("Enabled voters and weights for token (deck) {}".format(deckid))
+            print("\n")
 
             voters = parser_state.enabled_voters
+
+            if not voters:
+                print("No potential voters found in this epoch.")
+
             for voter, vbalance in voters.items():
                 print("{}: {}".format(voter, float(vbalance)))
 
-            if next is True:
+            if next is not None:
                 print("\nNote: The weight corresponds to the *potential* adjusted PoD and voting token balances at the start of the epoch {} which starts at block {}.".format(epoch, last_epoch_start))
-                if not blockheight:
+                if blockheight == current_block:
                     print("Note that there may be token transfers after the current block which will change the outcome.")
-            elif blockheight is None:
+            elif blockheight == current_block:
                 print("\nNote: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} which started at block {}.".format(epoch, last_epoch_start))
             else:
                 print("\nNote: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
