@@ -29,7 +29,7 @@ class Swap:
 
         Usage:
 
-            pacli swap lock TOKEN AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER]
+            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER]
 
         By default, you specify the number of blocks to lock the tokens; with --blockheight you specify the final block height.
         Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the swap DEX.
@@ -71,7 +71,7 @@ class Swap:
 
         Usage:
 
-            pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT CARD_AMOUNT COIN_AMOUNT
+            pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT
 
         PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual)
 

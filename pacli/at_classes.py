@@ -167,11 +167,11 @@ class ATTokenBase():
 
         Usage:
 
-        pacli attoken deck_spawn TOKEN_NAME TRACKED_ADDRESS
+        pacli attoken spawn TOKEN_NAME TRACKED_ADDRESS
 
         Args:
 
-          multiplier: Specify a multiplier for the reward..
+          multiplier: Specify an integer multiplier for the reward..
           number_of_decimals: Specify the number of decimals of the token.
           from_block: Specify a start block to track transactions from.
           end_block: Specify an end block to track transactions.
@@ -255,11 +255,11 @@ class PoBToken(ATTokenBase):
 
         Usage:
 
-        pacli pobtoken deck_spawn NAME
+        pacli pobtoken spawn NAME
 
         Args:
 
-          multiplier: Specify a multiplier for the reward..
+          multiplier: Specify an integer multiplier for the reward..
           number_of_decimals: Specify the number of decimals of the token.
           from_block: Specify a start block to track transactions from.
           end_block: Specify an end block to track transactions.

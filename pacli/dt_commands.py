@@ -1,6 +1,5 @@
 # Commands specific for DT tokens in standard pacli classes
 
-
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
@@ -187,8 +186,6 @@ def dt_state(deckid: str, debug: bool=False, debug_voting: bool=False, debug_don
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     pst_dict = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True, debug=debug, debug_voting=debug_voting, debug_donations=debug_donations).__dict__
     di.prepare_dict(pst_dict, only_txids=["initial_cards", "sdp_cards", "donation_txes"], only_id=["sdp_deck", "deck"], only_ids = ["proposal_states", "approved_proposals", "valid_proposals"])
-    # di.prepare_complete_collection(pst.__dict__)
-
     pprint(pst_dict)
 
 # Card

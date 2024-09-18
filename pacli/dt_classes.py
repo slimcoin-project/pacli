@@ -211,28 +211,32 @@ class PoDToken():
                next_state: int=None,
                quiet: bool=False,
                debug: bool=False) -> None:
-        """Shows the potential 'electorate' of enabled voters, i.e. the list of enabled addresses to vote for a dPoD token, and their voting weight at the start of the current epoch, for a proposal's voting round, or at a defined blockheight.
+        """Shows the potential 'electorate' of enabled voters (the list of addresses with a positive balance of voting-enabling tokens) to vote for a dPoD token, and their voting weight at the start of the current epoch, for a proposal's voting round, or the epoch corresponding to a defined blockheight.
 
         Usage modes:
 
-            pacli proposal electorate [TOKEN]
+            pacli podtoken electorate [TOKEN]
 
         Shows the electorate at the start of the current epoch.
-        If TOKEN is not given, the defauld proof-of-donation token is used.
+        If TOKEN is not given, the default proof-of-donation token is used.
         TOKEN can be a token (deck) ID, a local label or the global name.
 
-            pacli proposal electorate [TOKEN] -s BLOCKHEIGHT
+            pacli podtoken electorate [TOKEN] -s BLOCKHEIGHT
 
         Takes a block height BLOCKHEIGHT and calculates the state at the start of the epoch the block belongs to.
         This shows how the electorate would look if a proposal was voted at this block.
 
-            pacli proposal electorate [TOKEN] -n [BLOCKHEIGHT]
+            pacli podtoken electorate [TOKEN] -e EPOCH
+
+        Shows the voting weight at the start of the epoch EPOCH.
+
+            pacli podtoken electorate [TOKEN] -n [BLOCKHEIGHT]
 
         Show potential balance of the next epoch after the current or selected block, taking into account token transfers.
         If BlOCKHEIGHT is given, then the state is calculated for the epoch start following the given block height.
         If no block height is given, the potential state taking into account the transactions of voting and dPoD tokens at the current block is calculated. This state however can change until the end of the epoch.
 
-            pacli proposal electorate PROPOSAL -p [PHASE]
+            pacli podtoken electorate PROPOSAL -p [PHASE]
 
         Shows list of enabled addresses to vote for proposal PROPOSAL in a voting phase (1 or 2).
         If PHASE is not given, the first phase is used.
@@ -242,11 +246,11 @@ class PoDToken():
 
           quiet: Suppress additional output and print out a script-friendly dictionary.
           listvoters: Print out only a list of voters.
-          state_at_block: See Usage modes (not in combination with -p).
-          epoch: Calculate the state at the start of a specific epoch.
+          state_at_block: See Usage modes (not in combination with -p, -n and -e).
+          epoch: Calculate the state at the start of a specific epoch (not in combination with -p, -s or -n).
           phase: Show voters for a voting phase of a proposal. See Usage modes.
           miniid: Use the mini id (short id) to identify the proposal.
-          next_state: See Usage modes (not in combination with -p).
+          next_state: See Usage modes (not in combination with -p, -s or -e).
           debug: Show additional debug information."""
 
         return ei.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=state_at_block, next=next_state, miniid=miniid, epoch=epoch, listvoters=listvoters, quiet=quiet, debug=debug)
@@ -264,15 +268,23 @@ class PoDToken():
 
         if type(next) == int:
             blockheight = next
+        if type(blockheight) == bool or type(epoch) == bool:
+           raise ei.PacliInputDataError("If using -e or -s options you have to provide a block height or epoch.")
 
-        if type(blockheight) == bool:
-           raise ei.PacliGeneralError()
+        current_block = provider.getblockcount()
 
         if phase is None:
             deckid = eu.search_for_stored_tx_label("deck", idstr, debug=debug) if idstr is not None else DEFAULT_POD_DECK[Settings.network]
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+
             if "epoch_length" not in deck.__dict__:
                 raise ei.PacliInputDataError("Not a Proof of Donation token (deck).")
+            if epoch is None:
+                if blockheight is None:
+                    blockheight = current_block
+                epoch = blockheight // deck.epoch_length
+            if next:
+                epoch += 1
 
         else:
             phase = 1 if phase == True else phase
@@ -281,14 +293,10 @@ class PoDToken():
             proposal = pp_data["states"][0]
             deck = proposal.deck
             epoch = proposal.end_epoch if phase == 2 else proposal.start_epoch
-            blockheight = deck.epoch_length * epoch # first block of the epoch
 
-
-        current_block = provider.getblockcount()
-        if epoch is not None:
-            blockheight = epoch * deck.epoch_length
-        elif blockheight is None:
-            blockheight = current_block
+        epoch_start = deck.epoch_length * epoch # first block of the epoch
+        if blockheight is None:
+            blockheight = epoch_start
 
         if blockheight > current_block:
             if phase is not None:
@@ -296,12 +304,6 @@ class PoDToken():
             else:
                 msg_futureblock = "You can't select a future epoch or block height."
             raise ei.PacliInputDataError(msg_futureblock)
-
-        if phase is None:
-            if epoch is None:
-                epoch = blockheight // deck.epoch_length
-            if next:
-                epoch += 1
 
         # last_epoch_start is the start of the last epoch which will be completely processed.
         last_epoch_start = max(0, (epoch - 1) * deck.epoch_length)
@@ -328,15 +330,15 @@ class PoDToken():
                 print("{}: {}".format(voter, float(vbalance)))
 
             if next is not None:
-                print("\nNote: The weight corresponds to the *potential* adjusted PoD and voting token balances at the start of the epoch {} which starts at block {}.".format(epoch, last_epoch_start))
+                print("\nNote: The weight depends on the adjusted dPoD and voting token balances at the start of the epoch {} which starts at block {}.".format(epoch, epoch_start))
                 if blockheight == current_block:
                     print("Note that there may be token transfers after the current block which will change the outcome.")
-            elif blockheight == current_block:
-                print("\nNote: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} which started at block {}.".format(epoch, last_epoch_start))
+            elif blockheight in (current_block, epoch_start):
+                print("\nNote: The weight depends on the adjusted dPoD and voting token balances at the start of the epoch {} which started at block {}.".format(epoch, epoch_start))
             else:
-                print("\nNote: The weight corresponds to the adjusted PoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
+                print("\nNote: The weight depends on the adjusted dPoD and voting token balances at the start of the epoch {} containing the selected blockheight {}.".format(epoch, blockheight))
 
-            print("Weights are shown in minimum token units. The tokens' numbers of decimals don't matter for this view.")
+            print("Weights are shown in minimum token units.")
 
 
     def check_tx(self, proposal: str=None, txid: str=None, fulltx: str=None, include_badtx: bool=False, light: bool=False) -> None:
@@ -449,13 +451,13 @@ class Proposal:
 
         Shows a proposal ID stored with a label LABEL.
 
-            pacli proposal show LABEL_OR_ID -i [-a]
+            pacli proposal show LABEL_OR_ID -i
 
         Shows basic information about a proposal.
         Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
         If -a is given, show advanced information (all parameters of the proposal transaction).
 
-            pacli proposal show LABEL_OR_ID -s [-p PARAM] [-a]
+            pacli proposal show LABEL_OR_ID -s [-p PARAM]
 
         Shows a dictionary with the current state of a proposal.
         In the standard mode, some of the elements are simplified.
@@ -464,7 +466,7 @@ class Proposal:
         Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
         If -f is given in addition to -s, local labels will be ignored and instead the string will be searched if possible.
 
-            pacli proposal show STRING -f [-m]
+            pacli proposal show STRING -f
 
         Find all proposals containing STRING in their ID or description.
         Proposal can be given as an ID, a local label, the description or a part of it, or the mini ID (with -m option).
@@ -477,7 +479,7 @@ class Proposal:
             find: Search for a proposal containing a string (see Usage modes).
             info: Show basic info about a proposal.
             miniid: Use the mini id (short id) to identify the proposal.
-            param: Show a parameter of the proposal state dictionary (only in combination with -s)
+            param: Only in combination with -s: show a value of the proposal state dictionary (the output of proposal show -s).
             quiet: Suppress addiitonal output, print information in raw format (script-friendly).
             state: Show the state of the proposal with all variables (see Usage modes).
             debug: Provide additional debug information.
@@ -559,6 +561,7 @@ class Proposal:
              named: bool=False,
              debug: bool=False) -> None:
         """Shows a list of proposals.
+
         In all modes without -n, if DECK is not given the standard dPoD token is used.
 
         Usage modes:
