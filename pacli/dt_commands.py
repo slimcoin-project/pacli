@@ -312,6 +312,11 @@ def list_current_proposals(deck: str, block: int=None, searchstring: str=None, o
 
     if not shown_pstates:
 
-        pmsg = "" if all_states else "active and/or completed "
+        if all_states:
+            pmsg = ""
+        elif only_active:
+            pmsg = "active "
+        else:
+            pmsg = "active and/or completed "
         print("No {}proposal states found for deck {}.".format(pmsg, deckid))
 

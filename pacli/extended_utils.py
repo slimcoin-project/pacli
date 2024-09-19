@@ -74,6 +74,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     # TODO re-check: in some occasions this produced a change output even if there are exact coins
     # fix attempt: originally 0.02 were as a fix value in select_inputs, now dynamic based on minimum values for each network.
     # perhaps also revise pypeerassets
+    # SEEMS to be a pypeerassets issue, the fix didn't help.
 
     min_tx_value = dmu.sats_to_coins(legacy_mintx(Settings.network), network_name=Settings.network)
     p2th_fee = min_tx_value if min_tx_value else net_query(Settings.network).from_unit
