@@ -24,7 +24,7 @@ class Token(VanillaDeck, VanillaCard):
             pacli card list TOKEN
             pacli token transfers TOKEN
 
-        TOKEN can be a token (deck) ID or a label.
+        TOKEN can be a token (deck) ID or label.
         In standard mode, only valid transfers will be shown.
         In compatibility mode, standard output includes some invalid transfers: those in valid transactions which aren't approved by the Proof-of-Timeline rules.
 

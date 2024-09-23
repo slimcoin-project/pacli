@@ -158,6 +158,31 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
     return balances
 
 
+def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, suppress_addresses: bool=False) -> None:
+    # balancedict contains: { address : balance, ... }, labeldict: { full_label : address }
+    # TODO in reality this is not a formatting/interface function anymore, consider adding to another module if the part about address labels is transferred to another function.
+    # balances = {}
+    for address, balance in token_balances.items():
+        # for full_label, labeled_addr in labeldict.items():
+        for item in addresses:
+
+            if address == item["address"]:
+                if "tokens" not in item:
+                    item.update({"tokens" : {token_identifier: balance}})
+                else:
+                    item["tokens"].update({token_identifier: balance})
+                # TODO: this should go into another part, it is not consistent to do that update here.
+                if "addr_identifier" not in item:
+                    if item["label"] in (None, ""): # a label should still be able to be called "0"
+                        addr_id = address
+                    elif not suppress_addresses:
+                        addr_id = "{} ({})".format(item["label"], address)
+                    else:
+                        addr_id = item["label"]
+                    item.update({"addr_identifier" : addr_id})
+                break
+
+
 def confirm_continuation(text: str=None) -> bool:
     """UX element to confirm continuation entering 'yes'."""
 
@@ -229,26 +254,24 @@ def balances_line_item_onlytokens(address: dict):
              address["pob"],
              address["pod"]]
 
-def print_default_balances_list(balances: dict, labeldict: dict, decks: list, network_name: str, only_tokens: bool=False) -> None:
+def print_default_balances_list(addresses: list, decks: list, network_name: str, only_tokens: bool=False) -> None:
     addr_balances = []
     if only_tokens:
         currencies = {"pob" : decks[0].id, "pod" : decks[1].id}
     else:
         currencies = {"coin": network_name, "pob" : decks[0].id, "pod" : decks[1].id}
 
-    for full_label, address in labeldict.items():
+    for item in addresses:
         balance = {}
-        # NOTE: this has the effect that labels without _ are not shown correctly.
-        label = "_".join(full_label.split("_")[1:])
-        if label.startswith("(unlabeled"):
-            label = ""
-        balance.update({"label" : label })
-        balance.update({"address" : address})
+        balance.update({"label" : item["label"] })
+        balance.update({"address" : item["address"] })
 
         for curr_header, curr_id in currencies.items():
 
-            if (curr_id in balances) and (address in balances[curr_id]):
-                balance_value = balances[curr_id][address]
+            if "tokens" in item and curr_id in item["tokens"]:
+                balance_value = item["tokens"][curr_id]
+            elif curr_header == "coin":
+                balance_value = item["balance"]
             else:
                 balance_value = 0
             balance.update({curr_header : balance_value})

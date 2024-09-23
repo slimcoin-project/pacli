@@ -562,7 +562,6 @@ class ExtAddress:
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           without_labels: In advanced mode (-a), never show labels, only addresses.
         """
-        # TODO: P2TH addresses should normally not be shown, implement a flag for them.
         # TODO: catch labeldict error when using -w without -a.
 
         return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, debug=debug)
@@ -583,7 +582,7 @@ class ExtAddress:
                include_all: bool=None):
 
         if no_labels and not advanced:
-            raise ei.PacliInputDataError("Wrong input option combination, read help.")
+            raise ei.PacliInputDataError("Wrong command option combination.")
         if True not in (labels, full_labels) and (network != Settings.network):
             raise ei.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
 
@@ -603,14 +602,16 @@ class ExtAddress:
             if (labels is True) or (full_labels is True):
                 named = True
 
-            address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only)
+            # address_labels = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only)
+            result = ec.get_labels_and_addresses2(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, balances=True, debug=debug)
 
             if (labels is True) or (full_labels is True):
-                if full_labels is True:
-                    result = address_labels
-                else:
-                     # keyring label is already pre-formatted, so we don't need the keyring param for format_label
-                    result = [{ke.format_label(l) : address_labels[l]} for l in address_labels]
+                # NOT LONGER NEEDED if full label formatting is done by get_labels_and_addresses
+                #if full_labels is True:
+                #    result = address_labels
+                #else:
+                #     # keyring label is already pre-formatted, so we don't need the keyring param for format_label
+                #    result = [{ke.format_label(l) : address_labels[l]} for l in address_labels]
                 if quiet is True:
                     return result
                 else:
@@ -621,31 +622,48 @@ class ExtAddress:
 
             else:
                 addresses = []
-                for full_label, address in address_labels.items():
-                    network_name, label = ce.process_fulllabel(full_label)
-                    if "(unlabeled" in label:
-                        label = ""
-                    try:
-                        balance = str(provider.getbalance(address))
-                    except TypeError:
-                        balance = "0"
-                        if debug is True:
-                            print("No valid balance for address {} with label {}. Probably not a valid address.".format(address, label))
+                # for full_label, address in address_labels.items():
+                if p2th:
+                    for item in result:
+                        item.update({"account" : p2th_dict.get(item["address"])})
+                    # network_name, label = ce.process_fulllabel(full_label)
+                    #if "(unlabeled" in label:
+                    #    label = ""
+                    #try:
+                    #    balance = str(provider.getbalance(address))
+                    #except TypeError:
+                    #    balance = "0"
+                    #    if debug is True:
+                    #        print("No valid balance for address {} with label {}. Probably not a valid address.".format(address, label))
 
-                    if balance != "0":
-                        balance = balance.rstrip("0")
+                    #if balance != "0":
+                    #    balance = balance.rstrip("0")
 
                     #if (network is None) or (network == network_name):
-                    addr_dict = {"label": label,
-                                 "address" : address,
-                                 "network" : network_name,
-                                 "balance" : balance}
+                    #addr_dict = {"label": label,
+                    #             "address" : address,
+                    #             "network" : network_name,
+                    #             "balance" : balance}
 
-                    if p2th:
-                        addr_dict.update({"account" : p2th_dict.get(address)})
-                    addresses.append(addr_dict)
+                    #if p2th:
+                    #    addr_dict.update({"account" : p2th_dict.get(address)})
+                    #addresses.append(addr_dict)
 
-                ei.print_address_list(addresses, p2th=p2th)
+                """addresses_with_label = []
+                addresses_without_label = []
+                for a in addresses:
+                    if a.get("label"):
+                        addresses_with_label.append(a)
+                    else:
+                        addresses_without_label.append(a)
+                addresses_with_label.sort(key=lambda x: x["label"])
+                addresses_without_label.sort(key=lambda x: x["address"])
+                addresses = addresses_with_label + addresses_without_label"""
+                #addresses.sort(key=lambda x: ("label" not in x, x["address"]))
+                # print(addresses)
+
+                # ei.print_address_list(addresses, p2th=p2th)
+                ei.print_address_list(result, p2th=p2th)
                 return
         else:
 
@@ -1156,7 +1174,7 @@ class ExtCard:
             pacli card list TOKEN
             pacli token transfers TOKEN
 
-        TOKEN can be a token (deck) ID or a label.
+        TOKEN can be a token (deck) ID or label.
         In standard mode, only valid transfers will be shown.
         In compatibility mode, standard output includes some invalid transfers: those in valid transactions which aren't approved by the Proof-of-Timeline rules.
 
@@ -1725,7 +1743,6 @@ class ExtTransaction:
              wallet: bool=False,
              xplore: bool=False,
              zraw: bool=False) -> None:
-
 
         # TODO: Further harmonization: Results are now:
         # -x: tx_structure or tx JSON

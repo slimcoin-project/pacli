@@ -179,7 +179,8 @@ class PoDToken():
 
         Shows all votes cast from the current address for the specified token TOKEN.
 
-            pacli podtoken votes [TOKEN] [-a] ADDRESS
+            pacli podtoken votes -a ADDRESS
+            pacli podtoken votes TOKEN [-a] ADDRESS
 
         Shows all votes cast from the address ADDRESS for the specified token TOKEN.
         The flag name -a has to be given if no token is provided.
@@ -269,7 +270,7 @@ class PoDToken():
         if type(next) == int:
             blockheight = next
         if type(blockheight) == bool or type(epoch) == bool:
-           raise ei.PacliInputDataError("If using -e or -s options you have to provide a block height or epoch.")
+           raise ei.PacliInputDataError("If using -e or -s options you have to provide an epoch (for -e) or block height (for -s).")
 
         current_block = provider.getblockcount()
 

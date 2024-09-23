@@ -206,7 +206,8 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
 
 ### Extended helper tools (api)
 
-def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, debug: bool=False, prefix: str=None):
+def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, prefix: str=None, address_list: bool=False, debug: bool=False):
+    # NOTE: format_labels only supported for prefix mode.
     cfg = get_config(quiet=quiet, debug=debug)
     rawdict = cfg[category]
 
@@ -216,12 +217,17 @@ def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: 
         result_keys = [k for k in rawdict.keys()]
 
     result_keys.sort()
-    result = {k : rawdict[k] for k in result_keys}
 
     if return_list:
-        result_list = [{k : result[k]} for k in result]
+        result_list = [{k : rawdict[k]} for k in result_keys]
         return result_list
-    elif quiet or (not prettyprint):
+    elif address_list:
+        result_list = [{"label" : k.split("_")[1], "address" : rawdict[k], "network" : k.split("_")[0]} for k in result_keys]
+        return result_list
+    else:
+        result = {k : rawdict[k] for k in result_keys}
+
+    if quiet or (not prettyprint):
         return result
     else:
         pprint(result)

@@ -65,7 +65,7 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
     try:
         key = pa.Kutil(network=Settings.network, from_wif=wif_key).privkey
     except ValueError:
-        raise ei.PacliInputDataError("Invalid or non-wallet address.")
+        raise ei.PacliInputDataError("Invalid or non-wallet address (or incorrect command usage). ")
         return
 
     ke.set_key("key", key) # Note that this function isn't present in the standard pacli keystore.
@@ -222,8 +222,6 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
        Addresses without label are not included if "named" is True."""
 
     if not keyring:
-        #conf_dict = ce.get_config()["address"]
-        #result = {e : conf_dict[e] for e in conf_dict if e.startswith(prefix)}
         result = ce.list("address", prefix=prefix, quiet=True)
         if include_only:
             result = {k : result[k] for k in result if result[k] in include_only}
@@ -243,6 +241,7 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
             label = label[4:] # wipes key_ out.
             result.update({label : address})
 
+
     if mark_duplicates:
        result2 = {}
        for l, a in result.items():
@@ -261,15 +260,105 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
         if exclude:
             wallet_addresses -= set(exclude)
 
+        wallet_addresses = sorted(list(wallet_addresses))
+
         for address in wallet_addresses:
             if address not in result.values():
                 if empty is False:
                     if provider.getbalance(address) == 0:
                         continue
+
                 label = "{}_(unlabeled{})".format(prefix, str(counter))
 
                 result.update({ label : address })
+
                 counter += 1
+
+    return result
+
+def get_labels_and_addresses2(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False, labels: bool=False, full_labels: bool=False, no_labels: bool=False, balances: bool=False, network: bool=False, debug: bool=False) -> list:
+    """Returns a dict of all labels and addresses which were stored.
+       Addresses without label are not included if "named" is True."""
+       # This version is better ordered and already prepares the dict for the address table.
+
+    result = []
+    addresses = []
+
+    if no_labels is True:
+        pass
+    elif keyring is False:
+        if full_labels or labels:
+            # this returns a list of simple full_label:address dicts
+            result = ce.list("address", prefix=prefix, quiet=True, return_list=True)
+        else:
+            result = ce.list("address", prefix=prefix, quiet=True, address_list=True)
+    else:
+        try:
+            keyring_labels = ke.get_labels_from_keyring(prefix)
+        except ImportError:
+            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
+
+        for label in keyring_labels:
+            label = label[4:] # wipes key_ out.
+            label = label if full_labels is True else ke.format_label(label)
+            if labels or full_labels:
+                result.append(label)
+            else:
+                address = show_stored_address(label=label, noprefix=True, keyring=True)
+                if include_only and (address not in include_only):
+                    continue
+                result.append({"label" : label, "address" : address, "network" : prefix})
+
+
+    if labels or full_labels:
+        return result
+
+    if include_only:
+        result = [item for item in result if item["address"] in include_only]
+
+    if mark_duplicates:
+       addresses = []
+       result2 = []
+       for item in result:
+           if item["address"] in addresses:
+               label = item["label"]
+               item.update({"label" : label + "[D]"})
+           result2.append(item)
+           addresses.append(item["address"])
+       result = result2
+
+    if not named:
+        labeled_addresses = [i["address"] for i in result]
+        if include_only:
+            wallet_addresses = set(include_only)
+        else:
+            wallet_addresses = eu.get_wallet_address_set(empty=empty)
+
+        if exclude:
+            wallet_addresses -= set(exclude)
+
+        for address in wallet_addresses:
+            if address not in labeled_addresses:
+                if empty is False:
+                    if provider.getbalance(address) == 0:
+                        continue
+
+                result.append({"label" : "", "address" : address, "network" : prefix})
+
+    if balances:
+        result2 = []
+        for item in result:
+            try:
+                balance = str(provider.getbalance(item["address"]))
+            except TypeError:
+                balance = "0"
+                if debug is True:
+                    print("No valid balance for address {} with label {}. Probably not a valid address.".format(address, label))
+            if balance != "0":
+                balance = balance.rstrip("0")
+            item.update({"balance" : balance})
+            result2.append(item)
+        result = result2
 
     return result
 
