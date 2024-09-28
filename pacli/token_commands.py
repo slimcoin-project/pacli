@@ -90,10 +90,14 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         print(addresses)
     elif (advanced is True) or (not wallet):
         for item in addresses:
+            # TODO workaround
+            addr_identifier = item["addr_identifier"] if "addr_identifier" in item else item["address"]
             if only_tokens:
-                pprint({item["address"] : item["tokens"]})
+                pprint({addr_identifier : item["tokens"]})
+            elif "tokens" not in item:
+                pprint({addr_identifier : {"balance" : item["balance"]}})
             else:
-                pprint({item["address"] : {"balance" : item["balance"], "tokens" : item["tokens"]}})
+                pprint({addr_identifier : {"balance" : item["balance"], "tokens" : item["tokens"]}})
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 
