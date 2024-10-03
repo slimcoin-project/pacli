@@ -92,6 +92,21 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         #    #else:
         #    #    balances.update({deck.id : balance})
 
+    # sorting
+    if advanced is True:
+        if debug:
+            print("Sorting addresses ...")
+        named = []
+        unnamed = []
+        for item in addresses:
+            if item["label"] not in (None, ""):
+                named.append(item)
+            else:
+                unnamed.append(item)
+        named.sort(key=lambda x: x["label"])
+        unnamed.sort(key=lambda x: x["address"])
+        addresses = named + unnamed
+
     if quiet:
         print(addresses)
     elif (advanced is True) or (not wallet):
