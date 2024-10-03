@@ -522,12 +522,15 @@ def get_address_token_balance(deck: object, address: str) -> Decimal:
     else:
         return 0
 
-def get_wallet_token_balances(deck: object, include_named: bool=False) -> dict:
+def get_wallet_token_balances(deck: object, addresses: list=None, include_named: bool=False, debug: bool=False) -> dict:
     """Gets token balances of a single deck, of all wallet addresses, as a Decimal value."""
 
     cards = pa.find_all_valid_cards(provider, deck)
     state = pa.protocol.DeckState(cards)
-    addresses = list(get_wallet_address_set(empty=True, include_named=include_named)) # token balances can be on empty addresses, thus empty must be set to True
+    if debug:
+        print("Cards and deck state retrieved. Updating balances ...")
+    if addresses is None:
+        addresses = list(get_wallet_address_set(empty=True, include_named=include_named)) # token balances can be on empty addresses, thus empty must be set to True
     balances = {}
     for address in state.balances:
 

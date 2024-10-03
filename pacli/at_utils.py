@@ -116,7 +116,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     txes_to_address = []
     if not sender:
-        labels = {} if no_labels else ec.get_labels_and_addresses(keyring=keyring)
+        if not no_labels:
+            addresses = ec.get_labels_and_addresses(keyring=keyring)
 
     for tx in valid_txes:
 
@@ -142,12 +143,12 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
             if not sender:
                 if not no_labels:
-                    for full_label in labels:
-                        if labels[full_label] == tx_sender:
-                            label = "_".join(full_label.split("_")[1:])
-                            if not label.startswith("(unlabeled"):
-                                tx_dict.update({"sender_label" : label })
+                    for item in addresses:
+                        if item["address"] == tx_sender:
+                            if ("label" in item) and (item["label"] not in (None, "")):
+                                tx_dict.update({"sender_label" : item["label"]})
                             break
+
                 tx_dict.update({"sender_address" : tx_sender})
         txes_to_address.append(tx_dict)
 

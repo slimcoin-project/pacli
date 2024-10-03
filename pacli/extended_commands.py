@@ -217,7 +217,7 @@ def delete_label(label: str, network_name: str=Settings.network, keyring: bool=F
         result.append(adr)
     return result"""
 
-def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
+def get_labels_and_addresses_old(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
 
@@ -276,7 +276,7 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
 
     return result
 
-def get_labels_and_addresses2(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False, labels: bool=False, full_labels: bool=False, no_labels: bool=False, balances: bool=False, network: bool=False, debug: bool=False) -> list:
+def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False, labels: bool=False, full_labels: bool=False, no_labels: bool=False, balances: bool=False, network: bool=False, debug: bool=False) -> list:
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
        # This version is better ordered and already prepares the dict for the address table.

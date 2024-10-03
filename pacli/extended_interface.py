@@ -132,6 +132,7 @@ def confirm_tx(orig_tx: dict, quiet: bool=False) -> None:
 
 
 def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settings.network, suppress_addresses: bool=False):
+    # TODO deprecated, still used in:
     # balancedict contains: { address : balance, ... }, labeldict: { full_label : address }
     balances = {}
     for address, balance in balancedict.items():
@@ -158,10 +159,11 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
     return balances
 
 
-def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, suppress_addresses: bool=False) -> None:
+def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, return_present: bool=False, no_labels: bool=False, suppress_addresses: bool=False) -> None:
     # balancedict contains: { address : balance, ... }, labeldict: { full_label : address }
     # TODO in reality this is not a formatting/interface function anymore, consider adding to another module if the part about address labels is transferred to another function.
     # balances = {}
+    # TODO consider making addresses a dict, so we can remove items fast.
     for address, balance in token_balances.items():
         # for full_label, labeled_addr in labeldict.items():
         for item in addresses:
@@ -173,7 +175,7 @@ def add_token_balances(addresses: list, token_identifier: str, token_balances: d
                     item["tokens"].update({token_identifier: balance})
                 # TODO: this should go into another part, it is not consistent to do that update here.
                 if "addr_identifier" not in item:
-                    if item["label"] in (None, ""): # a label should still be able to be called "0"
+                    if (no_labels is True) or (item["label"] in (None, "")): # a label should still be able to be called "0"
                         addr_id = address
                     elif not suppress_addresses:
                         addr_id = "{} ({})".format(item["label"], address)
@@ -181,6 +183,10 @@ def add_token_balances(addresses: list, token_identifier: str, token_balances: d
                         addr_id = item["label"]
                     item.update({"addr_identifier" : addr_id})
                 break
+
+    if return_present:
+        addresses_with_token = [item for item in addresses if ("tokens" in item and token_identifier in item["tokens"])]
+        return addresses_with_token
 
 
 def confirm_continuation(text: str=None) -> bool:
@@ -309,9 +315,6 @@ def print_card_list_bheights(cards: list):
             title="Card transfers of deck {deck}:".format(deck=cards[0].deck_id),
             heading=("txid", "height", "seq", "sender", "receiver", "amount", "type"),
             data=map(card_line_item_bheights, cards))
-
-
-
 
 
 def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, initialized_decks: list=[], debug: bool=False):

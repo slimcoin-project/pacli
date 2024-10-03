@@ -23,6 +23,8 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
 
+    if debug:
+        print("Retrieving deck list ...")
     if advanced is not True:
         # the quick mode displays only default PoB and PoD decks
         decks = get_default_tokens()
@@ -31,12 +33,16 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
     else:
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
+    if advanced is True:
+        decks = eu.get_initialized_decks(decks, debug=debug)
 
+    if debug:
+        print("Retrieving addresses and/or labels ...")
     balances = False if only_tokens is True else True
     if wallet is True: # and no_labels is False:
-        addresses = ec.get_labels_and_addresses2(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
-        addresses = ec.get_labels_and_addresses2(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
         #addresses = [{"address" : Settings.key.address}]
         #if not only_tokens:
         #    addresses[0].update({"balance" : provider.getbalance(address)})
@@ -53,6 +59,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
             except KeyError:
                 raise ei.PacliInputDataError("Default PoB and dPoD tokens are not supported on network '{}'.".format(Settings.network))
 
+    address_list = [a["address"] for a in addresses]
     for deck in decks:
         if (no_labels or quiet) or (not advanced) or (deck.id not in deck_labels.values()):
             deck_identifier = deck.id
@@ -65,10 +72,9 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         if debug:
             print("Checking deck:", deck.id)
         try:
-
-            token_balances = eu.get_wallet_token_balances(deck, include_named=True)
+            token_balances = eu.get_wallet_token_balances(deck, include_named=True, addresses=address_list, debug=debug)
             ei.add_token_balances(addresses, deck_identifier, token_balances, suppress_addresses=only_labels)
-            # addr_balance = eu.get_address_token_balance(deck, address)"""
+            # addr_balance = eu.get_address_token_balance(deck, address)
 
         except KeyError:
             if debug:
@@ -95,9 +101,9 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
             if only_tokens:
                 pprint({addr_identifier : item["tokens"]})
             elif "tokens" not in item:
-                pprint({addr_identifier : {"balance" : item["balance"]}})
+                pprint({addr_identifier : {Settings.network : item["balance"]}})
             else:
-                pprint({addr_identifier : {"balance" : item["balance"], "tokens" : item["tokens"]}})
+                pprint({addr_identifier : {Settings.network : item["balance"], "tokens" : item["tokens"]}})
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 
@@ -111,17 +117,19 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
 
     if wallet:
         wallet_addresses = list(eu.get_wallet_address_set(empty=True, include_named=True))
-        # addrdict = { address : label for label, address in ec.get_labels_and_addresses(keyring=keyring).items() }
-        labeldict = ec.get_labels_and_addresses(keyring=keyring)
+        addresses = ec.get_labels_and_addresses(keyring=keyring)
         balances = eu.get_wallet_token_balances(deck, include_named=True)
-
-        if (not no_labels) and (not quiet):
-            balances = ei.format_balances(balances, labeldict)
 
         if quiet:
             print(balances)
-        else:
+        elif no_labels:
             pprint(balances)
+        else:
+            addresses_with_tokens = ei.add_token_balances(addresses, deck.id, balances, return_present=True)
+            pprint([{a["addr_identifier"] : a["tokens"][deck.id]} for a in addresses_with_tokens])
+            #for a in addresses:
+            #    if "tokens" in a and deck.id in a["tokens"]:
+            #        pprint({ a["addr_identifier"] : a["tokens"][deck.id] })
             return
     else:
         balance = eu.get_address_token_balance(deck, address)
