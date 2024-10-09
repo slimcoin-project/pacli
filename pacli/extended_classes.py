@@ -598,25 +598,26 @@ class ExtAddress:
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             # TODO: at least coinbalances shows P2TH.
-
             if (labels is True) or (full_labels is True):
                 named = True
-
             result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, balances=True, debug=debug)
-            addresses = eu.sort_address_items(result, debug=debug)
 
             if (labels is True) or (full_labels is True):
-
-                if quiet is True:
-                    return addresses
+                if labels:
+                    items = [(i.replace(network + "_", ""), entry[i]) for entry in result for i in entry]
                 else:
-                    if not addresses:
+                    items = [(i, entry[i]) for entry in result for i in entry]
+                items.sort()
+                if quiet is True:
+                    return items
+                else:
+                    if not result:
                         return("No results found.")
-                    pprint(addresses)
+                    pprint(items)
                     return
 
             else:
-                # addresses = []
+                addresses = eu.sort_address_items(result, debug=debug)
 
                 if p2th:
                     for item in addresses:

@@ -304,7 +304,7 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
             if labels or full_labels:
                 result.append(label)
             else:
-                address = show_stored_address(label=label, noprefix=True, keyring=True)
+                address = show_stored_address(label=label, keyring=True) # noprefix=True,
                 if include_only and (address not in include_only):
                     continue
                 result.append({"label" : label, "address" : address, "network" : prefix})

@@ -892,13 +892,14 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
 
 
 def sort_address_items(addresses: list, debug: bool=False) -> list:
-
+    # this requires that "address" is a key in all entries!
+    print(addresses)
     if debug:
         print("Sorting addresses ...")
     named = []
     unnamed = []
     for item in addresses:
-        if item["label"] not in (None, ""):
+        if "label" in item and item["label"] not in (None, ""):
             named.append(item)
         else:
             unnamed.append(item)
