@@ -59,7 +59,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
             except KeyError:
                 raise ei.PacliInputDataError("Default PoB and dPoD tokens are not supported on network '{}'.".format(Settings.network))
 
-    address_list = [a["address"] for a in addresses]
+    # address_list = [a["address"] for a in addresses]
     for deck in decks:
         if (no_labels or quiet) or (not advanced) or (deck.id not in deck_labels.values()):
             deck_identifier = deck.id
@@ -72,13 +72,14 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         if debug:
             print("Checking deck:", deck.id)
         try:
-            token_balances = eu.get_wallet_token_balances(deck, include_named=True, addresses=address_list, debug=debug)
-            ei.add_token_balances(addresses, deck_identifier, token_balances, suppress_addresses=only_labels)
+            # token_balances = eu.get_wallet_token_balances(deck, include_named=True, addresses=address_list, debug=debug)
+            eu.get_wallet_token_balances(deck, identifier=deck_identifier, include_named=True, address_dicts=addresses, no_labels=no_labels, debug=debug)
+            # ei.add_token_balances(addresses, deck_identifier, token_balances, suppress_addresses=only_labels)
             # addr_balance = eu.get_address_token_balance(deck, address)
 
         except KeyError:
             if debug:
-                print("Warning: Omitting not initialized deck:", deck.id)
+                print("Warning: Omitting deck with initialization problem:", deck.id)
             continue
 
         # if addr_balance:
@@ -111,14 +112,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         print(addresses)
     elif (advanced is True) or (not wallet):
         for item in addresses:
-            # TODO workaround
-            addr_identifier = item["addr_identifier"] if "addr_identifier" in item else item["address"]
-            if only_tokens:
-                pprint({addr_identifier : item["tokens"]})
-            elif "tokens" not in item:
-                pprint({addr_identifier : {Settings.network : item["balance"]}})
-            else:
-                pprint({addr_identifier : {Settings.network : item["balance"], "tokens" : item["tokens"]}})
+            ei.print_address_balances(item)
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 

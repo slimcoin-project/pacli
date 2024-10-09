@@ -1,9 +1,10 @@
 import itertools, sys
 from time import sleep
+from prettyprinter import cpprint as pprint
+from pypeerassets.exceptions import InsufficientFunds
 import pacli.tui as tui
 from pacli.provider import provider
 from pacli.config import Settings
-from pypeerassets.exceptions import InsufficientFunds
 
 def output_tx(txdict: dict, txhex: bool=False) -> object:
 
@@ -160,33 +161,36 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
 
 
 def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, return_present: bool=False, no_labels: bool=False, suppress_addresses: bool=False) -> None:
-    # balancedict contains: { address : balance, ... }, labeldict: { full_label : address }
     # TODO in reality this is not a formatting/interface function anymore, consider adding to another module if the part about address labels is transferred to another function.
     # balances = {}
     # TODO consider making addresses a dict, so we can remove items fast.
     for address, balance in token_balances.items():
-        # for full_label, labeled_addr in labeldict.items():
         for item in addresses:
+            if "addr_identifier" not in item:
+                add_address_identifier(item, no_labels, suppress_addresses)
 
             if address == item["address"]:
                 if "tokens" not in item:
                     item.update({"tokens" : {token_identifier: balance}})
                 else:
                     item["tokens"].update({token_identifier: balance})
-                # TODO: this should go into another part, it is not consistent to do that update here.
-                if "addr_identifier" not in item:
-                    if (no_labels is True) or (item["label"] in (None, "")): # a label should still be able to be called "0"
-                        addr_id = address
-                    elif not suppress_addresses:
-                        addr_id = "{} ({})".format(item["label"], address)
-                    else:
-                        addr_id = item["label"]
-                    item.update({"addr_identifier" : addr_id})
                 break
 
     if return_present:
         addresses_with_token = [item for item in addresses if ("tokens" in item and token_identifier in item["tokens"])]
         return addresses_with_token
+
+def add_address_identifier(item: dict, no_labels: bool=False, suppress_addresses: bool=False) -> None:
+    # adds an address identifier for the CLI output
+    # label (address) or only address or only label
+    address = item["address"]
+    if (no_labels is True) or (item["label"] in (None, "")): # a label should still be able to be called "0"
+        addr_id = address
+    elif not suppress_addresses:
+        addr_id = "{} ({})".format(item["label"], address)
+    else:
+        addr_id = item["label"]
+    item.update({"addr_identifier" : addr_id})
 
 
 def confirm_continuation(text: str=None) -> bool:
@@ -199,6 +203,19 @@ def confirm_continuation(text: str=None) -> bool:
         return True
     else:
         return False
+
+
+def print_address_balances(address_item: dict) -> None:
+    output_dict = {}
+    #print("\nAddress: {}\n".format(address_item["addr_identifier"]))
+    if "label" in address_item and address_item["label"] not in (None, ""):
+        output_dict.update({"label": address_item["label"]})
+    output_dict.update({"address" : address_item["address"]})
+    if "balance" in address_item:
+        output_dict.update({"balance ({})".format(address_item["network"]) : address_item["balance"]})
+    if "tokens" in address_item and address_item["tokens"]:
+        output_dict.update({"tokens": address_item["tokens"]})
+    pprint(output_dict)
 
 # Tables
 
