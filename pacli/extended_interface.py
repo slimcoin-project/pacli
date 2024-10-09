@@ -161,7 +161,7 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
 
 
 def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, return_present: bool=False, no_labels: bool=False, suppress_addresses: bool=False) -> None:
-    # TODO in reality this is not a formatting/interface function anymore, consider adding to another module if the part about address labels is transferred to another function.
+    # TODO probably now obsolete
     # balances = {}
     # TODO consider making addresses a dict, so we can remove items fast.
     for address, balance in token_balances.items():
@@ -183,6 +183,7 @@ def add_token_balances(addresses: list, token_identifier: str, token_balances: d
 def add_address_identifier(item: dict, no_labels: bool=False, suppress_addresses: bool=False) -> None:
     # adds an address identifier for the CLI output
     # label (address) or only address or only label
+    # TODO: probably obsolete
     address = item["address"]
     if (no_labels is True) or (item["label"] in (None, "")): # a label should still be able to be called "0"
         addr_id = address

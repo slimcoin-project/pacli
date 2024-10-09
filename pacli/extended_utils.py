@@ -890,3 +890,19 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
         else:
             ei.print_red("Claim transactions appears invalid. Checks failed: {} from 3.".format(fails))
 
+
+def sort_address_items(addresses: list, debug: bool=False) -> list:
+
+    if debug:
+        print("Sorting addresses ...")
+    named = []
+    unnamed = []
+    for item in addresses:
+        if item["label"] not in (None, ""):
+            named.append(item)
+        else:
+            unnamed.append(item)
+    named.sort(key=lambda x: x["label"])
+    unnamed.sort(key=lambda x: x["address"])
+    sorted_addresses = named + unnamed
+    return sorted_addresses

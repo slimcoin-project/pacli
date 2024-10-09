@@ -603,25 +603,26 @@ class ExtAddress:
                 named = True
 
             result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, balances=True, debug=debug)
+            addresses = eu.sort_address_items(result, debug=debug)
 
             if (labels is True) or (full_labels is True):
 
                 if quiet is True:
-                    return result
+                    return addresses
                 else:
-                    if not result:
+                    if not addresses:
                         return("No results found.")
-                    pprint(result)
+                    pprint(addresses)
                     return
 
             else:
-                addresses = []
+                # addresses = []
 
                 if p2th:
-                    for item in result:
+                    for item in addresses:
                         item.update({"account" : p2th_dict.get(item["address"])})
 
-                ei.print_address_list(result, p2th=p2th)
+                ei.print_address_list(addresses, p2th=p2th)
                 return
         else:
 

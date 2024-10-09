@@ -94,8 +94,10 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         #    #    balances.update({deck.id : balance})
 
     # sorting
-    if advanced is True:
-        if debug:
+    #     if advanced is True:
+    if len(addresses) > 1:
+        addresses = eu.sort_address_items(addresses, debug=debug)
+        """if debug:
             print("Sorting addresses ...")
         named = []
         unnamed = []
@@ -106,7 +108,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
                 unnamed.append(item)
         named.sort(key=lambda x: x["label"])
         unnamed.sort(key=lambda x: x["address"])
-        addresses = named + unnamed
+        addresses = named + unnamed"""
 
     if quiet:
         print(addresses)

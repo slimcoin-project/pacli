@@ -389,7 +389,6 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
 
 def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, include_p2th: bool=False, include_coinbase: bool=False, sort: bool=False, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
-    # TODO recheck all modes: with/without address, wallet, sent/received
 
     if not wallet and not raw:
         address = process_address(addr_string, keyring=keyring, try_alternative=False)
