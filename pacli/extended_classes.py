@@ -557,7 +557,7 @@ class ExtAddress:
           quiet: Suppress output, printout in script-friendly way.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
           debug: Show debug information.
-          only_labels: In advanced mode (-a), if a label is present, show only the label.
+          only_labels: In advanced mode (-a), if a label is present, show only the labels of addresses and tokens.
           p2th: Show only P2TH addresses.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           without_labels: In advanced mode (-a), never show labels, only addresses.

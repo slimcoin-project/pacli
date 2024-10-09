@@ -893,7 +893,6 @@ def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
 
 def sort_address_items(addresses: list, debug: bool=False) -> list:
     # this requires that "address" is a key in all entries!
-    print(addresses)
     if debug:
         print("Sorting addresses ...")
     named = []
