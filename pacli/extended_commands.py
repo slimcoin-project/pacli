@@ -309,7 +309,6 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
                     continue
                 result.append({"label" : label, "address" : address, "network" : prefix})
 
-
     if labels or full_labels:
         return result
 

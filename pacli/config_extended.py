@@ -204,6 +204,9 @@ def backup_config(backupfilename: str, configfilename: str=EXT_CONFIGFILE):
     config = get_config(configfilename)
     write_config(config, backupfilename)
 
+def extract_address_label(full_label: str):
+    return "_".join(full_label.split("_")[1:])
+
 ### Extended helper tools (api)
 
 def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, prefix: str=None, address_list: bool=False, debug: bool=False):
@@ -222,7 +225,7 @@ def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: 
         result_list = [{k : rawdict[k]} for k in result_keys]
         return result_list
     elif address_list:
-        result_list = [{"label" : k.split("_")[1], "address" : rawdict[k], "network" : k.split("_")[0]} for k in result_keys]
+        result_list = [{"label" : extract_address_label(k), "address" : rawdict[k], "network" : k.split("_")[0]} for k in result_keys]
         return result_list
     else:
         result = {k : rawdict[k] for k in result_keys}
