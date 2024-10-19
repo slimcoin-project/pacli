@@ -935,6 +935,7 @@ class ExtDeck:
              param: str=None,
              info: bool=False,
              find: bool=False,
+             local: bool=False,
              show_p2th: bool=False,
              quiet: bool=False,
              debug: bool=False):
@@ -945,38 +946,45 @@ class ExtDeck:
             pacli deck show LABEL
             pacli token show LABEL
 
-        Shows token (deck) stored with label LABEL.
+        Shows token (deck) stored with a local label LABEL.
 
             pacli deck show STRING -f
             pacli token show STRING -f
 
         Searches for a stored deck containing string STRING.
 
+            pacli deck show STRING -i
+            pacli token show STRING -i
+
+        Searches info for a deck. Deck can be a local or global label or an Deck ID.
+
         Args:
 
           info: Shows the Deck object values.
+          local: Shows the deck ID only if there is a local label. Cannot be combined with -i or -f.
           find: Searches for a string in the Deck ID. Cannot be combined with -i, -p and -s flags.
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -i/--info).
           show_p2th: Shows P2TH address(es) (only in combination with -i/--info)
         """
-        # TODO: add --show_p2th address to all decks, not only dPoD.
         #TODO: an option to search by name would be fine here.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
-        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, find=find, show_p2th=show_p2th, quiet=quiet, debug=debug)
+        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, find=find, local=local, show_p2th=show_p2th, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
              param: str=None,
              info: bool=False,
              find: bool=False,
+             local: bool=False,
              show_p2th: bool=False,
              quiet: bool=False,
              debug: bool=False):
 
 
-        if info is True:
+        if not find and not local:
             deckid = eu.search_for_stored_tx_label("deck", deckstr)
+        if info is True:
             deckinfo = eu.get_deckinfo(deckid, show_p2th)
 
             if param is not None:
@@ -986,8 +994,10 @@ class ExtDeck:
 
         elif find is True:
             return ce.find("deck", deckstr, quiet=quiet, debug=debug)
-        else:
+        elif local is True:
             return ce.show("deck", deckstr, quiet=quiet, debug=debug)
+        else:
+            return deckid
 
     def init(self,
              id_deck: str=None,
@@ -1621,7 +1631,9 @@ class ExtTransaction:
 
         pacli transaction list DECK [-o ORIGIN_ADDRESS] -c
 
-            List token claim transactions, either all, those sent from wallet addresses (-w) or those sent from a specific ORIGIN_ADDRESS (-o) in the wallet.
+            List token claim transactions.
+            In standard mode, all claim transactions in the blockchain from all senders are shown.
+            Alternatively they can be limited to those sent from wallet addresses (-w) or those sent from a specific ORIGIN_ADDRESS (-o) in the wallet.
             DECK can be a label or a deck ID.
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
 

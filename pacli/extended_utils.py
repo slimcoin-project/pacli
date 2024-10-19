@@ -563,9 +563,9 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
         raise ei.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
 
     if quiet or basic:
-        param_names = {"txid" : "txid", "amount": "amount", "receiver" : "receiver", "blocknum" : "blockheight"}
+        param_names = {"txid" : "txid", "amount": "amount", "sender" : "sender", "receiver" : "receiver", "blocknum" : "blockheight"}
     else:
-        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
+        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "sender" : "Sender", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
     deckid = search_for_stored_tx_label("deck", deck_str, quiet=quiet)
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -628,6 +628,7 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
         result = [{param_names["txid"] : claim.txid,
                    param_names["donation_txid"] : claim.donation_txid,
                    param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
+                   param_names["sender"] : claim.sender,
                    param_names["receiver"] : claim.receiver,
                    param_names["blocknum"] : claim.blocknum} for claim in claims]
 
