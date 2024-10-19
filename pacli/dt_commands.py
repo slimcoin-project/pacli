@@ -57,19 +57,23 @@ def show_votes_by_address(deckid: str, address: str, debug: bool=False) -> None:
                     pprint("Weight: " + str(vtx.weight))
 
 
-def show_donations_by_address(deckid: str, address: str=None, wallet: bool=False, mode: str=None, quiet: bool=False, debug: bool=False) -> None:
+def show_donations_by_address(deckid: str, address: str=None, wallet: bool=False, mode: str=None, all_states: bool=False, incomplete: bool=False, unclaimed: bool=False, quiet: bool=False, debug: bool=False) -> None:
     # shows all valid donation transactions from a specific address, for all proposals.
 
     if wallet is True:
         addresses = eu.get_wallet_address_set(empty=True, include_named=True)
-    else:
+    elif address is not None:
         addresses = [address]
+    else:
+        addresses = None
 
     if not quiet:
         if wallet:
             pprint("Donations realized from all wallet addresses:")
-        else:
+        elif addresses is not None:
             pprint("Donations realized from address: " + address)
+        else:
+            pprint("Donations realized from all donors:")
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
@@ -81,6 +85,7 @@ def show_donations_by_address(deckid: str, address: str=None, wallet: bool=False
         return
 
     pstates = pst.proposal_states
+    allowed_states = di.get_allowed_states(all_states, unclaimed, incomplete)
 
     if not pstates:
         print("No proposals recorded for this deck.")
@@ -89,8 +94,10 @@ def show_donations_by_address(deckid: str, address: str=None, wallet: bool=False
     for proposal in pstates:
         for rd, rdlist in enumerate(pstates[proposal].donation_states):
             for dstate in rdlist.values():
+                if dstate.state not in allowed_states:
+                    continue
                 # print(dstate.__dict__)
-                if (dstate.donor_address in addresses) and (dstate.donation_tx is not None):
+                if ((addresses is None) or (dstate.donor_address in addresses)) and (dstate.donation_tx is not None):
                 #if (dstate.donor_address == address) and (dstate.donation_tx is not None):
                     di.display_donation_state(dstate, mode=mode)
 
@@ -170,11 +177,6 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
 
     if not no_label:
         eu.store_deck_label(deck, label=label, alt=False, quiet=quiet, debug=debug)
-    #if store_label:
-    #     try:
-    #         ce.write_item("deck", store_label, deckid)
-    #     except ce.ValueExistsError:
-    #         raise PacliInputDataError("Storage of deck ID {} failed, label {} already exists for a deck.\nStore manually using 'pacli tools store_deck LABEL {}' with a custom LABEL value. ".format(deckid, store_label, deckid))
 
     if not quiet:
         print("Done.")

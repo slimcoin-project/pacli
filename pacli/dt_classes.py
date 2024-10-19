@@ -1078,12 +1078,12 @@ class Donation:
 
     # Other commands
 
-    def __all_donation_states(self, proposal: str, all: bool=False, incomplete: bool=False, unclaimed: bool=False, mode: str=None, debug: bool=False) -> None:
+    def __all_donation_states(self, proposal: str, all_states: bool=False, incomplete: bool=False, unclaimed: bool=False, mode: str=None, debug: bool=False) -> None:
         """Shows currently active (default) or all (--all flag) donation states of this proposal."""
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         dstates = dmu.get_donation_states(provider, proposal_id, debug=debug)
-        allowed_states = di.get_allowed_states(all, unclaimed, incomplete)
+        allowed_states = di.get_allowed_states(all_states, unclaimed, incomplete)
 
         for dstate in dstates:
 
@@ -1092,9 +1092,9 @@ class Donation:
 
             di.display_donation_state(dstate, mode)
 
-    def __my_donation_states(self, proposal: str, address: str=Settings.key.address, wallet: bool=False, all_matches: bool=False, all: bool=False, unclaimed: bool=False, incomplete: bool=False, keyring: bool=False, mode: str=None, debug: bool=False) -> None:
+    def __my_donation_states(self, proposal: str, address: str=Settings.key.address, wallet: bool=False, all_matches: bool=False, all_states: bool=False, unclaimed: bool=False, incomplete: bool=False, keyring: bool=False, mode: str=None, debug: bool=False) -> None:
         """Shows the donation states involving a certain address (default: current active address)."""
-        # TODO: --all_addresses is linux-only until show_stored_address is converted to new config scheme.
+
         # TODO: not working properly; probably related to the label prefixes.
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
@@ -1113,7 +1113,7 @@ class Donation:
             # Default behavior: only shows the state where the address is used as donor address.
             my_dstates = dmu.get_donation_states(provider, proposal_id, donor_address=address, debug=debug)
 
-        allowed_states = di.get_allowed_states(all, unclaimed, incomplete)
+        allowed_states = di.get_allowed_states(all_states, unclaimed, incomplete)
 
         for pos, dstate in enumerate(my_dstates):
             if dstate.state not in allowed_states:
@@ -1130,8 +1130,8 @@ class Donation:
 
 
     def list(self,
-             value: str=None,
-             examine_address: str=Settings.key.address,
+             token: str=None,
+             examine_address: str=None,
              my: bool=False,
              wallet: bool=False,
              origin_matches: bool=False,
@@ -1147,26 +1147,27 @@ class Donation:
 
         Usage modes:
 
-            pacli donation list PROPOSAL
+            pacli donation list -p PROPOSAL
 
         Show all donation states made to a proposal and match the requirements lined out in the options.
 
-            pacli donation list -m -p PROPOSAL [--wallet]
+            pacli donation list -m -p PROPOSAL [-w]
 
-        Shows donation states made from this address or wallet to a proposal.
-        By default, incompleted and completed donations
+        Shows donation states made from this address or wallet (with -w) to a proposal.
+        By default, incompleted and completed donations are shown.
 
-            pacli donation list DECK -m
+            pacli donation list DECK
 
-        Show all donation states made from that address.
+        Show all donation states for a deck.
+        Can be limited to the own wallet (-m -w) or an address (-m or -e):
 
         Args:
 
           wallet: In combination with -m, show all donations made from the wallet.
           examine_address: In combination with -m, specify another donor address (labels allowed).
-          all_states: In combination with -m, printout all donation states (also abandoned ones).
-          incomplete: In combination with -m, only show incomplete states.
-          unclaimed: In combination with -m, only show states still not claimed.
+          all_states: Printout all donation states, including abandoned ones (cannot be combined with -i or -u).
+          incomplete: Only show incomplete states (cannot be combined with -a or -u).
+          unclaimed: Only show states with realized donation transactions which were still not claimed by the donor (cannot be combined with -a or -i).
           origin_matches: In combination with -m, show also states where the specified address is not the donor address but the origin address.
           keyring: In combination with -m, use the keyring of the OS for the address/key storage.
           short: Printout in short mode.
@@ -1174,10 +1175,8 @@ class Donation:
           debug: Show debug information.
           proposal: Proposal, if -m mode is used.
           my: Show donations made from an address or the user's wallet. See Usage modes.
-          value: Deck or proposal. See Usage modes. To be used as a positional argument (flag name not mandatory).
+          token: Deck or proposal. See Usage modes. To be used as a positional argument (flag name not mandatory).
         """
-
-        # TODO: an option --wallet for the variant with DECK would be useful.
 
         if basic:
             mode = "simplified"
@@ -1186,16 +1185,17 @@ class Donation:
         else:
             mode = None
 
-        if my:
-             if proposal is not None:
-                 return ei.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all=all_states, keyring=keyring, mode=mode, debug=debug)
-             else:
-                 deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", value)
-                 return ei.run_command(dc.show_donations_by_address, deckid, examine_address, wallet=wallet, mode=mode, debug=debug)
+        if my is True:
+            examine_address = Settings.key.address
 
-        elif value is not None:
-             proposal = value
-             return ei.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all=all_states, mode=mode, debug=debug)
+        if proposal is not None:
+             if my:
+                 return ei.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, keyring=keyring, mode=mode, debug=debug)
+             else:
+                 return ei.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, mode=mode, debug=debug)
+        elif token is not None:
+             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token)
+             return ei.run_command(dc.show_donations_by_address, deckid, examine_address, wallet=wallet, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, mode=mode, debug=debug)
         else:
              ei.print_red("Invalid option, you have to provide a proposal or a token (deck).")
 

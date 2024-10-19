@@ -202,7 +202,7 @@ def wait_for_block(startblock: int, endblock: int, provider: object, wait: bool=
                 #    print("Current block:", current_block)
                 raise PacliInputDataError("Target deadline has already passed {}. Current block: {}".format(startendvalues, current_block))
 
-def get_allowed_states(all: bool, unclaimed: bool, only_incomplete: bool):
+def get_allowed_states(all_states: bool, unclaimed: bool, only_incomplete: bool):
 
     allowed_states = []
     if only_incomplete:
@@ -211,7 +211,7 @@ def get_allowed_states(all: bool, unclaimed: bool, only_incomplete: bool):
         allowed_states = ["complete"]
     else:
         allowed_states = ["incomplete", "complete", "claimed"]
-        if all:
+        if all_states:
             allowed_states.append("abandoned")
 
     return allowed_states
