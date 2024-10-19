@@ -1122,7 +1122,8 @@ class ExtDeck:
 
         if all_decks is True:
             decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
-            initialized_decks = eu.get_initialized_decks(decks)
+            decks = eu.get_initialized_decks(decks)
+
         elif deckid is not None:
              decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]
         else:
