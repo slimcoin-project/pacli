@@ -91,7 +91,7 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, l
         #    continue
 
         try:
-            if (not quiet) and (bh % 100 == 0) and (not use_locator or (bh not in loc_blockheights)):
+            if (not quiet) and (bh % 500 == 0) and (not use_locator or (bh not in loc_blockheights)):
                 print("Processing block:", bh)
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)

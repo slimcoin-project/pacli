@@ -727,7 +727,7 @@ class ExtAddress:
 
              startblock: Block to start the cache process. Use this parameter if you know when the address was first used.
              blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks (ignored in combination with -c).
-             chain: Scans whole blockchain. WARNING: Can take several hours up to days!
+             chain: Scans without block limit (up to the whole blockchain). WARNING: Can take several hours up to days!
              force: Store the blocks even if there are gaps between caching phases, i.e. your start block is higher than the last checked block. Use with caution!
              erase: Delete address entry in blocklocator.json. To be used when the locator data is wrong.
              quiet: Suppress output.
@@ -1084,7 +1084,7 @@ class ExtDeck:
             self.__cache(idstr=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
 
-    def cache(self, idstr: str=None, blocks: int=50000, chain: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+    def cache(self, idstr: str=None, blocks: int=None, chain: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
         """Stores data about deck state changes (blockheights).
 
         Usage modes:
@@ -1106,7 +1106,7 @@ class ExtDeck:
 
         Args:
 
-          blocks: Number of blocks to store (default: 50000) (ignored in combination with -f).
+          blocks: Number of blocks to store (default: 50000) (ignored in combination with -c).
           chain: Store blockheights for the whole blockchain (since the start block).
           all_decks: Store blockheights for all initialized tokens/decks.
           quiet: Suppress output.
@@ -1131,7 +1131,10 @@ class ExtDeck:
              decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
                       pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)]
 
-        ei.run_command(bx.store_deck_blockheights, decks, quiet=quiet, full=chain, debug=debug, blocks=blocks)
+        if blocks is None and not chain:
+            blocks = 50000
+
+        ei.run_command(bx.store_deck_blockheights, decks, quiet=quiet, chain=chain, debug=debug, blocks=blocks)
 
 
 

@@ -6,6 +6,7 @@
 # The lastblock parameter refers to a blockhash.
 
 import json, os
+import pacli.extended_interface as ei
 from pacli.config import conf_dir
 from pacli.provider import provider
 

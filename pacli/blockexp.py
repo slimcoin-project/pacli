@@ -103,7 +103,7 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
     return txes
 
 
-def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, debug: bool=False, blocks: int=50000):
+def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, debug: bool=False, blocks: int=50000):
 
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
@@ -135,8 +135,9 @@ def store_deck_blockheights(decks: list, full: bool=False, quiet: bool=False, de
     else:
         start_block = lastblock
 
-    if full is True:
+    if chain is True:
         end_block = provider.getblockcount()
+        blocks = end_block - start_block
         if not quiet:
             print("Full blockchain scan selected. WARNING: This can take several days!")
             print("You can interrupt the scan at any time with KeyboardInterrupt (e.g. CTRL-C) and continue later, calling the same command.")
