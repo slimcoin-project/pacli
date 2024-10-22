@@ -96,9 +96,11 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
             sending_addresses = wallet_addresses
         if wallet_mode in ("received", "all"):
             receiving_addresses = wallet_addresses
-        blockdata = show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=sending_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
     else:
-        blockdata = show_txes_by_block(receiving_addresses=[receiving_address], sending_addresses=[sending_address], advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
+        sending_addresses = [sending_address] if sending_address is not None else []
+        receiving_addresses = [receiving_address] if receiving_address is not None else []
+
+    blockdata = show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=receiving_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
     txes = blockdata["txes"]
 
     if debug:

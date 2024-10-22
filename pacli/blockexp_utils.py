@@ -119,12 +119,12 @@ def show_txes_by_block(sending_addresses: list=[], receiving_addresses: list=[],
                 if not coinbase and len(tx_struct["inputs"]) == 0:
                     continue
 
+                sender_present, receiver_present = None, None
                 receivers = [r for o in tx_struct["outputs"] for r in o["receivers"]]
                 senders = [s for i in tx_struct["inputs"] for s in i["sender"]]
 
                 if locator_list:
                     addr_present = not set(address_list).isdisjoint(set(senders + receivers))
-                    sender_present, receiver_present = None, None
                 elif sending_addresses or receiving_addresses: # list mode is probably slower
                     receiver_present = not set(receiving_addresses).isdisjoint(set(receivers))
                     sender_present = not set(sending_addresses).isdisjoint(set(senders))
@@ -139,10 +139,11 @@ def show_txes_by_block(sending_addresses: list=[], receiving_addresses: list=[],
                         if debug:
                             print("TX detected: {} struct: {}".format(txid, tx_struct))
 
-                    if receiver_present or sender_present or all_txes:
+                    if all_txes or receiver_present or sender_present:
                         tracked_txes.append(tx_dict)
 
-                    if store_locator and bh not in loc_blockheights: ## CHANGED: we now only store if the blocks were not checked before.
+                    # skip blocks which were already stored in the block locators
+                    if store_locator and bh not in loc_blockheights:
                        for a in address_list:
                            if (a in senders) or (a in receivers) and (bh not in address_blocks[a]):
                                address_blocks[a].append(bh)
