@@ -9,12 +9,10 @@ from pacli.config import Settings
 
 # lower level block exploring utilities are now bundled here
 
-def show_txes_by_block(receiving_address: str=None, sending_address: str=None, sending_addresses: list=[], receiving_addresses: list=[], locator_list: list=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, force_storing: bool=False, use_locator: bool=False, store_locator: bool=False, only_store: bool=False, debug: bool=False) -> list:
+def show_txes_by_block(sending_addresses: list=[], receiving_addresses: list=[], locator_list: list=None, startblock: int=0, endblock: int=None, quiet: bool=False, coinbase: bool=False, advanced: bool=False, force_storing: bool=False, use_locator: bool=False, store_locator: bool=False, only_store: bool=False, debug: bool=False) -> list:
     """Shows or stores transaction data from the blocks directly."""
 
     # NOTE: locator_list parameter only stores the locator
-    # NOTE: "sending/receiving_addresses" parameter is for cases where the addresses are used to show transactions, e.g. a "wallet" mode
-    # TODO: Consider removing the one-address mode (sending/receiving_address), i.e. replace them with lists with one single address.
 
     lastblockheight, lastblockhash = None, None
     all_txes = False
@@ -36,9 +34,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, s
         address_list = list(set(sending_addresses + receiving_addresses)) # removes overlapping addresses
     elif locator_list:
         address_list = locator_list
-    elif sending_address or receiving_address:
-        # add sending or receiving address or both (None values are ignored)
-        address_list = [a for a in [sending_address, receiving_address] if a is not None]
     else:
         address_list = None # this means all transactions will be preselected
         if quiet is False and use_locator is True:
@@ -133,10 +128,6 @@ def show_txes_by_block(receiving_address: str=None, sending_address: str=None, s
                 elif sending_addresses or receiving_addresses: # list mode is probably slower
                     receiver_present = not set(receiving_addresses).isdisjoint(set(receivers))
                     sender_present = not set(sending_addresses).isdisjoint(set(senders))
-                    addr_present = sender_present or receiver_present
-                else:
-                    receiver_present = receiving_address in receivers
-                    sender_present = sending_address in senders
                     addr_present = sender_present or receiver_present
 
                 if all_txes or addr_present:
