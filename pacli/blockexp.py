@@ -14,7 +14,7 @@ from pacli.blockexp_utils import show_txes_by_block, date_to_blockheight, get_tx
 
 # higher level block exploring utilities are now bundled here
 
-def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=None, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False, use_locator: bool=True) -> None:
+def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=None, start: Union[int, str]=None, end: Union[int, str]=None, coinbase: bool=False, advanced: bool=False, burns: bool=False, use_locator: bool=True, wallet_mode: str=None, quiet: bool=False, debug: bool=False) -> None:
     '''Show all transactions to a tracked address between two block heights (very slow!).
        start and end can be blockheights or dates in the format YYYY-MM-DD.'''
 
@@ -89,7 +89,16 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
         print("Starting at block:", startblock)
         print("Ending at block:", endblock)
 
-    blockdata = show_txes_by_block(receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
+    if wallet_mode is not None:
+        sending_addresses, receiving_addresses = [], []
+        wallet_addresses = list(eu.get_wallet_address_set())
+        if wallet_mode in ("sent", "all"):
+            sending_addresses = wallet_addresses
+        if wallet_mode in ("received", "all"):
+            receiving_addresses = wallet_addresses
+        blockdata = show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=sending_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
+    else:
+        blockdata = show_txes_by_block(receiving_address=receiving_address, sending_address=sending_address, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
     txes = blockdata["txes"]
 
     if debug:

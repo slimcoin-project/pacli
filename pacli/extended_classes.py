@@ -456,9 +456,9 @@ class ExtAddress:
              pubkey: bool=False,
              wif: bool=False,
              keyring: bool=False,
-             label: bool=False):
-        # This one has to REPLACE the Address command, and integrate more options. Thus the address show command in __main__ must be always commented out.
-        # (unchanged from vanilla, but would now integrate also the commands `address show_label` and `tools show_address_label` if used with a label)
+             label: bool=False,
+             burn_address: bool=False):
+
         # NOTE: it would be cool to have the --pubkey... option also for labeled addresses, but that may be quite difficult.
         """Shows the address corresponding to a label, or the main address.
 
@@ -476,6 +476,10 @@ class ExtAddress:
 
             Shows label and address corresponding to address ADDRESS.
 
+        pacli address show -b
+
+            Shows burn address, if the network supports proof-of-burn.
+
         Args:
 
           label: Shows label for an address (see Usage options)
@@ -484,10 +488,12 @@ class ExtAddress:
           privkey: Shows private key. Only with --keyring option. (WARNING: exposes private key!)
           pubkey: Shows public key. Only with --keyring option.
           addr_id: To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
+          burn_address: Show burn address. See Usage modes. Cannot be combined with other flags.
         """
 
-
-        if label is True:
+        if burn_address is True:
+            return au.burn_address()
+        elif label is True:
             """Shows the label of the current main address, or of another address."""
             # TODO: evaluate if the output should really include label AND address, like in the old command.
             if addr_id is None:
@@ -1679,11 +1685,11 @@ class ExtTransaction:
           origin: Show transactions sent by a specific sender address (only necessary in combination with -x, -b, -g and -c).
           param: Show the value of a specific parameter/variable of the transaction.
           quiet: Suppress additional output, printout in script-friendly way.
-          sent: Only show sent transactions (not in combination with -x, -n, -c, -b or -g).
-          received: Only show received transactions (not in combination with -x, -n, -c, -b or -g).
+          sent: Only show sent transactions (not in combination with -n, -c, -b or -g). In block explorer mode (-x), it only works together with -w.
+          received: Only show received transactions (not in combination with -n, -c, -b or -g). In block explorer mode (-x), it only works together with -w.
           total: Only count transactions, do not display them.
           unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified, -x not supported).
-          wallet: Show all specified transactions of all addresses in the wallet (not in combination with -x).
+          wallet: Show all specified transactions of all addresses in the wallet.
           view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
@@ -1746,7 +1752,14 @@ class ExtTransaction:
             if (burntxes is True) or (gatewaytxes is True):
                 txes = bx.show_txes(deck=address_or_deck, sending_address=origin, start=from_height, end=end_height, quiet=quiet, advanced=advanced, debug=debug, burns=burntxes, use_locator=locator)
             else:
-                txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
+                if wallet:
+                    if sent is True or received is True:
+                        wallet_mode = "sent" if sent is True else "received"
+                    else:
+                        wallet_mode = "all"
+                    txes = bx.show_txes(wallet_mode=wallet_mode, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
+                else:
+                    txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
         elif burntxes is True:
             txes = au.my_txes(sender=origin, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
         elif gatewaytxes is True:
