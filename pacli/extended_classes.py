@@ -989,8 +989,10 @@ class ExtDeck:
 
 
         if not find and not local:
-            deckid = eu.search_for_stored_tx_label("deck", deckstr)
+            deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
         if info is True:
+            if local:
+                raise ei.PacliGeneralError()
             deckinfo = eu.get_deckinfo(deckid, show_p2th)
 
             if param is not None:
