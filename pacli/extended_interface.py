@@ -218,7 +218,7 @@ def print_address_balances(address_item: dict) -> None:
         output_dict.update({"tokens": address_item["tokens"]})
     pprint(output_dict)
 
-def print_deckinfo(deckinfo: dict, quiet: bool=False) -> None:
+def print_deckinfo(deckinfo: dict, burn_address: str, quiet: bool=False) -> None:
     info_output = {"ID" : deckinfo["id"],
                   "Global name" : deckinfo.get("name"),
                   "Creation Time (UTC)" : str(datetime.datetime.utcfromtimestamp(int(deckinfo.get("issue_time")))),
@@ -228,7 +228,7 @@ def print_deckinfo(deckinfo: dict, quiet: bool=False) -> None:
             deck_type = "dPoD token"
             info_output.update({"Reward per epoch (tokens)" : deckinfo["epoch_reward"] / 10**deckinfo["number_of_decimals"]})
         elif deckinfo["at_type"] == 2:
-            if deckinfo["at_address"] == au.burn_address():
+            if deckinfo["at_address"] == burn_address:
                 deck_type = "PoB token"
             else:
                 deck_type = "AT token"

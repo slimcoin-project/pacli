@@ -1,7 +1,6 @@
 from typing import Optional, Union
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
-import datetime
 
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
@@ -974,7 +973,7 @@ class ExtDeck:
           param: Shows a specific parameter (only in combination with -r).
           show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
         """
-        #TODO: an option to search by name would be fine here.
+        #TODO: an option to search by name would be fine here, this should however be added to search_for_stored_tx_label.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
         return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, find=find, show_p2th=show_p2th, quiet=quiet, debug=debug)
 
@@ -999,7 +998,7 @@ class ExtDeck:
             if param is not None:
                 print(deckinfo.get(param))
             elif info is True:
-                ei.print_deckinfo(deckinfo, quiet=quiet)
+                ei.print_deckinfo(deckinfo, burn_address=au.burn_address(), quiet=quiet)
             else:
                 pprint(deckinfo)
         else:
