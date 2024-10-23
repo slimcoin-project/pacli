@@ -1,6 +1,7 @@
 from typing import Optional, Union
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
+import datetime
 
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
@@ -940,8 +941,8 @@ class ExtDeck:
              _idstr: str,
              param: str=None,
              info: bool=False,
+             rawinfo: bool=False,
              find: bool=False,
-             local: bool=False,
              show_p2th: bool=False,
              quiet: bool=False,
              debug: bool=False):
@@ -966,44 +967,41 @@ class ExtDeck:
 
         Args:
 
-          info: Shows the Deck object values.
-          local: Shows the deck ID only if there is a local label. Cannot be combined with -i or -f.
-          find: Searches for a string in the Deck ID. Cannot be combined with -i, -p and -s flags.
+          info: Shows basic information about the deck/token (type, global name, creation block, issuer).
+          rawinfo: Shows the Deck object values.
+          find: Searches for a string in the Deck ID.
           quiet: Suppress output, printout in script-friendly way.
-          param: Shows a specific parameter (only in combination with -i/--info).
-          show_p2th: Shows P2TH address(es) (only in combination with -i/--info)
+          param: Shows a specific parameter (only in combination with -r).
+          show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
         """
         #TODO: an option to search by name would be fine here.
         # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
-        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, find=find, local=local, show_p2th=show_p2th, quiet=quiet, debug=debug)
+        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, find=find, show_p2th=show_p2th, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
              param: str=None,
              info: bool=False,
+             rawinfo: bool=False,
              find: bool=False,
-             local: bool=False,
              show_p2th: bool=False,
              quiet: bool=False,
              debug: bool=False):
 
-
-        if not find and not local:
+        if find is True:
+            deckid = ce.find("deck", deckstr, quiet=quiet, debug=debug)
+        else:
             deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
-        if info is True:
-            if local:
-                raise ei.PacliGeneralError()
+
+        if info is True or rawinfo is True:
             deckinfo = eu.get_deckinfo(deckid, show_p2th)
 
             if param is not None:
                 print(deckinfo.get(param))
+            elif info is True:
+                ei.print_deckinfo(deckinfo, quiet=quiet)
             else:
                 pprint(deckinfo)
-
-        elif find is True:
-            return ce.find("deck", deckstr, quiet=quiet, debug=debug)
-        elif local is True:
-            return ce.show("deck", deckstr, quiet=quiet, debug=debug)
         else:
             return deckid
 

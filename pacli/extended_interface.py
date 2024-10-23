@@ -1,4 +1,4 @@
-import itertools, sys
+import itertools, sys, datetime
 from time import sleep
 from prettyprinter import cpprint as pprint
 from pypeerassets.exceptions import InsufficientFunds
@@ -217,6 +217,34 @@ def print_address_balances(address_item: dict) -> None:
     if "tokens" in address_item and address_item["tokens"]:
         output_dict.update({"tokens": address_item["tokens"]})
     pprint(output_dict)
+
+def print_deckinfo(deckinfo: dict, quiet: bool=False) -> None:
+    info_output = {"ID" : deckinfo["id"],
+                  "Global name" : deckinfo.get("name"),
+                  "Creation Time (UTC)" : str(datetime.datetime.utcfromtimestamp(int(deckinfo.get("issue_time")))),
+                  "Issuer" : deckinfo["issuer"] }
+    if "at_type" in deckinfo:
+        if deckinfo["at_type"] == 1:
+            deck_type = "dPoD token"
+            info_output.update({"Reward per epoch (tokens)" : deckinfo["epoch_reward"] / 10**deckinfo["number_of_decimals"]})
+        elif deckinfo["at_type"] == 2:
+            if deckinfo["at_address"] == au.burn_address():
+                deck_type = "PoB token"
+            else:
+                deck_type = "AT token"
+                info_output.update({"Gateway address" : deckinfo["at_address"]})
+    else:
+        deck_type = "standard PeerAssets token"
+    info_output.update({"Type" : deck_type})
+
+    if "p2th_address" in deckinfo:
+        info_output.update({"Deck P2TH address" : deckinfo.get("_p2th_address")})
+    if "derived_p2th_addresses" in deckinfo:
+        info_output.update({"dPoD P2TH addresses" : deckinfo.get("derived_p2th_addresses")})
+    if quiet:
+        print(info_output)
+    else:
+        pprint(info_output)
 
 # Tables
 
