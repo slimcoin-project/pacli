@@ -40,7 +40,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         print("Retrieving addresses and/or labels ...")
     balances = False if only_tokens is True else True
     if wallet is True: # and no_labels is False:
-        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
         addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
         #addresses = [{"address" : Settings.key.address}]
@@ -97,18 +97,6 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
     #     if advanced is True:
     if len(addresses) > 1:
         addresses = eu.sort_address_items(addresses, debug=debug)
-        """if debug:
-            print("Sorting addresses ...")
-        named = []
-        unnamed = []
-        for item in addresses:
-            if item["label"] not in (None, ""):
-                named.append(item)
-            else:
-                unnamed.append(item)
-        named.sort(key=lambda x: x["label"])
-        unnamed.sort(key=lambda x: x["address"])
-        addresses = named + unnamed"""
 
     if quiet:
         print(addresses)

@@ -598,14 +598,16 @@ class ExtAddress:
             include_only = p2th_dict.keys()
             coinbalances = True
             include_all = True if include_all in (None, True) else False
+            excluded_addresses = []
         else:
             include_only = None
             include_all = False if include_all in (None, False) else True
+            excluded_addresses = eu.get_p2th()
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             if (labels is True) or (full_labels is True):
                 named = True
-            excluded_addresses = eu.get_p2th() if p2th is False else []
+
             result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, exclude=excluded_addresses, balances=True, debug=debug)
 
             if (labels is True) or (full_labels is True):
@@ -635,6 +637,7 @@ class ExtAddress:
 
             return tc.all_balances(wallet=True,
                                   keyring=keyring,
+                                  exclude=excluded_addresses,
                                   no_labels=no_labels,
                                   only_tokens=False,
                                   advanced=advanced,
