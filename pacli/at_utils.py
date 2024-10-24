@@ -41,10 +41,13 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).
-    if wallet:
+    # MODIF: command now includes all non-P2TH addresses which are named.
+    if wallet or (not sender and not no_labels):
         excluded_accounts = eu.get_p2th(accounts=True)
-        address_set = eu.get_wallet_address_set(empty=True)
-        allowed_addresses = address_set - set(eu.get_p2th())
+        addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring)
+        if wallet:
+            address_set = set([a["address"] for a in addresses])
+            allowed_addresses = address_set - set(eu.get_p2th())
     else:
         excluded_accounts = None
 
@@ -108,16 +111,16 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     tx_type_msg = "unclaimed" if unclaimed else "sent"
 
     if not quiet:
-        print("{} {} total transactions to address {} in this wallet.".format(len(valid_txes), tx_type_msg, tracked_address))
+        print("{} {} total transactions to address {} tracked by this wallet.".format(len(valid_txes), tx_type_msg, tracked_address))
         if sender is not None:
             print("Showing only transactions sent from the following address:", sender)
         elif wallet is True:
             print("Showing only transaction sent from this wallet (excluding P2TH addresses).")
 
     txes_to_address = []
-    if not sender:
-        if not no_labels:
-            addresses = ec.get_labels_and_addresses(keyring=keyring)
+    #if not sender:
+    #    if not no_labels:
+    #        addresses = ec.get_labels_and_addresses(keyring=keyring, empty=True)
 
     for tx in valid_txes:
 
@@ -282,13 +285,14 @@ def burn_address():
 
 def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Shows all transactions from your wallet to an address.'''
+    # TODO this could be simply removed and show_wallet_dtxes accessed directly with au.burn_address().
 
     if burns:
          if not quiet:
              print("Using burn address.")
          address = burn_address()
 
-    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
+    deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
     #if sender is None:
     #    sender = Settings.key.address if not wallet else None
     txes = show_wallet_dtxes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, wallet=wallet, quiet=quiet, debug=debug)

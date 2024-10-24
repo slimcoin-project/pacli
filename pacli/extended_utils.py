@@ -660,11 +660,20 @@ def get_safe_block_timeframe(period_start, period_end, security_level=1):
     safe_end = period_end - max(period_length * level[0], level[1])
     return (safe_start, safe_end)
 
-def get_wallet_address_set(empty: bool=False, include_named: bool=False) -> set:
+def get_wallet_address_set(empty: bool=False, include_named: bool=False, use_accounts: bool=False, excluded_accounts: list=None) -> set:
     """Returns a set (without duplicates) of all addresses which have received coins eventually, in the own wallet."""
-    # TODO: listreceivedbyaddress seems to be unreliable.
-    addr_entries = provider.listreceivedbyaddress(0, empty)
-    addresses = [e["address"] for e in addr_entries]
+    # listreceivedbyaddress seems to be unreliable but is around 35% faster.
+
+    if use_accounts is True:
+        addresses = []
+        accounts = provider.listaccounts(0)
+        for account in accounts:
+            if excluded_accounts is not None and account in excluded_accounts:
+                continue
+            addresses += provider.getaddressesbyaccount(account)
+    else:
+        addr_entries = provider.listreceivedbyaddress(0, empty)
+        addresses = [e["address"] for e in addr_entries]
 
     if include_named:
         named_addresses = ce.list("address", quiet=True).values()

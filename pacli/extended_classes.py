@@ -603,10 +603,10 @@ class ExtAddress:
             include_all = False if include_all in (None, False) else True
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
-            # TODO: at least coinbalances shows P2TH.
             if (labels is True) or (full_labels is True):
                 named = True
-            result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, balances=True, debug=debug)
+            excluded_addresses = eu.get_p2th() if p2th is False else []
+            result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, exclude=excluded_addresses, balances=True, debug=debug)
 
             if (labels is True) or (full_labels is True):
                 if labels:
@@ -1632,11 +1632,12 @@ class ExtTransaction:
         pacli transaction list -b [-o [ORIGIN_ADDRESS]]
         pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -g [-u]
 
-            Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens or sent from a specific ORIGIN_ADDRESS in the wallet.
+            Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens.
+            If -o is given, only show those sent from a specific ORIGIN_ADDRESS in the wallet.
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
             In the case of burn transactions (-b), DECK is only necessary if combined with -u. Without DECK all burn transactions will be listed.
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
-            If no origin address nor -w is given, all burn transactions will be shown; in the case of gateway transactions all those who touch any address in your wallet.
+            If no origin address nor -w is given, all burn/gateway transactions who touch any address in your wallet, including P2TH, will be shown.
 
         pacli transaction list DECK [-o ORIGIN_ADDRESS] -c
 
