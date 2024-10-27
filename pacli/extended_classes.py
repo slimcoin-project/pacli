@@ -189,7 +189,6 @@ class ExtConfig:
              find: bool=False,
              quiet: bool=False,
              extended: str=None,
-             blocklocators: bool=False,
              debug: bool=False):
         """Shows a setting in the basic or extended configuration file.
 
@@ -213,21 +212,15 @@ class ExtConfig:
             The CATEGORY value refers to a category in the extended config file.
             Get all categories with: `pacli config list -e -c`
 
-        pacli config show ADDRESS_OR_DECK -b
-
-            Show block locators for an address or token (deck).
-            Block locators show the heights of transactions to/from the addresses.
-
         Args:
 
           extended: Use the extended configuration file (see above).
           quiet: Suppress output, printout the result in script-friendly way.
           label: Find label for an exact value.
           find: Find label for a string which is present in the value.
-          blocklocators: Show block locator values. See Usage modes.
           debug: Show exception tracebacks and debug info."""
 
-        return ei.run_command(self.__show, value_or_label, category=extended, label=label, blocklocators=blocklocators, find=find, quiet=quiet, debug=debug)
+        return ei.run_command(self.__show, value_or_label, category=extended, label=label, find=find, quiet=quiet, debug=debug)
 
 
     def __show(self,
@@ -235,15 +228,11 @@ class ExtConfig:
              category: str=None,
              label: bool=False,
              find: bool=False,
-             blocklocators: bool=False,
              quiet: bool=False,
              debug: bool=False):
 
 
-        if blocklocators is True:
-            return bx.show_locators(value=value_or_label, quiet=quiet, debug=debug)
-
-        elif category is None:
+        if category is None:
             result = []
             if find or label:
                 searchstr = value_or_label
@@ -718,7 +707,17 @@ class ExtAddress:
             {'balance': float(balance)}
             )
 
-    def cache(self, addr_str: str, blocks: int=50000, keyring: bool=False, startblock: int=0, erase: bool=False, chain: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def cache(self,
+              addr_str: str,
+              blocks: int=50000,
+              keyring: bool=False,
+              startblock: int=0,
+              erase: bool=False,
+              chain: bool=False,
+              force: bool=False,
+              quiet: bool=False,
+              view: bool=False,
+              debug: bool=False):
         """Cache the state of an address.
 
            Usage:
@@ -732,33 +731,50 @@ class ExtAddress:
 
            Cache various addresses. The quotation marks and the brackets are mandatory (Python list format).
 
+               pacli address cache ADDRESS -v
+
+           View the currently cached block locators for a single address (lists are not supported).
+           Block locators show the heights of transactions to/from the addresses.
+
            Args:
 
              startblock: Block to start the cache process. Use this parameter if you know when the address was first used.
              blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks (ignored in combination with -c).
              chain: Scans without block limit (up to the whole blockchain). WARNING: Can take several hours up to days!
              force: Store the blocks even if there are gaps between caching phases, i.e. your start block is higher than the last checked block. Use with caution!
-             erase: Delete address entry in blocklocator.json. To be used when the locator data is wrong.
+             erase: Delete address entry in blocklocator.json. To be used when the locator data is faulty or inconsistent.
              quiet: Suppress output.
              debug: Show additional debug information.
-             keyring: Use addresses/label(s) stored in keyring."""
+             keyring: Use addresses/label(s) stored in keyring.
+             view: Show the current state of the cached blocks."""
 
 
-        return ei.run_command(self.__cache, addr_str, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, debug=debug)
+        return ei.run_command(self.__cache, addr_str, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, view=view, debug=debug)
 
 
-    def __cache(self, addr_str: str, startblock: int=0, blocks: int=50000, keyring: bool=False, chain: bool=False, erase: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def __cache(self,
+                addr_str: str,
+                startblock: int=0,
+                blocks: int=50000,
+                keyring: bool=False,
+                chain: bool=False,
+                erase: bool=False,
+                force: bool=False,
+                quiet: bool=False,
+                view: bool=False,
+                debug: bool=False):
 
         if type(addr_str) == str:
             addresses = [ec.process_address(addr_str, keyring=keyring)]
         elif type(addr_str) in (list, tuple):
             addresses = [ec.process_address(a, keyring=keyring) for a in addr_str]
-            print(addresses)
         else:
             raise ei.PacliInputDataError("No valid address(es) entered.")
 
         if erase is True:
             return bu.erase_locator_entries(addresses) # TODO: improve this allowing startblock and endblock.
+        elif view is True:
+            return bx.show_locators(value=addresses, quiet=quiet, debug=debug)
         else:
             if chain:
                 blocks = provider.getblockcount() - startblock
@@ -1092,8 +1108,15 @@ class ExtDeck:
             self.__cache(idstr=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
 
-    def cache(self, idstr: str=None, blocks: int=None, chain: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
-        """Stores data about deck state changes (blockheights).
+    def cache(self,
+              idstr: str=None,
+              blocks: int=None,
+              chain: bool=False,
+              all_decks: bool=False,
+              view: bool=False,
+              quiet: bool=False,
+              debug: bool=False):
+        """Stores or shows data about token (deck) state changes (blockheights).
 
         Usage modes:
 
@@ -1102,15 +1125,19 @@ class ExtDeck:
 
         Cache deck state info for the standard PoB and dPoD tokens.
 
-            pacli deck cache DECK
-            pacli token cache DECK
+            pacli deck cache TOKEN
+            pacli token cache TOKEN
 
-        Cache deck state info for a deck. DECK can be label or deck ID.
+        Cache deck state info for a deck. TOKEN can be label or token (deck) ID.
 
             pacli deck cache -a
             pacli token cache -a
 
         Cache deck state for all initialized decks.
+
+            pacli deck cache TOKEN -v
+
+        View the state of the block locators for the token TOKEN.
 
         Args:
 
@@ -1119,16 +1146,20 @@ class ExtDeck:
           all_decks: Store blockheights for all initialized tokens/decks.
           quiet: Suppress output.
           idstr: Token (deck) label or ID. To be used as a positional argument.
+          view: Show the current state of the cached block locators. See Usage modes.
           debug: Show additional debug information."""
 
 
-        ei.run_command(self.__cache, idstr=idstr, blocks=blocks, chain=chain, all_decks=all_decks, quiet=quiet, debug=debug)
+        ei.run_command(self.__cache, idstr=idstr, blocks=blocks, chain=chain, all_decks=all_decks, view=view, quiet=quiet, debug=debug)
 
-    def __cache(self, idstr: str, blocks: int=None, chain: bool=False, all_decks: bool=False, quiet: bool=False, debug: bool=False):
+    def __cache(self, idstr: str, blocks: int=None, chain: bool=False, all_decks: bool=False, view: bool=False, quiet: bool=False, debug: bool=False):
 
         deckid = eu.search_for_stored_tx_label("deck", idstr, quiet=quiet) if idstr is not None else None
 
-        if all_decks is True:
+        if view is True:
+            return bx.show_locators(value=deckid, quiet=quiet, debug=debug)
+
+        elif all_decks is True:
             decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
             decks = eu.get_initialized_decks(decks)
 

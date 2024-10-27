@@ -134,7 +134,7 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
 
     addresses = []
     for deck in decks:
-        addresses += eu.get_deck_p2th_addresses(deck, debug=debug)
+        addresses += eu.get_deck_related_addresses(deck, debug=debug)
 
     if debug:
         print("Addresses to store", addresses)
@@ -304,30 +304,48 @@ def get_tx_address_balance(address: str, tx: dict):
 def show_locators(value: str, quiet: bool=False, debug: bool=False):
     # first we look if it's a deck
     try:
+        assert type(value) == str
         deckid = eu.search_for_stored_tx_label("deck", value, quiet=True)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        addresses = eu.get_deck_p2th_addresses(deck, debug=debug)
+        addresses = eu.get_deck_related_addresses(deck, debug=debug)
         checktype = "token"
-    except ei.PacliInputDataError:
+    except ei.PacliInputDataError: # gets raised if it's an address
         try:
             addresses = [ec.process_address(value)]
             checktype = "address"
         except:
             raise ei.PacliInputDataError("You need to enter a valid address or token (deck).")
+    except AssertionError:
+        if type(value) in (list, tuple):
+            addresses = value
+            checktype = "addresses"
+        else:
+            raise ei.PacliInputDataError("Incorrect format for value.")
 
     locators, last_checked_block = get_locator_data(address_list=addresses, debug=debug, show_hash=True)
     last_blockheight = provider.getblock(last_checked_block).get("height")
+
+    if checktype in ("token", "addresses") and len(locators) > 0 and locators[-1] > last_blockheight:
+        ei.print_red("WARNING: Only a part of the addresses related to this token were cached, or the caching was not consistent.")
+        ei.print_red("To get consistent results for the block exploring functions, cache this token or address list completely.")
+    if last_blockheight == 0:
+        if len(addresses) > 1:
+            ei.print_red("At least one address was completely uncached. Check addresses individually for details.")
+        else:
+            ei.print_red("This address was never cached.")
+
+    commonly = "commonly " if len(addresses) > 1 else ""
 
     result = {"blockheights" : locators,
              "lastblockhash" : last_checked_block,
              "lastblockheight" : last_blockheight}
     readable = {"blockheights" : "Block heights",
-                "lastblockhash" : "Last checked block (hash)",
-                "lastblockheight" : "Last checked block (height)"}
+                "lastblockhash" : "Last {}checked block (hash)".format(commonly),
+                "lastblockheight" : "Last {}checked block (height)".format(commonly)}
     if quiet:
         print(result)
     else:
-        pprint("Result for {} {}:".format(checktype, value))
+        print("Result for {} {}:".format(checktype, value))
         for k, v in result.items():
             print("{}: {}".format(readable[k], v))
 

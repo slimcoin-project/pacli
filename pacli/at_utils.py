@@ -44,10 +44,16 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     # MODIF: command now includes all non-P2TH addresses which are named.
     if wallet or (not sender and not no_labels):
         excluded_accounts = eu.get_p2th(accounts=True)
-        addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring)
+
+        #if wallet:
+
+            # address_set = set([a["address"] for a in addresses])
+            # allowed_addresses = address_set - set(eu.get_p2th())
+        excluded_addresses = eu.get_p2th() if wallet is True else []
+        addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses)
         if wallet:
-            address_set = set([a["address"] for a in addresses])
-            allowed_addresses = address_set - set(eu.get_p2th())
+            allowed_addresses = set([a["address"] for a in addresses])
+
     else:
         excluded_accounts = None
 
@@ -59,6 +65,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
                 print("Transactions you already claimed tokens for of this deck:", claimed_txes)
         try:
 
+            if tracked_address != deck.at_address:
+                raise ei.PacliInputDataError("Gateway address mismatch. Probably you are using a command for PoB tokens for an AT token. Please use the command/flag for AT tokens instead.")
             if not tracked_address:
                 tracked_address = deck.at_address
 
@@ -66,6 +74,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
         except (AttributeError, AssertionError):
             raise ei.PacliInputDataError("Deck {} is not an AT or PoB token deck.".format(deckid))
+
 
     else:
         deck = None
@@ -271,9 +280,9 @@ def at_deckinfo(deckid):
         pprint("{}: {}".format(deck_param, deck.__dict__[deck_param]))
 
 
-def get_claimed_txes(deck: object, input_address: str, only_wallet: bool=False) -> set:
+def get_claimed_txes(deck: object, sender: str, only_wallet: bool=False) -> set:
     # returns TXIDs of already claimed txes.
-    return set([c.donation_txid for c in eu.get_valid_cardissues(deck, input_address, only_wallet=only_wallet)])
+    return set([c.donation_txid for c in eu.get_valid_cardissues(deck, sender, only_wallet=only_wallet)])
 
 def burn_address():
     if not provider.network.endswith("slm"):

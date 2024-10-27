@@ -435,12 +435,12 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, confirm=confirm, debug=debug)
 
 
-def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: bool=False) -> list:
+def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, debug: bool=False) -> list:
     """Gets all valid CardIssues of a deck."""
     # NOTE: Sender no longer necessary.
     # TODO: seems the restriction to wallet does not work correctly, also other txes are shown.
 
-    if (only_wallet and not input_address):
+    if (only_wallet and not sender):
         #p2th_accounts = get_p2th(accounts=True)
         #wallet_txids = set([t["txid"] for t in get_wallet_transactions(exclude=p2th_accounts)])
         wallet_senders = get_wallet_address_set() - set(get_p2th())
@@ -448,6 +448,7 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
         wallet_senders = []
 
     try:
+
         cards = pa.find_all_valid_cards(provider, deck)
         ds = pa.protocol.DeckState(cards)
     except KeyError:
@@ -456,11 +457,15 @@ def get_valid_cardissues(deck: object, input_address: str=None, only_wallet: boo
     claim_cards = []
     for card in ds.valid_cards:
         if card.type == "CardIssue":
-            if ((input_address and (card.sender == input_address))
+            if (((sender is not None) and (card.sender == sender))
             or (only_wallet and (card.sender in wallet_senders))
-            or ((input_address is None) and not only_wallet)): # replaced wallet_txids here.
+            or ((sender is None) and not only_wallet)):
                 claim_cards.append(card)
-    # removed condition: or (wallet_txids and (card.txid in wallet_txids)) \
+                if debug:
+                    print("Card added:", card.txid)
+            elif debug:
+                print("Card rejected:", card.txid)
+
     return claim_cards
 
 # Transaction storage tools
@@ -553,11 +558,11 @@ def get_wallet_token_balances(deck: object, addresses: list=None, address_dicts:
 def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim_tx: str=None, wallet: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
     '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
     # NOTE: added new "basic" mode, like quiet with simplified dict, but with printouts.
+    # TODO make sure the -w mode is as strict as in the other transaction list modes! (exclude P2TH)
 
     if (donation_txid and not is_possible_txid(donation_txid) or
         claim_tx and not is_possible_txid(claim_tx)):
         raise ei.PacliInputDataError("Invalid transaction ID.")
-
 
     if deck_str is None:
         raise ei.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
@@ -591,7 +596,7 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
 
     param_names.update({"donation_txid" : dtx_param})
 
-    raw_claims = get_valid_cardissues(deck, input_address=address, only_wallet=wallet)
+    raw_claims = get_valid_cardissues(deck, sender=address, only_wallet=wallet)
     if claim_tx is None:
         claim_txids = set([c.txid for c in raw_claims])
     else:
@@ -782,7 +787,8 @@ def get_dt_p2th_accounts(deck):
             "p2th_donation" : deck.id + "DONATION",
             "p2th_voting" : deck.id + "VOTING"}
 
-def get_deck_p2th_addresses(deck, debug: bool=False):
+def get_deck_related_addresses(deck, debug: bool=False):
+    """Gets all addresses relevant for a deck: main P2TH, DT P2TH and AT address."""
     addresses = [deck.p2th_address]
 
     if "at_type" in deck.__dict__:
