@@ -16,7 +16,7 @@ from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATTokenBase():
 
-    def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
+    def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, force: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
 
         amount = Decimal(str(amount))
         if (amount == 0) or (amount < 0):
@@ -39,7 +39,7 @@ class ATTokenBase():
                 raise ei.PacliInputDataError("Token distribution has not started yet. Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
 
             min_token_amount = Decimal(str(10 ** -deck.number_of_decimals))
-            if (amount % min_token_amount) > 0 and not quiet:
+            if (amount % min_token_amount) > 0 and (not quiet) and (not force):
                 optimized_amount = (amount // min_token_amount) * min_token_amount
                 print("NOTE: You are spending an amount which will not be fully credited due to the number of decimals the token offers.")
                 print("Do you want to optimize the reward spending exactly {} coins?".format(optimized_amount))
@@ -55,11 +55,12 @@ class ATTokenBase():
                     return
 
         else:
-            if not no_confirmation and not quiet:
+            if (not no_confirmation) and (not force) and (not quiet):
                 print("WARNING: If you send the coins directly to a gateway address, then possible incompatibilities (e.g. deadlines) will not be checked.")
                 print("Consider using the token ID or label/name as first argument instead.")
-                if not ei.confirm_continuation():
-                    return
+                raise ei.PacliInputDataError("Rejected transaction creation. If you want to create the transaction anyway, use the --force option.")
+                #if not ei.confirm_continuation():
+                #    return
             address = ec.process_address(address_or_deck)
 
 
@@ -68,7 +69,7 @@ class ATTokenBase():
 
         rawtx = au.create_simple_transaction(amount=dec_amount, dest_address=address, tx_fee=tx_fee, change_address=change_address, debug=debug)
 
-        return eu.finalize_tx(rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, debug=debug)
+        return eu.finalize_tx(rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, ignore_checkpoint=force, debug=debug)
 
 
     def claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
@@ -109,7 +110,7 @@ class ATTokenBase():
           receivers: List of receivers (see above).
           quiet: Suppress output and print it out in a script-friendly way.
           debug: Show additional debug information.
-          force: Create the transaction even if the reward does not match the transaction (only for debugging!).'''
+          force: Create the transaction even if the reward does not match the transaction or the reorg check fails (be careful!).'''
 
         kwargs = locals()
         del kwargs["self"]
@@ -154,6 +155,7 @@ class ATTokenBase():
                                  asset_specific_data=asset_specific_data,
                                  sign=sign,
                                  send=send,
+                                 force=force,
                                  verify=verify,
                                  confirm=wait_for_confirmation,
                                  debug=debug
@@ -161,7 +163,7 @@ class ATTokenBase():
 
     @classmethod
     def spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
-              end_block: int=None, change: str=Settings.change, verify: bool=False,
+              end_block: int=None, change: str=Settings.change, verify: bool=False, ignore_warnings: bool=False,
               wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
         """Spawns a new AT deck.
 
@@ -177,6 +179,7 @@ class ATTokenBase():
           end_block: Specify an end block to track transactions.
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
+          ignore_warnings: Ignore all warnings (reorg check etc.) and create transaction anyway (be careful!).
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
@@ -189,7 +192,7 @@ class ATTokenBase():
 
         return ei.run_command(eu.advanced_deck_spawn, name=token_name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, change_address=change_address, asset_specific_data=asset_specific_data,
-               confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
+               confirm=wait_for_confirmation, force=ignore_warnings, verify=verify, sign=sign, send=send, debug=debug)
 
     def check_claim(self, idstr: str, txid: str, quiet: bool=False, debug: bool=False):
         """Shows an AT or PoB claim transaction's contents.
@@ -210,7 +213,7 @@ class ATToken(ATTokenBase):
 
     """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
 
-    def send_coins(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
+    def send_coins(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, force: bool=False, no_confirmation: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
         The purpose of this command is to be able to use the address labels from Pacli,
         above all to make fast transactions to a tracked address of an AT token.
@@ -238,7 +241,8 @@ class ATToken(ATTokenBase):
           debug: Show additional debug information.
           address_or_deck: To be used as a positional argument (flag name not necessary).
           amount: To be used as a positional argument (flag name not necessary).
-          no_confirmation: Don't require a confirmation if no compatibility check (e.g. deadlines) is performed.'''
+          no_confirmation: Don't require a confirmation if no compatibility check (e.g. deadlines) is performed.
+          force: Create the transaction in all cases, even if some checks fail.'''
 
         return ei.run_command(super()._create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=no_confirmation)
 

@@ -116,6 +116,8 @@ def show_txes(receiving_address: str=None, sending_address: str=None, deck: str=
 
 def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, debug: bool=False, blocks: int=50000):
 
+   # TODO: in the case of limited tokens, this should start to cache at the first allowed block.
+
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
 
@@ -194,12 +196,16 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
                 print("To cache other block heights, use -f / --force or erase the affected addresses from the block locator file with 'address cache -e'.")
             start_block = lastblock
     else:
-        if start_block > (lastblock + 1) and not force:
+        if start_block > (lastblock + 1):
             if not quiet:
                 print("WARNING: Block heights between {} and {} not checked.".format(lastblock, start_block))
-                if not ei.confirm_continuation():
-                    print("Aborted.")
-                    return
+            if not force:
+                if not quiet:
+                    print("Aborted. Use --force to really store the block heights.")
+                return
+                #if not ei.confirm_continuation():
+                #    print("Aborted.")
+                #    return
     end_block = start_block + blocks
 
     blockdata = show_txes_by_block(locator_list=addresses, startblock=start_block, endblock=end_block, force_storing=force, quiet=quiet, debug=debug)
@@ -318,21 +324,28 @@ def show_locators(value: str, quiet: bool=False, debug: bool=False):
     except AssertionError:
         if type(value) in (list, tuple):
             addresses = value
-            checktype = "addresses"
+            checktype = "address list"
         else:
             raise ei.PacliInputDataError("Incorrect format for value.")
 
     locators, last_checked_block = get_locator_data(address_list=addresses, debug=debug, show_hash=True)
     last_blockheight = provider.getblock(last_checked_block).get("height")
 
-    if checktype in ("token", "addresses") and len(locators) > 0 and locators[-1] > last_blockheight:
-        ei.print_red("WARNING: Only a part of the addresses related to this token were cached, or the caching was not consistent.")
-        ei.print_red("To get consistent results for the block exploring functions, cache this token or address list completely.")
-    if last_blockheight == 0:
+    if checktype in ("token", "address list"):
+        if not quiet:
+            related = "related to this token " if checktype == "token" else ""
+            addresses_printout = ", ".join(addresses)
+            print("Addresses {}: {}".format(related, addresses_printout))
+            if len(locators) > 0 and locators[-1] > last_blockheight:
+                ei.print_red("WARNING: Only a part of the addresses {}were cached, or the caching was not consistent.".format(related))
+                ei.print_red("To get consistent results for the block exploring functions, cache this {}.".format(checktype))
+    if last_blockheight == 0 and not quiet:
         if len(addresses) > 1:
-            ei.print_red("At least one address was completely uncached. Check addresses individually for details.")
+            ei.print_red("NOTE: At least one address was never cached. Check addresses individually for details.")
+            ei.print_red("If you cache this token, the caching process could start from the genesis block or the first accepted block for gateway/burn transactions (AT and PoB tokens) or the deck spawn block (other tokens).")
         else:
-            ei.print_red("This address was never cached.")
+            print("This address was never cached. No entry in blocklocator.json.")
+            return
 
     commonly = "commonly " if len(addresses) > 1 else ""
 

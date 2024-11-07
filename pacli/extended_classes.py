@@ -82,10 +82,10 @@ class ExtConfig:
                and ensures the original commands and their flags work as expected.
                Please refer to the original PeerAssets README.
 
-           pacli config set CATEGORY -f
+           pacli config set CATEGORY -f [--now]
 
-               Flush (delete) the contents of an entire category. Requires confirmation.
-               Useful when switching to a new wallet file. In this case flush the 'address' category.
+               Flush (delete) the contents of an entire category. Requires --now, otherwise it will perform a dry run.
+               Useful when switching to a new wallet file, to renew the 'address' category.
 
            Notes:
 
@@ -106,7 +106,7 @@ class ExtConfig:
              replace: Replaces the value of a setting (mandatory to change settings in basic configuration file).
              modify: Modify the label of a setting (only extended configuration file).
              delete: Delete a setting (only extended configuration file).
-             now: Really delete a setting, in combination with -d/--delete.
+             now: Really delete (in combination with -d, -f) a setting or change a basic setting if compatibility mode is off.
              quiet: Suppress output, printout in script-friendly way.
              value: To be used as a positional argument (flag keyword is not mandatory), see 'Usage modes' above.
              compatibility_mode: Enable or disable compatibility mode. See Usage modes.
@@ -131,8 +131,6 @@ class ExtConfig:
             category = label
             if not quiet:
                 print("WARNING: This deletes the whole content of category '{}' in the extended configuration file.".format(category))
-                print("A backup is highly recommended.")
-                ei.confirm_continuation()
             return ce.flush(category, quiet=quiet, now=now)
 
         if category is not None:
@@ -176,8 +174,9 @@ class ExtConfig:
                 ei.print_red("WARNING: Changing most of these settings can make pacli unusable or lead to strange errors!\nOnly change these settings if you know what you are doing.")
                 print("If this happens, change pacli.conf (located in {}) manually.".format(conf_dir))
                 print("It is always advisable to make a backup of pacli.conf before any setting is changed.")
-                if not ei.confirm_continuation():
-                    print("Aborted.")
+                # if not ei.confirm_continuation():
+                if not now:
+                    print("This is a dry run. Use --now to really change the setting.")
                     return
 
         write_settings(label, str(value))
@@ -308,22 +307,24 @@ class ExtConfig:
 
         ce.update_categories(quiet=quiet)
 
-    def default(self, quiet: bool=False):
+    def default(self, quiet: bool=False, now: bool=False):
         """Revert the basic configuration file back to default configuration.
 
         Usage:
 
-            pacli config default
+            pacli config default [--now]
 
         NOTE: The extended configuration file has no default setting, so it will not be modified.
 
         Args:
 
-          quiet: Suppress output."""
+          quiet: Suppress output.
+          now: Confirm the return to the default confirmation."""
 
         if (quiet is False) and (Settings.compatibility_mode != "True"):
             print("WARNING: Returning to the default configuration can make Pacli unusable.\nYou will have to enter your RPC credentials again in pacli.conf.")
-            if not ei.confirm_continuation():
+            if not now:
+                print("This is a dry run. Use --now to really return to the default confirmation.")
                 return
 
         write_default_config(conf_file)
@@ -722,26 +723,33 @@ class ExtAddress:
 
            Usage:
 
-               pacli address cache ADDRESS
+               pacli address cache ADDRESS [--force]
 
            Scans the blockchain and stores the blockheights where the address received or sent funds.
            The address can be identified by itself or by an address label.
+           If used with -s and there are gaps between caching phases, i.e. your start block is higher than the last checked block, you have to add --force to proceed. Use with caution!
 
                pacli address cache "[ADDRESS1, ADDRESS2, ...]"
 
            Cache various addresses. The quotation marks and the brackets are mandatory (Python list format).
 
                pacli address cache ADDRESS -v
+               pacli address cache "[ADDRESS1, ADDRESS2, ...]" -v
 
-           View the currently cached block locators for a single address (lists are not supported).
+           View the currently cached block locators for a single address or list of addresses.
            Block locators show the heights of transactions to/from the addresses.
+
+               pacli address cache ADDRESS -e [--force]
+
+           Delete the state of the address ADDRESS.
+           Add --force to really delete it, otherwise a dry run is performed.
 
            Args:
 
              startblock: Block to start the cache process. Use this parameter if you know when the address was first used.
              blocks: Number of blocks to scan. Can be used as a positional argument. Default: 50000 blocks (ignored in combination with -c).
              chain: Scans without block limit (up to the whole blockchain). WARNING: Can take several hours up to days!
-             force: Store the blocks even if there are gaps between caching phases, i.e. your start block is higher than the last checked block. Use with caution!
+             force: Ignore warnings and proceed. See Usage modes.
              erase: Delete address entry in blocklocator.json. To be used when the locator data is faulty or inconsistent.
              quiet: Suppress output.
              debug: Show additional debug information.
@@ -772,7 +780,7 @@ class ExtAddress:
             raise ei.PacliInputDataError("No valid address(es) entered.")
 
         if erase is True:
-            return bu.erase_locator_entries(addresses) # TODO: improve this allowing startblock and endblock.
+            return bu.erase_locator_entries(addresses, force=force, quiet=quiet, debug=debug) # TODO: improve this allowing startblock and endblock.
         elif view is True:
             return bx.show_locators(value=addresses, quiet=quiet, debug=debug)
         else:
@@ -1374,7 +1382,7 @@ class ExtCard:
             return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=labels, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
-    def transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, quiet: bool=False, debug: bool=False):
+    def transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1397,6 +1405,7 @@ class ExtCard:
           quiet: Suppress output and printout in a script-friendly way.
           debug: Show additional debug information.
           nocheck: Do not perform a balance check (faster).
+          force: Ignore warnings (reorg check etc.) and create the transaction if possible (be careful!).
           sign: Signs the transaction (True by default, use --send=False for a dry run)
           send: Sends the transaction (True by default, use --send=False for a dry run)
         """
@@ -1407,7 +1416,7 @@ class ExtCard:
         return ei.run_command(self.__transfer, **kwargs)
 
 
-    def __transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, quiet: bool=False, debug: bool=False):
+    def __transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
 
         sign, send = eu.manage_send(sign, send)
 
@@ -1439,6 +1448,7 @@ class ExtCard:
                                  sign=sign,
                                  send=send,
                                  balance_check=balance_check,
+                                 force=force,
                                  verify=verify,
                                  debug=debug
                                  )

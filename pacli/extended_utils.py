@@ -60,7 +60,7 @@ def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward:
         raise ei.PacliInputDataError("Invalid address.")
     return data
 
-def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change,
+def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change, force: bool=False,
                         confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, debug: bool=False) -> None:
     """Alternative function for deck spawns. Allows p2pk inputs."""
 
@@ -88,7 +88,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
                           locktime=locktime
                           )
 
-    return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, send=send)
+    return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, ignore_checkpoint=force, send=send)
 
 
 def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, quiet: bool=False, no_label: bool=True, debug: bool=False):
@@ -266,8 +266,8 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
     if not ignore_checkpoint and (send is True):
         # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
         from pacli.extended_checkpoints import reorg_check, store_checkpoint
-        if reorg_check(quiet=quiet) and not ei.confirm_continuation():
-            return
+        if reorg_check(quiet=quiet):
+            raise ei.PacliInputDataError("Reorg check failed. If you want to create the transaction anyway, use the command's --force / --ignore_warnings options if available.")
 
         store_checkpoint(quiet=quiet)
 
@@ -393,7 +393,7 @@ def get_input_types(rawtx):
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
-                 sign: bool=False, send: bool=False, balance_check: bool=False, debug: bool=False, quiet: bool=False, confirm: bool=False) -> Optional[dict]:
+                 sign: bool=False, send: bool=False, balance_check: bool=False, debug: bool=False, force: bool=False, quiet: bool=False, confirm: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
 
     if not deck:
@@ -432,7 +432,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     except InsufficientFunds:
         raise ei.PacliInputDataError("Insufficient funds.")
 
-    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, confirm=confirm, debug=debug)
+    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
 
 def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, debug: bool=False) -> list:

@@ -237,5 +237,6 @@ def reorg_check(quiet: bool=False) -> None:
             print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
             print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
             print("Make sure you check token balances and other states.")
-        else:
-            return 1
+        return 1
+
+

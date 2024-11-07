@@ -36,6 +36,7 @@ class PoDToken():
                    number_of_decimals=2,
                    change: str=Settings.change,
                    wait_for_confirmation: bool=False,
+                   ignore_warnings: bool=False,
                    verify: bool=False,
                    sign: bool=True,
                    send: bool=True,
@@ -55,6 +56,7 @@ class PoDToken():
           number_of_decimals: Number of decimals of the token (default: 2).
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
+          ignore_warnings: Ignore all warnings and create transaction anyway (be careful!).
           sign: Sign the transaction (False by default).
           send: Send the transaction (False by default).
           locktime: Lock the transaction until a block or a time (not recommended, buggy in SLM).
@@ -66,7 +68,7 @@ class PoDToken():
         change_address = ec.process_address(change, debug=debug)
 
         return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
-                             change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data,
+                             change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data, force=ignore_warnings,
                              confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
 
@@ -142,7 +144,7 @@ class PoDToken():
           quiet: Suppress output.
           txhex: Print out the transaction as a HEX string.
           debug: Show additional debug information.
-          force: Create the transaction even if the reward does not match the transaction (only for debugging!).
+          force: Create the transaction even if the reward does not match the transaction or other warnings like the reorg check are displayed (be careful!).
         """
         # TODO add payto/payamount like in attoken/pobtoken claim
 
@@ -161,7 +163,7 @@ class PoDToken():
 
         asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=state, proposer=proposer, force=force, debug=debug, quiet=quiet)
 
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, force=force, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
         return ei.output_tx(tx, txhex=txhex)
 
 
@@ -802,7 +804,7 @@ class Proposal:
 
     # Tracked Transactions in Proposal class
 
-    def create(self, identifier: str, req_amount: str=None, periods: int=None, intro: str="", change: str=Settings.change, tx_fee: str="0.01", modify: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False) -> None:
+    def create(self, identifier: str, req_amount: str=None, periods: int=None, intro: str="", change: str=Settings.change, tx_fee: str="0.01", modify: bool=False, force: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False) -> None:
         """Creates a new proposal.
 
         Usage modes:
@@ -833,6 +835,7 @@ class Proposal:
           tx_fee: Set custom transaction fee.
           wait_for_confirmation: Wait for a confirmation and show a message until then.
           verify: Verify transaction with Cointoolkit (Peercoin only).
+          force: Create transaction even if the reorg check fails.
           quiet: Only output the transaction hexstring (script-friendly).
           debug: Display debugging information.
           req_amount: Requested amount. To be used as positional argument (flag name not necessary). See Usage modes.
@@ -853,7 +856,7 @@ class Proposal:
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
 
-    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, wait_for_confirmation: bool=False, match_round: bool=False, quiet: bool=False, level_security: int=1, debug: bool=False) -> None:
+    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, wait_for_confirmation: bool=False, match_round: bool=False, quiet: bool=False, level_security: int=1, debug: bool=False) -> None:
         """Vote (with "yes" or "no") for a proposal.
 
         Usage:
@@ -869,6 +872,7 @@ class Proposal:
           level_security: Security level.
           wait_for_confirmation: Wait for a confirmation and show a message until then.
           match_round: Wait for the next suitable voting round to broadcast the transaction.
+          force: Create transaction even if the reorg check fails.
           verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information."""
@@ -905,7 +909,7 @@ class Donation:
           verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information.
-          force: Send the transaction even if some parameters are wrong (debugging option)."""
+          force: Send the transaction even if the reorg check fails or some parameters do not make sense."""
 
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
@@ -941,7 +945,7 @@ class Donation:
           verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information.
-          force: Send the transaction even if some parameters are wrong (debugging option).
+          force: Send the transaction even if the reorg check fails or some parameters do not make sense.
           destination: Address the funds will be locked at.
         """
 
@@ -975,7 +979,7 @@ class Donation:
           verify: Verify transaction with Cointoolkit (Peercoin only).
           quiet: Only display the transaction hexstring (script-friendly).
           debug: Display debugging information.
-          force: Send the transaction even if some parameters are wrong (debugging option).
+          force: Send the transaction even if the reorg check fails or some parameters do not make sense.
         """
 
         kwargs = locals()

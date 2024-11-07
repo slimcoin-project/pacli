@@ -20,6 +20,7 @@ class Swap:
             blockheight: bool=False,
             addrtype: str="p2pkh",
             change: str=Settings.change,
+            force: bool=False,
             wait_for_confirmation: bool=False,
             sign: bool=True,
             send: bool=True,
@@ -44,6 +45,7 @@ class Swap:
           addrtype: Address type (default: p2pkh)
           change: Specify a custom change address.
           wait_for_confirmation: Wait for the first confirmation of the transaction and display a message.
+          force: Create transaction even if the reorg check fails.
           quiet: Output only the transaction in hexstring format (script-friendly).
          """
 
@@ -54,7 +56,7 @@ class Swap:
             receiver_address = Settings.key.address
         else:
             receiver_address = ec.process_address(receiver)
-        return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
+        return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
     def create(self,
@@ -87,7 +89,7 @@ class Swap:
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save=label)
 
     @classmethod
-    def finalize(self, txstr: str, send: bool=True, confirm: bool=False):
+    def finalize(self, txstr: str, send: bool=True, force: bool=False, confirm: bool=False):
         """Signs and broadcasts an exchange transaction.
 
         Usage:
@@ -100,8 +102,9 @@ class Swap:
 
           send: Sends the transaction
           confirm: Waits for the transaction to confirm.
+          force: Creates the transaction even if the reorg check fails (use with caution!).
         """
-        return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, confirm=confirm)
+        return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, force=force, confirm=confirm)
 
     @classmethod
     def list_locks(self, idstr: str, blockheight: int=None, quiet: bool=False, debug: bool=False):

@@ -27,7 +27,7 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, change: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=True, send: bool=True, txhex: bool=False, quiet: bool=False, debug: bool=False):
+def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, change: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=True, send: bool=True, txhex: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
     change_address = Settings.change if change is None else change
@@ -72,7 +72,7 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
                              change_address=change_address,
                              )
 
-    return ei.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send, confirm=confirm), txhex=txhex)
+    return ei.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send, ignore_checkpoint=force, confirm=confirm), txhex=txhex)
 
 # main function to be changed:
 # - coinseller_address (formerly partner_address) is now the card receiver.
@@ -136,7 +136,7 @@ def build_input(input_txid: str, input_vout: int):
     return MutableTxIn(txid=input_txid, txout=input_vout, script_sig=ScriptSig.empty(), sequence=Sequence.max())
 
 
-def finalize_coin2card_exchange(txstr: str, confirm: bool=False, send: bool=False, txhex: bool=False):
+def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=False, send: bool=False, txhex: bool=False):
     quiet = True if True in (quiet, txhex) else False
     # this is signed by the coin vendor. Basically they add their input and solve it.
     network_params = net_query(provider.network)
@@ -149,7 +149,7 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, send: bool=Fals
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
-    return ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, confirm=confirm), txhex=txhex)
+    return ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm), txhex=txhex)
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False):
 

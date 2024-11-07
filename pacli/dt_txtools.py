@@ -139,7 +139,7 @@ def create_trackedtransaction(tx_type,
 
     rawtx = create_unsigned_trackedtx(params, basic_tx_data, force=force, quiet=quiet, debug=debug)
 
-    return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, quiet=txhex, confirm=wait_for_confirmation), txhex=txhex)
+    return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, quiet=txhex, ignore_checkpoint=force, confirm=wait_for_confirmation), txhex=txhex)
 
 
 def create_params(tx_type: str, **kwargs) -> dict:

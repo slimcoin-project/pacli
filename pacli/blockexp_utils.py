@@ -298,12 +298,12 @@ def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: 
             locator.store_blockheights(address, values, lastblockheight, lastblockhash=lastblockhash)
     locator.store(quiet=quiet, debug=debug)
 
-def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None, debug: bool=False):
+def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None, force: bool=False, debug: bool=False):
     if not quiet:
         print("Deleting block locator entries of addresses:", addresses)
-        print("Please type 'yes' to confirm.")
-        if not ei.confirm_continuation():
-            print("Aborted.")
+        # if not ei.confirm_continuation():
+        if not force:
+            print("This is a dry run. Use --force to really erase the entry of this address.")
             return
     locator = loc.BlockLocator.from_file(locatorfilename=filename)
     for address in addresses:
