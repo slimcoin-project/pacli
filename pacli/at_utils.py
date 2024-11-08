@@ -37,7 +37,7 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
 
 
 def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, quiet: bool=False, no_labels: bool=False, advanced: bool=False, wallet: bool=False, keyring: bool=False, debug: bool=False) -> list:
-    """Shows donation/burn/payment transactions made from the user's wallet."""
+    """Shows donation/burn/payment transactions."""
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).

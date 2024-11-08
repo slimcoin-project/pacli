@@ -15,7 +15,6 @@ from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
-import pacli.extended_constants as c
 import pacli.extended_interface as ei
 from pacli.provider import provider
 from pacli.config import Settings
@@ -435,17 +434,22 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
 
-def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, debug: bool=False) -> list:
+def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, allowed_senders: list=None, debug: bool=False) -> list:
     """Gets all valid CardIssues of a deck."""
     # NOTE: Sender no longer necessary.
     # TODO: seems the restriction to wallet does not work correctly, also other txes are shown.
 
-    if (only_wallet and not sender):
-        #p2th_accounts = get_p2th(accounts=True)
+    #if (only_wallet and not sender):
+        # p2th_accounts = get_p2th(accounts=True)
+
         #wallet_txids = set([t["txid"] for t in get_wallet_transactions(exclude=p2th_accounts)])
-        wallet_senders = get_wallet_address_set() - set(get_p2th())
-    else:
-        wallet_senders = []
+        # wallet_senders = get_wallet_address_set() - set(get_p2th())
+        # addresses = ec.get_labels_and_addresses(empty=True, exclude=get_p2th(), no_labels=True)
+        # wallet_senders = set([a["address"] for a in addresses])
+        # print(wallet_senders) ###
+    #else:
+    #    wallet_senders = []
+    wallet_senders = allowed_senders if (allowed_senders is not None and only_wallet) else []
 
     try:
 
@@ -554,93 +558,6 @@ def get_wallet_token_balances(deck: object, addresses: list=None, address_dicts:
             balances.update({address : balance})
     if not address_dicts: # if the address_dict is given, returning it is not necessary.
         return balances
-
-def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim_tx: str=None, wallet: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
-    '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
-    # NOTE: added new "basic" mode, like quiet with simplified dict, but with printouts.
-    # TODO make sure the -w mode is as strict as in the other transaction list modes! (exclude P2TH)
-
-    if (donation_txid and not is_possible_txid(donation_txid) or
-        claim_tx and not is_possible_txid(claim_tx)):
-        raise ei.PacliInputDataError("Invalid transaction ID.")
-
-    if deck_str is None:
-        raise ei.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
-
-    if quiet or basic:
-        param_names = {"txid" : "txid", "amount": "amount", "sender" : "sender", "receiver" : "receiver", "blocknum" : "blockheight"}
-    else:
-        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "sender" : "Sender", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
-
-    deckid = search_for_stored_tx_label("deck", deck_str, quiet=quiet)
-    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-
-    if "at_type" not in deck.__dict__:
-        raise ei.PacliInputDataError("{} is not a DT/dPoD or AT/PoB token.".format(deckid))
-
-    if deck.at_type == 2:
-        if deck.at_address == c.BURN_ADDRESS[provider.network]:
-            dtx_param = "burn_tx" if (quiet or basic) else "Burn transaction"
-            token_type = "PoB"
-        else:
-            # AssertionError gets thrown by a non-PoB AT token, AttributeError by dPoD token
-            # param_names.update({"donation_txid" : "Gateway transaction"})
-            dtx_param = "gateway_tx" if (quiet or basic) else "Gateway transaction"
-            token_type = "AT"
-    elif deck.at_type == 1:
-        dtx_param = "donation_tx" if (quiet or basic) else "Donation transaction"
-        token_type = "dPoD"
-    if debug:
-        #    token_type = "dPoD" if type(e) == AttributeError else "AT"
-        print("{} token detected.".format(token_type))
-
-    param_names.update({"donation_txid" : dtx_param})
-
-    raw_claims = get_valid_cardissues(deck, sender=address, only_wallet=wallet)
-    if claim_tx is None:
-        claim_txids = set([c.txid for c in raw_claims])
-    else:
-        claim_txids = [claim_tx]
-    if debug and not claim_tx:
-        print("{} claim transactions found.".format(len(claim_txids)))
-    claims = []
-
-    for claim_txid in claim_txids:
-
-        bundle = [c for c in raw_claims if c.txid == claim_txid]
-        if not bundle:
-            continue
-        claim = bundle[0]
-        if donation_txid is not None and claim.donation_txid != donation_txid:
-            continue
-
-        if len(bundle) > 1:
-            for b in bundle[1:]:
-                claim.amount.append(b.amount[0])
-                claim.receiver.append(b.receiver[0])
-        claims.append(claim)
-
-    if full:
-        result = [c.__dict__ for c in claims]
-    elif param:
-        # TODO: this now is unnecessary based on the transaction list command
-        # re-check other commands
-        try:
-            result = [{ claim.txid : claim.__dict__.get(param) } for claim in claims]
-        except KeyError:
-            raise ei.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
-    else:
-        result = [{param_names["txid"] : claim.txid,
-                   param_names["donation_txid"] : claim.donation_txid,
-                   param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
-                   param_names["sender"] : claim.sender,
-                   param_names["receiver"] : claim.receiver,
-                   param_names["blocknum"] : claim.blocknum} for claim in claims]
-
-    if (not quiet) and len(result) == 0:
-        print("No claim transactions found.")
-
-    return result
 
 # Misc tools
 

@@ -4,6 +4,8 @@ import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.config_extended as ce
+import pacli.extended_constants as c
+from pypeerassets.pautils import exponent_to_amount
 from pacli.config import Settings
 from pacli.provider import provider
 
@@ -196,85 +198,6 @@ def delete_label(label: str, network_name: str=Settings.network, keyring: bool=F
             print("Dry run: label {} of network {} to delete. Delete with --now.".format(label, network_name))
     else:
         ce.delete("address", label, now=now)
-
-
-"""def show_addresses(addrlist: list, label_list: list, network: str=Settings.network, debug=False):
-    # This function "synchronizes" labels and addresses given as lists.
-    # Useful if we have an option where we can alternatively input addresses and labels.
-    # TODO probably obsolete.
-    if len(addrlist) != len(label_list):
-        raise ValueError("Both lists must have the same length.")
-    result = []
-    for lpos in range(len(label_list)):
-        if addrlist[lpos] == None:
-            if label_list[lpos] is None: # if both values are None, they stay None.
-                adr = None
-            else:
-                adr = show_stored_address(label_list[lpos], network_name=network)
-                if debug: print("Address", adr, "got from label", label_list[lpos])
-        else:
-            adr = addrlist[lpos]
-        result.append(adr)
-    return result"""
-
-def get_labels_and_addresses_old(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False) -> dict:
-    """Returns a dict of all labels and addresses which were stored.
-       Addresses without label are not included if "named" is True."""
-
-    if not keyring:
-        result = ce.list("address", prefix=prefix, quiet=True)
-        if include_only:
-            result = {k : result[k] for k in result if result[k] in include_only}
-
-    else:
-        result = {}
-
-        try:
-            keyring_labels = ke.get_labels_from_keyring(prefix)
-        except ImportError:
-            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
-
-        for label in keyring_labels:
-            address = show_stored_address(label=label, noprefix=True, keyring=True)
-            if include_only and (address not in include_only):
-                continue
-            label = label[4:] # wipes key_ out.
-            result.update({label : address})
-
-
-    if mark_duplicates:
-       result2 = {}
-       for l, a in result.items():
-           if a in result2.values():
-               l = l + "[D]"
-           result2.update({l : a})
-       result = result2
-
-    if not named:
-        counter = 0
-        if include_only:
-            wallet_addresses = set(include_only)
-        else:
-            wallet_addresses = eu.get_wallet_address_set(empty=empty)
-
-        if exclude:
-            wallet_addresses -= set(exclude)
-
-        wallet_addresses = sorted(list(wallet_addresses))
-
-        for address in wallet_addresses:
-            if address not in result.values():
-                if empty is False:
-                    if provider.getbalance(address) == 0:
-                        continue
-
-                label = "{}_(unlabeled{})".format(prefix, str(counter))
-
-                result.update({ label : address })
-
-                counter += 1
-
-    return result
 
 def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False, labels: bool=False, full_labels: bool=False, no_labels: bool=False, balances: bool=False, network: bool=False, debug: bool=False) -> list:
     """Returns a dict of all labels and addresses which were stored.
@@ -599,3 +522,95 @@ def find_tx_senders(tx: dict) -> list:
         except KeyError: # coinbase transactions
             continue
     return senders
+
+def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim_tx: str=None, wallet: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
+    '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
+    # NOTE: added new "basic" mode, like quiet with simplified dict, but with printouts.
+
+    if (donation_txid and not eu.is_possible_txid(donation_txid) or
+        claim_tx and not eu.is_possible_txid(claim_tx)):
+        raise ei.PacliInputDataError("Invalid transaction ID.")
+
+    if deck_str is None:
+        raise ei.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
+
+    if quiet or basic:
+        param_names = {"txid" : "txid", "amount": "amount", "sender" : "sender", "receiver" : "receiver", "blocknum" : "blockheight"}
+    else:
+        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "sender" : "Sender", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
+
+    deckid = eu.search_for_stored_tx_label("deck", deck_str, quiet=quiet)
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+
+    if "at_type" not in deck.__dict__:
+        raise ei.PacliInputDataError("{} is not a DT/dPoD or AT/PoB token.".format(deckid))
+
+    if deck.at_type == 2:
+        if deck.at_address == c.BURN_ADDRESS[provider.network]:
+            dtx_param = "burn_tx" if (quiet or basic) else "Burn transaction"
+            token_type = "PoB"
+        else:
+            # AssertionError gets thrown by a non-PoB AT token, AttributeError by dPoD token
+            # param_names.update({"donation_txid" : "Gateway transaction"})
+            dtx_param = "gateway_tx" if (quiet or basic) else "Gateway transaction"
+            token_type = "AT"
+    elif deck.at_type == 1:
+        dtx_param = "donation_tx" if (quiet or basic) else "Donation transaction"
+        token_type = "dPoD"
+    if debug:
+        #    token_type = "dPoD" if type(e) == AttributeError else "AT"
+        print("{} token detected.".format(token_type))
+
+    param_names.update({"donation_txid" : dtx_param})
+
+    if wallet:
+        addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th())
+        wallet_senders = set([a["address"] for a in addresses])
+        raw_claims = eu.get_valid_cardissues(deck, only_wallet=wallet, allowed_senders=wallet_senders)
+    else:
+        raw_claims = eu.get_valid_cardissues(deck, sender=address)
+
+    if claim_tx is None:
+        claim_txids = set([c.txid for c in raw_claims])
+    else:
+        claim_txids = [claim_tx]
+    if debug and not claim_tx:
+        print("{} claim transactions found.".format(len(claim_txids)))
+    claims = []
+
+    for claim_txid in claim_txids:
+
+        bundle = [c for c in raw_claims if c.txid == claim_txid]
+        if not bundle:
+            continue
+        claim = bundle[0]
+        if donation_txid is not None and claim.donation_txid != donation_txid:
+            continue
+
+        if len(bundle) > 1:
+            for b in bundle[1:]:
+                claim.amount.append(b.amount[0])
+                claim.receiver.append(b.receiver[0])
+        claims.append(claim)
+
+    if full:
+        result = [c.__dict__ for c in claims]
+    elif param:
+        # TODO: this now is unnecessary based on the transaction list command
+        # re-check other commands
+        try:
+            result = [{ claim.txid : claim.__dict__.get(param) } for claim in claims]
+        except KeyError:
+            raise ei.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
+    else:
+        result = [{param_names["txid"] : claim.txid,
+                   param_names["donation_txid"] : claim.donation_txid,
+                   param_names["amount"] : [exponent_to_amount(a, claim.number_of_decimals) for a in claim.amount],
+                   param_names["sender"] : claim.sender,
+                   param_names["receiver"] : claim.receiver,
+                   param_names["blocknum"] : claim.blocknum} for claim in claims]
+
+    if (not quiet) and len(result) == 0:
+        print("No claim transactions found.")
+
+    return result
