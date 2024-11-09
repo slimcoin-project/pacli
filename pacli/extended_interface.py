@@ -18,7 +18,7 @@ def output_tx(txdict: dict, txhex: bool=False) -> object:
 
 
 def print_red(text: str) -> None:
-    print("\033[91m {}\033[00m" .format(text))
+    print("\033[91m{}\033[00m".format(text))
 
 def run_command(c, *args, **kwargs) -> object:
     # Unified exception handling for PacliInputDataError and other exceptions.

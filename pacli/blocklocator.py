@@ -12,8 +12,7 @@ from pacli.provider import provider
 
 LOCATORFILE = os.path.join(conf_dir, "blocklocator.json")
 
-# TODO do we need a "start" parameter too?
-# Normally we could say that the start parameter is always the lowest block.
+# NOTE: start and discontinuous attributes from BlockLocatorAddress will only be stored if necessary.
 
 class BlockLocator:
 
@@ -40,7 +39,8 @@ class BlockLocator:
         try:
             with open(locatorfilename, "r") as locatorfile:
                 try:
-                    return cls(json.load(locatorfile))
+                    param_dict = json.load(locatorfile)
+                    return cls(param_dict)
                 except json.JSONDecodeError as e:
                     if len(locatorfile.read()) == 0:
                         if not quiet:
@@ -81,11 +81,12 @@ class BlockLocator:
         with open(self.filename, "w") as locatorfile:
             json.dump(self.to_dict(), locatorfile)
 
-    def store_blockheights(self, address: str, heights: list, lastblockheight: int, lastblockhash: str=None, quiet: bool=False, debug: bool=False):
+    def store_blockheights(self, address: str, heights: list, lastblockheight: int, startheight: int=0, lastblockhash: str=None, quiet: bool=False, debug: bool=False):
         """Updates block heights of an address in the locator file."""
         # Storage should be done always at the end of a block exploring step.
-        # locator = get_locator(quiet=quiet)
+        # discontinuous attribute is stored in this step.
 
+        discontinuous = False
         if address in self.addresses:
             last_stored_height = self.addresses[address].lastblockheight
             # prevents block heights being overwritten
@@ -99,12 +100,17 @@ class BlockLocator:
                 if debug:
                     print("Lastblockheight {} ignored for address {}: highest stored block {} is higher and becomes new lastblockheight.".format(lastblockheight, address, max_height))
                 lastblockheight, lastblockhash = max_height, None
+            if startheight > (last_stored_height + 1):
+                if debug:
+                    print("Address {} marked as discontinuously scanned: Last stored height was {}, but the last scanning process started at block {}.".format(address, lastblockheight, startheight))
+                discontinuous = True
 
             self.addresses[address].update_lastblock(lastblockheight=lastblockheight, lastblockhash=lastblockhash)
+            if discontinuous:
+                self.addresses[address].discontinuous = discontinuous
         else:
             existing_heights = []
-            # locator.update({address : {"heights" : [], "last" : 0})
-            self.addresses.update({address : BlockLocatorAddress.empty(lastblockhash=lastblockhash)})
+            self.addresses.update({address : BlockLocatorAddress.empty(lastblockhash=lastblockhash, startheight=startheight)})
 
         new_heights = []
 
@@ -116,10 +122,7 @@ class BlockLocator:
 
         heights = existing_heights + new_heights
         heights.sort()
-        # locator[address]["last"] = lastblock
-
         self.addresses[address].heights = heights
-
 
     def prune_orphans(self, cutoff_height: int):
         """Prunes all block heights above a defined cutoff height.
@@ -133,30 +136,60 @@ class BlockLocator:
                 self.address[address].heights = new_heights
         # store_locator(locator, quiet=quiet)
 
+    def get_address_data(self, address_list: list) -> tuple:
+        # returns a list of all block heights of the address list and the last block
+        heights = []
+        lastblocks = []
+        for address in address_list:
+            if (address is not None) and (address in self.addresses):
+                heights +=  self.addresses[address].heights
+                lastblocks.append(self.addresses[address].lastblockheight)
+        if heights:
+            heights.sort()
+        if lastblocks:
+            lastblock = min(lastblocks)
+        else:
+            lastblock = 0
+        return heights, lastblock
+
 
 class BlockLocatorAddress:
 
-    def __init__(self, heights: list, lastblockhash: str=None, lastblockheight: int=0):
+    def __init__(self, heights: list, startheight: int=0, discontinuous: bool=False, lastblockhash: str=None, lastblockheight: int=0):
         # Can be initialized with block height or block hash.
         # Hash is stored in the file.
         self.heights = heights
+        self.startheight = startheight
+        self.discontinuous = discontinuous
         self.update_lastblock(lastblockhash=lastblockhash, lastblockheight=lastblockheight)
 
 
     @classmethod
-    def empty(cls, lastblockhash: str=""):
+    def empty(cls, lastblockhash: str="", startheight: int=None, discontinuous: bool=False):
         # Returns empty BlockLocatorAddress
-        return cls(heights=[], lastblockhash=lastblockhash)
+        kwargs = {}
+        if startheight is not None:
+            kwargs.update({"startheight" : startheight})
+        if discontinuous is True:
+            kwargs.update({"discontinuous" : True})
+        return cls(heights=[], lastblockhash=lastblockhash, **kwargs)
 
     def to_dict(self):
         result = {"heights" : self.heights, "lastblock" : self.lastblockhash}
-        #if lastblockheight:
-        #    result.update({"lastblock" : lastblockheight})
+        if self.startheight:
+            result.update({"startheight" : self.startheight})
+        if self.discontinuous:
+            result.update({"discontinuous" : self.discontinuous})
         return result
 
     @classmethod
     def from_dict(cls, addr_dict):
-        return cls(heights=addr_dict["heights"], lastblockhash=addr_dict["lastblock"])
+        startheight = addr_dict["startheight"] if "startheight" in addr_dict else 0
+        discontinuous = addr_dict["discontinuous"] if "discontinuous" in addr_dict else False
+        return cls(heights=addr_dict["heights"],
+                  startheight=startheight,
+                  discontinuous=discontinuous,
+                  lastblockhash=addr_dict["lastblock"])
 
     def update_lastblock(self, lastblockheight: int=None, lastblockhash: str=None):
 
