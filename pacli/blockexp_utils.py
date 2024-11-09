@@ -61,10 +61,9 @@ def show_txes_by_block(sending_addresses: list=[],
         address_blocks = get_address_blockheights(address_list, locator=locator)
 
     if use_locator:
-        if locator is not None:
-            loc_blockheights, last_checked_block = locator.get_address_data(address_list)
-        else:
-            loc_blockheights, last_checked_block = get_locator_data(address_list, quiet=quiet)
+        if locator is None:
+            locator = get_default_locator()
+        loc_blockheights, last_checked_block = locator.get_address_data(address_list, debug=debug)
 
         if endblock > last_checked_block:
 
@@ -95,9 +94,6 @@ def show_txes_by_block(sending_addresses: list=[],
 
     else:
         blockheights = blockrange
-
-    if locator_list:
-        receiving_address = None # TODO re-check if still necessary. Probably prevented one of the branches of the complex if-else tree before ...
 
     for bh in blockheights:
         #if bh < startblock:
@@ -270,41 +266,6 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
 
     return result
 
-
-def get_locator_data(address_list: list, filename: str=None, show_hash: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False):
-    # Note: This command "unifies" the data for several addresses, i.e. it doesn't differentiate per address.
-    # Note: added advanced mode which returns the data per address.
-    # TODO: Deprecated, to be replaced with BlockLocator().get_address_data()
-
-    if not address_list:
-        raise ei.PacliInputDataError("If you use the locator feature you have to provide address(es) or deck/tokens.")
-    locator = loc.BlockLocator.from_file(locatorfilename=filename)
-    raw_blockheights = []
-    last_checked_blocks = {}
-    loc_dict = {}
-    for addr in address_list:
-        if addr is not None:
-            loc_addr = locator.get_address(addr)
-            # loc_dict.update({addr : loc_addr.__dict__})
-            if advanced:
-                loc_dict.update({addr : loc_addr}) # BlockLocatorAddress object
-            raw_blockheights += loc_addr.heights
-            last_checked_blocks.update({loc_addr.lastblockheight : loc_addr.lastblockhash})
-            # warning for discontinuous caching:
-            if loc_addr.discontinuous is True and not quiet:
-                print("WARNING: Address {} was not continuously cached. Exercise caution when interpreting command results.".format(addr))
-
-    blockheights = list(set(raw_blockheights))
-    blockheights.sort()
-    last_blockheight = min(last_checked_blocks.keys()) # returns the last commonly checked block for all addresses.
-
-    if advanced:
-        return loc_dict
-    elif show_hash:
-        last_blockhash = last_checked_blocks[last_blockheight]
-        return (blockheights, last_blockhash)
-    else:
-        return (blockheights, last_blockheight)
 
 def get_default_locator():
     return loc.BlockLocator.from_file()

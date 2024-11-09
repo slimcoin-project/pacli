@@ -136,7 +136,7 @@ class BlockLocator:
                 self.address[address].heights = new_heights
         # store_locator(locator, quiet=quiet)
 
-    def get_address_data(self, address_list: list) -> tuple:
+    def get_address_data(self, address_list: list, debug: bool=False) -> tuple:
         # returns a list of all block heights of the address list and the last block
         heights = []
         lastblocks = []

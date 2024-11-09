@@ -10,7 +10,7 @@ import pacli.extended_commands as ec
 import pacli.at_utils as au
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.blockexp_utils import show_txes_by_block, date_to_blockheight, get_tx_structure, get_locator_data, store_locator_data, get_default_locator, erase_locator_entries
+from pacli.blockexp_utils import show_txes_by_block, date_to_blockheight, get_tx_structure, store_locator_data, get_default_locator, erase_locator_entries
 
 # higher level block exploring utilities are now bundled here
 
@@ -161,9 +161,8 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
     if debug:
         print("Addresses to store", addresses)
 
-    # blockheights, lastblock = get_locator_data(addresses, quiet=quiet)
     locator = get_default_locator()
-    blockheights, lastblock = locator.get_address_data(addresses)
+    blockheights, lastblock = locator.get_address_data(addresses, debug=debug)
     if debug:
         print("Locator data:", blockheights, lastblock)
 
@@ -218,9 +217,8 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     # An exception could be made for addresses in the wallet.
     if not quiet:
         print("Storing blockheight locators for addresses:", addresses)
-    # blockheights, lastblock = get_locator_data(addresses, quiet=quiet)
     locator = get_default_locator()
-    blockheights, lastblock = locator.get_address_data(addresses)
+    blockheights, lastblock = locator.get_address_data(addresses, debug=debug)
 
     if debug:
         print("Locator data (heights, last block):", blockheights, lastblock)
@@ -286,7 +284,8 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
 
     # If no lastblockheight is given, it uses the last already checked block.
     if lastblockheight is None:
-        lastblockheight = get_locator_data(address_list)[1]
+        loc = get_default_locator()
+        lastblockheight = loc.get_address_data(address_list, debug=debug)[1]
 
     print("Last blockheight checked", lastblockheight)
 
