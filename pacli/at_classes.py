@@ -16,7 +16,7 @@ from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATTokenBase():
 
-    def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, force: bool=False, debug: bool=False, no_confirmation: bool=False) -> str:
+    def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, force: bool=False, debug: bool=False, optimize: bool=False) -> str:
 
         amount = Decimal(str(amount))
         if (amount == 0) or (amount < 0):
@@ -39,28 +39,33 @@ class ATTokenBase():
                 raise ei.PacliInputDataError("Token distribution has not started yet. Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
 
             min_token_amount = Decimal(str(10 ** -deck.number_of_decimals))
-            if (amount % min_token_amount) > 0 and (not quiet) and (not force):
+            print(min_token_amount, amount % min_token_amount) ###
+            if (amount % min_token_amount) > 0:
                 optimized_amount = (amount // min_token_amount) * min_token_amount
-                print("NOTE: You are spending an amount which will not be fully credited due to the number of decimals the token offers.")
-                print("Do you want to optimize the reward spending exactly {} coins?".format(optimized_amount))
-                print("Enter 'y', 'Y' or 'yes' to optimize, 'n', 'N' or 'no' to continue with the original amount.")
-                print("A blank line, 'abort' or any other entry aborts the transaction.")
-                conf = input()
-                if conf in ("yes", "y", "Y"):
-                    print("Optimized amount.")
-                elif conf in ("no", "n", "N"):
-                    print("Continuing transaction as originally planned with {} coins.".format(amount))
+                if not quiet:
+                    print("NOTE: The original amount will not lead to an optimal reward.")
+                #print("Do you want to optimize the reward spending exactly {} coins?".format(optimized_amount))
+                #print("Enter 'y', 'Y' or 'yes' to optimize, 'n', 'N' or 'no' to continue with the original amount.")
+                #print("A blank line, 'abort' or any other entry aborts the transaction.")
+                #conf = input()
+                #if conf in ("yes", "y", "Y"):
+                if optimize:
+                    print("Optimized amount as chosen with the '--optimize' flag, reducing the amount slightly from {} to {}".format(amount, optimized_amount))
+                    amount = optimized_amount
+                # elif conf in ("no", "n", "N"):
+                elif force:
+                    print("Continuing transaction as originally planned, as chosen with the '--force' flag, with {} coins.".format(amount))
                 else:
-                    print("Aborting.")
+                    print("Aborting as no flag was selected for this situation.")
+                    print("If you want to optimize the amount, select the '--optimize' flag, if you prefer the original amount use '--force'.")
                     return
 
         else:
-            if (not no_confirmation) and (not force) and (not quiet):
+            if (not force) and (not quiet):
                 print("WARNING: If you send the coins directly to a gateway address, then possible incompatibilities (e.g. deadlines) will not be checked.")
                 print("Consider using the token ID or label/name as first argument instead.")
                 raise ei.PacliInputDataError("Rejected transaction creation. If you want to create the transaction anyway, use the --force option.")
-                #if not ei.confirm_continuation():
-                #    return
+
             address = ec.process_address(address_or_deck)
 
 
@@ -213,7 +218,7 @@ class ATToken(ATTokenBase):
 
     """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
 
-    def send_coins(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, force: bool=False, no_confirmation: bool=False) -> str:
+    def send_coins(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, force: bool=False, optimize: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
         The purpose of this command is to be able to use the address labels from Pacli,
         above all to make fast transactions to a tracked address of an AT token.
@@ -241,10 +246,10 @@ class ATToken(ATTokenBase):
           debug: Show additional debug information.
           address_or_deck: To be used as a positional argument (flag name not necessary).
           amount: To be used as a positional argument (flag name not necessary).
-          no_confirmation: Don't require a confirmation if no compatibility check (e.g. deadlines) is performed.
-          force: Create the transaction in all cases, even if some checks fail.'''
+          optimize: If used with a TOKEN, optimize amount sent to the gateway address if this leads to a better reward/investment ratio.
+          force: Create the transaction in all cases with the chosen parameters, even if the amount is not optimal or no compatibility check (e.g. deadlines) can be performed.'''
 
-        return ei.run_command(super()._create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=no_confirmation)
+        return ei.run_command(super()._create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, force=force, optimize=optimize)
 
 
 class PoBToken(ATTokenBase):
@@ -280,7 +285,7 @@ class PoBToken(ATTokenBase):
         return super().spawn(token_name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
 
-    def burn_coins(self, amount: str, idstr: str=None, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, idstr: str=None, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, optimize: bool=False, force: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address.
 
         Usage modes:
@@ -302,12 +307,13 @@ class PoBToken(ATTokenBase):
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only).
+          optimize: If used with a TOKEN, reduce amount set to the burn address if this leads to a better reward/investment ratio.
+          force: Create the transaction in all cases with the chosen parameters, even if the amount is not optimal or no compatibility check (e.g. deadlines) can be performed.
           quiet: Suppress output and print it out in a script-friendly way.
           debug: Show additional debug information."""
 
 
-        # return ei.run_command(self.__create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=no_confirmation)
         if idstr is None:
-            return ei.run_command(super()._create_tx, address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, no_confirmation=True)
+            return ei.run_command(super()._create_tx, address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)
         else:
-            return ei.run_command(super()._create_tx, address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)
+            return ei.run_command(super()._create_tx, address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, force=force, optimize=optimize, quiet=quiet, debug=debug)

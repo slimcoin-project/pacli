@@ -193,19 +193,6 @@ def add_address_identifier(item: dict, no_labels: bool=False, suppress_addresses
         addr_id = item["label"]
     item.update({"addr_identifier" : addr_id})
 
-
-def confirm_continuation(text: str=None) -> bool:
-    """UX element to confirm continuation entering 'yes'."""
-
-    text = "Enter 'yes' to confirm to continue" if text is None else text
-    print(text)
-    cont = input()
-    if cont == "yes":
-        return True
-    else:
-        return False
-
-
 def print_address_balances(address_item: dict) -> None:
     output_dict = {}
     #print("\nAddress: {}\n".format(address_item["addr_identifier"]))

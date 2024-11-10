@@ -44,11 +44,6 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     # MODIF: command now includes all non-P2TH addresses which are named.
     if wallet or (not sender and not no_labels):
         excluded_accounts = eu.get_p2th(accounts=True)
-
-        #if wallet:
-
-            # address_set = set([a["address"] for a in addresses])
-            # allowed_addresses = address_set - set(eu.get_p2th())
         excluded_addresses = eu.get_p2th() if wallet is True else []
         addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses)
         if wallet:
@@ -64,11 +59,14 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
             if debug:
                 print("Transactions you already claimed tokens for of this deck:", claimed_txes)
         try:
-
-            if tracked_address != deck.at_address:
-                raise ei.PacliInputDataError("Gateway address mismatch. Probably you are using a command for PoB tokens for an AT token. Please use the command/flag for AT tokens instead.")
             if not tracked_address:
                 tracked_address = deck.at_address
+            elif tracked_address != deck.at_address:
+                error_message = "Gateway address mismatch."
+                if tracked_address == burn_address():
+                    error_message += " Probably you are using a command for PoB tokens for an AT token. Please use the command/flag for AT tokens instead."
+                raise ei.PacliInputDataError(error_message)
+
 
             assert deck.at_type == c.ID_AT
 
@@ -297,7 +295,7 @@ def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool
     # TODO this could be simply removed and show_wallet_dtxes accessed directly with au.burn_address().
 
     if burns:
-         if not quiet:
+         if debug:
              print("Using burn address.")
          address = burn_address()
 
