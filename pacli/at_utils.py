@@ -43,7 +43,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).
     # MODIF: command now includes all non-P2TH addresses which are named.
     if wallet or (not sender and not no_labels):
-        excluded_accounts = eu.get_p2th(accounts=True)
+        excluded_accounts = eu.get_p2th(accounts=True) if wallet is True else []
         excluded_addresses = eu.get_p2th() if wallet is True else []
         addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses)
         if wallet:
@@ -81,7 +81,16 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         if not tracked_address:
             raise ei.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
-    raw_txes = eu.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
+    if tracked_address == burn_address():
+        burn_txes = get_burn_transactions(create_txes=True, debug=debug)
+        if debug:
+            print("{} burn transactions found.".format(len(burn_txes)))
+        # TODO: re-try this with several wallets!
+        # alternative:
+        # raw_txes = burn_txes + eu.get_wallet_transactions(debug=debug)
+        raw_txes = burn_txes
+    else:
+        raw_txes = eu.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
 
     if debug:
         print(len(raw_txes), "wallet transactions found.")
@@ -90,7 +99,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     processed_txids = []
     for tx in raw_txes:
         try:
-            assert tx["txid"] not in processed_txids ### RE-CHECK!
+            assert tx["txid"] not in processed_txids
             assert tx["category"] not in ("generate", "orphan")
             assert tx["address"] == tracked_address
             if wallet or sender:
@@ -286,6 +295,22 @@ def burn_address():
     if not provider.network.endswith("slm"):
         raise UnsupportedNetwork("Unsupported network for burn tokens.")
     return extc.BURN_ADDRESS[provider.network]
+
+def get_burn_transactions(create_txes: bool=False, debug: bool=False) -> list:
+    # EXPERIMENTAL. Seeks to complement the other tx tools.
+    burndata = provider.getburndata()
+    burntxes = []
+    burnaddr = burn_address()
+    for entry in burndata:
+        if "txid" in entry:
+            if create_txes:
+                tx_dict = {"txid" : entry["txid"],
+                           "category" : "burn",
+                           "address" : burnaddr}
+                burntxes.append(tx_dict)
+            else:
+                burntxes.append(entry["txid"])
+    return burntxes
 
 
 # API commands
