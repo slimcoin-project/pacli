@@ -35,6 +35,10 @@ def run_command(c, *args, **kwargs) -> object:
         result = c(*args, **kwargs)
         return result
 
+    except KeyboardInterrupt:
+        print("Aborted.")
+        sys.exit()
+
     except (PacliInputDataError, ValueExistsError, InsufficientFunds) as e:
 
         print_red("\nError: {}".format(e.args[0]))
