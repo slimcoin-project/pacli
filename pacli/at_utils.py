@@ -85,9 +85,6 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         burn_txes = get_burn_transactions(create_txes=True, debug=debug)
         if debug:
             print("{} burn transactions found.".format(len(burn_txes)))
-        # TODO: re-try this with several wallets!
-        # alternative:
-        # raw_txes = burn_txes + eu.get_wallet_transactions(debug=debug)
         raw_txes = burn_txes
     else:
         raw_txes = eu.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
@@ -140,7 +137,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     for tx in valid_txes:
 
-        txstruct = bu.get_tx_structure(tx=tx, tracked_address=tracked_address)
+        txstruct = bu.get_tx_structure(tx=tx, tracked_address=tracked_address, human_readable=False)
 
         if txstruct is None:
             continue
