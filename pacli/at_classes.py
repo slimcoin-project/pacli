@@ -39,25 +39,24 @@ class ATTokenBase():
                 raise ei.PacliInputDataError("Token distribution has not started yet. Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
 
             min_token_amount = Decimal(str(10 ** -deck.number_of_decimals))
-            print(min_token_amount, amount % min_token_amount) ###
+
             if (amount % min_token_amount) > 0:
                 optimized_amount = (amount // min_token_amount) * min_token_amount
                 if not quiet:
                     print("NOTE: The original amount will not lead to an optimal reward.")
-                #print("Do you want to optimize the reward spending exactly {} coins?".format(optimized_amount))
-                #print("Enter 'y', 'Y' or 'yes' to optimize, 'n', 'N' or 'no' to continue with the original amount.")
-                #print("A blank line, 'abort' or any other entry aborts the transaction.")
-                #conf = input()
-                #if conf in ("yes", "y", "Y"):
+
                 if optimize:
-                    print("Optimized amount as chosen with the '--optimize' flag, reducing the amount slightly from {} to {}".format(amount, optimized_amount))
+                    if not quiet:
+                        print("Optimized amount as chosen with the '--optimize' flag, reducing the amount slightly from {} to {}".format(amount, optimized_amount))
                     amount = optimized_amount
-                # elif conf in ("no", "n", "N"):
+
                 elif force:
-                    print("Continuing transaction as originally planned, as chosen with the '--force' flag, with {} coins.".format(amount))
+                    if not quiet:
+                        print("Continuing transaction as originally planned, as chosen with the '--force' flag, with {} coins.".format(amount))
                 else:
-                    print("Aborting as no flag was selected for this situation.")
-                    print("If you want to optimize the amount, select the '--optimize' flag, if you prefer the original amount use '--force'.")
+                    if not quiet:
+                        print("Aborting as no flag was selected for this situation.")
+                        print("If you want to optimize the amount, select the '--optimize' flag, if you prefer the original amount use '--force'.")
                     return
 
         else:
