@@ -566,7 +566,7 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
     if wallet:
         addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th())
         wallet_senders = set([a["address"] for a in addresses])
-        raw_claims = eu.get_valid_cardissues(deck, only_wallet=wallet, allowed_senders=wallet_senders)
+        raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, allowed_senders=wallet_senders)
     else:
         raw_claims = eu.get_valid_cardissues(deck, sender=address)
 

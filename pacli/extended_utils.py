@@ -436,19 +436,8 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
 def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, allowed_senders: list=None, debug: bool=False) -> list:
     """Gets all valid CardIssues of a deck."""
-    # NOTE: Sender no longer necessary.
-    # TODO: seems the restriction to wallet does not work correctly, also other txes are shown.
+    # NOTE: wallet restriction "outsourced". only_wallet = True works only with allowed_senders now.
 
-    #if (only_wallet and not sender):
-        # p2th_accounts = get_p2th(accounts=True)
-
-        #wallet_txids = set([t["txid"] for t in get_wallet_transactions(exclude=p2th_accounts)])
-        # wallet_senders = get_wallet_address_set() - set(get_p2th())
-        # addresses = ec.get_labels_and_addresses(empty=True, exclude=get_p2th(), no_labels=True)
-        # wallet_senders = set([a["address"] for a in addresses])
-        # print(wallet_senders) ###
-    #else:
-    #    wallet_senders = []
     wallet_senders = allowed_senders if (allowed_senders is not None and only_wallet) else []
 
     try:

@@ -1688,6 +1688,7 @@ class ExtTransaction:
             List token claim transactions.
             In standard mode, all claim transactions in the blockchain from all senders are shown.
             Alternatively they can be limited to those sent from wallet addresses (-w) or those sent from a specific ORIGIN_ADDRESS (-o) in the wallet.
+            Note: The -w option in this case will also include claim transactions from named addresses which are not part of the wallet.
             DECK can be a label or a deck ID.
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
 

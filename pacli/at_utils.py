@@ -55,7 +55,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         if unclaimed:
-            claimed_txes = get_claimed_txes(deck, sender, only_wallet=True)
+            claimed_txes = get_claimed_txes(deck, sender, only_wallet=False)
             if debug:
                 print("Transactions you already claimed tokens for of this deck:", claimed_txes)
         try:
