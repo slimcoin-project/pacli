@@ -61,7 +61,7 @@ class ATTokenBase():
                     return
 
         else:
-            if (not force) and (not quiet):
+            if (not force) and (not quiet) and (address_or_deck != au.burn_address()):
                 print("WARNING: If you send the coins directly to a gateway address, then possible incompatibilities (e.g. deadlines) will not be checked.")
                 print("Consider using the token ID or label/name as first argument instead.")
                 raise ei.PacliInputDataError("Rejected transaction creation. If you want to create the transaction anyway, use the --force option.")
@@ -314,6 +314,6 @@ class PoBToken(ATTokenBase):
 
 
         if idstr is None:
-            return ei.run_command(super()._create_tx, address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug)
+            return ei.run_command(super()._create_tx, address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, force=force, quiet=quiet, debug=debug)
         else:
             return ei.run_command(super()._create_tx, address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, force=force, optimize=optimize, quiet=quiet, debug=debug)
