@@ -1701,8 +1701,11 @@ class ExtTransaction:
             STARTHEIGHT and ENDHEIGHT can be block heights or dates of block timestamps (format YYYY-MM-DD).
             -f and -e options are not mandatory but highly recommended.
             WARNING: VERY SLOW if used with large block height ranges!
-            Note: In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
-            Note 2: To use the locator feature -l an origin or receiver address or a deck has to be provided.
+
+            Notes:
+            - In this mode, both ORIGIN_ADDRESS and RECEIVER_ADDRESS can be any address, not only wallet addresses.
+            - To use the locator feature -l an origin or receiver address or a deck has to be provided.
+            - The mode with DECK only works for AT and PoB tokens together with -g or -b options and tracks the burn or gateway address.
 
         pacli transaction list [DECK] [ADDRESS] -p PARAM
 

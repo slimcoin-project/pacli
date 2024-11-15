@@ -30,19 +30,20 @@ def show_txes(receiving_address: str=None,
        start and end can be blockheights or dates in the format YYYY-MM-DD.'''
 
     if burns:
-         if not quiet:
-             print("Using burn address.")
+         if debug:
+             print("Using burn address as receiving address.")
          receiving_address = au.burn_address()
+    deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
+    receiving_address = ec.process_address(receiving_address)
+    sending_address = ec.process_address(sending_address)
+
     try:
         last_block = provider.getblockcount()
         last_blocktime = provider.getblock(provider.getblockhash(last_block))["time"]
         last_block_date = datetime.date.fromisoformat(last_blocktime.split(" ")[0])
         startdate, enddate = None, None
-
-        if not start:
-            start = 0
-        if not end:
-            end = provider.getblockcount()
+        start = 0 if not start else start
+        end = provider.getblockcount() if not end else end
 
         if "-" in str(start):
             ssp = start.split("-")
@@ -81,9 +82,6 @@ def show_txes(receiving_address: str=None,
     except (IndexError, ValueError):
         raise ei.PacliInputDataError("At least one of the dates you entered is invalid.")
 
-
-    deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
-
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         try:
@@ -101,6 +99,7 @@ def show_txes(receiving_address: str=None,
         print("Ending at block:", endblock)
 
     if wallet_mode is not None:
+        # TODO: re-check if P2TH addresses should not be excluded here.
         sending_addresses, receiving_addresses = [], []
         wallet_addresses = list(eu.get_wallet_address_set())
         if wallet_mode in ("sent", "all"):
@@ -111,7 +110,15 @@ def show_txes(receiving_address: str=None,
         sending_addresses = [sending_address] if sending_address is not None else []
         receiving_addresses = [receiving_address] if receiving_address is not None else []
 
-    blockdata = show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=receiving_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, store_locator=use_locator)
+    if use_locator:
+        locator = get_default_locator()
+        discontinuous_caching = [locator.addresses[a].discontinuous for a in sending_addresses + receiving_addresses if a in locator.addresses]
+        if True in discontinuous_caching and not quiet:
+            print("WARNING: At least one of the selected addresses was not cached continuously. Take this into account when evaluating the results of this command.")
+    else:
+        locator = None
+
+    blockdata = show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=receiving_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator)
     txes = blockdata["txes"]
 
     if debug:
@@ -233,10 +240,11 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
                     print("Forcing to cache block heights as required. The last commonly stored block was {}, continuing from block {} on.".format(lastblock, start_block))
                     print("Addresses with gaps between cached blockheights will be marked as discontinuously cached.")
         else:
-            if not quiet:
-                print("There was a previous caching process. Continuing it from last cached block {} on.".format(lastblock))
-                print("To cache other block heights, use -f / --force or erase the affected addresses from the block locator file with 'address cache -e'.")
-            start_block = lastblock
+            #if not quiet:
+            #    print("There was a previous caching process. Continuing it from last cached block {} on.".format(lastblock))
+            #    print("To cache other block heights, use -f / --force or erase the affected addresses from the block locator file with 'address cache -e'.")
+            #start_block = lastblock
+            raise ei.PacliInputDataError("The start block height you selected is higher than the last cached block. Discontinuous caching is only supported with --force. Use with caution!")
 
     elif start_block > 0: # lastblock is 0, caching start block > 0
         if not quiet:
