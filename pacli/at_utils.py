@@ -41,7 +41,7 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).
-    # MODIF: command now includes all non-P2TH addresses which are named.
+    # MODIF: --wallet option now includes all non-P2TH addresses which are named.
     if wallet or (not sender and not no_labels):
         excluded_accounts = eu.get_p2th(accounts=True) if wallet is True else []
         excluded_addresses = eu.get_p2th() if wallet is True else []
