@@ -854,6 +854,7 @@ class ExtDeck:
              named: bool=False,
              standard: bool=False,
              only_p2th: bool=False,
+             related: str=None,
              without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
@@ -866,22 +867,31 @@ class ExtDeck:
             pacli deck list
             pacli token list
 
+        List all or a subset of all tokens (decks).
         Note: In compatibility mode, the table of the 'deck list' command without flags is slightly different. It does not include the local label and the initialization status.
+
+            pacli deck list -r ADDRESS
+            pacli token list -r ADDRESS
+
+        Lists decks by a related address (P2TH or gateway/burn address).
+        Can be combined with other modes.
+        Will show only the first entry if there are various matching decks.
 
         Args:
 
           named: Only show tokens/decks with a stored label.
           quiet: Suppress output, printout in script-friendly way.
-          burntoken: Only show PoB tokens/decks.
-          podtoken: Only show dPoD tokens/decks.
+          burntoken: Only show PoB tokens (decks).
+          podtoken: Only show dPoD tokens (decks).
           standard: Only show the standard dPoD and PoB tokens (decks). Combined with -b, only the standard PoB token is shown, and with -p, only the dPoD token.
-          attoken: Only show AT tokens/decks.
+          attoken: Only show AT tokens (decks).
+          related: Only show tokens (decks) related to an address. See Usage modes.
           without_initstate: Don't show initialized status.
           only_p2th: Shows only the P2TH address of each token (deck). When used with -p, shows all P2TH addresses of the dPoD tokens.
           debug: Show debug information.
         """
 
-        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, without_initstate=without_initstate, standard=standard, quiet=quiet, debug=debug)
+        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, related=related, without_initstate=without_initstate, standard=standard, quiet=quiet, debug=debug)
 
     def __list(self,
              pobtoken: bool=False,
@@ -890,6 +900,7 @@ class ExtDeck:
              named: bool=False,
              only_p2th: bool=False,
              standard: bool=False,
+             related: str=None,
              without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
@@ -911,6 +922,14 @@ class ExtDeck:
             else:
                 decks = [pob_default, dpod_default]
                 table_title = "Standard PoB and dPoD tokens (in this order):"
+
+        elif related is not None:
+
+            #if not quiet:
+            #    print("Searching for decks related to this address ...")
+            decks_related = eu.find_decks_by_address(related, debug=debug)
+            decks = [d["deck"] for d in decks_related]
+            table_title = "Tokens associated with address {}.".format(related)
 
         elif (pobtoken is True) or (attoken is True):
             decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT))
@@ -984,12 +1003,12 @@ class ExtDeck:
             pacli deck show STRING -f
             pacli token show STRING -f
 
-        Searches for a stored deck containing string STRING.
+        Searches for a stored (named) deck containing string STRING.
 
             pacli deck show STRING -i
             pacli token show STRING -i
 
-        Searches info for a deck. Deck can be a local or global label or an Deck ID.
+        Searches info for a token (deck). Deck can be a local or global label or an Deck ID.
 
         Args:
 
@@ -1000,8 +1019,6 @@ class ExtDeck:
           param: Shows a specific parameter (only in combination with -r).
           show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
         """
-        #TODO: an option to search by name would be fine here, this should however be added to search_for_stored_tx_label.
-        # (replaces `tools show_deck` and `token deck_info` with --info flag) -> added find to find the label for a deckid.
         return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, find=find, show_p2th=show_p2th, quiet=quiet, debug=debug)
 
     def __show(self,
@@ -1853,7 +1870,7 @@ class ExtTransaction:
 
         elif (ids is True) and (not zraw):
             if claimtxes is True and not quiet:
-                txes = ([{"txid" : t["TX ID"]} for t in txes]) # TODO: ugly hack, improve this
+                txes = ([{"txid" : t["Claim transaction ID"]} for t in txes]) # TODO: ugly hack, improve this
 
             if named is True:
                 for tx in txes:
@@ -1877,7 +1894,7 @@ class ExtTransaction:
             msg_additionalparams =  "Some available parameters for this mode:\n{}".format([k for k in txes[0]])
             if param is True:
                 raise ei.PacliInputDataError("No parameter was given.\n" + msg_additionalparams)
-            txidstr = "TX ID" if claimtxes is True else "txid"
+            txidstr = "Claim transaction ID" if (claimtxes is True and quiet is False) else "txid"
             try:
                 result = {t[txidstr] : t.get(param) for t in txes}
                 assert set(result.values()) != set([None]) # at least one tx should have a value

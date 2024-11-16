@@ -693,22 +693,49 @@ def get_dt_p2th_accounts(deck):
             "p2th_donation" : deck.id + "DONATION",
             "p2th_voting" : deck.id + "VOTING"}
 
-def get_deck_related_addresses(deck, debug: bool=False):
+def get_deck_related_addresses(deck, advanced: bool=False, debug: bool=False):
     """Gets all addresses relevant for a deck: main P2TH, DT P2TH and AT address."""
-    addresses = [deck.p2th_address]
+
+    if advanced:
+        addresses = {"p2th_main": deck.p2th_address}
+    else:
+        addresses = [deck.p2th_address]
 
     if "at_type" in deck.__dict__:
         if deck.at_type == ID_DT:
-            dt_p2th = list(get_dt_p2th_addresses(deck).values())
-            addresses += dt_p2th
+            dt_p2th_addresses = get_dt_p2th_addresses(deck)
+            # dt_p2th = list(get_dt_p2th_addresses(deck).values())
+            if advanced:
+                addresses.update(dt_p2th_addresses)
+            else:
+                dt_p2th = list(dt_p2th_addresses.values())
+                addresses += dt_p2th
+
         elif deck.at_type == ID_AT:
-            # AT addresses can have duplicates, others not
-            if deck.at_address not in addresses:
-                addresses.append(deck.at_address)
-            if debug:
-                print("AT address appended:", deck.at_address)
+
+            if advanced:
+                addresses.update({"gateway" : deck.at_address})
+            else:
+                # AT addresses can have duplicates, others not
+                if deck.at_address not in addresses:
+                    addresses.append(deck.at_address)
+                if debug:
+                    print("AT address appended:", deck.at_address)
 
     return addresses
+
+def find_decks_by_address(address: str, debug: bool=False) -> object:
+    all_decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
+    matching_decks = []
+    for deck in all_decks:
+        deck_addresses = get_deck_related_addresses(deck, advanced=True, debug=debug)
+        if debug:
+            print("Deck:", deck.id, "Addresses:", deck_addresses)
+        for key, value in deck_addresses.items():
+            if value == address:
+                matching_decks.append({"deck" : deck, "type" : key})
+
+    return matching_decks
 
 
 def manage_send(sign, send):

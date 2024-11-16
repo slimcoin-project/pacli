@@ -537,7 +537,7 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
     if quiet or basic:
         param_names = {"txid" : "txid", "amount": "amount", "sender" : "sender", "receiver" : "receiver", "blocknum" : "blockheight"}
     else:
-        param_names = {"txid" : "TX ID", "amount": "Token amount(s)", "sender" : "Sender", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
+        param_names = {"txid" : "Claim transaction ID", "amount": "Token amount(s)", "sender" : "Sender", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
     deckid = eu.search_for_stored_tx_label("deck", deck_str, quiet=quiet)
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
