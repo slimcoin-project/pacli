@@ -858,6 +858,7 @@ class ExtDeck:
              named: bool=False,
              standard: bool=False,
              only_p2th: bool=False,
+             findstring: str=None,
              related: str=None,
              without_initstate: bool=False,
              quiet: bool=False,
@@ -880,6 +881,13 @@ class ExtDeck:
         Lists decks by a related address (P2TH or gateway/burn address).
         Can be combined with other modes.
 
+            pacli deck list -f STRING [-n]
+            pacli token list -f STRING [-n]
+
+        Finds decks by a string.
+        If used with -n, it only searches in the IDs of the decks stored and labelled locally (faster) and with a simplified output.
+        In other options, the string can be present in the deck ID or in the global name.
+
         Args:
 
           named: Only show tokens/decks with a stored label.
@@ -888,13 +896,14 @@ class ExtDeck:
           podtoken: Only show dPoD tokens (decks).
           standard: Only show the standard dPoD and PoB tokens (decks). Combined with -b, only the standard PoB token is shown, and with -p, only the dPoD token.
           attoken: Only show AT tokens (decks).
+          find: Only show tokens (decks) with a certain string in the deck ID or global name. See Usage modes for combination with -n.
           related: Only show tokens (decks) related to an address. See Usage modes.
           without_initstate: Don't show initialized status.
           only_p2th: Shows only the P2TH address of each token (deck). When used with -p, shows all P2TH addresses of the dPoD tokens.
           debug: Show debug information.
         """
 
-        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, related=related, without_initstate=without_initstate, standard=standard, quiet=quiet, debug=debug)
+        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, related=related, without_initstate=without_initstate, findstring=findstring, standard=standard, quiet=quiet, debug=debug)
 
     def __list(self,
              pobtoken: bool=False,
@@ -904,6 +913,7 @@ class ExtDeck:
              only_p2th: bool=False,
              standard: bool=False,
              related: str=None,
+             findstring: str=None,
              without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
@@ -918,13 +928,17 @@ class ExtDeck:
 
             if dpodtoken is True:
                 decks = [dpod_default]
-                table_title = "Standard dPoD token:"
+                table_title = "Standard dPoD token"
             elif pobtoken is True:
                 decks = [pob_default]
-                table_title = "Standard PoB token:"
+                table_title = "Standard PoB token"
             else:
                 decks = [pob_default, dpod_default]
-                table_title = "Standard PoB and dPoD tokens (in this order):"
+                table_title = "Standard PoB and dPoD tokens (in this order)"
+
+        elif findstring is not None and named is True:
+            decks = ce.find("deck", findstring, quiet=quiet, debug=debug)
+            return
 
         elif related is not None:
 
@@ -932,25 +946,29 @@ class ExtDeck:
             #    print("Searching for decks related to this address ...")
             decks_related = eu.find_decks_by_address(related, debug=debug)
             decks = [d["deck"] for d in decks_related]
-            table_title = "Tokens associated with address {}.".format(related)
+            table_title = "Tokens associated with address {}".format(related)
 
         elif (pobtoken is True) or (attoken is True):
             decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT))
             if pobtoken is True:
-                table_title = "PoB token decks:"
+                table_title = "PoB token decks"
                 decks = [d for d in decks if d.at_address == au.burn_address()]
             else:
-                table_title = "AT token decks (not including PoB):"
+                table_title = "AT token decks (not including PoB)"
                 decks = [d for d in decks if d.at_address != au.burn_address()]
 
         elif dpodtoken is True:
             decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT))
-            table_title = "dPoD token decks:"
+            table_title = "dPoD token decks"
 
         else:
-            table_title = "Decks:"
+            table_title = "Decks"
             decks = list(ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production))
+
+        if findstring is not None:
+            decks = [d for d in decks if findstring in d.id or findstring in d.name]
+            table_title += " (with string {} in Deck ID or global name)".format(findstring)
 
         if only_p2th is True:
             if dpodtoken is True:
@@ -1003,43 +1021,35 @@ class ExtDeck:
 
         Shows token (deck) stored with a local label LABEL.
 
-            pacli deck show STRING -f
-            pacli token show STRING -f
-
-        Searches for a stored (named) deck containing string STRING.
-
             pacli deck show STRING -i
             pacli token show STRING -i
+            pacli deck show STRING -r
+            pacli token show STRING -r
 
-        Searches info for a token (deck). Deck can be a local or global label or an Deck ID.
+        Displays information about a token (deck). STRING can be a local or global label or an Deck ID.
+        With -i, the basic data is displayed in a non-technical manner. -r displays all attributes of the deck object.
 
         Args:
 
           info: Shows basic information about the deck/token (type, global name, creation block, issuer).
           rawinfo: Shows the Deck object values.
-          find: Searches for a string in the Deck ID.
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -r).
           show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
         """
-        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, find=find, show_p2th=show_p2th, quiet=quiet, debug=debug)
+        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
              param: str=None,
              info: bool=False,
              rawinfo: bool=False,
-             find: bool=False,
              show_p2th: bool=False,
              quiet: bool=False,
              debug: bool=False):
 
-        if find is True:
-            deckid = ce.find("deck", deckstr, quiet=quiet, debug=debug)
-            if not deckid:
-                raise ei.PacliInputDataError("String {} not found, no deck ID containing it.".format(deckstr))
-        else:
-            deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
+
+        deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
 
 
         if info is True or rawinfo is True:

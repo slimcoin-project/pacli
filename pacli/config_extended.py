@@ -247,7 +247,7 @@ def show(category: str, label: str, quiet: bool=False, debug: bool=False):
 
 def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True, debug: bool=False):
     """Returns a list of matching labels if only a part of the value (content) is known."""
-    result = ei.run_command(search_value_content, category, str(content), debug=debug)
+    result = search_value_content(category, str(content), debug=debug)
     if not result and not quiet:
         print("No entry or label was found matching the search string.")
         return []

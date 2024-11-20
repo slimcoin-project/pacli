@@ -210,9 +210,12 @@ def print_address_balances(address_item: dict) -> None:
     pprint(output_dict)
 
 def print_deckinfo(deckinfo: dict, burn_address: str, quiet: bool=False) -> None:
+
+    # creation_time = datetime.datetime.utcfromtimestamp(int(deckinfo.get("issue_time"))) # deprecated from 3.12 on
+    creation_time = datetime.datetime.fromtimestamp(int(deckinfo.get("issue_time")), datetime.UTC)
     info_output = {"ID" : deckinfo["id"],
                   "Global name" : deckinfo.get("name"),
-                  "Creation Time (UTC)" : str(datetime.datetime.utcfromtimestamp(int(deckinfo.get("issue_time")))),
+                  "Creation Time (UTC)" : str(creation_time),
                   "Issuer" : deckinfo["issuer"] }
     if "at_type" in deckinfo:
         if deckinfo["at_type"] == 1:
