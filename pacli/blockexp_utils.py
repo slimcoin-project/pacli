@@ -294,11 +294,12 @@ def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None
         print("Deleting block locator entries of addresses:", addresses)
         if not force:
             print("This is a dry run. Use --force to really erase the entry of this address.")
-            return
+
     locator = loc.BlockLocator.from_file(locatorfilename=filename)
     for address in addresses:
         locator.delete_address(address)
-    locator.store(quiet=quiet, debug=debug)
+    if force:
+        locator.store(quiet=quiet, debug=debug)
 
 def display_caching_warnings(address_list: list, locator: loc.BlockLocator) -> None:
 
