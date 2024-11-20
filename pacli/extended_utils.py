@@ -148,6 +148,7 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
                     input_name = input()
                     if len(input_name.strip()) > 0: # strip avoids that space is entered
                         label = input_name
+                break
 
     try:
         ce.setcfg("deck", label, deck.id, quiet=quiet, debug=debug)
