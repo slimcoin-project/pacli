@@ -23,14 +23,11 @@ from pacli.provider import provider
 from pacli.config import Settings, default_conf, write_settings, conf_dir, conf_file, write_default_config
 from pacli.tui import print_deck_list, print_card_list
 
-# extended_main contains extensions of the main pacli classes only
+# extended_classes contains extensions of the main pacli classes only
 # It seems not possible without import conflicts to do it "cleaner"
 # the other way around, i.e. defining the Ext.. classes as children
 # of the __main__ classes. So it seems to be necessary to comment
 # out the methods in __main__ if there's a conflict.
-
-# NOTE: checkpoint functions went into own file (extended_checkpoints.py).
-
 
 class ExtConfig:
 
@@ -709,7 +706,7 @@ class ExtAddress:
             )
 
     def cache(self,
-              addr_str: str,
+              _value: str=None,
               blocks: int=50000,
               keyring: bool=False,
               startblock: int=0,
@@ -718,6 +715,7 @@ class ExtAddress:
               force: bool=False,
               quiet: bool=False,
               view: bool=False,
+              all_locators: bool=False,
               debug: bool=False):
         """Cache the state of an address.
 
@@ -735,8 +733,10 @@ class ExtAddress:
 
                pacli address cache ADDRESS -v
                pacli address cache "[ADDRESS1, ADDRESS2, ...]" -v
+               pacli address cache -v -a
 
            View the currently cached block locators for a single address or list of addresses.
+           The -a option shows all stored locators.
            Block locators show the heights of transactions to/from the addresses.
 
                pacli address cache ADDRESS -e [--force]
@@ -754,14 +754,15 @@ class ExtAddress:
              quiet: Suppress output.
              debug: Show additional debug information.
              keyring: Use addresses/label(s) stored in keyring.
-             view: Show the current state of the cached blocks."""
+             view: Show the current state of the cached blocks.
+             all_locators: Show all addresses with locators."""
 
 
-        return ei.run_command(self.__cache, addr_str, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, view=view, debug=debug)
+        return ei.run_command(self.__cache, _value, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, view=view, all_locators=all_locators, debug=debug)
 
 
     def __cache(self,
-                addr_str: str,
+                _value: str=None,
                 startblock: int=0,
                 blocks: int=50000,
                 keyring: bool=False,
@@ -770,12 +771,15 @@ class ExtAddress:
                 force: bool=False,
                 quiet: bool=False,
                 view: bool=False,
+                all_locators: bool=False,
                 debug: bool=False):
 
-        if type(addr_str) == str:
-            addresses = [ec.process_address(addr_str, keyring=keyring)]
-        elif type(addr_str) in (list, tuple):
-            addresses = [ec.process_address(a, keyring=keyring) for a in addr_str]
+        if type(_value) == str:
+            addresses = [ec.process_address(_value, keyring=keyring)]
+        elif type(_value) in (list, tuple):
+            addresses = [ec.process_address(a, keyring=keyring) for a in _value]
+        elif all_locators is True and view is True:
+            addresses = None
         else:
             raise ei.PacliInputDataError("No valid address(es) entered.")
 

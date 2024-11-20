@@ -210,8 +210,6 @@ def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0
 def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None, add_txid: bool=False) -> dict:
     """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""
-    # TODO: could see an usability improvement for coinbase txes.
-    # However, this could lead to side effects.
 
     if not tx:
         if txid:
@@ -282,8 +280,10 @@ def get_address_blockheights(address_list: list, filename: str=None, locator: lo
 
     return block_dict
 
-def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, startheight: int=0, filename: str=None, quiet: bool=False, debug: bool=False):
-    locator = loc.BlockLocator.from_file(locatorfilename=filename)
+def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, startheight: int=0, locator: loc.BlockLocator=None, filename: str=None, quiet: bool=False, debug: bool=False):
+    # TODO: locator can be probably a positional argument. Re-check if there is an use case for accessing the file here.
+    if locator is None:
+        locator = loc.BlockLocator.from_file(locatorfilename=filename)
     for address, values in address_dict.items():
         if address:
             locator.store_blockheights(address, values, lastblockheight, lastblockhash=lastblockhash, startheight=startheight, quiet=quiet, debug=debug)
@@ -292,7 +292,6 @@ def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: 
 def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None, force: bool=False, debug: bool=False):
     if not quiet:
         print("Deleting block locator entries of addresses:", addresses)
-        # if not ei.confirm_continuation():
         if not force:
             print("This is a dry run. Use --force to really erase the entry of this address.")
             return
@@ -300,3 +299,17 @@ def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None
     for address in addresses:
         locator.delete_address(address)
     locator.store(quiet=quiet, debug=debug)
+
+def display_caching_warnings(address_list: list, locator: loc.BlockLocator) -> None:
+
+    discontinuous_list = [a for a in address_list if a in locator.addresses and locator.addresses[a].discontinuous is True]
+    startblock_list = [a for a in address_list if a in locator.addresses and locator.addresses[a].startheight]
+    if discontinuous_list:
+        if len(discontinuous_list) == 1:
+            print("WARNING: Address {} was not cached continuously.".format(discontinuous_list[0]))
+        else:
+            print("WARNING: The following addresses were not cached continuously:", discontinuous_list)
+    if startblock_list:
+        for a in startblock_list:
+            print("Note: Address {} was cached from the block height {} on.".format(a, locator.addresses[a].startheight))
+

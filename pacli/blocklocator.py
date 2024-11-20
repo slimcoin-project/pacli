@@ -108,6 +108,10 @@ class BlockLocator:
             self.addresses[address].update_lastblock(lastblockheight=lastblockheight, lastblockhash=lastblockhash)
             if discontinuous:
                 self.addresses[address].discontinuous = discontinuous
+            elif self.addresses[address].discontinuous == True and startheight == 0:
+                # edge case: if the address is cached completely again we can get rid of the discontinuous marker
+                # It's unfortunately not possible with the current setup to remove it when the startheight is above 0.
+                self.addresses[address].discontinupus = False
         else:
             existing_heights = []
             self.addresses.update({address : BlockLocatorAddress.empty(lastblockhash=lastblockhash, startheight=startheight)})
@@ -202,4 +206,11 @@ class BlockLocatorAddress:
         else:
             self.lastblockheight = 0
             self.lastblockhash = provider.getblockhash(0)
+
+    def reset(self):
+        # allows to set all values to 0
+        self.update_lastblock() # this resets the block heights to 0
+        self.discontinuous = False
+        self.startheight = 0
+
 

@@ -8,9 +8,9 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.at_utils as au
+import pacli.blockexp_utils as bu
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.blockexp_utils import show_txes_by_block, date_to_blockheight, get_tx_structure, store_locator_data, get_default_locator, erase_locator_entries
 
 # higher level block exploring utilities are now bundled here
 
@@ -49,7 +49,7 @@ def show_txes(receiving_address: str=None,
             ssp = start.split("-")
             start_formatted = ssp[0] + "-" +  ssp[1].zfill(2) + "-" + ssp[2].zfill(2)
             startdate = datetime.date.fromisoformat(start_formatted)
-            startblock = date_to_blockheight(startdate, last_block, debug=debug)
+            startblock = bu.date_to_blockheight(startdate, last_block, debug=debug)
         else:
             startblock = int(start)
 
@@ -64,7 +64,7 @@ def show_txes(receiving_address: str=None,
                 # The date_to_blockheight function always returns the first block after the given date
                 # so the end block has to be one day later, minus 1 block
                 oneday = datetime.timedelta(days=1)
-                endblock = date_to_blockheight(enddate + oneday, last_block, startheight=startblock, debug=debug) - 1
+                endblock = bu.date_to_blockheight(enddate + oneday, last_block, startheight=startblock, debug=debug) - 1
         else:
             endblock = int(end)
 
@@ -111,14 +111,14 @@ def show_txes(receiving_address: str=None,
         receiving_addresses = [receiving_address] if receiving_address is not None else []
 
     if use_locator:
-        locator = get_default_locator()
-        discontinuous_caching = [locator.addresses[a].discontinuous for a in sending_addresses + receiving_addresses if a in locator.addresses]
-        if True in discontinuous_caching and not quiet:
-            print("WARNING: At least one of the selected addresses was not cached continuously. Take this into account when evaluating the results of this command.")
+        locator = bu.get_default_locator()
+        if not quiet:
+            address_list = set(sending_addresses + receiving_addresses)
+            bu.display_caching_warnings(address_list, locator)
     else:
         locator = None
 
-    blockdata = show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=receiving_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator)
+    blockdata = bu.show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=receiving_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator)
     txes = blockdata["txes"]
 
     if debug:
@@ -127,14 +127,12 @@ def show_txes(receiving_address: str=None,
         if "bheight" in blockdata:
             if not quiet:
                 print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
-            store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], quiet=quiet, debug=debug)
+            bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator=locator, quiet=quiet, debug=debug)
 
     return txes
 
 
 def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, debug: bool=False, blocks: int=50000):
-
-   # TODO: Too many accesses to blocklocator.json. There should be only one access to read.
 
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
@@ -168,8 +166,10 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
     if debug:
         print("Addresses to store", addresses)
 
-    locator = get_default_locator()
+    locator = bu.get_default_locator()
     blockheights, lastblock = locator.get_address_data(addresses, debug=debug)
+    if not quiet:
+        bu.display_caching_warnings(addresses, locator)
     if debug:
         print("Locator data:", blockheights, lastblock)
 
@@ -198,7 +198,7 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
         print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
 
     # here we have 2 more file accesses (in show_txes_by_block)
-    blockdata = show_txes_by_block(locator_list=addresses,
+    blockdata = bu.show_txes_by_block(locator_list=addresses,
                                    startblock=start_block,
                                    endblock=end_block,
                                    locator=locator,
@@ -212,7 +212,7 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
     if "bheight" in blockdata:
         if not quiet:
             print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
-        store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], startheight=start_block, quiet=quiet, debug=debug)
+        bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator=locator, startheight=start_block, quiet=quiet, debug=debug)
 
     else:
         if not quiet:
@@ -224,29 +224,36 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     # An exception could be made for addresses in the wallet.
     if not quiet:
         print("Storing blockheight locators for addresses:", addresses)
-    locator = get_default_locator()
-    blockheights, lastblock = locator.get_address_data(addresses, debug=debug)
+    locator = bu.get_default_locator()
+    blockheights, last_cached_block = locator.get_address_data(addresses, debug=debug)
+    if not quiet:
+        bu.display_caching_warnings(addresses, locator)
 
     if debug:
-        print("Locator data (heights, last block):", blockheights, lastblock)
-    if not start_block:
-        start_block = lastblock
-    elif lastblock > 0:
+        print("Locator data (heights, last cached block):", blockheights, last_cached_block)
+    if not start_block and not force:
+        start_block = last_cached_block
+    elif start_block == 0 and force:
+        if not quiet:
+            print("Forced to re-cache adddress(es) from the first block on.")
+            for a in addresses:
+                locator.addresses[a].reset()
+    elif last_cached_block > 0:
         if force is True:
-            if start_block < lastblock:
+            if start_block < last_cached_block:
                 raise ei.PacliInputDataError("Starting caching before the last stored block is not supported, as this might lead to inconsistencies.")
-            elif start_block > (lastblock + 1):
+            elif start_block > (last_cached_block + 1):
                 if not quiet:
-                    print("Forcing to cache block heights as required. The last commonly stored block was {}, continuing from block {} on.".format(lastblock, start_block))
+                    print("Forcing to cache block heights as required. The last commonly stored block was {}, continuing from block {} on.".format(last_cached_block, start_block))
                     print("Addresses with gaps between cached blockheights will be marked as discontinuously cached.")
         else:
             #if not quiet:
-            #    print("There was a previous caching process. Continuing it from last cached block {} on.".format(lastblock))
+            #    print("There was a previous caching process. Continuing it from last cached block {} on.".format(last_cached_block))
             #    print("To cache other block heights, use -f / --force or erase the affected addresses from the block locator file with 'address cache -e'.")
-            #start_block = lastblock
+            #start_block = last_cached_block
             raise ei.PacliInputDataError("The start block height you selected is higher than the last cached block. Discontinuous caching is only supported with --force. Use with caution!")
 
-    elif start_block > 0: # lastblock is 0, caching start block > 0
+    elif start_block > 0: # last_cached_block is 0, caching start block > 0
         if not quiet:
             print("WARNING: Custom start block height {}.".format(start_block))
         if not force:
@@ -259,7 +266,11 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
                 print("If this is an error, stop the caching process, erase affected entries with 'address cache -e', and cache the adddress(es) again.")
 
     end_block = start_block + blocks
-    blockdata = show_txes_by_block(locator_list=addresses,
+    if not quiet:
+        print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
+
+
+    blockdata = bu.show_txes_by_block(locator_list=addresses,
                                    startblock=start_block,
                                    endblock=end_block,
                                    force_storing=force,
@@ -272,14 +283,13 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
         print("Block data:", blockdata)
 
     if blockdata.get("bheight"):
-        store_locator_data(new_blockheights, blockdata["bheight"], blockdata["bhash"], startheight=start_block, quiet=quiet, debug=debug)
+        bu.store_locator_data(new_blockheights, blockdata["bheight"], blockdata["bhash"], locator=locator, startheight=start_block, quiet=quiet, debug=debug)
 
         if not quiet:
             print("Stored block data until block", blockdata.get("bheight"), "with hash", blockdata.get("bhash"), ".\nBlock heights for the checked addresses:", new_blockheights)
     else:
         if not quiet:
             print("Start block located before last checked block. No new data was stored to avoid inconsistencies.")
-
 
 def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
     tx = provider.getrawtransaction(txid, 1)
@@ -292,7 +302,7 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
 
     # If no lastblockheight is given, it uses the last already checked block.
     if lastblockheight is None:
-        loc = get_default_locator()
+        loc = bu.get_default_locator()
         lastblockheight = loc.get_address_data(address_list, debug=debug)[1]
 
     print("Last blockheight checked", lastblockheight)
@@ -300,12 +310,12 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
     # source 1: blockchain
     if debug:
         print("Blockchain test:")
-    blockchain_txes = show_txes_by_block(locator_list=address_list, endblock=lastblockheight, debug=debug).get("txes")
+    blockchain_txes = bu.show_txes_by_block(locator_list=address_list, endblock=lastblockheight, debug=debug).get("txes")
     blockchain_balances = get_balances_from_structs(address_list, blockchain_txes, debug=debug)
     # source 2: RPC listtransactions
     if debug:
         print("Wallet transaction test:")
-    rpc_txes_struct = [get_tx_structure(tx=tx, human_readable=False, add_txid=True) for tx in rpc_txes]
+    rpc_txes_struct = [bu.get_tx_structure(tx=tx, human_readable=False, add_txid=True) for tx in rpc_txes]
     rpc_balances = get_balances_from_structs(address_list, rpc_txes_struct, endblock=lastblockheight, debug=debug)
 
     for address in address_list:
@@ -367,26 +377,29 @@ def get_tx_address_balance(address: str, tx: dict):
 
     return (balance, observed)
 
-def show_locators(value, quiet: bool=False, token_mode: bool=False, debug: bool=False) -> None:
-    # first we look if it's a deck
+def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, debug: bool=False) -> None:
+
+    locator = bu.get_default_locator()
+    laddr = locator.addresses
 
     if type(value) == str:
         deckid = eu.search_for_stored_tx_label("deck", value, quiet=True)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         addresses = eu.get_deck_related_addresses(deck, debug=debug)
         checktype = "token"
+    elif value is None:
+        value = list(laddr.keys())
+        checktype = "complete stored address list"
+        addresses = value
     elif len(value) == 1:
         addresses = value
         checktype = "address"
+    elif type(value) in (list, tuple):
+        addresses = value
+        checktype = "address list"
     else:
-        if type(value) in (list, tuple):
-            addresses = value
-            checktype = "address list"
-        else:
-            raise ei.PacliInputDataError("Incorrect format for value.")
+        raise ei.PacliInputDataError("Incorrect format for value.")
 
-    locator = get_default_locator()
-    laddr = locator.addresses
     last_blockheights = [laddr[a].lastblockheight for a in addresses if a in laddr]
     min_lastblockheight = min(last_blockheights) if len(last_blockheights) > 0 else 0
 
@@ -394,7 +407,7 @@ def show_locators(value, quiet: bool=False, token_mode: bool=False, debug: bool=
         if not quiet:
             related = "related to this token " if checktype == "token" else ""
             addresses_printout = ", ".join(addresses)
-            print("Addresses {}: {}".format(related, addresses_printout))
+            # print("Addresses {}: {}".format(related, addresses_printout))
             # TODO re-check if this warning is still necessary or can be replaced with a warning due to discontinuous caching.
             #if len(locators) > 0 and locators[-1] > last_blockheight:
             #    ei.print_red("WARNING: Only a part of the addresses {}were cached, or the caching was not consistent.".format(related))
