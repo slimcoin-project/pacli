@@ -70,7 +70,7 @@ class BlockLocator:
         try:
             del self.addresses[address]
         except KeyError:
-            raise ei.PacliInputDataError("Address not found.")
+            raise ei.PacliInputDataError("Address not found in the locator file.")
 
     def store(self, quiet: bool=False, debug: bool=False):
         """Stores the whole locator dict."""

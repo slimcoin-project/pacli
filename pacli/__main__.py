@@ -168,11 +168,17 @@ class Deck(ExtDeck):
         return new_deck
 
     @classmethod
-    def spawn(self, verify: bool=False, sign: bool=False,
-              send: bool=False, locktime: int=0, **kwargs) -> None:
+    def spawn(self, name: str,
+              number_of_decimals: int, issue_mode: int,
+              asset_specific_data: str=None,
+              verify: bool=False, sign: bool=False,
+              send: bool=False, locktime: int=0) -> None:
         '''prepare deck spawn transaction'''
+        ## replaced **kwargs with the deck.__new args, this prevented the help to work
 
-        deck = self.__new(**kwargs)
+        # deck = self.__new(**kwargs)
+        deck = self.__new(name, number_of_decimals, issue_mode,
+                          asset_specific_data=asset_specific_data, locktime=locktime)
 
         spawn = pa.deck_spawn(provider=provider,
                               inputs=provider.select_inputs(Settings.key.address, 0.02),
@@ -198,14 +204,23 @@ class Deck(ExtDeck):
         return spawn.hexlify()
 
     @classmethod
-    def encode(self, json: bool=False, **kwargs) -> None:
+    def encode(self,  name: str,
+              number_of_decimals: int, issue_mode: int,
+              asset_specific_data: str=None, json: bool=False,
+              locktime: int=0) -> None:
         '''compose a new deck and print out the protobuf which
            is to be manually inserted in the OP_RETURN of the transaction.'''
+        # replaced deck __new arguments, see deck spawn.
+
+        deck = self.__new(name, number_of_decimals, issue_mode,
+                          asset_specific_data=asset_specific_data, locktime=locktime)
 
         if json:
-            pprint(self.__new(**kwargs).metainfo_to_dict)
+            # pprint(self.__new(**kwargs).metainfo_to_dict)
+            pprint(deck.metainfo_to_dict)
 
-        pprint({'hex': self.__new(**kwargs).metainfo_to_protobuf.hex()})
+        # pprint({'hex': self.__new(**kwargs).metainfo_to_protobuf.hex()})
+        pprint({'hex': deck.metainfo_to_protobuf.hex()})
 
     @classmethod
     def decode(self, hex: str) -> None:
