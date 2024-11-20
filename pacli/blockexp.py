@@ -236,7 +236,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     elif start_block == 0 and force:
         if not quiet:
             # TODO: Evaluate if and how this can also be allowed if the start block is before the start height in blocklocator.json.
-            print("Forced to re-cache adddress(es) from the first block on.")
+            print("Forced to re-cache address(es) from the first block on.")
             for a in addresses:
                 locator.addresses[a].reset()
     elif last_cached_block > 0:

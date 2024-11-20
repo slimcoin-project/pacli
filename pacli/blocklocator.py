@@ -212,5 +212,6 @@ class BlockLocatorAddress:
         self.update_lastblock() # this resets the block heights to 0
         self.discontinuous = False
         self.startheight = 0
+        self.heights = []
 
 
