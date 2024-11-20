@@ -879,7 +879,6 @@ class ExtDeck:
 
         Lists decks by a related address (P2TH or gateway/burn address).
         Can be combined with other modes.
-        Will show only the first entry if there are various matching decks.
 
         Args:
 
@@ -1037,8 +1036,11 @@ class ExtDeck:
 
         if find is True:
             deckid = ce.find("deck", deckstr, quiet=quiet, debug=debug)
+            if not deckid:
+                raise ei.PacliInputDataError("String {} not found, no deck ID containing it.".format(deckstr))
         else:
             deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
+
 
         if info is True or rawinfo is True:
             deckinfo = eu.get_deckinfo(deckid, show_p2th)
