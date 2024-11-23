@@ -127,7 +127,7 @@ def show_txes(receiving_address: str=None,
         if "bheight" in blockdata:
             if not quiet:
                 print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
-            bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator=locator, quiet=quiet, debug=debug)
+            bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator, quiet=quiet, debug=debug)
 
     return txes
 
@@ -171,19 +171,15 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
         # AT decks will cache either from deck.startblock or, if no startblock is defined, from 0
         # PoB decks always store from 0 because the PoB address should always be cached from genesis
         if "at_type" in deck.__dict__ and deck.at_type == 2:
+            burn_deck = (deck.at_address == au.burn_address()) if not burn_deck else burn_deck
             if deck.at_address in locator.addresses:
                 at_minblock = locator.addresses[deck.at_address].lastblockheight
+            elif deck.startblock and not burn_deck:
+                at_minblock = deck.startblock
             else:
-                burn_deck = (deck.at_address == au.burn_address()) if not burn_deck else burn_deck
-                if deck.startblock and not burn_deck:
-                    at_minblock = deck.startblock
-                else:
-                    at_minblock = 0
-            #if at_minblock < spawn_blockheight:
-            #    force_storing = True # we need to tolerate discontinuous storing of P2TH addresses
+                at_minblock = 0
 
             min_blockheights.append(at_minblock)
-
 
 
     # Last commonly cached block
@@ -199,15 +195,15 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
         bu.display_caching_warnings(addresses, locator)
 
     if lastblock == 0: # new decks
-        start_block = min_blockheight
+        start_block = 0 # min_blockheight
         if not quiet:
-            print("New deck, at least one address was never cached.")
-            if start_block == 0:
-                print("Starting caching process from genesis block.")
-                if burn_deck:
-                    print("At least one of the tokens is a Proof-of-burn token, and the burn address must be cached from block 0 on.")
+            # print("New deck, at least one address was never cached.")
+            # if start_block == 0:
+            print("New AT or PoB deck with uncached burn/gateway address and no start block limit. Starting caching process from genesis block.")
+            if burn_deck:
+                print("At least one of the tokens is a Proof-of-burn token, and the burn address must be cached from block 0 on.")
             else:
-                print("NOTE: Starting caching process at first block relevant for the deck. First block:", min_blockheight)
+                print("Note: Starting caching process at first block relevant for the deck. First block:", min_blockheight)
     else:
         start_block = lastblock
 
@@ -237,7 +233,7 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
     if "bheight" in blockdata:
         if not quiet:
             print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
-        bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator=locator, startheight=start_block, quiet=quiet, debug=debug)
+        bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator, startheight=start_block, quiet=quiet, debug=debug)
 
     else:
         if not quiet:
@@ -309,7 +305,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
         print("Block data:", blockdata)
 
     if blockdata.get("bheight"):
-        bu.store_locator_data(new_blockheights, blockdata["bheight"], blockdata["bhash"], locator=locator, startheight=start_block, quiet=quiet, debug=debug)
+        bu.store_locator_data(new_blockheights, blockdata["bheight"], blockdata["bhash"], locator, startheight=start_block, quiet=quiet, debug=debug)
 
         if not quiet:
             print("Stored block data until block", blockdata.get("bheight"), "with hash", blockdata.get("bhash"), ".\nBlock heights for the checked addresses:", new_blockheights)

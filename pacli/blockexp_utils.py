@@ -280,16 +280,14 @@ def get_address_blockheights(address_list: list, filename: str=None, locator: lo
 
     return block_dict
 
-def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, startheight: int=0, locator: loc.BlockLocator=None, filename: str=None, quiet: bool=False, debug: bool=False):
-    # TODO: locator can be probably a positional argument. Re-check if there is an use case for accessing the file here.
-    if locator is None:
-        locator = loc.BlockLocator.from_file(locatorfilename=filename)
+def store_locator_data(address_dict: dict, lastblockheight: int, lastblockhash: str, locator: loc.BlockLocator, startheight: int=0, filename: str=None, quiet: bool=False, debug: bool=False):
+
     for address, values in address_dict.items():
         if address:
             locator.store_blockheights(address, values, lastblockheight, lastblockhash=lastblockhash, startheight=startheight, quiet=quiet, debug=debug)
     locator.store(quiet=quiet, debug=debug)
 
-def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None, force: bool=False, debug: bool=False):
+def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None, force: bool=False, debug: bool=False) -> None:
     if not quiet:
         print("Deleting block locator entries of addresses:", addresses)
         if not force:
@@ -300,6 +298,11 @@ def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None
         locator.delete_address(address)
     if force:
         locator.store(quiet=quiet, debug=debug)
+
+def prune_orphans_from_locator(cutoff_height: int, quiet: bool=False, debug: bool=False) -> None:
+    locator = get_default_locator()
+    locator.prune_orphans(cutoff_height, debug=debug)
+    locator.store(quiet=quiet, debug=debug)
 
 def display_caching_warnings(address_list: list, locator: loc.BlockLocator) -> None:
 
@@ -312,5 +315,5 @@ def display_caching_warnings(address_list: list, locator: loc.BlockLocator) -> N
             print("WARNING: The following addresses were not cached continuously:", discontinuous_list)
     if startblock_list:
         for a in startblock_list:
-            print("Note: Address {} was cached from the block height {} on.".format(a, locator.addresses[a].startheight))
+            print("Note: Address {} was or will be cached from the block height {} on.".format(a, locator.addresses[a].startheight))
 

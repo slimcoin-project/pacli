@@ -3,6 +3,7 @@ import time
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
+import pacli.blockexp_utils as bu
 from pacli.provider import provider
 
 class Checkpoint:
@@ -59,7 +60,7 @@ class Checkpoint:
             # TODO: this command is quite slow, optimize it.
             return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, quiet=quiet)
         elif remove_orphans is True:
-            return ei.run_command(remove_orphan_checkpoints, quiet=quiet)
+            return ei.run_command(remove_orphan_checkpoints, quiet=quiet, debug=debug)
         else:
             return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet)
 
@@ -81,7 +82,7 @@ class Checkpoint:
         """Show all checkpoints (block hashes)."""
         return ei.run_command(retrieve_all_checkpoints)
 
-    def reorg_check(self, quiet: bool=False) -> None:
+    def reorg_check(self, prune: bool=False, quiet: bool=False, debug: bool=False) -> None:
         """Performs a chain reorganization check:
         checks if the most recent checkpoint corresponds to the stored block hash.
 
@@ -91,9 +92,11 @@ class Checkpoint:
 
         Args:
 
-          quiet: Script friendly output: 0 for passed and 1 for failed check."""
+          prune: Remove all orphaned checkpoints if the check fails.
+          quiet: Script friendly output: 0 for passed and 1 for failed check.
+          debug: Show additional debug information."""
 
-        return ei.run_command(reorg_check, quiet=quiet)
+        return ei.run_command(reorg_check, prune=prune, quiet=quiet, debug=debug)
 
 
 # Checkpoint utils
@@ -142,9 +145,10 @@ def retrieve_all_checkpoints() -> dict:
     checkpoints = sorted(config["checkpoint"].items())
     return checkpoints
 
-def remove_orphan_checkpoints(quiet: bool=False) -> None:
+def remove_orphan_checkpoints(quiet: bool=False, debug: bool=False) -> None:
     checkpoints = ce.get_config()["checkpoint"]
     orphans = 0
+    valid_checkpoints = []
     for bheight in checkpoints:
 
         blockhash = provider.getblockhash(int(bheight))
@@ -155,6 +159,9 @@ def remove_orphan_checkpoints(quiet: bool=False) -> None:
                 print("Deleting checkpoint of orphan/stale block:", bheight)
             ce.delete_item("checkpoint", bheight, now=True, quiet=True)
             orphans += 1
+        else:
+            valid_checkpoints.append(int(bheight))
+
     if not quiet:
         print("{} checkpoints deleted.".format(orphans))
 
@@ -164,6 +171,10 @@ def remove_orphan_checkpoints(quiet: bool=False) -> None:
         if len(ce.get_config()["checkpoint"]) < 5:
             if current_block > 1000:
                 store_checkpoint(current_block - 1000, quiet=quiet)
+
+        # blocklocator: we remove locators from the highest non-orphan checkpoint on
+        cutoff_height = max(valid_checkpoints)
+        bu.prune_orphans_from_locator(cutoff_height, quiet=quiet, debug=debug)
 
 
 def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: bool=False, quiet: bool=False) -> None:
@@ -203,7 +214,7 @@ def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: b
         checkpoints_new = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
         print("{} checkpoints deleted. {} checkpoints preserved (minimum: {}).".format(counter, len(checkpoints_new), minimum_checkpoints))
 
-def reorg_check(quiet: bool=False) -> None:
+def reorg_check(prune: bool=False, quiet: bool=False, debug: bool=False) -> None:
     if not quiet:
         print("Looking for chain reorganizations ...")
     config = ce.get_config()
@@ -237,6 +248,10 @@ def reorg_check(quiet: bool=False) -> None:
             print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
             print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
             print("Make sure you check token balances and other states.")
+        if prune:
+            if not quiet:
+                print("Checkpoints will be pruned until the highest one which is still valid.")
+            remove_orphan_checkpoints(quiet=quiet, debug=debug)
         return 1
 
 

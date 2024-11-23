@@ -49,8 +49,8 @@ class BlockLocator:
                     else:
                         raise json.JSONDecodeError(e)
         except FileNotFoundError:
-            if not quiet:
-                print("File does not exist.")
+            if debug:
+                print("Locator file does not exist.")
             return cls.empty()
 
     def to_dict(self):
@@ -89,13 +89,18 @@ class BlockLocator:
         discontinuous = False
         if address in self.addresses:
             last_stored_height = self.addresses[address].lastblockheight
+            stored_startheight = self.addresses[address].startheight
             # prevents block heights being overwritten
             if lastblockheight < last_stored_height:
                 if debug:
-                    print("Lastblockheight {} ignored for address {}: stored lastblockheight {} is higher.".format(lastblockheight, address, last_stored_height))
+                    print("Caching process ignored for address {}: stored lastblockheight {} is higher than the last cached block {}.".format(address, last_stored_height, lastblockheight))
                 return
-            existing_heights = self.addresses[address].heights
-            max_height = max(existing_heights) if existing_heights else 0
+            if lastblockheight < stored_startheight:
+                if debug:
+                    print("Caching process ignored for address {}: stored startheight {} is higher than the last cached block {}.".format(address, stored_startheight, lastblockheight))
+                return
+            stored_tx_heights = self.addresses[address].heights
+            max_height = max(stored_tx_heights) if stored_tx_heights else 0
             if lastblockheight < max_height:
                 if debug:
                     print("Lastblockheight {} ignored for address {}: highest stored block {} is higher and becomes new lastblockheight.".format(lastblockheight, address, max_height))
@@ -113,32 +118,33 @@ class BlockLocator:
                 # It's unfortunately not possible with the current setup to remove it when the startheight is above 0.
                 self.addresses[address].discontinupus = False
         else:
-            existing_heights = []
+            stored_tx_heights = []
             self.addresses.update({address : BlockLocatorAddress.empty(lastblockhash=lastblockhash, startheight=startheight)})
 
         new_heights = []
 
         for height in heights:
-            if height in existing_heights:
+            if height in stored_tx_heights:
                 continue
             else:
                 new_heights.append(height)
 
-        heights = existing_heights + new_heights
+        heights = stored_tx_heights + new_heights
         heights.sort()
         self.addresses[address].heights = heights
 
-    def prune_orphans(self, cutoff_height: int):
+    def prune_orphans(self, cutoff_height: int, debug: bool=False):
         """Prunes all block heights above a defined cutoff height.
         Should be called by the reorg_check in checkpoints.py."""
         # cutoff height is the LAST block to be conserved.
-        # locator = get_locator(quiet=quiet)
-        for address, addr_dict in self.addresses.items():
-            after_cutoff = [h for h in addr_dict.heights if h > cutoff_height]
+        for address, addr_obj in self.addresses.items():
+            after_cutoff = [h for h in addr_obj.heights if h > cutoff_height]
             if len(after_cutoff) > 0:
-                new_heights = [h for h in addr_dict.heights if h <= cutoff_height]
-                self.address[address].heights = new_heights
-        # store_locator(locator, quiet=quiet)
+                if debug:
+                    print("Pruning BlockLocator for address {} - erased heights:".format(address), after_cutoff)
+                new_heights = [h for h in addr_obj.heights if h <= cutoff_height]
+                self.addresses[address].heights = new_heights
+                self.addresses[address].update_lastblock(lastblockheight=cutoff_height)
 
     def get_address_data(self, address_list: list, debug: bool=False) -> tuple:
         # returns a list of all block heights of the address list and the last block
@@ -166,7 +172,7 @@ class BlockLocator:
             # The lastblockheight will be set to one block before the startblock.
             # This prevents caching before that height.
             # TODO this could also be skipped, but then the other functions would have to be aware of the startblock value.
-            self.addresses[address].update_lastblock(lastblockheight = startblock - 1)
+            # self.addresses[address].update_lastblock(lastblockheight = startblock - 1)
 
 class BlockLocatorAddress:
 
