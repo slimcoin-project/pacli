@@ -156,6 +156,17 @@ class BlockLocator:
             lastblock = 0
         return heights, lastblock
 
+    def force_startblock(self, address_list: list, startblock: int, debug: bool=False) -> None:
+        for address in address_list:
+            if address not in self.addresses:
+                self.addresses.update({address : BlockLocatorAddress.empty(startheight=startblock)})
+            else:
+                self.addresses[address].reset()
+                self.addresses[address].startheight = startblock
+            # The lastblockheight will be set to one block before the startblock.
+            # This prevents caching before that height.
+            # TODO this could also be skipped, but then the other functions would have to be aware of the startblock value.
+            self.addresses[address].update_lastblock(lastblockheight = startblock - 1)
 
 class BlockLocatorAddress:
 

@@ -134,44 +134,69 @@ def show_txes(receiving_address: str=None,
 
 def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, debug: bool=False, blocks: int=50000):
 
+    # TODO: current version will refuse to cache discontinuously.
+    # Ideas:
+    # 3) even better:
+    # add a force_startblock feature in the BlockLocatorAddress. This means the startblock can be stored before the caching is done.
+    # if this startblock is present then caching will always only be done above that block, i.e. storage below will be ignored.
+    # lastblock will then also be stored 1 block before?
+
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
 
     min_blockheights = []
     addresses = []
     burn_deck = False
+    # force_storing = False
+    locator = bu.get_default_locator()
+
     for deck in decks:
         deck_tx = provider.getrawtransaction(deck.id, 1)
-        addresses += eu.get_deck_related_addresses(deck, debug=debug)
+        deck_addresses = eu.get_deck_related_addresses(deck, debug=debug) # TODO: consider advanced mode to simplify the P2TH selection
+        addresses += deck_addresses
         try:
             spawn_blockheight = provider.getblock(deck_tx["blockhash"])["height"]
             min_blockheights.append(spawn_blockheight)
-
-            # AT decks will cache either from deck.startblock or, if no startblock is defined, from 0
-            # PoB decks always store from 0 because the PoB address should always be cached from genesis
-            if "at_type" in deck.__dict__ and deck.at_type == 2:
-                if not burn_deck:
-                    burn_deck = deck.at_address == au.burn_address()
-                if deck.startblock and not burn_deck:
-                    min_blockheights.append(deck.startblock)
-                else:
-                    # we don't need to consider other blockheights if min blockheight is 0
-                    min_blockheights = [0]
-
         except KeyError:
             continue
 
-    min_blockheight = min(min_blockheights)
+        p2th_list = []
+        for address in deck_addresses:
+            if address != getattr(deck, "at_address", ""): # if ("at_address" not in deck.__dict__) or (address != deck.at_address):
+                # last part is to correct incorrectly cached P2TH addresses
+                if address not in locator.addresses or getattr(locator.addresses[address], "startblock", 0) < spawn_blockheight:
+                    p2th_list.append(address)
+                locator.force_startblock(p2th_list, spawn_blockheight, debug=debug)
+
+        # AT decks will cache either from deck.startblock or, if no startblock is defined, from 0
+        # PoB decks always store from 0 because the PoB address should always be cached from genesis
+        if "at_type" in deck.__dict__ and deck.at_type == 2:
+            if deck.at_address in locator.addresses:
+                at_minblock = locator.addresses[deck.at_address].lastblockheight
+            else:
+                burn_deck = (deck.at_address == au.burn_address()) if not burn_deck else burn_deck
+                if deck.startblock and not burn_deck:
+                    at_minblock = deck.startblock
+                else:
+                    at_minblock = 0
+            #if at_minblock < spawn_blockheight:
+            #    force_storing = True # we need to tolerate discontinuous storing of P2TH addresses
+
+            min_blockheights.append(at_minblock)
+
+
+
+    # Last commonly cached block
+    # P2TH address heights before the deck spawn block will be ignored
+    lastblock = min(min_blockheights)
 
     if debug:
+        print("Minimum blockheight(s):", min_blockheights)
         print("Addresses to store", addresses)
 
-    locator = bu.get_default_locator()
-    blockheights, lastblock = locator.get_address_data(addresses, debug=debug)
+    # blockheights, lastblock = locator.get_address_data(addresses, debug=debug)
     if not quiet:
         bu.display_caching_warnings(addresses, locator)
-    if debug:
-        print("Locator data:", blockheights, lastblock)
 
     if lastblock == 0: # new decks
         start_block = min_blockheight
