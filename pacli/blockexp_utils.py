@@ -95,6 +95,10 @@ def show_txes_by_block(sending_addresses: list=[],
     else:
         blockheights = blockrange
 
+    if not quiet: # only for progress message
+        min_height = min(blockheights)
+        checked_range = max(blockheights) - min_height
+        percent = checked_range // 100
     for bh in blockheights:
         #if bh < startblock:
         #    continue # this can happen when loading locator data
@@ -104,8 +108,15 @@ def show_txes_by_block(sending_addresses: list=[],
         #    continue
 
         try:
-            if (not quiet) and (bh % 500 == 0) and (not use_locator or (bh not in loc_blockheights)):
-                print("Processing block:", bh)
+            # progress message
+            if (not quiet) and (not use_locator or (bh not in loc_blockheights)):
+                rh = bh - min_height # current height minus minimum height
+                if debug:
+                    print("Range: {} Progress: {} 1 Percent: {} RH % Percent: {}".format(checked_range, rh, percent, (rh % percent if percent > 0 else None)))
+                if (percent > 0) and (rh % percent == 0):
+                    percentage = rh // percent
+                    if ((percentage * percent) % 20 == 0): # no message if less than 20 blocks were processed
+                        print("Processing: {} %, block: {} ...".format(percentage, bh))
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)
 
@@ -304,10 +315,10 @@ def prune_orphans_from_locator(cutoff_height: int, quiet: bool=False, debug: boo
     locator.prune_orphans(cutoff_height, debug=debug)
     locator.store(quiet=quiet, debug=debug)
 
-def display_caching_warnings(address_list: list, locator: loc.BlockLocator) -> None:
+def display_caching_warnings(address_list: list, locator: loc.BlockLocator, ignore_startblocks: bool=False) -> None:
 
     discontinuous_list = [a for a in address_list if a in locator.addresses and locator.addresses[a].discontinuous is True]
-    startblock_list = [a for a in address_list if a in locator.addresses and locator.addresses[a].startheight]
+    startblock_list = [a for a in address_list if a in locator.addresses and locator.addresses[a].startheight] if not ignore_startblocks else []
     if discontinuous_list:
         if len(discontinuous_list) == 1:
             print("WARNING: Address {} was not cached continuously.".format(discontinuous_list[0]))

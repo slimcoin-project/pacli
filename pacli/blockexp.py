@@ -141,6 +141,7 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
     addresses = []
     burn_deck = False
     locator = bu.get_default_locator()
+    ignore_startblocks = True
 
     for deck in decks:
         new_deck = False
@@ -157,7 +158,6 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
             if address in locator.addresses:
                 min_blockheights.append(locator.addresses[address].lastblockheight)
             if address != getattr(deck, "at_address", ""):
-
                 if address not in locator.addresses:
                     forcestart_list.append(address)
                     new_deck = True # if any P2TH address is uncached, it's a new deck
@@ -166,6 +166,9 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
                     forcestart_list.append(address)
                     if debug:
                         print("Correcting start block for incorrectly cached P2TH address {} to deck spawn height {}".format(address, spawn_blockheight))
+            else:
+                # this means an AT deck is present, enable startblock warning.
+                ignore_startblocks = False
         if forcestart_list:
             locator.force_startblock(forcestart_list, spawn_blockheight, debug=debug)
 
@@ -199,7 +202,7 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
 
     # blockheights, lastblock = locator.get_address_data(addresses, debug=debug)
     if not quiet:
-        bu.display_caching_warnings(addresses, locator)
+        bu.display_caching_warnings(addresses, locator, ignore_startblocks=ignore_startblocks)
 
     if lastblock == 0: # new decks
         #start_block = 0 # min_blockheight
