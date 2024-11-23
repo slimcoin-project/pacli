@@ -118,7 +118,7 @@ def show_txes(receiving_address: str=None,
     else:
         locator = None
 
-    blockdata = bu.show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=receiving_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator)
+    blockdata = bu.show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=sending_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator)
     txes = blockdata["txes"]
 
     if debug:
@@ -134,39 +134,40 @@ def show_txes(receiving_address: str=None,
 
 def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, debug: bool=False, blocks: int=50000):
 
-    # TODO: current version will refuse to cache discontinuously.
-    # Ideas:
-    # 3) even better:
-    # add a force_startblock feature in the BlockLocatorAddress. This means the startblock can be stored before the caching is done.
-    # if this startblock is present then caching will always only be done above that block, i.e. storage below will be ignored.
-    # lastblock will then also be stored 1 block before?
-
     if not quiet:
         print("Storing blockheight locators for decks:", [d.id for d in decks])
 
     min_blockheights = []
     addresses = []
     burn_deck = False
-    # force_storing = False
     locator = bu.get_default_locator()
 
     for deck in decks:
+        new_deck = False
         deck_tx = provider.getrawtransaction(deck.id, 1)
         deck_addresses = eu.get_deck_related_addresses(deck, debug=debug) # TODO: consider advanced mode to simplify the P2TH selection
         addresses += deck_addresses
         try:
             spawn_blockheight = provider.getblock(deck_tx["blockhash"])["height"]
-            min_blockheights.append(spawn_blockheight)
         except KeyError:
             continue
 
-        p2th_list = []
+        forcestart_list = [] # P2TH addresses which will be set to the spawn block
         for address in deck_addresses:
-            if address != getattr(deck, "at_address", ""): # if ("at_address" not in deck.__dict__) or (address != deck.at_address):
-                # last part is to correct incorrectly cached P2TH addresses
-                if address not in locator.addresses or getattr(locator.addresses[address], "startblock", 0) < spawn_blockheight:
-                    p2th_list.append(address)
-                locator.force_startblock(p2th_list, spawn_blockheight, debug=debug)
+            if address in locator.addresses:
+                min_blockheights.append(locator.addresses[address].lastblockheight)
+            if address != getattr(deck, "at_address", ""):
+
+                if address not in locator.addresses:
+                    forcestart_list.append(address)
+                    new_deck = True # if any P2TH address is uncached, it's a new deck
+                elif getattr(locator.addresses[address], "startblock", 0) != spawn_blockheight:
+                    # correct incorrectly cached P2TH addresses to avoid user confusion
+                    forcestart_list.append(address)
+                    if debug:
+                        print("Correcting start block for incorrectly cached P2TH address {} to deck spawn height {}".format(address, spawn_blockheight))
+        if forcestart_list:
+            locator.force_startblock(forcestart_list, spawn_blockheight, debug=debug)
 
         # AT decks will cache either from deck.startblock or, if no startblock is defined, from 0
         # PoB decks always store from 0 because the PoB address should always be cached from genesis
@@ -176,11 +177,17 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
                 at_minblock = locator.addresses[deck.at_address].lastblockheight
             elif deck.startblock and not burn_deck:
                 at_minblock = deck.startblock
+                if not quiet:
+                    print("Uncached AT token {} with startblock: {}".format(deck.id, deck.startblock))
             else:
                 at_minblock = 0
+                if not quiet:
+                    print("AT or PoB deck with uncached burn/gateway address and no start block limit. Starting caching process from genesis block.")
 
             min_blockheights.append(at_minblock)
-
+        elif new_deck:
+            min_blockheights.append(spawn_blockheight)
+            print("Uncached deck {}, at least one address was not cached. Spawn block: {}.".format(deck.id, spawn_blockheight))
 
     # Last commonly cached block
     # P2TH address heights before the deck spawn block will be ignored
@@ -195,17 +202,17 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
         bu.display_caching_warnings(addresses, locator)
 
     if lastblock == 0: # new decks
-        start_block = 0 # min_blockheight
+        #start_block = 0 # min_blockheight
         if not quiet:
             # print("New deck, at least one address was never cached.")
             # if start_block == 0:
-            print("New AT or PoB deck with uncached burn/gateway address and no start block limit. Starting caching process from genesis block.")
+            print("AT or PoB deck with uncached burn/gateway address and no start block limit. Starting caching process from genesis block.")
             if burn_deck:
                 print("At least one of the tokens is a Proof-of-burn token, and the burn address must be cached from block 0 on.")
-            else:
-                print("Note: Starting caching process at first block relevant for the deck. First block:", min_blockheight)
-    else:
-        start_block = lastblock
+            #else:
+            #    print("Note: Starting caching process at first block relevant for the deck. First block:", lastblock)
+
+    start_block = lastblock
 
     if chain is True:
         end_block = provider.getblockcount()
@@ -273,7 +280,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
             #    print("There was a previous caching process. Continuing it from last cached block {} on.".format(last_cached_block))
             #    print("To cache other block heights, use -f / --force or erase the affected addresses from the block locator file with 'address cache -e'.")
             #start_block = last_cached_block
-            raise ei.PacliInputDataError("The start block height you selected is higher than the last cached block. Discontinuous caching is only supported with --force. Use with caution!")
+            raise ei.PacliInputDataError("The start block height you selected is different than the last cached block. Discontinuous caching is only supported with --force. Use with caution!")
 
     elif start_block > 0: # last_cached_block is 0, caching start block > 0
         if not quiet:
@@ -409,6 +416,8 @@ def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, de
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         addresses = eu.get_deck_related_addresses(deck, debug=debug)
         checktype = "token"
+        if debug:
+            print("Addresses to check: {}".format(addresses))
     elif value is None:
         value = list(laddr.keys())
         checktype = "complete stored address list"

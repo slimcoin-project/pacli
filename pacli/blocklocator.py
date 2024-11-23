@@ -101,11 +101,12 @@ class BlockLocator:
                 return
             stored_tx_heights = self.addresses[address].heights
             max_height = max(stored_tx_heights) if stored_tx_heights else 0
+
             if lastblockheight < max_height:
                 if debug:
                     print("Lastblockheight {} ignored for address {}: highest stored block {} is higher and becomes new lastblockheight.".format(lastblockheight, address, max_height))
                 lastblockheight, lastblockhash = max_height, None
-            if startheight > (last_stored_height + 1):
+            if (last_stored_height > 0) and (startheight > (last_stored_height + 1)):
                 if debug:
                     print("Address {} marked as discontinuously scanned: Last stored height was {}, but the last scanning process started at block {}.".format(address, lastblockheight, startheight))
                 discontinuous = True
