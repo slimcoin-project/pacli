@@ -347,9 +347,10 @@ class ExtAddress:
 
         Usage modes:
 
-        pacli address set LABEL ADDRESS
+        pacli address set LABEL ADDRESS [-k]
 
             Without flags, stores a label for an address.
+           The label can be stored in the extended configuration file (default) or the local keyring (-k option, Linux/Unix only).
 
         pacli address set LABEL [-f]
 
@@ -375,7 +376,7 @@ class ExtAddress:
           delete: Deletes the specified address label. Use --now to delete really.
           modify: Replaces the label for an address by another one.
           now: Really delete an entry.
-          keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended config file is used.
+          keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended configuration file is used.
           to_account: Imports main key or any stored key to an account in the wallet managed by RPC node. Works only with keyring labels.
           import_all_keyring_addresses: Stores all labels/addresses stored in the keyring in the extended config file and imports them to the wallet. -m allows existing entries to be replaced, otherwise they won't be changed.
           quiet: Suppress output, printout in script-friendly way.
@@ -805,7 +806,8 @@ class ExtDeck:
             delete: bool=False,
             quiet: bool=False,
             now: bool=False):
-        """Sets, modifies or deletes a label for a token (deck).
+        """Sets, modifies or deletes a local label for a token (deck).
+        The label will be stored in the extended configuration file.
 
         Usage modes:
 
@@ -1495,7 +1497,8 @@ class ExtTransaction:
             now: bool=False,
             quiet: bool=False,
             show_debug_info: bool=False) -> None:
-        """Stores a transaction with label and hex string.
+        """Stores a transaction with a local label and hex string.
+           It will be stored in the extended configuration file.
 
            Usage modes:
 
@@ -1941,6 +1944,7 @@ class ExtTransaction:
                  quiet: bool=False) -> None:
 
         """Stores a label for the transaction ID and output number (vout) of a specific UTXO. Use mostly for DEX purposes.
+        It will be stored in the extended configuration file.
 
         Usage modes:
 

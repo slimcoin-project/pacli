@@ -122,7 +122,7 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
 
     if not label:
         if not quiet:
-            print("Trying to store global deck name {} as a local label for this deck.".format(deck.name))
+            print("Trying to store global deck name {} as a local label for this deck ...".format(deck.name))
 
         existing_labels = ce.list("deck", quiet=True, debug=debug)
 
@@ -143,12 +143,15 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
             if (d.name == deck.name) and (d.id != deck.id) and (d.issue_time <= deck.issue_time):
                 if not quiet:
                     print("{} was already used as a global name by another earlier deck: {}".format(deck.name, d.id))
-                    print("It can be still used as a local label.")
-                    print("Confirm the name typing [ENTER], or input another name.")
-                    input_name = input()
-                    if len(input_name.strip()) > 0: # strip avoids that space is entered
-                        label = input_name
-                break
+                    print("Earlier decks have priority to be used as local labels, thus no local label was stored.")
+                    print("If you anyway want to use this name as local label, store it manually:")
+                    print("pacli deck set {} {}".format(deck.name, deck.id))
+                    #print("It can be still used as a local label.")
+                    #print("Confirm the name typing [ENTER], or input another name.")
+                    # input_name = input()
+                    #if len(input_name.strip()) > 0: # strip avoids that space is entered
+                    #    label = input_name
+                return
 
     try:
         ce.setcfg("deck", label, deck.id, quiet=quiet, debug=debug)
