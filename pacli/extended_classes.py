@@ -1008,7 +1008,6 @@ class ExtDeck:
              param: str=None,
              info: bool=False,
              rawinfo: bool=False,
-             find: bool=False,
              show_p2th: bool=False,
              quiet: bool=False,
              debug: bool=False):
