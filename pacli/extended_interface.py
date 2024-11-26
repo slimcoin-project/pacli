@@ -231,7 +231,7 @@ def print_deckinfo(deckinfo: dict, burn_address: str, quiet: bool=False) -> None
         deck_type = "standard PeerAssets token"
     info_output.update({"Type" : deck_type})
 
-    if "p2th_address" in deckinfo:
+    if "_p2th_address" in deckinfo:
         info_output.update({"Deck P2TH address" : deckinfo.get("_p2th_address")})
     if "derived_p2th_addresses" in deckinfo:
         info_output.update({"dPoD P2TH addresses" : deckinfo.get("derived_p2th_addresses")})
