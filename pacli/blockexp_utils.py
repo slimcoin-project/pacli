@@ -95,7 +95,7 @@ def show_txes_by_block(sending_addresses: list=[],
     else:
         blockheights = blockrange
 
-    if not quiet: # only for progress message
+    if not quiet and blockheights: # only for progress message
         min_height = min(blockheights)
         checked_range = max(blockheights) - min_height
         percent = checked_range // 100

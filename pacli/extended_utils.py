@@ -146,11 +146,6 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
                     print("Earlier decks have priority to be used as local labels, thus no local label was stored.")
                     print("If you anyway want to use this name as local label, store it manually:")
                     print("pacli deck set {} {}".format(deck.name, deck.id))
-                    #print("It can be still used as a local label.")
-                    #print("Confirm the name typing [ENTER], or input another name.")
-                    # input_name = input()
-                    #if len(input_name.strip()) > 0: # strip avoids that space is entered
-                    #    label = input_name
                 return
 
     try:
