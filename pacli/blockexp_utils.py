@@ -95,28 +95,25 @@ def show_txes_by_block(sending_addresses: list=[],
     else:
         blockheights = blockrange
 
-    if not quiet and blockheights: # only for progress message
+    if not quiet and blockheights: # basic parameters for progress message
         min_height = min(blockheights)
-        checked_range = max(blockheights) - min_height
-        percent = checked_range // 100
+        max_height = max(blockheights)
+        checked_range = max_height - min_height
+        percent = round(checked_range / 100)
+        mbd = 50 # minimum block distance
+
     for bh in blockheights:
-        #if bh < startblock:
-        #    continue # this can happen when loading locator data
-        # Note: loc_blockheights contains data about ALL checked addresses.
-        # The following should work anyway, because the blocks not checked will be added to the blocks.
-        # if only_store is True and bh in loc_blockheights:
-        #    continue
 
         try:
             # progress message
-            if (not quiet) and (not use_locator or (bh not in loc_blockheights)):
-                rh = bh - min_height # current height minus minimum height
-                if debug:
-                    print("Range: {} Progress: {} 1 Percent: {} RH % Percent: {}".format(checked_range, rh, percent, (rh % percent if percent > 0 else None)))
-                if (percent > 0) and (rh % percent == 0):
-                    percentage = rh // percent
-                    if ((percentage * percent) % 20 == 0): # no message if less than 20 blocks were processed
-                        print("Processing: {} %, block: {} ...".format(percentage, bh))
+            if not quiet and (not use_locator or (bh not in loc_blockheights)):
+                rh = bh - min_height # relative height: current height minus minimum height
+                if (bh in (min_height, max_height)) or (rh % percent == 0): # each time a full percentage is recorded
+                    percentage = round(rh / percent)
+                    if (bh in (min_height, max_height)) or ((rh - last_cycle) >= mbd and (percentage not in (0, 100))):
+                        last_cycle = (rh // mbd) * mbd
+                        print("Processing uncached blocks: {} %, block: {} ...".format(percentage, bh))
+
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)
 
