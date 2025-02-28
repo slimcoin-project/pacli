@@ -267,8 +267,8 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         if include_only:
             wallet_addresses = set(include_only)
         else:
-            if not excluded_accounts:
-                excluded_accounts = eu.get_p2th(accounts=True)
+            #if not excluded_accounts:
+            #    excluded_accounts = eu.get_p2th(accounts=True)
             wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
 
         if exclude:

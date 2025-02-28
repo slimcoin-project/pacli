@@ -99,7 +99,7 @@ def show_txes_by_block(sending_addresses: list=[],
         min_height = min(blockheights)
         max_height = max(blockheights)
         checked_range = max_height - min_height
-        percent = round(checked_range / 100)
+        percent = round(checked_range / 100, 2)
         mbd = 50 # minimum block distance
 
     for bh in blockheights:
@@ -108,7 +108,7 @@ def show_txes_by_block(sending_addresses: list=[],
             # progress message
             if not quiet and (not use_locator or (bh not in loc_blockheights)):
                 rh = bh - min_height # relative height: current height minus minimum height
-                if (bh in (min_height, max_height)) or (rh % percent == 0): # each time a full percentage is recorded
+                if (percent != 0) and ((bh in (min_height, max_height)) or (rh % percent == 0)): # each time a full percentage is recorded
                     percentage = round(rh / percent)
                     if (bh in (min_height, max_height)) or ((rh - last_cycle) >= mbd and (percentage not in (0, 100))):
                         last_cycle = (rh // mbd) * mbd

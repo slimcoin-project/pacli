@@ -519,7 +519,8 @@ class ExtAddress:
              blockchain: str=Settings.network,
              debug: bool=False,
              include_all: bool=None,
-             search_change_addresses: bool=False):
+             search_change_addresses: bool=False,
+             everything: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
 
         Usage modes:
@@ -557,6 +558,7 @@ class ExtAddress:
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           without_labels: In advanced mode (-a), never show labels, only addresses.
           search_change_addresses: In combination with -c, also show change addresses. This needs an additional step and is very slow.
+          everything: Show all wallet addresses, including P2TH and empty ones (like a combination of -i and -p), but without change addresses. Slow.
         """
         # TODO: catch labeldict error when using -w without -a.
 
@@ -576,7 +578,8 @@ class ExtAddress:
                network: str=Settings.network,
                debug: bool=False,
                include_all: bool=None,
-               search_change_addresses: bool=False):
+               search_change_addresses: bool=False,
+               everything: bool=False):
 
         if no_labels and not advanced:
             raise ei.PacliInputDataError("Wrong command option combination.")
@@ -590,6 +593,10 @@ class ExtAddress:
             coinbalances = True
             include_all = True if include_all in (None, True) else False
             excluded_addresses = []
+        elif everything:
+            include_all = True
+            excluded_addresses = []
+            include_only = None
         else:
             include_only = None
             include_all = False if include_all in (None, False) else True
