@@ -518,7 +518,8 @@ class ExtAddress:
              quiet: bool=False,
              blockchain: str=Settings.network,
              debug: bool=False,
-             include_all: bool=None):
+             include_all: bool=None,
+             search_change_addresses: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
 
         Usage modes:
@@ -555,10 +556,11 @@ class ExtAddress:
           p2th: Show only P2TH addresses.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           without_labels: In advanced mode (-a), never show labels, only addresses.
+          search_change_addresses: In combination with -c, also show change addresses. This needs an additional step and is very slow.
         """
         # TODO: catch labeldict error when using -w without -a.
 
-        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, debug=debug)
+        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, debug=debug)
 
     def __list(self,
                advanced: bool=False,
@@ -573,7 +575,8 @@ class ExtAddress:
                quiet: bool=False,
                network: str=Settings.network,
                debug: bool=False,
-               include_all: bool=None):
+               include_all: bool=None,
+               search_change_addresses: bool=False):
 
         if no_labels and not advanced:
             raise ei.PacliInputDataError("Wrong command option combination.")
@@ -595,8 +598,12 @@ class ExtAddress:
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             if (labels is True) or (full_labels is True):
                 named = True
-
+            if search_change_addresses is True:
+                named, empty = False, True
             result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, exclude=excluded_addresses, balances=True, debug=debug)
+            if search_change_addresses:
+                change_addresses = ec.search_change_addresses(result, balances=True, debug=debug)
+                result += change_addresses
 
             if (labels is True) or (full_labels is True):
                 if labels:

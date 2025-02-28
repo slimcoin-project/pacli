@@ -199,7 +199,20 @@ def delete_label(label: str, network_name: str=Settings.network, keyring: bool=F
     else:
         ce.delete("address", label, now=now)
 
-def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], include_only: list=[], keyring: bool=False, named: bool=False, empty: bool=False, mark_duplicates: bool=False, labels: bool=False, full_labels: bool=False, no_labels: bool=False, balances: bool=False, network: bool=False, debug: bool=False) -> list:
+def get_labels_and_addresses(prefix: str=Settings.network,
+                             exclude: list=[],
+                             excluded_accounts: list=[],
+                             include_only: list=[],
+                             keyring: bool=False,
+                             named: bool=False,
+                             empty: bool=False,
+                             mark_duplicates: bool=False,
+                             labels: bool=False,
+                             full_labels: bool=False,
+                             no_labels: bool=False,
+                             balances: bool=False,
+                             network: bool=False,
+                             debug: bool=False) -> list:
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
        # This version is better ordered and already prepares the dict for the address table.
@@ -254,8 +267,9 @@ def get_labels_and_addresses(prefix: str=Settings.network, exclude: list=[], inc
         if include_only:
             wallet_addresses = set(include_only)
         else:
-            p2th_accounts = eu.get_p2th(accounts=True)
-            wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=p2th_accounts)
+            if not excluded_accounts:
+                excluded_accounts = eu.get_p2th(accounts=True)
+            wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
 
         if exclude:
             wallet_addresses -= set(exclude)
@@ -614,3 +628,52 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
         print("No claim transactions found.")
 
     return result
+
+def search_change_addresses(known_addresses: list, wallet_txes: list=None, balances: bool=False, debug: bool=False) -> list:
+    """Searches all wallet transactions for unknown change addresses."""
+    # note: needs advanced mode for wallet txes (complete getrawtransaction tx dict)
+    if not wallet_txes:
+        wallet_txes = get_address_transactions(wallet=True, advanced=True, debug=debug)
+    known_addr_list = [a["address"] for a in known_addresses]
+    unknown_wallet_addresses = []
+    new_addr_list = []
+    network = Settings.network
+
+    for tx in wallet_txes:
+        if debug:
+            print("CHANGE ADDRESS SEARCH: checking tx:", tx["txid"])
+        for output in tx["vout"]:
+            try:
+                addresses = output["scriptPubKey"]["addresses"]
+            except KeyError:
+                continue
+            for address in addresses:
+                if address not in known_addr_list and address not in new_addr_list:
+                    validation = provider.validateaddress(address)
+                    if validation.get("ismine") == True:
+                        address_item = {"label" : "", "address" : address, "network" : network}
+                        if balances is True:
+                            balance = retrieve_balance(address, debug=debug)
+                            address_item.update({"balance" : balance})
+                        unknown_wallet_addresses.append(address_item)
+                        new_addr_list.append(address)
+                        if debug:
+                            print("Found and added unknown address:", address)
+                    elif debug:
+                        print("Ignored non-wallet address:", address)
+    return unknown_wallet_addresses
+
+def retrieve_balance(address: str, debug: bool=False) -> str:
+    # currently a string is returned, to be converted into Decimal if needed.
+    try:
+        balance = str(provider.getbalance(address))
+    except TypeError:
+        balance = "0"
+        if debug is True:
+            print("No valid balance for address {}. Probably not a valid address.".format(address))
+    if balance != "0":
+        balance = balance.rstrip("0")
+    return balance
+
+
+

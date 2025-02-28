@@ -36,16 +36,34 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
             raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
-def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=None, unclaimed: bool=False, quiet: bool=False, no_labels: bool=False, advanced: bool=False, wallet: bool=False, keyring: bool=False, debug: bool=False) -> list:
+def show_wallet_dtxes(deckid: str=None,
+                      tracked_address: str=None,
+                      sender: str=None,
+                      unclaimed: bool=False,
+                      no_labels: bool=False,
+                      advanced: bool=False,
+                      wallet: bool=False,
+                      keyring: bool=False,
+                      quiet: bool=False,
+                      include_change_addresses: bool=False,
+                      debug: bool=False) -> list:
     """Shows donation/burn/payment transactions."""
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).
     # MODIF: --wallet option now includes all non-P2TH addresses which are named.
+    # MODIF: --include_change_addresses with --wallet includes change addresses to the allowed senders which aren't found by listreceivedbyaddress (slower)
     if wallet or (not sender and not no_labels):
-        excluded_accounts = eu.get_p2th(accounts=True) if wallet is True else []
-        excluded_addresses = eu.get_p2th() if wallet is True else []
-        addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses)
+        if debug:
+            print("Retrieving excluded addresses ...")
+        all_decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
+        if debug:
+            print("Processing P2TH ...")
+        excluded_accounts = eu.get_p2th(accounts=True, decks=all_decks) if wallet is True else []
+        excluded_addresses = eu.get_p2th(decks=all_decks) if wallet is True else []
+        if debug:
+            print("Retrieving labels and wallet addresses (except change) ...")
+        addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses, excluded_accounts=excluded_accounts)
         if wallet:
             allowed_addresses = set([a["address"] for a in addresses])
 
@@ -53,6 +71,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         excluded_accounts = None
 
     if deckid:
+        if debug:
+            print("Retrieving deck data ...")
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         if unclaimed:
             claimed_txes = get_claimed_txes(deck, sender, only_wallet=False)
@@ -67,12 +87,10 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
                     error_message += " Probably you are using a command for PoB tokens for an AT token. Please use the command/flag for AT tokens instead."
                 raise ei.PacliInputDataError(error_message)
 
-
             assert deck.at_type == c.ID_AT
 
         except (AttributeError, AssertionError):
             raise ei.PacliInputDataError("Deck {} is not an AT or PoB token deck.".format(deckid))
-
 
     else:
         deck = None
@@ -81,12 +99,16 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         if not tracked_address:
             raise ei.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
-    if tracked_address == burn_address():
+    if tracked_address == burn_address() and not include_change_addresses: # include_change_addresses needs all wallet txes
+        if debug:
+            print("Retrieving burn transactions ...")
         burn_txes = get_burn_transactions(create_txes=True, debug=debug)
         if debug:
             print("{} burn transactions found.".format(len(burn_txes)))
         raw_txes = burn_txes
     else:
+        if debug:
+            print("Retrieving wallet transactions ...")
         raw_txes = eu.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
 
     if debug:
@@ -94,11 +116,15 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
 
     valid_txes = []
     processed_txids = []
+    missing_txids = []
     for tx in raw_txes:
         try:
             assert tx["txid"] not in processed_txids
             assert tx["category"] not in ("generate", "orphan")
-            assert tx["address"] == tracked_address
+            if tx["address"] != tracked_address:
+                if include_change_addresses:
+                    missing_txids.append(tx["txid"])
+                continue
             if wallet or sender:
                 assert tx["category"] != "receive"
 
@@ -119,6 +145,8 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
         except AssertionError:
             if debug:
                 print("Transaction did not pass checks:", tx["txid"])
+            if include_change_addresses:
+                missing_txids.append(tx["txid"])
             continue
 
     tx_type_msg = "unclaimed" if unclaimed else "sent"
@@ -134,6 +162,13 @@ def show_wallet_dtxes(deckid: str=None, tracked_address: str=None, sender: str=N
     #if not sender:
     #    if not no_labels:
     #        addresses = ec.get_labels_and_addresses(keyring=keyring, empty=True)
+    if wallet and include_change_addresses:
+        if debug:
+            print("Retrieving missing transactions for change addresses ...")
+        missing_txes = [provider.getrawtransaction(txid, 1) for txid in set(missing_txids)]
+        all_txes = valid_txes + missing_txes
+        change_addresses = ec.search_change_addresses(known_addresses=addresses, wallet_txes=all_txes, debug=debug)
+        allowed_addresses.update(set([a["address"] for a in change_addresses]))
 
     for tx in valid_txes:
 

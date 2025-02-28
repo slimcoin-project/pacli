@@ -635,7 +635,7 @@ def is_possible_address(address: str, network_name: str=Settings.network, valida
         # raise ei.PacliInputDataError("No valid address string or non-existing label.")
         return False
 
-def get_p2th(accounts: bool=False):
+def get_p2th(accounts: bool=False, decks: list=None) -> list:
 
     if accounts:
         result = ["PAPROD", "PATEST"] # default P2TH accounts for deck spawns
@@ -643,8 +643,9 @@ def get_p2th(accounts: bool=False):
         pa_params = param_query(Settings.network)
         result = [pa_params.P2TH_addr, pa_params.test_P2TH_addr]
 
-    decks = pa.find_all_valid_decks(provider, Settings.deck_version,
-                                        Settings.production)
+    if decks is None:
+        decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
+
     for deck in decks:
         if accounts:
             result.append(deck.id) # Deck P2TH account
@@ -660,12 +661,13 @@ def get_p2th(accounts: bool=False):
 
     return result
 
-def get_p2th_dict():
+def get_p2th_dict(decks: list=None) -> dict:
     pa_params = param_query(Settings.network)
     result = {pa_params.P2TH_addr : "PAPROD",
               pa_params.test_P2TH_addr : "PATEST"}
 
-    decks = pa.find_all_valid_decks(provider, Settings.deck_version,
+    if decks is None:
+        decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
     for deck in decks:
         result.update({ deck.p2th_address : deck.id })
