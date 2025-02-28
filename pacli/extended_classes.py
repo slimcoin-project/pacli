@@ -562,7 +562,7 @@ class ExtAddress:
         """
         # TODO: catch labeldict error when using -w without -a.
 
-        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, debug=debug)
+        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, everything=everything, debug=debug)
 
     def __list(self,
                advanced: bool=False,
@@ -596,18 +596,20 @@ class ExtAddress:
         elif everything:
             include_all = True
             excluded_addresses = []
+            excluded_accounts = []
             include_only = None
         else:
             include_only = None
             include_all = False if include_all in (None, False) else True
             excluded_addresses = eu.get_p2th()
+            excluded_accounts = eu.get_p2th(accounts=True)
 
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             if (labels is True) or (full_labels is True):
                 named = True
             if search_change_addresses is True:
                 named, empty = False, True
-            result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, exclude=excluded_addresses, balances=True, debug=debug)
+            result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
             if search_change_addresses:
                 change_addresses = ec.search_change_addresses(result, balances=True, debug=debug)
                 result += change_addresses
@@ -640,6 +642,7 @@ class ExtAddress:
             return tc.all_balances(wallet=True,
                                   keyring=keyring,
                                   exclude=excluded_addresses,
+                                  excluded_accounts=excluded_accounts,
                                   no_labels=no_labels,
                                   only_tokens=False,
                                   advanced=advanced,

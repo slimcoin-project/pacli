@@ -18,7 +18,21 @@ def get_default_tokens():
     return decks
 
 
-def all_balances(address: str=Settings.key.address, exclude: list=[], include_only: list=[], wallet: bool=False, keyring: bool=False, no_labels: bool=False, only_tokens: bool=False, advanced: bool=False, named: bool=False, only_labels: bool=False, deck_type: int=None, quiet: bool=False, empty: bool=False, debug: bool=False):
+def all_balances(address: str=Settings.key.address,
+                 exclude: list=[],
+                 excluded_accounts: list=[],
+                 include_only: list=[],
+                 wallet: bool=False,
+                 keyring: bool=False,
+                 no_labels: bool=False,
+                 only_tokens: bool=False,
+                 advanced: bool=False,
+                 named: bool=False,
+                 only_labels: bool=False,
+                 deck_type: int=None,
+                 quiet: bool=False,
+                 empty: bool=False,
+                 debug: bool=False):
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
@@ -40,7 +54,7 @@ def all_balances(address: str=Settings.key.address, exclude: list=[], include_on
         print("Retrieving addresses and/or labels ...")
     balances = False if only_tokens is True else True
     if wallet is True: # and no_labels is False:
-        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
         addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
         #addresses = [{"address" : Settings.key.address}]
@@ -115,7 +129,7 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if wallet:
-        wallet_addresses = list(eu.get_wallet_address_set(empty=True, include_named=True))
+        # wallet_addresses = list(eu.get_wallet_address_set(empty=True, include_named=True)) # TODO: deactivated, wallet_addresses is currently not used.
         addresses = ec.get_labels_and_addresses(keyring=keyring)
         balances = eu.get_wallet_token_balances(deck, include_named=True)
 

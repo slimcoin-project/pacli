@@ -267,7 +267,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         if include_only:
             wallet_addresses = set(include_only)
         else:
-            #if not excluded_accounts:
+            #if not excluded_accounts: # MODIF: this will have to be always given explicitly in the function call
             #    excluded_accounts = eu.get_p2th(accounts=True)
             wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
 
@@ -578,7 +578,7 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
     param_names.update({"donation_txid" : dtx_param})
 
     if wallet:
-        addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th())
+        addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th(), excluded_accounts=eu.get_p2th(accounts=True), debug=debug)
         wallet_senders = set([a["address"] for a in addresses])
         raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, allowed_senders=wallet_senders)
     else:
