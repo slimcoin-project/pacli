@@ -257,6 +257,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
         print("Storing blockheight locators for addresses:", addresses)
     locator = bu.get_default_locator()
     blockheights, last_cached_block = locator.get_address_data(addresses, debug=debug)
+    last_block = provider.getblockcount()
     if not quiet:
         bu.display_caching_warnings(addresses, locator)
 
@@ -298,9 +299,9 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
                 print("Do this only if you know the address was not used before the selected block.")
                 print("If this is an error, stop the caching process, erase affected entries with 'address cache -e', and cache the adddress(es) again.")
 
-    end_block = start_block + blocks
+    end_block = min(last_block, start_block + blocks)
     if not quiet:
-        print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, blocks))
+        print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, end_block - start_block))
 
 
     blockdata = bu.show_txes_by_block(locator_list=addresses,
