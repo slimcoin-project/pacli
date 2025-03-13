@@ -12,16 +12,18 @@ from pacli.provider import provider
 
 LOCATORFILE = os.path.join(conf_dir, "blocklocator.json")
 
-# NOTE: start and discontinuous attributes from BlockLocatorAddress will only be stored if necessary.
+# NOTES:
+# - start and discontinuous attributes from BlockLocatorAddress will only be stored if necessary.
+# - ignore_orphans should only be used when reading the locator, as it will change the locator data.
 
 class BlockLocator:
 
-    def __init__(self, address_dict, filename: str=None):
+    def __init__(self, address_dict, filename: str=None, ignore_orphans: bool=False):
 
        self.filename = filename if filename is not None else LOCATORFILE
        self.addresses = {}
        for address, values in address_dict.items():
-           self.addresses.update({address : BlockLocatorAddress.from_dict(values)})
+           self.addresses.update({address : BlockLocatorAddress.from_dict(values, ignore_orphans=ignore_orphans)})
 
     @classmethod
     def empty(cls):
@@ -29,7 +31,7 @@ class BlockLocator:
         return cls({})
 
     @classmethod
-    def from_file(cls, locatorfilename: str=None, quiet: bool=False, debug: bool=False) -> dict:
+    def from_file(cls, locatorfilename: str=None, ignore_orphans: bool=False, quiet: bool=False, debug: bool=False) -> dict:
         """Gets the content from the file (list of addresses with block heights)."""
 
         if locatorfilename is None:
@@ -40,7 +42,7 @@ class BlockLocator:
             with open(locatorfilename, "r") as locatorfile:
                 try:
                     param_dict = json.load(locatorfile)
-                    return cls(param_dict)
+                    return cls(param_dict, ignore_orphans=ignore_orphans)
                 except json.JSONDecodeError as e:
                     if len(locatorfile.read()) == 0:
                         if not quiet:
@@ -134,18 +136,25 @@ class BlockLocator:
         heights.sort()
         self.addresses[address].heights = heights
 
-    def prune_orphans(self, cutoff_height: int, debug: bool=False):
+    def prune_orphans(self, cutoff_height: int, quiet: bool=False, debug: bool=False):
         """Prunes all block heights above a defined cutoff height.
         Should be called by the reorg_check in checkpoints.py."""
         # cutoff height is the LAST block to be conserved.
+        changed_addresses = 0
         for address, addr_obj in self.addresses.items():
             after_cutoff = [h for h in addr_obj.heights if h > cutoff_height]
             if len(after_cutoff) > 0:
-                if debug:
+                if not quiet or debug:
                     print("Pruning BlockLocator for address {} - erased heights:".format(address), after_cutoff)
                 new_heights = [h for h in addr_obj.heights if h <= cutoff_height]
                 self.addresses[address].heights = new_heights
                 self.addresses[address].update_lastblock(lastblockheight=cutoff_height)
+                changed_addresses += 1
+        if not quiet:
+            if changed_addresses > 0:
+                print("Pruned orphans in {} address entries in blocklocator.json.".format(changed_addresses))
+            else:
+                print("No orphans were pruned.")
 
     def get_address_data(self, address_list: list, debug: bool=False) -> tuple:
         # returns a list of all block heights of the address list and the last block
@@ -177,13 +186,19 @@ class BlockLocator:
 
 class BlockLocatorAddress:
 
-    def __init__(self, heights: list, startheight: int=0, discontinuous: bool=False, lastblockhash: str=None, lastblockheight: int=0):
+    def __init__(self,
+                 heights: list,
+                 startheight: int=0,
+                 discontinuous: bool=False,
+                 lastblockhash: str=None,
+                 lastblockheight: int=0,
+                 ignore_orphans: bool=False):
         # Can be initialized with block height or block hash.
         # Hash is stored in the file.
         self.heights = heights
         self.startheight = startheight
         self.discontinuous = discontinuous
-        self.update_lastblock(lastblockhash=lastblockhash, lastblockheight=lastblockheight)
+        self.update_lastblock(lastblockhash=lastblockhash, lastblockheight=lastblockheight, ignore_orphans=ignore_orphans)
 
 
     @classmethod
@@ -205,18 +220,29 @@ class BlockLocatorAddress:
         return result
 
     @classmethod
-    def from_dict(cls, addr_dict):
+    def from_dict(cls, addr_dict: dict, ignore_orphans: bool=False):
         startheight = addr_dict["startheight"] if "startheight" in addr_dict else 0
         discontinuous = addr_dict["discontinuous"] if "discontinuous" in addr_dict else False
         return cls(heights=addr_dict["heights"],
                   startheight=startheight,
                   discontinuous=discontinuous,
-                  lastblockhash=addr_dict["lastblock"])
+                  lastblockhash=addr_dict["lastblock"],
+                  ignore_orphans=ignore_orphans)
 
-    def update_lastblock(self, lastblockheight: int=None, lastblockhash: str=None):
+    def update_lastblock(self, lastblockheight: int=None, lastblockhash: str=None, ignore_orphans: bool=False):
 
         if lastblockhash:
-            self.lastblockheight = provider.getblock(lastblockhash)["height"]
+            try:
+                self.lastblockheight = provider.getblock(lastblockhash)["height"]
+            except KeyError: # can happen after orphaned blocks
+                # NOTE: ignore_orphans automatically affects all affected addresses with an orphan as lastblockhash, sets lastblock to zero.
+                if ignore_orphans:
+                    # self.lastblockheight = max(self.heights) if self.heights else 0
+                    self.lastblockheight = 0
+                    self.lastblockhash = provider.getblockhash(0)
+                else:
+                    err_msg = "Last processed block {} not found in your current chain.\nProbably this means it was orphaned.\nPrune orphans with 'address cache -p'.".format(lastblockhash)
+                    raise ei.PacliInputDataError(err_msg)
             self.lastblockhash = lastblockhash
         elif lastblockheight:
             self.lastblockheight = lastblockheight

@@ -273,8 +273,8 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
     return result
 
 
-def get_default_locator():
-    return loc.BlockLocator.from_file()
+def get_default_locator(ignore_orphans: bool=False):
+    return loc.BlockLocator.from_file(ignore_orphans=ignore_orphans)
 
 def get_address_blockheights(address_list: list, filename: str=None, locator: loc.BlockLocator=None):
     # this will return blockheights per address, as needed in the address_list.
@@ -309,8 +309,20 @@ def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None
 
 def prune_orphans_from_locator(cutoff_height: int, quiet: bool=False, debug: bool=False) -> None:
     locator = get_default_locator()
-    locator.prune_orphans(cutoff_height, debug=debug)
+    locator.prune_orphans(cutoff_height, quiet=quiet, debug=debug)
     locator.store(quiet=quiet, debug=debug)
+
+def autoprune_orphans_from_locator(force: bool=False, quiet: bool=False, debug: bool=False) -> None:
+    if not force:
+        print("This is a dry run. Use --force to really prune the orphan block heights.")
+    locator = loc.BlockLocator.from_file(ignore_orphans=True)
+    last_canonical_lastblockheight = sorted([a.lastblockheight for a in locator.addresses.values()], reverse=True)[0]
+    if not quiet:
+        print("Last processed blockheight with correct hash:", last_canonical_lastblockheight)
+    locator.prune_orphans(last_canonical_lastblockheight, debug=debug)
+    if force:
+        locator.store(quiet=quiet, debug=debug)
+
 
 def display_caching_warnings(address_list: list, locator: loc.BlockLocator, ignore_startblocks: bool=False) -> None:
 

@@ -734,6 +734,7 @@ class ExtAddress:
               quiet: bool=False,
               view: bool=False,
               all_locators: bool=False,
+              prune_orphans: bool=False,
               debug: bool=False):
         """Cache the state of an address.
 
@@ -762,6 +763,11 @@ class ExtAddress:
            Delete the state of the address ADDRESS.
            Add --force to really delete it, otherwise a dry run is performed.
 
+               pacli address cache -p [--force]
+
+           Prunes orphaned blocks, if one or various cached addresses' last processed block was orphaned.
+           Add --force to really prune, otherwise a dry run is performed.
+
            Args:
 
              startblock: Block to start the cache process. Use this parameter if you know when the address was first used.
@@ -769,6 +775,7 @@ class ExtAddress:
              chain: Scans without block limit (up to the whole blockchain). WARNING: Can take several hours up to days!
              force: Ignore warnings and proceed. See Usage modes.
              erase: Delete address entry in blocklocator.json. To be used when the locator data is faulty or inconsistent.
+             prune_orphans: Prunes orphan blocks in blocklocator.json, see Usage section.
              quiet: Suppress output.
              debug: Show additional debug information.
              keyring: Use addresses/label(s) stored in keyring.
@@ -776,7 +783,7 @@ class ExtAddress:
              all_locators: Show all addresses with locators."""
 
 
-        return ei.run_command(self.__cache, _value, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, view=view, all_locators=all_locators, debug=debug)
+        return ei.run_command(self.__cache, _value, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, view=view, all_locators=all_locators, prune_orphans=prune_orphans, debug=debug)
 
 
     def __cache(self,
@@ -787,22 +794,25 @@ class ExtAddress:
                 chain: bool=False,
                 erase: bool=False,
                 force: bool=False,
-                quiet: bool=False,
                 view: bool=False,
                 all_locators: bool=False,
+                prune_orphans: bool=False,
+                quiet: bool=False,
                 debug: bool=False):
 
         if type(_value) == str:
             addresses = [ec.process_address(_value, keyring=keyring)]
         elif type(_value) in (list, tuple):
             addresses = [ec.process_address(a, keyring=keyring) for a in _value]
-        elif all_locators is True and view is True:
+        elif (all_locators is True and view is True) or (prune_orphans is True):
             addresses = None
         else:
             raise ei.PacliInputDataError("No valid address(es) entered.")
 
         if erase is True:
             return bu.erase_locator_entries(addresses, force=force, quiet=quiet, debug=debug) # TODO: improve this allowing startblock and endblock.
+        elif prune_orphans is True:
+            return bu.autoprune_orphans_from_locator(force=force, quiet=quiet, debug=debug)
         elif view is True:
             return bx.show_locators(value=addresses, quiet=quiet, debug=debug)
         else:
