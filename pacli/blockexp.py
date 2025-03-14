@@ -86,10 +86,10 @@ def show_txes(receiving_address: str=None,
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         try:
             receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
-            if "startblock" in deck.__dict__:
+            if "startblock" in deck.__dict__ and deck.startblock is not None:
                 startblock = deck.startblock if startblock in (0, None) else min(deck.startblock, startblock)
 
-            if "endblock" in deck.__dict__:
+            if "endblock" in deck.__dict__ and deck.endblock is not None:
                 endblock = deck.endblock if endblock is None else min(deck.endblock, endblock)
         except AttributeError:
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
