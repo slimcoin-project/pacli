@@ -12,11 +12,12 @@ class Checkpoint:
 
     def set(self,
             blockheight: int=None,
-            delete: bool=False,
+            erase: bool=False,
             prune: int=None,
             quiet: bool=False,
             now: bool=False,
-            remove_orphans: bool=False) -> None:
+            remove_orphans: bool=False,
+            debug: bool=False) -> None:
         """Store a checkpoint (block hash) for a given height or the current height (default).
 
         Usage modes:
@@ -26,7 +27,7 @@ class Checkpoint:
         Stores a checkpoint, the block height becomes the label.
         If no height is given, the most recent block is used.
 
-        pacli checkpoint set BLOCKHEIGHT -d [--now]
+        pacli checkpoint set BLOCKHEIGHT -e [--now]
 
         Deletes a checkpoint corresponding to blockheight HEIGHT. Use --now to delete really.
 
@@ -45,24 +46,25 @@ class Checkpoint:
         Args:
 
           blockheight: Block height. To be used as a positional argument (flag name not mandatory).
-          delete: Delete checkpoint (see Usage modes).
+          erase: Delete checkpoint (see Usage modes).
           now: Delete checkpoint really.
           prune: Prune old checkpoints (see Usage modes).
           remove_orphans: Prune orphan checkpoints (see Usage modes).
           quiet: Suppress output.
+          debug: Display additional debug information.
         """
 
-        if delete is True:
+        if erase is True:
             return ce.delete_item("checkpoint", str(blockheight), now=now, quiet=quiet)
         elif prune is True:
             if type(prune) != int:
                 prune = 2000 # default value
             # TODO: this command is quite slow, optimize it.
-            return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, quiet=quiet)
+            return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, quiet=quiet, debug=debug)
         elif remove_orphans is True:
             return ei.run_command(remove_orphan_checkpoints, quiet=quiet, debug=debug)
         else:
-            return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet)
+            return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet, debug=debug)
 
     def show(self, bheight: int=None) -> str:
         """Show a checkpoint (block hash), by default the most recent.
@@ -96,12 +98,14 @@ class Checkpoint:
           quiet: Script friendly output: 0 for passed and 1 for failed check.
           debug: Show additional debug information."""
 
-        return ei.run_command(reorg_check, prune=prune, quiet=quiet, debug=debug)
+        result = ei.run_command(reorg_check, prune=prune, quiet=quiet, debug=debug)
+        if quiet is True:
+            print(result)
 
 
 # Checkpoint utils
 
-def store_checkpoint(height: int=None, quiet: bool=False) -> None:
+def store_checkpoint(height: int=None, quiet: bool=False, debug: bool=False) -> None:
     if height is None:
         height = provider.getblockcount()
     elif type(height) != int:
@@ -174,10 +178,12 @@ def remove_orphan_checkpoints(quiet: bool=False, debug: bool=False) -> None:
 
         # blocklocator: we remove locators from the highest non-orphan checkpoint on
         cutoff_height = max(valid_checkpoints)
+        if debug:
+            print("Cutoff height (last valid checkpoint):", cutoff_height)
         bu.prune_orphans_from_locator(cutoff_height, quiet=quiet, debug=debug)
 
 
-def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: bool=False, quiet: bool=False) -> None:
+def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: bool=False, quiet: bool=False, debug: bool=False) -> None:
     checkpoints = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
     counter = 0
     current_block = provider.getblockcount()
@@ -214,7 +220,7 @@ def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: b
         checkpoints_new = [int(cp) for cp in ce.get_config()["checkpoint"].keys()]
         print("{} checkpoints deleted. {} checkpoints preserved (minimum: {}).".format(counter, len(checkpoints_new), minimum_checkpoints))
 
-def reorg_check(prune: bool=False, quiet: bool=False, debug: bool=False) -> None:
+def reorg_check(prune: bool=False, quiet: bool=False, debug: bool=False) -> int:
     if not quiet:
         print("Looking for chain reorganizations ...")
     config = ce.get_config()
@@ -248,6 +254,7 @@ def reorg_check(prune: bool=False, quiet: bool=False, debug: bool=False) -> None
             print("Block hash for height {} in current blockchain: {}".format(last_height, checked_bhash))
             print("This is not necessarily an attack, it can also occur due to orphaned blocks.")
             print("Make sure you check token balances and other states.")
+            print("Orphan checkpoints can be pruned with: 'pacli checkpoint set -r'")
         if prune:
             if not quiet:
                 print("Checkpoints will be pruned until the highest one which is still valid.")

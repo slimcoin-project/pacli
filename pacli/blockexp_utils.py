@@ -308,9 +308,10 @@ def erase_locator_entries(addresses: list, quiet: bool=False, filename: str=None
         locator.store(quiet=quiet, debug=debug)
 
 def prune_orphans_from_locator(cutoff_height: int, quiet: bool=False, debug: bool=False) -> None:
-    locator = get_default_locator()
-    locator.prune_orphans(cutoff_height, quiet=quiet, debug=debug)
-    locator.store(quiet=quiet, debug=debug)
+    locator = loc.BlockLocator.from_file(ignore_orphans=True)
+    orphans = locator.prune_orphans(cutoff_height, quiet=quiet, debug=debug)
+    if orphans > 0:
+        locator.store(quiet=quiet, debug=debug)
 
 def autoprune_orphans_from_locator(force: bool=False, quiet: bool=False, debug: bool=False) -> None:
     if not force:
@@ -319,8 +320,8 @@ def autoprune_orphans_from_locator(force: bool=False, quiet: bool=False, debug: 
     last_canonical_lastblockheight = sorted([a.lastblockheight for a in locator.addresses.values()], reverse=True)[0]
     if not quiet:
         print("Last processed blockheight with correct hash:", last_canonical_lastblockheight)
-    locator.prune_orphans(last_canonical_lastblockheight, debug=debug)
-    if force:
+    orphans = locator.prune_orphans(last_canonical_lastblockheight, debug=debug)
+    if force and orphans > 0:
         locator.store(quiet=quiet, debug=debug)
 
 

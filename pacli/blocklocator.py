@@ -136,9 +136,9 @@ class BlockLocator:
         heights.sort()
         self.addresses[address].heights = heights
 
-    def prune_orphans(self, cutoff_height: int, quiet: bool=False, debug: bool=False):
+    def prune_orphans(self, cutoff_height: int, quiet: bool=False, debug: bool=False) -> int:
         """Prunes all block heights above a defined cutoff height.
-        Should be called by the reorg_check in checkpoints.py."""
+           Returns the number of pruned orphans."""
         # cutoff height is the LAST block to be conserved.
         changed_addresses = 0
         for address, addr_obj in self.addresses.items():
@@ -154,7 +154,8 @@ class BlockLocator:
             if changed_addresses > 0:
                 print("Pruned orphans in {} address entries in blocklocator.json.".format(changed_addresses))
             else:
-                print("No orphans were pruned.")
+                print("No orphans were pruned from blocklocator.json.")
+        return changed_addresses
 
     def get_address_data(self, address_list: list, debug: bool=False) -> tuple:
         # returns a list of all block heights of the address list and the last block
