@@ -101,6 +101,7 @@ def show_txes_by_block(sending_addresses: list=[],
         checked_range = max_height - min_height
         percent = round(checked_range / 100, 2)
         mbd = 50 # minimum block distance
+        last_cycle = 0
 
     for bh in blockheights:
 
@@ -110,9 +111,9 @@ def show_txes_by_block(sending_addresses: list=[],
                 rh = bh - min_height # relative height: current height minus minimum height
                 if bh == min_height or (len(loc_blockheights) > 0 and bh == (max(loc_blockheights) + 1)):
                     print("Processing uncached blocks starting from block {} ...".format(bh))
-                elif ((bh in (min_height, max_height)) or (rh % percent == 0)): # each time a full percentage is recorded
+                elif (bh == max_height) or (int(rh % percent) == 0): # each time a full percentage is recorded
                     percentage = round(rh / percent)
-                    if (bh in (min_height, max_height)) or ((rh - last_cycle) >= mbd and (percentage not in (0, 100))):
+                    if (bh == max_height) or ((rh - last_cycle) >= mbd and (percentage not in (0, 100))):
                         last_cycle = (rh // mbd) * mbd
                         print("Progress: {} %, block: {} ...".format(percentage, bh))
 
