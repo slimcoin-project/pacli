@@ -94,10 +94,6 @@ def show_txes(receiving_address: str=None,
         except AttributeError:
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
-    if not quiet:
-        print("Starting at block:", startblock)
-        print("Ending at block:", endblock)
-
     if wallet_mode is not None:
         # TODO: re-check if P2TH addresses should not be excluded here.
         sending_addresses, receiving_addresses = [], []
@@ -117,6 +113,9 @@ def show_txes(receiving_address: str=None,
             bu.display_caching_warnings(address_list, locator)
     else:
         locator = None
+
+    if not quiet:
+        print("Retrieving transactions from block:", startblock, "to block:", endblock)
 
     blockdata = bu.show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=sending_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator)
     txes = blockdata["txes"]
@@ -302,7 +301,6 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     end_block = min(last_block, start_block + blocks)
     if not quiet:
         print("Start block: {} End block: {} Number of blocks: {}".format(start_block, end_block, end_block - start_block))
-
 
     blockdata = bu.show_txes_by_block(locator_list=addresses,
                                    startblock=start_block,

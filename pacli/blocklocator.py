@@ -14,7 +14,7 @@ LOCATORFILE = os.path.join(conf_dir, "blocklocator.json")
 
 # NOTES:
 # - start and discontinuous attributes from BlockLocatorAddress will only be stored if necessary.
-# - ignore_orphans should only be used when reading the locator, as it will change the locator data.
+# - ignore_orphans must only be used when reading or pruning orphans in the locator, as it will change the locator data.
 
 class BlockLocator:
 
@@ -140,14 +140,26 @@ class BlockLocator:
         """Prunes all block heights above a defined cutoff height.
            Returns the number of pruned orphans."""
         # cutoff height is the LAST block to be conserved.
+        # NOTE: this uses a workaround: processes the lastblockheight values
+        # and those set to None are changed to the cutoff height.
+        # We thus assume that the setting to None was done by the pruning algorithm.
+        try:
+            cutoff_hash = provider.getblockhash(cutoff_height)
+        except:
+            raise ei.PacliInputDataError("Block height {} out of range.".format(cutoff_height))
         changed_addresses = 0
         for address, addr_obj in self.addresses.items():
+            if debug:
+                print("Processing address: {}, Lastblockheight: {}".format(address, addr_obj.lastblockheight))
             after_cutoff = [h for h in addr_obj.heights if h > cutoff_height]
             if len(after_cutoff) > 0:
                 if not quiet or debug:
                     print("Pruning BlockLocator for address {} - erased heights:".format(address), after_cutoff)
                 new_heights = [h for h in addr_obj.heights if h <= cutoff_height]
                 self.addresses[address].heights = new_heights
+                self.addresses[address].update_lastblock(lastblockheight=cutoff_height)
+                changed_addresses += 1
+            elif addr_obj.lastblockheight is None: # see above
                 self.addresses[address].update_lastblock(lastblockheight=cutoff_height)
                 changed_addresses += 1
         if not quiet:
@@ -236,11 +248,10 @@ class BlockLocatorAddress:
             try:
                 self.lastblockheight = provider.getblock(lastblockhash)["height"]
             except KeyError: # can happen after orphaned blocks
-                # NOTE: ignore_orphans automatically affects all affected addresses with an orphan as lastblockhash, sets lastblock to zero.
+                # NOTE: ignore_orphans automatically affects all affected addresses with an orphan as lastblockhash, sets their lastblock to None.
                 if ignore_orphans:
-                    # self.lastblockheight = max(self.heights) if self.heights else 0
-                    self.lastblockheight = 0
-                    self.lastblockhash = provider.getblockhash(0)
+                    self.lastblockheight = None
+                    self.lastblockhash = None
                 else:
                     err_msg = "Last processed block {} not found in your current chain.\nProbably this means it was orphaned.\nPrune orphans with 'address cache -p'.".format(lastblockhash)
                     raise ei.PacliInputDataError(err_msg)

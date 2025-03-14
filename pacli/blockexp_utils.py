@@ -108,11 +108,13 @@ def show_txes_by_block(sending_addresses: list=[],
             # progress message
             if not quiet and (not use_locator or (bh not in loc_blockheights)):
                 rh = bh - min_height # relative height: current height minus minimum height
-                if (percent != 0) and ((bh in (min_height, max_height)) or (rh % percent == 0)): # each time a full percentage is recorded
+                if bh == min_height or (len(loc_blockheights) > 0 and bh == (max(loc_blockheights) + 1)):
+                    print("Processing uncached blocks starting from block {} ...".format(bh))
+                elif ((bh in (min_height, max_height)) or (rh % percent == 0)): # each time a full percentage is recorded
                     percentage = round(rh / percent)
                     if (bh in (min_height, max_height)) or ((rh - last_cycle) >= mbd and (percentage not in (0, 100))):
                         last_cycle = (rh // mbd) * mbd
-                        print("Processing uncached blocks: {} %, block: {} ...".format(percentage, bh))
+                        print("Progress: {} %, block: {} ...".format(percentage, bh))
 
             blockhash = provider.getblockhash(bh)
             block = provider.getblock(blockhash)
@@ -317,7 +319,7 @@ def autoprune_orphans_from_locator(force: bool=False, quiet: bool=False, debug: 
     if not force:
         print("This is a dry run. Use --force to really prune the orphan block heights.")
     locator = loc.BlockLocator.from_file(ignore_orphans=True)
-    last_canonical_lastblockheight = sorted([a.lastblockheight for a in locator.addresses.values()], reverse=True)[0]
+    last_canonical_lastblockheight = sorted([a.lastblockheight for a in locator.addresses.values() if a.lastblockheight is not None], reverse=True)[0]
     if not quiet:
         print("Last processed blockheight with correct hash:", last_canonical_lastblockheight)
     orphans = locator.prune_orphans(last_canonical_lastblockheight, debug=debug)
