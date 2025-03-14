@@ -593,6 +593,7 @@ class ExtAddress:
             coinbalances = True
             include_all = True if include_all in (None, True) else False
             excluded_addresses = []
+            excluded_accounts = []
         elif everything:
             include_all = True
             excluded_addresses = []
