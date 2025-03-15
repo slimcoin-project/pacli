@@ -175,10 +175,10 @@ class BlockLocator:
         lastblocks = []
         for address in address_list:
             if (address is not None) and (address in self.addresses):
-                heights +=  self.addresses[address].heights
+                heights += self.addresses[address].heights
                 lastblocks.append(self.addresses[address].lastblockheight)
         if heights:
-            heights.sort()
+            heights = sorted(set(heights))
         if lastblocks:
             lastblock = min(lastblocks)
         else:
