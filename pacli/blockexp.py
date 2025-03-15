@@ -43,7 +43,7 @@ def show_txes(receiving_address: str=None,
         last_block_date = datetime.date.fromisoformat(last_blocktime.split(" ")[0])
         startdate, enddate = None, None
         start = 0 if not start else start
-        end = provider.getblockcount() if not end else end
+        end = last_block if not end else end
 
         if "-" in str(start):
             ssp = start.split("-")
@@ -66,7 +66,7 @@ def show_txes(receiving_address: str=None,
                 oneday = datetime.timedelta(days=1)
                 endblock = bu.date_to_blockheight(enddate + oneday, last_block, startheight=startblock, debug=debug) - 1
         else:
-            endblock = int(end)
+            endblock = min(int(end), last_block)
 
         if (startdate is not None and startdate > last_block_date) or (enddate is not None and enddate > last_block_date):
             raise ei.PacliInputDataError("Start or end date is in the future.")
