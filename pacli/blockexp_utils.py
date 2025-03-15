@@ -51,8 +51,8 @@ def show_txes_by_block(sending_addresses: list=[],
         address_list = None # this means all transactions will be preselected
         if quiet is False and use_locator is True:
             print("Locator mode not supported if no addresses or decks are selected. Locators will not be used.")
-        use_locator = None
-        store_locator = None
+        use_locator = False
+        store_locator = False
         all_txes = True
 
     blockrange = range(startblock, endblock + 1)
@@ -109,8 +109,9 @@ def show_txes_by_block(sending_addresses: list=[],
             # progress message
             if not quiet and (not use_locator or (bh not in loc_blockheights)):
                 rh = bh - min_height # relative height: current height minus minimum height
-                if bh == min_height or (len(loc_blockheights) > 0 and bh == (max(loc_blockheights) + 1)):
+                if (bh == min_height) or (use_locator and (len(loc_blockheights) > 0 and bh == (max(loc_blockheights) + 1))):
                     print("Processing uncached blocks starting from block {} ...".format(bh))
+
                 elif (bh == max_height) or (int(rh % percent) == 0): # each time a full percentage is recorded
                     percentage = round(rh / percent)
                     if (bh == max_height) or ((rh - last_cycle) >= mbd and (percentage not in (0, 100))):
