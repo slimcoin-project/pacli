@@ -506,21 +506,19 @@ class ExtAddress:
 
 
     def list(self,
-             advanced: bool=False,
              keyring: bool=False,
              coinbalances: bool=False,
              labels: bool=False,
              full_labels: bool=False,
              named: bool=False,
-             without_labels: bool=False,
-             only_labels: bool=False,
              p2th: bool=False,
-             quiet: bool=False,
+             advanced: bool=False,
              blockchain: str=Settings.network,
-             debug: bool=False,
              include_all: bool=None,
              search_change_addresses: bool=False,
-             everything: bool=False):
+             everything: bool=False,
+             quiet: bool=False,
+             debug: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
 
         Usage modes:
@@ -532,8 +530,7 @@ class ExtAddress:
 
         pacli address list -a
 
-            Advanced mode. Shows a JSON string of all stored addresses and all or some tokens.
-            -o/--only_labels and -w/--without_labels are exclusive flags for this mode.
+            Advanced mode. Shows a (prettyprinted) JSON string of all stored addresses and all tokens.
 
         pacli address list -l [-b CHAIN]
         pacli address list -f [-b CHAIN]
@@ -544,34 +541,30 @@ class ExtAddress:
 
         Args:
 
-          advanced: Advanced mode, see Usage modes above.
           labels: Show only stored labels.
           full_labels: Show only stored labels with network prefix (debugging option).
           named: Shows only addresses which were named with a label.
           keyring: Uses the keyring of your operating system.
-          coinbalances: Only shows coin balances, not tokens (faster).
-          quiet: Suppress output, printout in script-friendly way.
+          coinbalances: Only shows coin balances, not tokens (faster). Cannot be combined with -a, -f and -l.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
-          debug: Show debug information.
-          only_labels: In advanced mode (-a), if a label is present, show only the labels of addresses and tokens.
+          advanced: Advanced mode showing a JSON string, see Usage modes above.
           p2th: Show only P2TH addresses.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
-          without_labels: In advanced mode (-a), never show labels, only addresses.
           search_change_addresses: In combination with -c, also show change addresses. This needs an additional step and is very slow.
           everything: Show all wallet addresses, including P2TH and empty ones (like a combination of -i and -p), but without change addresses. Slow.
+          quiet: Suppress output, printout in script-friendly way.
+          debug: Show debug information.
         """
         # TODO: catch labeldict error when using -w without -a.
 
-        return ei.run_command(self.__list, advanced=advanced, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, no_labels=without_labels, only_labels=only_labels, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, everything=everything, debug=debug)
+        return ei.run_command(self.__list, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, advanced=advanced, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, everything=everything, debug=debug)
 
     def __list(self,
-               advanced: bool=False,
                keyring: bool=False,
                coinbalances: bool=False,
                labels: bool=False,
                full_labels: bool=False,
-               no_labels: bool=False,
-               only_labels: bool=False,
+               advanced: bool=False,
                p2th: bool=False,
                named: bool=False,
                quiet: bool=False,
@@ -581,8 +574,6 @@ class ExtAddress:
                search_change_addresses: bool=False,
                everything: bool=False):
 
-        if no_labels and not advanced:
-            raise ei.PacliInputDataError("Wrong command option combination.")
         if True not in (labels, full_labels) and (network != Settings.network):
             raise ei.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
 
@@ -644,10 +635,8 @@ class ExtAddress:
                                   keyring=keyring,
                                   exclude=excluded_addresses,
                                   excluded_accounts=excluded_accounts,
-                                  no_labels=no_labels,
                                   only_tokens=False,
                                   advanced=advanced,
-                                  only_labels=only_labels,
                                   named=named,
                                   quiet=quiet,
                                   empty=include_all,
@@ -1327,8 +1316,6 @@ class ExtCard:
                 advanced: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
-                no_labels: bool=False,
-                labels: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
         """List the token balances of an address, the whole wallet or all users.
@@ -1365,22 +1352,11 @@ class ExtCard:
           category: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
           advanced: See above. Shows balances of all tokens in JSON format. Not in combination with -o nor -t.
           owners: Show balances of all holders of cards of a token. Cannot be combined with other options except -q.
-          labels: In combination with -w and -a, don't show the addresses, only the labels (except when the address has no label).
-          no_labels: In combination with -w and either -a or -t, don't show the address labels, only the addresses.
           keyring: In combination with -a or -t (not -w), use an address stored in the keyring.
           quiet: Suppresses informative messages.
           debug: Display debug info.
           param1: Token (deck) or address. To be used as a positional argument (flag keyword not necessary). See Usage modes.
           wallet: Show balances of all addresses in the wallet."""
-
-        # get_deck_type is since 12/23 a function in the constants file retrieving DECK_TYPE enum for common abbreviations.
-        # allowed are: "at" / "pob", "dt" / "pod" (in all capitalizations)
-        # ---
-        # changes (can be deleted if tested well)
-        # "cardholders" > "owners"
-        # "only_labels" > "labels"
-        # "tokendeck" => new for DECK
-        # "token_type" => category
 
         kwargs = locals()
         del kwargs["self"]
@@ -1394,8 +1370,6 @@ class ExtCard:
                 advanced: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
-                no_labels: bool=False,
-                labels: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
 
@@ -1427,7 +1401,7 @@ class ExtCard:
                 addr_str = Settings.key.address
             address = ec.process_address(addr_str) if addr_str is not None else Settings.key.address
             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
-            return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, quiet=quiet)
+            return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, quiet=quiet)
         else:
             # TODO seems like label names are not given in this mode if a an address is given.
 
@@ -1439,9 +1413,8 @@ class ExtCard:
                 deck_type = c.get_deck_type(category.lower()) if category is not None else None
             except AttributeError:
                 raise ei.PacliInputDataError("No category specified.")
-            if not advanced:
-                no_labels = False
-            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, no_labels=no_labels, only_tokens=True, advanced=advanced, only_labels=labels, deck_type=deck_type, quiet=quiet, debug=debug)
+
+            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, only_tokens=True, advanced=advanced, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
     def transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):

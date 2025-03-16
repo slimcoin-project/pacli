@@ -1,8 +1,6 @@
 from pacli.__main__ import Card as VanillaCard
 from pacli.__main__ import Deck as VanillaDeck
 
-# experimental idea: all card/deck commands go into Token.
-
 class Token(VanillaDeck, VanillaCard):
     """Token commands manage the creation (spawning), issuance, transfer and information gathering about PeerAssets tokens.
 
