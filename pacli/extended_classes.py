@@ -512,11 +512,13 @@ class ExtAddress:
              full_labels: bool=False,
              named: bool=False,
              p2th: bool=False,
+             only_initialized_p2th: bool=False,
+             everything: bool=False,
+             wallet: bool=False,
              advanced: bool=False,
              blockchain: str=Settings.network,
              include_all: bool=None,
              search_change_addresses: bool=False,
-             everything: bool=False,
              quiet: bool=False,
              debug: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
@@ -548,16 +550,26 @@ class ExtAddress:
           coinbalances: Only shows coin balances, not tokens (faster). Cannot be combined with -a, -f and -l.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
           advanced: Advanced mode showing a JSON string, see Usage modes above.
-          p2th: Show only P2TH addresses.
+          p2th: Show the P2TH addresses of all decks (can be a very long list).
+          only_initialized_p2th: Shows P2TH addresses from initialized decks.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
-          search_change_addresses: In combination with -c, also show change addresses. This needs an additional step and is very slow.
-          everything: Show all wallet addresses, including P2TH and empty ones (like a combination of -i and -p), but without change addresses. Slow.
+          wallet: Show all wallet addresses and P2TH addresses from initialized decks (like a combination of -i and -o).
+          everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens (like a combination of -i and -p), but without change addresses. Slow.
+          search_change_addresses: In combination with -c, show change addresses. This needs an additional step and is very slow.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
         """
         # TODO: catch labeldict error when using -w without -a.
+        # idea:
+        # -w -> like -e now, all addresses in the wallet including p2th
+        # -e really everything, including uninitialized p2th
+        # -o only initialized P2TH
+        # -p all P2TH, like now
 
-        return ei.run_command(self.__list, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, advanced=advanced, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, everything=everything, debug=debug)
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(self.__list, **kwargs)
+        # return ei.run_command(self.__list, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, advanced=advanced, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, everything=everything, debug=debug)
 
     def __list(self,
                keyring: bool=False,
@@ -566,49 +578,77 @@ class ExtAddress:
                full_labels: bool=False,
                advanced: bool=False,
                p2th: bool=False,
+               only_initialized_p2th: bool=False,
                named: bool=False,
-               quiet: bool=False,
-               network: str=Settings.network,
-               debug: bool=False,
                include_all: bool=None,
+               everything: bool=False,
+               wallet: bool=False,
                search_change_addresses: bool=False,
-               everything: bool=False):
+               blockchain: str=Settings.network,
+               quiet: bool=False,
+               debug: bool=False):
 
-        if True not in (labels, full_labels) and (network != Settings.network):
+        if True not in (labels, full_labels) and (blockchain != Settings.network):
             raise ei.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
 
         # include_all is standard for P2TH, otherwise not.
-        if p2th:
-            p2th_dict = eu.get_p2th_dict()
-            include_only = p2th_dict.keys()
+        if (labels, full_labels) == (False, False):
+            if p2th or only_initialized_p2th or wallet or everything:
+                if debug:
+                    print("Retrieving decks ...")
+                all_decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
+                if debug:
+                    print("Retrieving initialization status ...")
+                if only_initialized_p2th: # or wallet: # TODO probably unnecessary if we do not use the include parameter (but also not exclude).
+                    decks = eu.get_initialized_decks(all_decks, debug=debug)
+                else:
+                    decks = all_decks
+            else:
+                decks = None
+            if debug:
+                print("Retrieving P2TH dict ...")
+            p2th_dict = eu.get_p2th_dict(decks=decks)
+            if debug:
+                print("Getting addresses and wallets ...")
+
+        if p2th or only_initialized_p2th:
+            include_only, include = p2th_dict.keys(), None
             coinbalances = True
             include_all = True if include_all in (None, True) else False
             excluded_addresses = []
             excluded_accounts = []
-        elif everything:
-            include_all = True
+            add_p2th_account = True
+        elif everything or wallet:
+            if everything:
+                include = p2th_dict.keys()
+            else:
+                include = None
+            include_all, include_only = True, None
             excluded_addresses = []
             excluded_accounts = []
-            include_only = None
+            add_p2th_account = False
         else:
-            include_only = None
+            include_only, include = None, None
             include_all = False if include_all in (None, False) else True
-            excluded_addresses = eu.get_p2th()
-            excluded_accounts = eu.get_p2th(accounts=True)
+            excluded_addresses = p2th_dict.keys()
+            excluded_accounts = p2th_dict.values()
+            add_p2th_account = False
 
+        # TODO: decide if -c should be integrated into tc.all_balances()
+        # TODO: -w gives same result as -e currently, fix bug.
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             if (labels is True) or (full_labels is True):
                 named = True
             if search_change_addresses is True:
                 named, empty = False, True
-            result = ec.get_labels_and_addresses(prefix=network, keyring=keyring, named=named, empty=include_all, include_only=include_only, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
+            result = ec.get_labels_and_addresses(prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
             if search_change_addresses:
                 change_addresses = ec.search_change_addresses(result, balances=True, debug=debug)
                 result += change_addresses
 
             if (labels is True) or (full_labels is True):
                 if labels:
-                    items = [(i.replace(network + "_", ""), entry[i]) for entry in result for i in entry]
+                    items = [(i.replace(blockchain + "_", ""), entry[i]) for entry in result for i in entry]
                 else:
                     items = [(i, entry[i]) for entry in result for i in entry]
                 items.sort()
@@ -623,13 +663,15 @@ class ExtAddress:
             else:
                 addresses = eu.sort_address_items(result, debug=debug)
 
-                if p2th:
+                if add_p2th_account == True:
                     for item in addresses:
                         item.update({"account" : p2th_dict.get(item["address"])})
 
-                ei.print_address_list(addresses, p2th=p2th)
+                ei.print_address_list(addresses, p2th=add_p2th_account)
                 return
         else:
+            # TODO: try to improve/unify the location of the deck search.
+            deck_list = all_decks if (advanced and all_decks is not None) else None
 
             return tc.all_balances(wallet=True,
                                   keyring=keyring,
@@ -641,6 +683,8 @@ class ExtAddress:
                                   quiet=quiet,
                                   empty=include_all,
                                   include_only=include_only,
+                                  include=include,
+                                  decks=deck_list,
                                   debug=debug)
 
     def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False, debug: bool=False):
@@ -1762,7 +1806,7 @@ class ExtTransaction:
           gatewaytxes: Only show transactions going to a gateway address of an AT token.
           ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
-          locator: In -x mode, use existing block locators to speed up the blockchain retrieval. See Usage modes above.
+          locator: In -x mode, use existing block locators to speed up the blockchain retrieval, while caching uncached blocks in the selected block interval. See Usage modes above.
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           mempool: Show unconfirmed transactions in the mempool or the wallet. Adding 'only' shows only unconfirmed ones (not in combination with -x).
           named: Show only transactions stored with a label (see Usage modes).

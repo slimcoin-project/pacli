@@ -206,6 +206,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              exclude: list=[],
                              excluded_accounts: list=[],
                              include_only: list=[],
+                             include: list=[],
                              keyring: bool=False,
                              named: bool=False,
                              empty: bool=False,
@@ -270,12 +271,16 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         if include_only:
             wallet_addresses = set(include_only)
         else:
-            #if not excluded_accounts: # MODIF: this will have to be always given explicitly in the function call
-            #    excluded_accounts = eu.get_p2th(accounts=True)
             wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
 
+        if include:
+            wallet_addresses = wallet_addresses | set(include)
         if exclude:
             wallet_addresses -= set(exclude)
+
+        if debug:
+            print("{} wallet addresses processed: {}".format(len(wallet_addresses), wallet_addresses))
+
 
         for address in wallet_addresses:
             if address not in labeled_addresses:

@@ -21,30 +21,37 @@ def get_default_tokens():
 def all_balances(address: str=Settings.key.address,
                  exclude: list=[],
                  excluded_accounts: list=[],
+                 include: list=[],
                  include_only: list=[],
+                 decks: list=None,
                  wallet: bool=False,
                  keyring: bool=False,
                  no_labels: bool=False,
+                 only_labels: bool=False,
                  only_tokens: bool=False,
+                 empty: bool=False,
                  advanced: bool=False,
                  named: bool=False,
-                 only_labels: bool=False,
                  deck_type: int=None,
                  quiet: bool=False,
-                 empty: bool=False,
                  debug: bool=False):
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
+    # NOTE: decks needs to be always the list of all decks, not only the initialized decks or another subset.
 
-    if debug:
-        print("Retrieving deck list ...")
     if advanced is not True:
         # the quick mode displays only default PoB and PoD decks
         decks = get_default_tokens()
     elif deck_type is not None:
+        if debug:
+            print("Retrieving deck list ...")
+        # Note: address list -w and -e will not trigger this branch, so the decks aren't searched twice.
         decks = list_decks_by_at_type(provider, deck_type)
-    else:
+    elif decks is None:
+        if debug:
+            print("Retrieving deck list ...")
+
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
     if advanced is True:
@@ -54,12 +61,9 @@ def all_balances(address: str=Settings.key.address,
         print("Retrieving addresses and/or labels ...")
     balances = False if only_tokens is True else True
     if wallet is True: # and no_labels is False:
-        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
         addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
-        #addresses = [{"address" : Settings.key.address}]
-        #if not only_tokens:
-        #    addresses[0].update({"balance" : provider.getbalance(address)})
 
     # NOTE: default view needs no deck labels
     # NOTE2: Quiet mode doesn't show labels.
@@ -73,7 +77,6 @@ def all_balances(address: str=Settings.key.address,
             except KeyError:
                 raise ei.PacliInputDataError("Default PoB and dPoD tokens are not supported on network '{}'.".format(Settings.network))
 
-    # address_list = [a["address"] for a in addresses]
     for deck in decks:
         if (no_labels or quiet) or (not advanced) or (deck.id not in deck_labels.values()):
             deck_identifier = deck.id
@@ -86,29 +89,13 @@ def all_balances(address: str=Settings.key.address,
         if debug:
             print("Checking deck:", deck.id)
         try:
-            # token_balances = eu.get_wallet_token_balances(deck, include_named=True, addresses=address_list, debug=debug)
             eu.get_wallet_token_balances(deck, identifier=deck_identifier, include_named=True, address_dicts=addresses, no_labels=no_labels, debug=debug)
-            # ei.add_token_balances(addresses, deck_identifier, token_balances, suppress_addresses=only_labels)
-            # addr_balance = eu.get_address_token_balance(deck, address)
 
         except KeyError:
             if debug:
                 print("Warning: Omitting deck with initialization problem:", deck.id)
             continue
 
-        # if addr_balance:
-        #    # support for deck labels
-        #    #if (deck_labels) and (deck.id in deck_labels.values()):
-        #    #    deck_label = [l for l in deck_labels if deck_labels[l] == deck.id][0]
-        #    #    if only_labels:
-        #    #        balances.update({deck_label : balance})
-        #    #    else:
-        #    #        balances.update({"{} ({})".format(deck_label, deck.id) : balance})
-        #    #else:
-        #    #    balances.update({deck.id : balance})
-
-    # sorting
-    #     if advanced is True:
     if len(addresses) > 1:
         addresses = eu.sort_address_items(addresses, debug=debug)
 
