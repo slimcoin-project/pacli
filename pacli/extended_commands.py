@@ -299,8 +299,10 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                 balance = "0"
                 if debug is True:
                     print("No valid balance for address {} with label {}. Probably not a valid address.".format(address, label))
-            if balance != "0":
+
+            if "." in balance:
                 balance = balance.rstrip("0")
+                balance = balance.rstrip(".")
             item.update({"balance" : balance})
             result2.append(item)
         result = result2

@@ -90,6 +90,8 @@ def all_balances(address: str=Settings.key.address,
             print("Checking deck:", deck.id)
         try:
             eu.get_wallet_token_balances(deck, identifier=deck_identifier, include_named=True, address_dicts=addresses, no_labels=no_labels, debug=debug)
+            #if debug:
+            #    print("Address balances added:", addresses)
 
         except KeyError:
             if debug:
