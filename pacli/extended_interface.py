@@ -32,6 +32,9 @@ def run_command(c, *args, **kwargs) -> object:
     debug = ("debug" in kwargs.keys() and kwargs["debug"]) or ("show_debug_info" in kwargs.keys() and kwargs["show_debug_info"])
 
     try:
+        from pacli.keystore_extended import UNUSABLE_KEY
+        if Settings.key.privkey == UNUSABLE_KEY and ("SETTING_NEW_KEY" not in kwargs.keys()):
+            raise PacliMainAddressLocked("Main address locked. Use 'address set LABEL' to change to an existing (named) address, 'address set LABEL -f' to a completely new address.")
         result = c(*args, **kwargs)
         return result
 
@@ -42,6 +45,14 @@ def run_command(c, *args, **kwargs) -> object:
     except (PacliInputDataError, ValueExistsError, InsufficientFunds) as e:
 
         print_red("\nError: {}".format(e.args[0]))
+        if debug:
+            raise
+        sys.exit()
+
+    except PacliMainAddressLocked as e:
+
+        #print_red("\nError: {}".format(e.args[0]))
+        print(e.args[0])
         if debug:
             raise
         sys.exit()
@@ -409,4 +420,8 @@ class ValueExistsError(Exception):
 
 class PacliGeneralError(Exception):
     # exception to throw the "General Error" error.
+    pass
+
+class PacliMainAddressLocked(Exception):
+    # exception if address is set to unusable key.
     pass

@@ -148,7 +148,7 @@ class PoDToken():
         """
         # TODO add payto/payamount like in attoken/pobtoken claim
 
-        change_address = ec.process_address(change)
+        change_address = ei.run_command(ec.process_address, change)
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
 
         if examine_address is None:
@@ -1012,6 +1012,7 @@ class Donation:
           send: Send the transaction (signing is already sent to True)."""
 
         # you can use a label for your donation
+        # TODO: may need adaptation for main address lock
         donor_label = label
 
         if donation is not None:
@@ -1317,7 +1318,7 @@ class Donation:
         # TODO: could probably be reworked with the ProposalState methods.
         # TODO: show_stored_key can be replaced with ce.process_address. We would then however have to detect if a label was used or not (for the "..with label.." part)
 
-        proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
+        proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal)
         if label is not None:
             address = ke.show_stored_key(label, Settings.network)
             address_label = "{} with label {}".format(address, label)

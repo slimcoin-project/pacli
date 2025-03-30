@@ -14,6 +14,7 @@ import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 
 ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
+UNUSABLE_KEY = "0000000000000000000000000000000000000000000000000000000000000001"
 
 def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, label: str=None, existing_label: str=None, network_name: str=Settings.network, modify: bool=False, legacy: bool=False, quiet: bool=False) -> None:
     '''save/import new key, can be as main address or with a label, old key can be backed up

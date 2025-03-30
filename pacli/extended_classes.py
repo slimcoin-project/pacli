@@ -341,6 +341,7 @@ class ExtAddress:
             now: bool=False,
             import_all_keyring_addresses: bool=False,
             check_usage: bool=False,
+            unusable: bool=False,
             show_debug_info: bool=False):
 
         """Sets the current main address or stores / deletes a label for an address.
@@ -369,6 +370,12 @@ class ExtAddress:
 
             Modifies a label (OLD_LABEL is replaced by NEW_LABEL).
 
+        pacli address set -u
+
+            Locks the main address.
+            Deletes the current main key from the keyring and creates an unusable entry.
+            Prevents the access to any private key via the keyring.
+
         Args:
 
           fresh: Creates an address/key with the wallet software, assigns it a label and sets it as the main address.
@@ -382,15 +389,13 @@ class ExtAddress:
           quiet: Suppress output, printout in script-friendly way.
           address: Address. To be used as positional argument (flag keyword not mandatory). See Usage modes.
           label: Label. To be used as positional argument (flag keyword not mandatory). See Usage modes.
+          unusable: Create an unusable entry in the keyring to lock the main address. See Usage modes.
           show_debug_info: Show debug information.
         """
 
-        # (replaces: `address set_main`, `address fresh`, `tools store_address`, `address set_label`, `tools store_address_from_keyring`, `address delete_label`, `tools delete_address_label`,  `address import_to_wallet` and  `tools store_addresses_from_keyring`) (Without flag it would work like the old address set_main, flag --new will generate a new address, like the current "fresh" command, other options are implemented with new flags like --delete, --keyring, --from-keyring, --all-keyring-labels, --into-wallet)
-        # keyring commands will be added in a second step
-        # NOTE: --backup options could be trashed. This option is now very unlikely to be used. Setting it to None for now.
-
         kwargs = locals()
         del kwargs["self"]
+        kwargs.update({"SETTING_NEW_KEY" : True})
         ei.run_command(self.__set_label, **kwargs)
 
 
@@ -406,11 +411,21 @@ class ExtAddress:
             now: bool=False,
             check_usage: bool=False,
             import_all_keyring_addresses: bool=False,
+            unusable: bool=False,
+            SETTING_NEW_KEY: bool=False,
             show_debug_info: bool=False):
 
         debug = show_debug_info
 
-        if label is None and address is None:
+
+        if unusable is True:
+            ke.set_key("key", ke.UNUSABLE_KEY)
+            if not quiet:
+                print("Main address locked: unusable key stored in the keyring.")
+                print("To unlock, use 'address set' command with any address you like to use.")
+            return
+
+        elif label is None and address is None:
             if import_all_keyring_addresses:
                 return ec.store_addresses_from_keyring(quiet=quiet, replace=modify)
             else:
@@ -445,7 +460,8 @@ class ExtAddress:
              wif: bool=False,
              keyring: bool=False,
              label: bool=False,
-             burn_address: bool=False):
+             burn_address: bool=False,
+             debug: bool=False):
 
         # NOTE: it would be cool to have the --pubkey... option also for labeled addresses, but that may be quite difficult.
         """Shows the address corresponding to a label, or the main address.
@@ -477,6 +493,7 @@ class ExtAddress:
           pubkey: Shows public key. Only with --keyring option.
           addr_id: To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
           burn_address: Show burn address. See Usage modes. Cannot be combined with other flags.
+          debug: Show additional debug information.
         """
 
         if burn_address is True:
@@ -495,6 +512,11 @@ class ExtAddress:
             return ei.run_command(ec.show_stored_address, addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
 
         else:
+
+            return ei.run_command(self.__show, pubkey=pubkey, privkey=privkey, wif=wif, debug=debug)
+
+    def __show(self, pubkey: bool=False, privkey: bool=False, wif: bool=False, debug: bool=False):
+
             if pubkey is True:
                 return Settings.key.pubkey
             if privkey is True:
@@ -559,17 +581,9 @@ class ExtAddress:
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
         """
-        # TODO: catch labeldict error when using -w without -a.
-        # idea:
-        # -w -> like -e now, all addresses in the wallet including p2th
-        # -e really everything, including uninitialized p2th
-        # -o only initialized P2TH
-        # -p all P2TH, like now
-
         kwargs = locals()
         del kwargs["self"]
         return ei.run_command(self.__list, **kwargs)
-        # return ei.run_command(self.__list, keyring=keyring, coinbalances=coinbalances, labels=labels, full_labels=full_labels, advanced=advanced, named=named, quiet=quiet, p2th=p2th, network=blockchain, include_all=include_all, search_change_addresses=search_change_addresses, everything=everything, debug=debug)
 
     def __list(self,
                keyring: bool=False,
@@ -635,7 +649,6 @@ class ExtAddress:
             add_p2th_account = False
 
         # TODO: decide if -c should be integrated into tc.all_balances()
-        # TODO: -w gives same result as -e currently, fix bug.
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             if (labels is True) or (full_labels is True):
                 named = True
@@ -1761,7 +1774,7 @@ class ExtTransaction:
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
             In the case of burn transactions (-b), DECK is only necessary if combined with -u. Without DECK all burn transactions will be listed.
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
-            If no origin address nor -w is given, all burn/gateway transactions who touch any address in your wallet, including P2TH, will be shown.
+            If no origin address nor -w is given, all burn/gateway transactions spending from and receiving to any address in your wallet, including P2TH, will be shown.
 
         pacli transaction list DECK [-o ORIGIN_ADDRESS] -c
 
@@ -1895,15 +1908,14 @@ class ExtTransaction:
         elif claimtxes is True:
             txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
         elif named is True:
-            """Shows all stored transactions and their labels."""
+            # Shows all stored transactions and their labels.
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
             if advanced is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet or zraw:
             txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
         else:
-            """returns all transactions from or to that address in the wallet."""
-
+            # returns all transactions from or to that address in the wallet.
             address = Settings.key.address if address_or_deck is None else address_or_deck
             txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
