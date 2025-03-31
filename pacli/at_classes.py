@@ -40,7 +40,11 @@ class ATTokenBase():
 
             min_token_amount = Decimal(str(10 ** -deck.number_of_decimals))
 
-            if (amount % min_token_amount) > 0:
+            if deck.number_of_decimals >= 30:
+                if not quiet:
+                    print("Optimization not possible, token has too many decimal places.")
+
+            elif (amount % min_token_amount) > 0:
                 optimized_amount = (amount // min_token_amount) * min_token_amount
                 if not quiet:
                     print("NOTE: The original amount will not lead to an optimal reward.")

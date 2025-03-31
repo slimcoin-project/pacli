@@ -372,9 +372,9 @@ class ExtAddress:
 
         pacli address set -u
 
-            Locks the main address.
-            Deletes the current main key from the keyring and creates an unusable entry.
-            Prevents the access to any private key via the keyring.
+            Locks the main address to prevent the access to any private key via the keyring.
+            It deletes the current main key from the keyring and creates an unusable entry.
+            Needs to be unlocked with any 'address set' option.
 
         Args:
 
@@ -540,7 +540,8 @@ class ExtAddress:
              advanced: bool=False,
              blockchain: str=Settings.network,
              include_all: bool=None,
-             search_change_addresses: bool=False,
+             search_change: bool=False,
+             xclusive_change: bool=False,
              quiet: bool=False,
              debug: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
@@ -577,7 +578,8 @@ class ExtAddress:
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           wallet: Show all wallet addresses and P2TH addresses from initialized decks (like a combination of -i and -o).
           everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens (like a combination of -i and -p), but without change addresses. Slow.
-          search_change_addresses: In combination with -c, show change addresses. This needs an additional step and is very slow.
+          search_change: In combination with -c, show change addresses in addition to the regular ones. This needs an additional step and is very slow.
+          xclusive_change: In combination with -c, only show change addresses.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
         """
@@ -597,7 +599,8 @@ class ExtAddress:
                include_all: bool=None,
                everything: bool=False,
                wallet: bool=False,
-               search_change_addresses: bool=False,
+               search_change: bool=False,
+               xclusive_change: bool=False,
                blockchain: str=Settings.network,
                quiet: bool=False,
                debug: bool=False):
@@ -652,12 +655,15 @@ class ExtAddress:
         if (coinbalances is True) or (labels is True) or (full_labels is True):
             if (labels is True) or (full_labels is True):
                 named = True
-            if search_change_addresses is True:
+            if search_change or xclusive_change:
                 named, empty = False, True
             result = ec.get_labels_and_addresses(prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
-            if search_change_addresses:
+            if search_change or xclusive_change:
                 change_addresses = ec.search_change_addresses(result, balances=True, debug=debug)
-                result += change_addresses
+                if search_change:
+                    result += change_addresses
+                elif xclusive_change:
+                    result = change_addresses
 
             if (labels is True) or (full_labels is True):
                 if labels:
