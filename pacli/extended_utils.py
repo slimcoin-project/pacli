@@ -194,7 +194,7 @@ def get_initialized_decks(decks: list, debug: bool=False) -> list:
         initialized_decks.append(deck)
     return initialized_decks
 
-def search_global_deck_name(identifier: str, quiet: bool=False, prioritize: bool=False, check_initialized: bool=True):
+def search_global_deck_name(identifier: str, prioritize: bool=False, check_initialized: bool=True, abort_uninitialized: bool=False, quiet: bool=False):
 
     if not quiet:
         print("Deck not named locally. Searching global deck name ...")
@@ -223,6 +223,8 @@ def search_global_deck_name(identifier: str, quiet: bool=False, prioritize: bool
                 if deck.id not in idecks:
                     print("WARNING: This deck was never initialized. Most commands will not work properly, they may output no information at all.")
                     print("Initialize the deck with 'pacli deck init {}'".format(deck.id))
+                    if abort_uninitialized:
+                        raise ei.PacliDataError("Cannot show requested information for uninitialized token(s).")
 
         return deck.id
     else:
@@ -471,7 +473,7 @@ def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
     if not quiet:
         print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
 
-def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True, check_initialized: bool=True, debug: bool=False) -> str:
+def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True, check_initialized: bool=True, abort_uninitialized: bool=False, debug: bool=False) -> str:
     """If the identifier is a label stored in the extended config file, return the associated txid."""
     # returns first the identifier if it's already in txid format.
     if identifier is None:
@@ -495,15 +497,17 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
                 print("Using {} stored locally with label {} and ID {}.".format(category, identifier, result))
             return result
         else:
-            raise ei.PacliInputDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
+            raise ei.PacliDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
 
     elif category == "deck":
-        result = search_global_deck_name(identifier, quiet=quiet, check_initialized=check_initialized)
+        result = search_global_deck_name(identifier, check_initialized=check_initialized, abort_uninitialized=abort_uninitialized, quiet=quiet)
         if result:
             return result
+        else:
+            raise ei.PacliDataError("Deck '{}' not found or not confirmed on the blockchain.".format(identifier))
 
 
-    raise ei.PacliInputDataError("Label '{}' not found. Please provide a valid {}.".format(identifier, category))
+    raise ei.PacliDataError("Label '{}' not found. Please provide a valid {}.".format(identifier, category))
 
 # General token tools
 

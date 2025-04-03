@@ -563,7 +563,7 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
     else:
         param_names = {"txid" : "Claim transaction ID", "amount": "Token amount(s)", "sender" : "Sender", "receiver" : "Receiver(s)", "blocknum" : "Block height"}
 
-    deckid = eu.search_for_stored_tx_label("deck", deck_str, quiet=quiet)
+    deckid = eu.search_for_stored_tx_label("deck", deck_str, quiet=quiet, check_initialized=True, abort_uninitialized=True)
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if "at_type" not in deck.__dict__:

@@ -1771,15 +1771,16 @@ class ExtTransaction:
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -b [-u]
-        pacli transaction list -b [-o [ORIGIN_ADDRESS]]
-        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -g [-u]
+        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -b [-u] [-w]
+        pacli transaction list -b [-o [ORIGIN_ADDRESS]] [-w]
+        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -g [-u] [-w]
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens.
             If -o is given, only show those sent from a specific ORIGIN_ADDRESS in the wallet.
             DECK is mandatory in the case of gateway transactions. It can be a label or a deck ID.
             In the case of burn transactions (-b), DECK is only necessary if combined with -u. Without DECK all burn transactions will be listed.
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
+            If -w is given, only transactions sent from wallet addresses will be shown.
             If no origin address nor -w is given, all burn/gateway transactions spending from and receiving to any address in your wallet, including P2TH, will be shown.
 
         pacli transaction list DECK [-o ORIGIN_ADDRESS] -c

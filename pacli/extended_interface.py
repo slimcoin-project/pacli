@@ -42,7 +42,7 @@ def run_command(c, *args, **kwargs) -> object:
         print("Aborted.")
         sys.exit()
 
-    except (PacliInputDataError, ValueExistsError, InsufficientFunds) as e:
+    except (PacliDataError, ValueExistsError, InsufficientFunds) as e:
 
         print_red("\nError: {}".format(e.args[0]))
         if debug:
@@ -409,7 +409,11 @@ def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, in
 
 # Exceptions
 
-class PacliInputDataError(Exception):
+class PacliDataError(Exception):
+    # general data error
+    pass
+
+class PacliInputDataError(PacliDataError):
     # exception thrown when there is some conflict between the commands the user enters and the blockchain data.
     # e.g. transaction outside of donation rounds, claim before the donation is confirmed, non-existing deck, etc.
     pass

@@ -51,7 +51,7 @@ def show_wallet_dtxes(deckid: str=None,
 
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).
-    # MODIF: --wallet option now includes all non-P2TH addresses which are named.
+    # MODIF: --wallet option now includes all non-P2TH addresses which are named. # TODO re-check if this works here in contrast to claims which have a P2TH to query!
     # MODIF: --include_change_addresses with --wallet includes change addresses to the allowed senders which aren't found by listreceivedbyaddress (slower)
     if wallet or (not sender and not no_labels):
         if debug:
