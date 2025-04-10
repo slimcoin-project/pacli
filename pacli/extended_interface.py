@@ -34,7 +34,7 @@ def run_command(c, *args, **kwargs) -> object:
     try:
         from pacli.keystore_extended import UNUSABLE_KEY
         if Settings.key.privkey == UNUSABLE_KEY and ("SETTING_NEW_KEY" not in kwargs.keys()):
-            raise PacliMainAddressLocked("Main address locked. Use 'address set LABEL' to change to an existing (named) address, 'address set LABEL -f' to a completely new address.")
+            raise PacliMainAddressLocked("Main address locked. Use 'address set LABEL' or 'address set -a ADDRESS' to change to an existing address, 'address set LABEL -f' to a completely new address.")
         result = c(*args, **kwargs)
         return result
 

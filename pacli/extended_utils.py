@@ -665,10 +665,14 @@ def get_p2th(accounts: bool=False, decks: list=None) -> list:
 
     return result
 
-def get_p2th_dict(decks: list=None) -> dict:
+def get_p2th_dict(decks: list=None, check_auxiliary: bool=False) -> dict:
     pa_params = param_query(Settings.network)
-    result = {pa_params.P2TH_addr : "PAPROD",
+    auxiliary = {pa_params.P2TH_addr : "PAPROD",
               pa_params.test_P2TH_addr : "PATEST"}
+    if check_auxiliary:
+        result = {a : auxiliary[a] for a in auxiliary if auxiliary[a] in provider.listaccounts()}
+    else:
+        result = auxiliary
 
     if decks is None:
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,

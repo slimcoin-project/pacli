@@ -345,6 +345,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
         address = None
 
     all_txes = True if (not sent) and (not received) else False
+    p2th_dict = eu.get_p2th_dict()
     if wallet:
         wallet_addresses = eu.get_wallet_address_set(empty=True)
 
@@ -353,7 +354,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
 
     if address is not None and not include_p2th:
         # special case: P2TH address is checked
-        if address in eu.get_p2th():
+        if address in p2th_dict.keys():
             include_p2th = True
 
     if include_p2th:
@@ -361,9 +362,11 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
         excluded_addresses = []
 
     else: # normally exclude p2th accounts
-        p2th_accounts = eu.get_p2th(accounts=True)
+        # p2th_accounts = eu.get_p2th(accounts=True)
+        p2th_accounts = p2th_dict.values()
         if wallet:
-            p2th_addresses = set(eu.get_p2th())
+            # p2th_addresses = set(eu.get_p2th())
+            p2th_addresses = set(p2th_dict.keys())
             wallet_addresses = wallet_addresses - p2th_addresses
         if debug:
             print("Excluding P2TH accounts", p2th_accounts)
@@ -588,7 +591,9 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
     param_names.update({"donation_txid" : dtx_param})
 
     if wallet:
-        addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th(), excluded_accounts=eu.get_p2th(accounts=True), debug=debug)
+        p2th_dict = eu.get_p2th_dict()
+        addresses = get_labels_and_addresses(empty=True, exclude=p2th_dict.keys(), excluded_accounts=p2th_dict.values(), debug=debug)
+        # addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th(), excluded_accounts=eu.get_p2th(accounts=True), debug=debug)
         wallet_senders = set([a["address"] for a in addresses])
         raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, allowed_senders=wallet_senders)
     else:

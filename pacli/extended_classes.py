@@ -573,11 +573,11 @@ class ExtAddress:
           coinbalances: Only shows coin balances, not tokens (faster). Cannot be combined with -a, -f and -l.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
           advanced: Advanced mode showing a JSON string, see Usage modes above.
-          p2th: Show the P2TH addresses of all decks (can be a very long list).
-          only_initialized_p2th: Shows P2TH addresses from initialized decks.
+          p2th: Show the P2TH addresses of all decks and all auxiliary P2TH addresses (can be a very long list).
+          only_initialized_p2th: Shows P2TH addresses from initialized decks and auxiliary P2TH addresses stored in the wallet.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
-          wallet: Show all wallet addresses and P2TH addresses from initialized decks (like a combination of -i and -o).
-          everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens (like a combination of -i and -p), but without change addresses. Slow.
+          wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
+          everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but without change addresses (like a combination of -i and -p).
           search_change: In combination with -c, show change addresses in addition to the regular ones. This needs an additional step and is very slow.
           xclusive_change: In combination with -c, only show change addresses.
           quiet: Suppress output, printout in script-friendly way.
@@ -624,7 +624,8 @@ class ExtAddress:
                 decks = None
             if debug:
                 print("Retrieving P2TH dict ...")
-            p2th_dict = eu.get_p2th_dict(decks=decks)
+            # if -o option is given, the auxiliary P2THs will be checked for initialization.
+            p2th_dict = eu.get_p2th_dict(decks=decks, check_auxiliary=only_initialized_p2th)
             if debug:
                 print("Getting addresses and wallets ...")
 

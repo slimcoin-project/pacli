@@ -59,8 +59,12 @@ def show_wallet_dtxes(deckid: str=None,
         all_decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
         if debug:
             print("Processing P2TH ...")
-        excluded_accounts = eu.get_p2th(accounts=True, decks=all_decks) if wallet is True else []
-        excluded_addresses = eu.get_p2th(decks=all_decks) if wallet is True else []
+        if wallet is True:
+            p2th_dict = eu.get_p2th_dict(decks=all_decks) if wallet is True else {}
+            excluded_accounts = p2th_dict.values() # if wallet is True else [] # eu.get_p2th(accounts=True, decks=all_decks)
+            excluded_addresses =p2th_dict.keys() # if wallet is True else [] # eu.get_p2th(decks=all_decks)
+        else:
+            excluded_accounts, excluded_addresses = [], []
         if debug:
             print("Retrieving labels and wallet addresses (except change) ...")
         addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses, excluded_accounts=excluded_accounts)
