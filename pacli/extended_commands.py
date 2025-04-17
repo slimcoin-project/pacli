@@ -68,9 +68,9 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
         key = pa.Kutil(network=Settings.network, from_wif=wif_key).privkey
     except ValueError as e:
         if "Invalid wif length" in str(e):
-            raise ei.PacliInputDataError("Locked wallet, cannot access private key. If your wallet is locked with a passphrase, you need to unlock it for this command.")
+            raise ei.PacliDataError("Address does not exist or your {} client's wallet is locked. If your wallet is locked with a passphrase, you need to unlock it for this command.".format(Settings.network.upper()))
         else:
-            raise ei.PacliInputDataError("Invalid or non-wallet address (or incorrect command usage).")
+            raise ei.PacliDataError("Invalid or non-wallet address (or incorrect command usage).")
         return
 
     ke.set_key("key", key) # Note that this function isn't present in the standard pacli keystore.

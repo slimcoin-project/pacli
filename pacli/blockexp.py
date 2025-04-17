@@ -87,12 +87,18 @@ def show_txes(receiving_address: str=None,
         try:
             receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
             if "startblock" in deck.__dict__ and deck.startblock is not None:
-                startblock = deck.startblock if startblock in (0, None) else min(deck.startblock, startblock)
+                startblock = deck.startblock if startblock in (0, None) else max(deck.startblock, startblock)
+                if deck.startblock > startblock and not quiet:
+                    print("Only showing transactions after the token's start block. Burn/gateway transactions before that block won't enable token claims.")
 
             if "endblock" in deck.__dict__ and deck.endblock is not None:
                 endblock = deck.endblock if endblock is None else min(deck.endblock, endblock)
+                if deck.endblock < endblock and not quiet:
+                    print("Only showing transactions before the token's end block. Burn/gateway transactions after that block won't enable token claims.")
         except AttributeError:
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
+
+    print(startblock, endblock) ###
 
     if wallet_mode is not None:
         # TODO: re-check if P2TH addresses should not be excluded here.
