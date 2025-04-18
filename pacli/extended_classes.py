@@ -18,6 +18,7 @@ import pacli.token_commands as tc
 import pacli.dt_commands as dc
 import pacli.blockexp as bx
 import pacli.blockexp_utils as bu
+import pacli.db_utils as dbu ### preliminary!
 
 from pacli.provider import provider
 from pacli.config import Settings, default_conf, write_settings, conf_dir, conf_file, write_default_config
@@ -1755,6 +1756,7 @@ class ExtTransaction:
              unclaimed: bool=False,
              view_coinbase: bool=False,
              wallet: bool=False,
+             ydb: bool=False,
              xplore: bool=False) -> None:
         """Lists transactions, optionally of a specific type (burn transactions and claim transactions).
 
@@ -1841,6 +1843,7 @@ class ExtTransaction:
           wallet: Show all specified transactions of all addresses in the wallet.
           view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).
+          ydb: Use database directly (may expose keys!).
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
           _value2: Address (in some modes). Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
         """
@@ -1873,6 +1876,7 @@ class ExtTransaction:
              view_coinbase: bool=False,
              wallet: bool=False,
              xplore: bool=False,
+             ydb: bool=False,
              zraw: bool=False) -> None:
 
         # TODO: Further harmonization: Results are now:
@@ -1921,11 +1925,18 @@ class ExtTransaction:
             if advanced is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet or zraw:
-            txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
+            if ydb is True:
+                txes = dbu.get_all_transactions()
+            else:
+                txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
+
         else:
             # returns all transactions from or to that address in the wallet.
             address = Settings.key.address if address_or_deck is None else address_or_deck
-            txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
+            if ydb is True:
+                txes = dbu.get_all_transactions(address=address)
+            else:
+                txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
         if (xplore or burntxes or gatewaytxes) and (not advanced):
             confpar = "blockheight"
