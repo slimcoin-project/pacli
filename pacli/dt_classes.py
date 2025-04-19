@@ -64,6 +64,7 @@ class PoDToken():
           verify: Verify transaction with Cointoolkit (Peercoin only).
           debug: Show additional debug information."""
 
+        ke.check_main_address_lock()
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, token_sdp, debug=debug)
         change_address = ec.process_address(change, debug=debug)
 
@@ -148,6 +149,7 @@ class PoDToken():
         """
         # TODO add payto/payamount like in attoken/pobtoken claim
 
+        ke.check_main_address_lock()
         change_address = ei.run_command(ec.process_address, change)
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
 

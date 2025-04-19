@@ -59,8 +59,10 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
 
     if label is not None:
         address = get_address(label)
+        if address is None:
+            raise ei.PacliDataError("Label does not exist.")
     elif address is None:
-        raise ei.PacliInputDataError("No address nor label provided.")
+        raise ei.PacliDataError("No address nor label provided.")
 
     wif_key = provider.dumpprivkey(address)
 

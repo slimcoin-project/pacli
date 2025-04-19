@@ -518,6 +518,7 @@ class ExtAddress:
 
     def __show(self, pubkey: bool=False, privkey: bool=False, wif: bool=False, debug: bool=False):
 
+            ke.check_main_address_lock()
             if pubkey is True:
                 return Settings.key.pubkey
             if privkey is True:
@@ -630,33 +631,38 @@ class ExtAddress:
             if debug:
                 print("Getting addresses and wallets ...")
 
-        if p2th or only_initialized_p2th:
-            include_only, include = p2th_dict.keys(), None
-            coinbalances = True
-            include_all = True if include_all in (None, True) else False
-            excluded_addresses = []
-            excluded_accounts = []
-            add_p2th_account = True
-        elif everything or wallet:
-            if everything:
-                include = p2th_dict.keys()
+
+            if p2th or only_initialized_p2th:
+                include_only, include = p2th_dict.keys(), None
+                coinbalances = True
+                include_all = True if include_all in (None, True) else False
+                excluded_addresses = []
+                excluded_accounts = []
+                add_p2th_account = True
+            elif everything or wallet:
+                if everything:
+                    include = p2th_dict.keys()
+                else:
+                    include = None
+                include_all, include_only = True, None
+                excluded_addresses = []
+                excluded_accounts = []
+                add_p2th_account = False
             else:
-                include = None
-            include_all, include_only = True, None
-            excluded_addresses = []
-            excluded_accounts = []
-            add_p2th_account = False
-        else:
-            include_only, include = None, None
-            include_all = False if include_all in (None, False) else True
-            excluded_addresses = p2th_dict.keys()
-            excluded_accounts = p2th_dict.values()
-            add_p2th_account = False
+                include_only, include = None, None
+                include_all = False if include_all in (None, False) else True
+                excluded_addresses = p2th_dict.keys()
+                excluded_accounts = p2th_dict.values()
+                add_p2th_account = False
+        else: # labels/full_labels options
+            named = True
+            include_only, include, include_all = None, None, True
+            excluded_addresses, excluded_accounts = None, None
 
         # TODO: decide if -c should be integrated into tc.all_balances()
         if (coinbalances is True) or (labels is True) or (full_labels is True):
-            if (labels is True) or (full_labels is True):
-                named = True
+            # if (labels is True) or (full_labels is True):
+
             if search_change or xclusive_change:
                 named, empty = False, True
             result = ec.get_labels_and_addresses(prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
@@ -749,6 +755,7 @@ class ExtAddress:
 
     def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False, debug: bool=False):
 
+        ke.check_main_address_lock()
         if label_or_address is not None:
             address = ec.process_address(label_or_address, keyring=keyring)
 
@@ -1518,6 +1525,7 @@ class ExtCard:
 
     def __transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
 
+        ke.check_main_address_lock()
         sign, send = eu.manage_send(sign, send)
 
         if not set((type(receiver), type(amount))).issubset(set((list, tuple, str, int, float))):

@@ -14,6 +14,7 @@ import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.dt_utils as du
+import pacli.keystore_extended as ke
 
 
 from pacli.provider import provider
@@ -49,6 +50,7 @@ def create_trackedtransaction(tx_type,
                               debug: bool=False) -> object:
     '''Generic tracked transaction creation.'''
 
+    ke.check_main_address_lock()
     # step 1 (new): address/label synchronization
     change_address = ec.process_address(change)
     reserve_address = ec.process_address(reserve)

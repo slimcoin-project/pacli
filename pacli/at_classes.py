@@ -12,12 +12,14 @@ import pacli.extended_interface as ei
 import pacli.at_utils as au
 import pacli.extended_commands as ec
 import pacli.config_extended as ce
+import pacli.keystore_extended as ke
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATTokenBase():
 
     def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, force: bool=False, debug: bool=False, optimize: bool=False) -> str:
 
+        ke.check_main_address_lock()
         amount = Decimal(str(amount))
         if (amount == 0) or (amount < 0):
             raise ei.PacliInputDataError("Invalid amount, amount must be above zero.")
@@ -130,6 +132,7 @@ class ATTokenBase():
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
 
+        ke.check_main_address_lock()
         if payto is not None:
             payto = ec.process_address(payto)
             dec_payamount = Decimal(str(payamount)) if payamount is not None else None
@@ -194,6 +197,7 @@ class ATTokenBase():
           verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
 
+        ke.check_main_address_lock()
         tracked_address = ei.run_command(ec.process_address, address, debug=debug)
         change_address = ei.run_command(ec.process_address, change, debug=debug)
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block, debug=debug)

@@ -32,15 +32,20 @@ def run_command(c, *args, **kwargs) -> object:
     debug = ("debug" in kwargs.keys() and kwargs["debug"]) or ("show_debug_info" in kwargs.keys() and kwargs["show_debug_info"])
 
     try:
-        from pacli.keystore_extended import UNUSABLE_KEY
-        if Settings.key.privkey == UNUSABLE_KEY and ("SETTING_NEW_KEY" not in kwargs.keys()):
-            raise PacliMainAddressLocked("Pacli wallet locked. Use 'pacli address set LABEL' or 'pacli address set -a ADDRESS' to change to an existing address, 'pacli address set LABEL -f' to a completely new address.")
+        #from pacli.keystore_extended import UNUSABLE_KEY
+        #if Settings.key.privkey == UNUSABLE_KEY and ("EXCEPTED_COMMAND" not in kwargs.keys()):
+        #    raise PacliMainAddressLocked("Pacli wallet locked. Commands accessing private keys can't be used.\nUse 'pacli address set LABEL' or 'pacli address set -a ADDRESS' to change to an existing address, 'pacli address set LABEL -f' to a completely new address.\nSee available addresses with 'pacli address list'")
         result = c(*args, **kwargs)
         return result
 
     except KeyboardInterrupt:
         print("Aborted.")
         sys.exit()
+
+    except PacliMainAddressLocked:
+        print("Pacli wallet locked. Commands accessing private keys can't be used.")
+        print("Use 'pacli address set LABEL' or 'pacli address set -a ADDRESS' to change to an existing address, 'pacli address set LABEL -f' to a completely new address.")
+        print("See available addresses with 'pacli address list'")
 
     except (PacliDataError, ValueExistsError, InsufficientFunds) as e:
 

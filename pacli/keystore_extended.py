@@ -92,6 +92,8 @@ def get_key_prefix(network_name: str=Settings.network, legacy: bool=False, extco
         return "key_" + network_name + "_"
 
 def get_key(full_label: str) -> str:
+    if Settings.key.privkey == UNUSABLE_KEY:
+       raise PacliMainAddressLocked()
     return keyring.get_password("pacli", full_label)
 
 def delete_key(full_label: str) -> None:
@@ -301,3 +303,7 @@ def delete_key_from_keyring(label: str, network_name: str=Settings.network, lega
 def label_to_kutil(full_label: str) -> pa.Kutil:
     raw_key = bytearray.fromhex(get_key(full_label))
     return pa.Kutil(network=Settings.network, privkey=raw_key)
+
+def check_main_address_lock():
+    if Settings.key.privkey == UNUSABLE_KEY:
+        raise ei.PacliMainAddressLocked()
