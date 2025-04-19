@@ -1,4 +1,3 @@
-from berkeleydb import db
 from pacli.provider import provider
 from pacli.blockexp_utils import get_tx_structure
 
@@ -8,6 +7,7 @@ from pacli.blockexp_utils import get_tx_structure
 PATH = '/home/usery/.slimcoin/testnet2/testnet/wallet.dat'
 
 def get_wallet_database(path: str=PATH):
+    from berkeleydb import db
     d = db.DB()
     d.open(path, 'main', db.DB_BTREE, db.DB_THREAD | db.DB_RDONLY)
     return d
