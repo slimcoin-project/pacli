@@ -714,7 +714,7 @@ class ExtAddress:
                                   decks=deck_list,
                                   debug=debug)
 
-    def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False, debug: bool=False):
+    def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, txbalance: bool=False, wallet: bool=False, json: str=None, quiet: bool=False, debug: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
         Usage modes:
@@ -731,6 +731,12 @@ class ExtAddress:
 
             Shows balance of address. Does only work with addresses stored in your wallet file.
 
+        pacli address balance ADDRESS -t [BLOCKHEIGHT]
+
+            Use transaction data to calculate balance.
+            This is slow, but often reacts faster than the UTXO set which may require a restart of the client.
+            Can be used to calculate a balance at a block height BLOCKHEIGHT.
+
         pacli address balance -w
 
             Shows balance of whole wallet.
@@ -746,14 +752,17 @@ class ExtAddress:
 
            keyring: Use an address stored in the keyring of your operating system.
            wallet: Show balance of the whole wallet, see above.
+           txbalance: Use transaction data to calculate balance. Not to be combined with -w.
            integrity_test: Performs an integrity test, comparing blockchain data with the data shown by SLM RPC commands (not in combination with -w).
            address_or_label: To be used as a positional argument (without flag keyword), see "Usage modes" above.
+           quiet: Do not output additional information, only the balance.
            debug: Show debug information.
+           json: Store or load txes to/from json file FILENAME (only with -t and -i, debugging option).
         """
 
-        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, integrity_test=integrity_test, wallet=wallet, debug=debug)
+        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, integrity_test=integrity_test, txbalance=txbalance, wallet=wallet, json=json, quiet=quiet, debug=debug)
 
-    def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, wallet: bool=False, debug: bool=False):
+    def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, txbalance: bool=False, wallet: bool=False, json: str=None, quiet: bool=False, debug: bool=False):
 
         ke.check_main_address_lock()
         if label_or_address is not None:
@@ -774,13 +783,42 @@ class ExtAddress:
         except TypeError:
             raise ei.PacliInputDataError("Address does not exist.")
 
-        if integrity_test:
+        if (integrity_test or txbalance) and not wallet:
 
-            lastblockheight = integrity_test if type(integrity_test) == int else None
-            print("Getting RPC txes ...")
-            rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, debug=False)
-            return bx.integrity_test([address], rpc_txes, lastblockheight=lastblockheight, debug=debug) # TODO: implement lastblockheight
+            if type(integrity_test) == int:
+                lastblockheight = integrity_test
+            elif type(txbalance) == int:
+                lastblockheight = txbalance
+            else:
+                lastblockheight = None
 
+            if integrity_test or debug:
+                print("Getting RPC txes ...")
+
+            if json:
+                try:
+                    rpc_txes = bx.load_rpc_txes(json, sort=True, unconfirmed=False)
+                    if debug:
+                        print("Loading transactions from json file ...")
+                except FileNotFoundError:
+                    rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
+                    bx.store_rpc_txes(rpc_txes, json)
+                    return
+            else:
+                rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
+
+            if integrity_test:
+                return bx.integrity_test([address], rpc_txes, lastblockheight=lastblockheight, debug=debug) # TODO: implement lastblockheight
+            elif txbalance:
+                txes = [bu.get_tx_structure(tx=tx, human_readable=False, add_txid=True) for tx in rpc_txes]
+                lastblockheight = provider.getblockcount() if lastblockheight is None else lastblockheight
+                balance_dict = bx.get_balances_from_structs([address], txes, endblock=lastblockheight, debug=debug)
+                if lastblockheight not in (0, True) and not quiet:
+                    print("Showing state at block height:", lastblockheight)
+                balance = balance_dict[address]["balance"]
+
+        if quiet:
+            return float(balance)
         pprint(
             {'balance': float(balance)}
             )
@@ -1764,7 +1802,7 @@ class ExtTransaction:
              unclaimed: bool=False,
              view_coinbase: bool=False,
              wallet: bool=False,
-             ydb: bool=False,
+             ydb: str=None,
              xplore: bool=False) -> None:
         """Lists transactions, optionally of a specific type (burn transactions and claim transactions).
 
@@ -1851,7 +1889,7 @@ class ExtTransaction:
           wallet: Show all specified transactions of all addresses in the wallet.
           view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).
-          ydb: Use database directly (may expose keys!).
+          ydb: Use database directly (may expose keys!). A custom data directory can be given after -y. Cannot be combined with -x nor -m. Requires berkeleydb package. Slow.
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
           _value2: Address (in some modes). Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
         """
@@ -1884,7 +1922,7 @@ class ExtTransaction:
              view_coinbase: bool=False,
              wallet: bool=False,
              xplore: bool=False,
-             ydb: bool=False,
+             ydb: str=None,
              zraw: bool=False) -> None:
 
         # TODO: Further harmonization: Results are now:
@@ -1896,6 +1934,7 @@ class ExtTransaction:
 
         address_or_deck = _value1
         address = _value2
+        ignore_confpar = False
 
         if (burntxes or gatewaytxes or claimtxes) and (origin == True):
             origin = Settings.key.address
@@ -1905,6 +1944,12 @@ class ExtTransaction:
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
+        if ydb is not None:
+            datadir = None if type(ydb) == bool else ydb
+            mempool = "ignore"
+            wholetx = True if ids is False else False # when only requesting IDs the getrawtransaction query isn't necessary
+            if not advanced:
+                advanced = ids or total # if only txids or the count are needed, we don't need the struct.
 
         if (not named) and (not quiet):
             print("Searching transactions (this can take several minutes) ...")
@@ -1933,16 +1978,17 @@ class ExtTransaction:
             if advanced is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet or zraw:
-            if ydb is True:
-                txes = dbu.get_all_transactions()
+            if ydb is not None:
+                txes = dbu.get_all_transactions(sort=True, advanced=advanced, datadir=datadir, wholetx=wholetx, debug=debug)
             else:
                 txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
 
         else:
             # returns all transactions from or to that address in the wallet.
             address = Settings.key.address if address_or_deck is None else address_or_deck
-            if ydb is True:
-                txes = dbu.get_all_transactions(address=address)
+            if ydb is not None:
+                txes = dbu.get_all_transactions(address=address, sort=True, advanced=advanced, datadir=datadir, wholetx=wholetx, debug=debug)
+
             else:
                 txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
@@ -1953,16 +1999,16 @@ class ExtTransaction:
         else:
             confpar = "confirmations"
 
-        if mempool in (None, "only") and (xplore != True):
+        # mempool can be: None (no option, means only confirmed txes), True (all txes), ignore (all txes without sorting), only (only unconfirmed)
+        if mempool in (None, "only") and (xplore != True) and not ignore_confpar:
             if mempool is None: # show only confirmed txes
                 txes = [t for t in txes if (confpar in t) and (t[confpar] is not None and t[confpar] > 0)]
+                try:
+                    txes.sort(key=lambda d: d[confpar])
+                except KeyError:
+                    pass
             elif mempool == "only": # show only unconfirmed txes
                 txes = [t for t in txes if (confpar not in t) or t[confpar] in (None, 0)]
-
-        try:
-            txes.sort(key=lambda d: d[confpar])
-        except KeyError:
-            pass
 
         if total is True:
             return len(txes)

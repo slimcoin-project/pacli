@@ -9,7 +9,6 @@ def set_up(provider):
 
     # if provider is local node, check if PA P2TH is loaded in local node
     # this handles indexing of transaction
-    # MODIFIED: added Slimcoin support
 
     if Settings.provider in ("rpcnode", "slm_rpcnode"):
         if Settings.production:
@@ -38,14 +37,12 @@ def configured_provider(Settings):
     else:
         raise Exception('invalid provider.')
 
-    ### MODIFIED - otherwise throws error because of network keyword ###
     if Settings.provider.lower() not in ("rpcnode", "slm_rpcnode"):
         provider = _provider(network=Settings.network)
     else:
         provider = _provider(testnet=Settings.testnet, username=Settings.rpcuser, password=Settings.rpcpassword, ip=None, port=Settings.rpcport, directory=None)
 
-    set_up(provider) # set_up() does not work
-    ### END modified part ###
+    set_up(provider)
 
     return provider
 

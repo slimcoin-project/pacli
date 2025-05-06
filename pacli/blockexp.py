@@ -1,4 +1,5 @@
 import datetime
+import json ####
 from decimal import Decimal
 from typing import Union
 from prettyprinter import cpprint as pprint
@@ -338,27 +339,44 @@ def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
         return None
 
 def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None, debug: bool=False):
-
-    # If no lastblockheight is given, it uses the last already checked block.
-    if lastblockheight is None:
-        loc = bu.get_default_locator()
-        lastblockheight = loc.get_address_data(address_list, debug=debug)[1]
-
-    print("Last blockheight checked", lastblockheight)
+    # TODO: remove all extended debugging code
+    # TODO: perhaps add balance from wallet.dat.
+    loc = bu.get_default_locator()
+    last_locator = loc.get_address_data(address_list, debug=debug)[1]
+    currentblock = provider.getblockcount()
+    # If -l is given without lastblock, it uses the last already checked block.
+    # If -l is not given, the last block is used.
+    if lastblockheight == True:
+        print("Using last blockheight checked by the blockchain locators:", last_locator)
+        lastblockheight = last_locator
+    elif lastblockheight in (None, False):
+        lastblockheight = currentblock
+        print("Showing state at current block:", lastblockheight)
 
     # source 1: blockchain
-    if debug:
-        print("Blockchain test:")
-    blockchain_txes = bu.show_txes_by_block(locator_list=address_list, endblock=lastblockheight, debug=debug).get("txes")
-    blockchain_balances = get_balances_from_structs(address_list, blockchain_txes, debug=debug)
+    if last_locator >= (lastblockheight - 4000):
+        if debug:
+            print("Blockchain test:")
+        blockchain_result = bu.show_txes_by_block(sending_addresses=address_list, receiving_addresses=address_list, endblock=lastblockheight, debug=debug, use_locator=True, locator=loc)
+        blockchain_txes = blockchain_result.get("txes")
+        blockchain_balances = get_balances_from_structs(address_list, blockchain_txes, debug=debug)
+    else:
+        print("Blockchain test not possible in reasonable time, as there are more than 4000 blocks left to cache.")
+        print("Abort with KeyboardInterrupt (e.g. Ctrl-C) and cache the address with 'address cache ' to fix that.")
+        blockchain_balances = {}
+        blockchain_txes = []
     # source 2: RPC listtransactions
     if debug:
         print("Wallet transaction test:")
+    # TODO sorting is now done before, but this must be even more precise for the utxo count, but for the normal count sorting by block is sufficient.
     rpc_txes_struct = [bu.get_tx_structure(tx=tx, human_readable=False, add_txid=True) for tx in rpc_txes]
     rpc_balances = get_balances_from_structs(address_list, rpc_txes_struct, endblock=lastblockheight, debug=debug)
 
     for address in address_list:
         print("Testing address:", address)
+        tx_utxos = collect_utxos(address, rpc_txes, debug=debug)
+        if debug:
+            print("UTXOs collected by analyzing txes:", len(tx_utxos))
         # source 3: UTXOS (listunspent)
         unspent = provider.listunspent(address=address, minconf=1)
         # print(unspent)
@@ -376,43 +394,71 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
             print("Balance according to unspent outputs on this address:", balance)
 
         print("Balances according to wallet transactions (listtransactions RPC command):", rpc_balances[address])
-        print("Balances according to blockchain data:", blockchain_balances[address])
+        if address in blockchain_balances:
+            print("Balances according to blockchain data:", blockchain_balances[address])
 
-        if ((balance is not None) and (blockchain_balances[address]["balance"] == rpc_balances[address]["balance"] == balance)):
-            print("PASSED (complete)")
-        elif blockchain_balances[address]["balance"] == rpc_balances[address]["balance"]:
+            if ((balance is not None) and (blockchain_balances[address]["balance"] == rpc_balances[address]["balance"] == balance)):
+                print("PASSED (complete)")
+                return
+            elif blockchain_balances[address]["balance"] == rpc_balances[address]["balance"]:
+                print("PASSED (partly)")
+                print("Blockchain data and wallet transaction data match.")
+                print("Unspent outputs either not possible to test or not matching.")
+
+        elif balance == rpc_balances[address]["balance"]:
             print("PASSED (partly)")
-            print("Blockchain data and wallet transaction data match.")
-            print("Unspent outputs either not possible to test or not matching.")
-            if balance is not None:
-                print("Transactions missing in the unspent outputs:")
-                btxes = set([b["txid"] for b in blockchain_txes])
-                print(btxes - set(utxids))
+            print("Blockchain data was not cached, so no comparison was done.")
+            print("Cache this address with: 'pacli address cache {}'.".format(address))
         else:
             ei.print_red("NOT PASSED")
+
+        if debug and balances is not None:
             rtxes = set([r["txid"] for r in rpc_txes_struct])
-            btxes = set([b["txid"] for b in blockchain_txes])
-            print("Transactions missing in the RPC view (listtransactions command):")
-            print(btxes - rtxes)
-            print("Try to rescan the blockchain and then restart the client. If this doesn't change, your wallet file may be corrupted.")
-            print("Transactions missing in the unspent outputs:")
-            print(btxes - set(utxids))
+            if blockchain_txes:
+                btxes = set([b["txid"] for b in blockchain_txes])
+                print("Transactions missing in the wallet's transaction list (listtransactions command):")
+                print(btxes - rtxes)
+
+            else:
+                print("Transactions missing in the unspent outputs:")
+                tx_utxo_set = set([t for t in list(tx_utxos.keys())])
+                lusp_utxo_set = set([(u["txid"], u["vout"]) for u in unspent])
+
+                print("UTXOs not listed in listunspent:")
+                analyze_utxos(tx_utxo_set - lusp_utxo_set)
+                print("UTXOs not gathered from transaction list:")
+                analyze_utxos(lusp_utxo_set - tx_utxo_set)
+
+            print("Try to rescan the blockchain, restarting the {} client with the -rescan option, and repeat the test.".format(Settings.network.upper()))
+            print("If the test still doesn't pass, sometimes restarting the {} client again works.".format (Settings.network.upper()))
 
 
-def get_tx_address_balance(address: str, tx: dict):
+
+def get_tx_address_balance(address: str, txstruct: dict, debug: bool=False):
     # this takes TX Structure as a dict!
     # print("TX", tx)
     balance = 0
     observed = False
-    for i in tx["inputs"]:
-        if i["sender"] == address:
-            balance -= Decimal(str(i["value"]))
-    for o in tx["outputs"]:
+    for i in txstruct["inputs"]:
+        if address in i["sender"]:
+            if len(set(i["sender"])) == 1:
+                balance -= Decimal(str(i["value"]))
+                if debug:
+                    print("TX {}: Spent: {}".format(txstruct["txid"], i["value"]))
+            else:
+                observed = True
+                if debug:
+                    print("TX {}: OBSERVED. Multiple senders of single input (e.g. multisig): {}".format(txstruct["txid"], str(i["sender"])))
+    for o in txstruct["outputs"]:
         if address in o["receivers"]:
             if len(set(o["receivers"])) == 1:
                 balance += Decimal(str(o["value"]))
+                if debug:
+                    print("TX {}: Received: {}".format(txstruct["txid"], o["value"]))
             else:
                 observed = True
+                if debug:
+                    print("TX {}: OBSERVED. Multiple receivers of single output: {}".format(txstruct["txid"], str(o["receivers"])))
 
     return (balance, observed)
 
@@ -499,15 +545,107 @@ def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, de
 
 def get_balances_from_structs(address_list: list, txes: list, endblock: int=None, debug: bool=False):
     balances = {}
+    # coinbase_balance = Decimal(0)
     for address in address_list:
         balances.update({address : {"balance" : Decimal(0), "observed" : False}})
+
         for tx in txes:
-            if endblock is not None and tx["blockheight"] > endblock:
+            if endblock is not None and (tx["blockheight"] is None or tx["blockheight"] > endblock):
                 continue
-            tx_balance, observed = get_tx_address_balance(address, tx)
+            tx_balance, observed = get_tx_address_balance(address, tx, debug=debug)
+            ## print([i["sender"] for i in tx["inputs"]])
+            #if "COINBASE" in [i["sender"][0] for i in tx["inputs"]]:
+            #    coinbase_balance += tx_balance
+            #    if debug:
+            #        print("Coinbase balance added", tx_balance, "total coinbase amount:", coinbase_balance)
             if observed:
                 balances[address]["observed"] = True
             balances[address]["balance"] += tx_balance
             if debug:
                 print("TX {} adding balance: {}".format(tx["txid"], tx_balance))
+    #if debug:
+    #    print("Coinbase balance:", coinbase_balance)
+
     return balances
+
+def store_rpc_txes(txes, filename):
+    with open(filename, "w+") as json_file:
+        json.dump(txes, json_file)
+
+def load_rpc_txes(filename, sort: bool=False, unconfirmed: bool=False):
+    with open(filename, "r") as json_file:
+        txes = json.load(json_file)
+    if unconfirmed is False:
+        txes = [t for t in txes if "confirmations" in t]
+    if sort is True:
+        txes.sort(key=lambda d: d["confirmations"], reverse=True) #
+    return txes
+
+def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_zerovalue: bool=True, ignore_coinstake: bool=False, debug: bool=False): # debugging function, takes complete txes
+
+    utxos = {}
+    for tx in txes:
+        conf = tx["confirmations"]
+        if conf == 0:
+            continue
+        if debug:
+            print("UTXO test: txid", tx["txid"], "conf", tx["confirmations"], "utxos", len(utxos))
+
+        for oup in tx["vout"]:
+            oup_tuple = (tx["txid"], oup["n"])
+            skey = oup["scriptPubKey"]
+            if ignore_coinstake is True:
+                if oup["n"] == 0 and skey["type"] == "nonstandard":
+                    if debug:
+                        print("Coinstake UTXOs ignored for tx:", tx["txid"])
+                    break
+
+            if "addresses" not in skey or address not in skey["addresses"]:
+                continue # only utxos sent to this address will be recorded
+            if ignore_opreturn is True and skey["type"] == "nulldata":
+                continue
+            if ignore_zerovalue is True and oup["value"] == 0:
+                continue
+            if oup_tuple not in utxos.keys():
+                utxos.update({oup_tuple : oup["value"]})
+            if debug:
+                print("Added UTXO", oup_tuple)
+        for inp in tx["vin"]:
+            if "vout" in inp:
+                inp_tuple = (inp["txid"], inp["vout"])
+                # print(inp_tuple, utxos.keys()) #####
+                #if len(utxos.keys()) > 30:
+                #    return
+                if inp_tuple in utxos.keys():
+                    if debug:
+                        print("Spent UTXO", inp_tuple)
+                    del utxos[inp_tuple]
+
+    return utxos
+
+def analyze_utxos(utxos: list):
+    coinstake_utxos = []
+    pow_coinbase_utxos = []
+    pob_coinbase_utxos = []
+    other_utxos = []
+    for utxo in utxos:
+        txid = utxo[0]
+        tx = provider.getrawtransaction(txid, 1)
+        if tx["vout"][0]["scriptPubKey"]["type"] == "nonstandard" and tx["vout"][0]["value"] == 0:
+            coinstake_utxos.append(utxo)
+            continue
+        if "coinbase" in tx["vin"][0]:
+            block = provider.getblock(tx["blockhash"])
+            if block["flags"] == "proof-of-burn":
+                pob_coinbase_utxos.append(utxo)
+                continue
+            elif block["flags"] == "proof-of-work":
+                pow_coinbase_utxos.append(utxo)
+                continue
+
+        other_utxos.append(utxo)
+
+    print("Coinstake utxos:", coinstake_utxos)
+    print("PoB coinbase utxos:", pob_coinbase_utxos)
+    print("PoW coinbase utxos:", pow_coinbase_utxos)
+    print("Other utxos:", other_utxos)

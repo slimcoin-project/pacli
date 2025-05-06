@@ -336,7 +336,7 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
 # Transaction-related tools
 
 
-def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, include_p2th: bool=False, include_coinbase: bool=False, sort: bool=False, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
+def get_address_transactions(addr_string: str=None, sent: bool=False, received: bool=False, advanced: bool=False, keyring: bool=False, include_p2th: bool=False, include_coinbase: bool=False, sort: bool=False, reverse_sort: bool=False, unconfirmed: bool=True, wallet: bool=False, raw: bool=False, debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
 
     if not wallet and not raw:
@@ -436,6 +436,8 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
         try:
             confs = tx["confirmations"]
         except KeyError:
+            if unconfirmed is False:
+                continue
             confs = 0
             if advanced: # more usable and needed for sorting
                 tx.update({"confirmations" : 0})
@@ -529,7 +531,7 @@ def get_address_transactions(addr_string: str=None, sent: bool=False, received: 
     if sort:
         if debug:
             print("Sorting result by confirmations ...")
-        result.sort(key=lambda x: x["confirmations"])
+        result.sort(key=lambda x: x["confirmations"], reverse=reverse_sort)
 
     return result
 

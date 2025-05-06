@@ -328,6 +328,9 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
         else:
             save_transaction(txid, tx_hex)
 
+    if not quiet:
+        print("Note: Balances called with 'address balance' and 'address list' commands may not update even after the first confirmation.")
+        print("In this case, restart your {} client.".format(Settings.network.upper()))
     return { dict_key : tx_hex }
 
 
