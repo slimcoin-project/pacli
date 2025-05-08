@@ -339,7 +339,6 @@ def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
         return None
 
 def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None, debug: bool=False):
-    # TODO: remove all extended debugging code
     # TODO: perhaps add balance from wallet.dat.
     loc = bu.get_default_locator()
     last_locator = loc.get_address_data(address_list, debug=debug)[1]

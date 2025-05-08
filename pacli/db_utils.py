@@ -1,6 +1,7 @@
 from pacli.provider import provider
 from pacli.blockexp_utils import get_tx_structure
 import pacli.extended_interface as ei
+import pacli.extended_txtools as et
 import sys
 import os
 import os.path
@@ -66,7 +67,8 @@ def yield_transactions(database: object, ignore_corrupted: bool=False, debug: bo
             yield [txid, tx_json]
 
 
-def get_all_transactions(address: str=None, datadir: str=None, advanced: bool=False, wholetx: bool=True, sort: bool=False, debug: bool=False):
+def get_all_transactions(address: str=None, sender: str=None, firstsender: str=None, receiver: str=None, datadir: str=None, advanced: bool=False, wholetx: bool=True, sort: bool=False, exclude_coinbase: bool=False, debug: bool=False):
+    # TODO to speed up this for -g/-b, it would be necessary to exclude some of the txes, e.g. coinbase. For these we wouldn't need the getrawtransactions.
 
     if datadir is None:
         datadir = determine_db_dir()
@@ -89,16 +91,27 @@ def get_all_transactions(address: str=None, datadir: str=None, advanced: bool=Fa
     txes = []
     for tx_tuple in yield_transactions(d, ignore_corrupted=True, debug=debug):
         txid, tx = tx_tuple
-        if address is not None or advanced is False:
+        if exclude_coinbase:
+            if "coinbase" in [v.keys() for v in tx["vin"]]:
+                continue
+        if (address or firstsender or sender or receiver) or advanced is False:
             try:
-                struct = get_tx_structure(tx=tx)
+                struct = get_tx_structure(tx=tx, human_readable=False, add_txid=True)
             except ei.PacliDataError as e:
                 if debug:
                     print("Bad tx data:", tx, e)
                 continue
 
-        if address is not None:
-            if (address not in [s for i in struct["inputs"] for s in i["sender"]]) and (address not in [r for o in struct["outputs"] for r in o["receivers"]]):
+        if address or sender or firstsender or receiver:
+            #if address is not None:
+            #    sender = receiver = address
+            #senders = [s for i in struct["inputs"] for s in i["sender"]]
+            #receivers = [r for o in struct["outputs"] for r in o["receivers"]]
+            #if (sender not in senders) and (receiver not in receivers):
+            #if ((sender is not None) and (sender not in senders)) or ((receiver is not None) and (receiver not in receivers)):
+            if not et.check_address_in_txstruct(struct, address=address, firstsender=firstsender, sender=sender, receiver=receiver, debug=debug):
+                #if debug:
+                #    print("TX not fulfilling address requirements:", txid)
                 continue
 
         if wholetx:
@@ -114,7 +127,7 @@ def get_all_transactions(address: str=None, datadir: str=None, advanced: bool=Fa
             result = tx if advanced is True else struct
         txes.append(result)
         if debug:
-                print("TX appended:", tx["txid"])
+            print("TX appended:", tx["txid"])
     if debug:
         print("Number of transactions found:", len(txes))
     return txes

@@ -219,8 +219,8 @@ def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0
 
     return bh
 
-
-def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None, add_txid: bool=False, ignore_blockhash: bool=False) -> dict:
+# def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None, add_txid: bool=False, ignore_blockhash: bool=False) -> dict:
+def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, add_txid: bool=False, ignore_blockhash: bool=False) -> dict:
     """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""
 
@@ -256,24 +256,24 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, t
     if not senders:
         senders = [{"sender" : ["COINBASE"]}]
 
-    if tracked_address: # TODO: is this part really necessary here?
-        outputs_to_tracked, oindices = [], []
-        for oindex, o in enumerate(outputs):
-            if (o.get("receivers") is not None and tracked_address in o["receivers"]):
-                outputs_to_tracked.append(o)
-                oindices.append(oindex)
+    #if tracked_address: # TODO: Should be a separate function. This also complicates the use_db option.
+    #    outputs_to_tracked, oindices = [], []
+    #    for oindex, o in enumerate(outputs):
+    #        if (o.get("receivers") is not None and tracked_address in o["receivers"]):
+    #            outputs_to_tracked.append(o)
+    #            oindices.append(oindex)
 
-        if outputs_to_tracked:
-            tracked_value = sum([o["value"] for o in outputs_to_tracked])
-            sender = senders[0] if len(senders) > 0 else "COINBASE" # fix for coinbase txes
-            result = {"sender" : sender, "outputs" : outputs, "blockheight" : height, "oindices": oindices, "ovalue" : tracked_value}
-        else:
-           return None
+    #    if outputs_to_tracked:
+    #        tracked_value = sum([o["value"] for o in outputs_to_tracked])
+    #        sender = senders[0] if len(senders) > 0 else "COINBASE" # fix for coinbase txes
+    #        result = {"sender" : sender, "outputs" : outputs, "blockheight" : height, "oindices": oindices, "ovalue" : tracked_value}
+    #    else:
+    #       return None
+    # else:
+    if ignore_blockhash:
+        result = {"inputs" : senders, "outputs" : outputs}
     else:
-        if ignore_blockhash:
-            result = {"inputs" : senders, "outputs" : outputs}
-        else:
-            result = {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
+        result = {"inputs" : senders, "outputs" : outputs, "blockheight" : height}
 
     if add_txid:
         result.update({"txid" : tx["txid"]})

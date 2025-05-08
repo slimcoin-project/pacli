@@ -1927,7 +1927,9 @@ class ExtTransaction:
 
         # TODO: Further harmonization: Results are now:
         # -x: tx_structure or tx JSON
+        # -y: tx_structure or tx JSON
         # -a: always tx JSON
+        # -z: listtransactions output
         # without any label: custom dict with main parameters
         # -c: very custom "embellished" dict, should be changed -> "basic" mode now shows a more "standard" dict
         # NOTE: harmonization of -o done for -c -g and -b it is mandatory now if result should be restricted to an address.
@@ -1945,11 +1947,12 @@ class ExtTransaction:
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
         if ydb is not None:
-            datadir = None if type(ydb) == bool else ydb
-            mempool = "ignore"
+            use_db, mempool = True, "ignore"
             wholetx = True if ids is False else False # when only requesting IDs the getrawtransaction query isn't necessary
-            if not advanced:
-                advanced = ids or total # if only txids or the count are needed, we don't need the struct.
+            advanced = advanced or ids or total # if only txids or the count are needed, we don't need the struct.
+        else:
+            use_db = False
+        datadir = None if type(ydb) == bool else ydb # always None when ydb is not selected
 
         if (not named) and (not quiet):
             print("Searching transactions (this can take several minutes) ...")
@@ -1966,10 +1969,10 @@ class ExtTransaction:
                     txes = bx.show_txes(wallet_mode=wallet_mode, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
                 else:
                     txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
-        elif burntxes is True:
-            txes = au.my_txes(sender=origin, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=True)
-        elif gatewaytxes is True:
-            txes = au.my_txes(sender=origin, deck=address_or_deck, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, quiet=quiet, debug=debug, burns=False)
+        elif (burntxes is True) or (gatewaytxes is True):
+            address = au.burn_address() if burntxes is True else None
+            deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet) if address_or_deck else None
+            txes = au.show_wallet_dtxes(sender=origin, deckid=deckid, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, tracked_address=address, use_db=use_db, datadir=datadir, quiet=quiet, debug=debug)
         elif claimtxes is True:
             txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
         elif named is True:
@@ -1978,7 +1981,7 @@ class ExtTransaction:
             if advanced is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet or zraw:
-            if ydb is not None:
+            if use_db is True:
                 txes = dbu.get_all_transactions(sort=True, advanced=advanced, datadir=datadir, wholetx=wholetx, debug=debug)
             else:
                 txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
@@ -1986,7 +1989,7 @@ class ExtTransaction:
         else:
             # returns all transactions from or to that address in the wallet.
             address = Settings.key.address if address_or_deck is None else address_or_deck
-            if ydb is not None:
+            if use_db is True:
                 txes = dbu.get_all_transactions(address=address, sort=True, advanced=advanced, datadir=datadir, wholetx=wholetx, debug=debug)
 
             else:
@@ -2004,6 +2007,7 @@ class ExtTransaction:
             if mempool is None: # show only confirmed txes
                 txes = [t for t in txes if (confpar in t) and (t[confpar] is not None and t[confpar] > 0)]
                 try:
+                    # TODO: maybe this should be skipped in cases where previous sorting is done
                     txes.sort(key=lambda d: d[confpar])
                 except KeyError:
                     pass

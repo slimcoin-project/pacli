@@ -14,7 +14,9 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.extended_constants as extc
+import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
+import pacli.db_utils as dbu
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -39,6 +41,7 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
 def show_wallet_dtxes(deckid: str=None,
                       tracked_address: str=None,
                       sender: str=None,
+                      datadir: str=None, # for use_db
                       unclaimed: bool=False,
                       no_labels: bool=False,
                       advanced: bool=False,
@@ -46,6 +49,7 @@ def show_wallet_dtxes(deckid: str=None,
                       keyring: bool=False,
                       quiet: bool=False,
                       include_change_addresses: bool=False,
+                      use_db: bool=False,
                       debug: bool=False) -> list:
     """Shows donation/burn/payment transactions."""
 
@@ -103,7 +107,14 @@ def show_wallet_dtxes(deckid: str=None,
         if not tracked_address:
             raise ei.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
-    if tracked_address == burn_address() and not include_change_addresses: # include_change_addresses needs all wallet txes
+    valid_txes = []
+    if use_db is True:
+        # TODO: check if we can support advanced mode
+        if debug:
+            print("Retrieving transactions from wallet.dat ...")
+        valid_txes = dbu.get_all_transactions(firstsender=sender, receiver=tracked_address, sort=True, advanced=False, datadir=datadir, wholetx=True, exclude_coinbase=True, debug=debug)
+        raw_txes = [] # bypass the for->next
+    elif tracked_address == burn_address() and not include_change_addresses: # include_change_addresses needs all wallet txes
         if debug:
             print("Retrieving burn transactions ...")
         burn_txes = get_burn_transactions(create_txes=True, debug=debug)
@@ -115,12 +126,13 @@ def show_wallet_dtxes(deckid: str=None,
             print("Retrieving wallet transactions ...")
         raw_txes = eu.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
 
-    if debug:
-        print(len(raw_txes), "wallet transactions found.")
+    if debug and not use_db:
+        print(len(raw_txes), "transactions found.")
 
-    valid_txes = []
     processed_txids = []
     missing_txids = []
+
+    # TODO this loop (processes listtransaction output) should go into a separate function.
     for tx in raw_txes:
         try:
             assert tx["txid"] not in processed_txids
@@ -144,7 +156,8 @@ def show_wallet_dtxes(deckid: str=None,
                 assert tx["txid"] not in claimed_txes
 
             processed_txids.append(tx["txid"])
-            valid_txes.append(full_tx)
+            txstruct = bu.get_tx_structure(tx=full_tx, human_readable=False, add_txid=True)
+            valid_txes.append(txstruct) # (full_tx)
 
         except AssertionError:
             if debug:
@@ -174,9 +187,10 @@ def show_wallet_dtxes(deckid: str=None,
         change_addresses = ec.search_change_addresses(known_addresses=addresses, wallet_txes=all_txes, debug=debug)
         allowed_addresses.update(set([a["address"] for a in change_addresses]))
 
-    for tx in valid_txes:
+    for txstruct in valid_txes:
 
-        txstruct = bu.get_tx_structure(tx=tx, tracked_address=tracked_address, human_readable=False)
+        # use_db already returns the tx struct. # TODO different format with and without use_db! Do we really need this format?
+        # txstruct = bu.get_tx_structure(tx=tx, human_readable=False) if not use_db else tx
 
         if txstruct is None:
             continue
@@ -184,7 +198,8 @@ def show_wallet_dtxes(deckid: str=None,
             print("Burn/Gateway TX found:", txstruct)
 
         # MODIF: sender is always the first sender, as specified in AT protocol.
-        tx_sender = txstruct["sender"]["sender"][0]
+        # tx_sender = txstruct["sender"]["sender"][0]
+        tx_sender = txstruct["inputs"][0]["sender"][0]
         if wallet:
             if tx_sender not in allowed_addresses:
                 if debug:
@@ -194,7 +209,11 @@ def show_wallet_dtxes(deckid: str=None,
         if advanced is True:
             tx_dict = tx
         else:
-            tx_dict = {"txid" : tx["txid"], "value" : txstruct["ovalue"], "outputs" : txstruct["oindices"], "blockheight" : txstruct["blockheight"]}
+            tx_dict = et.return_tx_format("gatewaytx", txstruct=txstruct, tracked_address=tracked_address, debug=debug)
+            if tx_dict is None:
+                continue
+
+            # tx_dict = {"txid" : tx["txid"], "value" : txstruct["ovalue"], "outputs" : txstruct["oindices"], "blockheight" : txstruct["blockheight"]}
 
             if not sender:
                 if not no_labels:
@@ -351,7 +370,7 @@ def get_burn_transactions(create_txes: bool=False, debug: bool=False) -> list:
 
 # API commands
 
-def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
+"""def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool=False, wallet: bool=False, no_labels: bool=False, keyring: bool=False, advanced: bool=False, quiet: bool=False, debug: bool=False, burns: bool=False) -> None:
     '''Shows all transactions from your wallet to an address.'''
     # TODO this could be simply removed and show_wallet_dtxes accessed directly with au.burn_address().
 
@@ -365,5 +384,5 @@ def my_txes(address: str=None, deck: str=None, sender: str=None, unclaimed: bool
     #    sender = Settings.key.address if not wallet else None
     txes = show_wallet_dtxes(tracked_address=address, deckid=deckid, unclaimed=unclaimed, sender=sender, no_labels=no_labels, keyring=keyring, advanced=advanced, wallet=wallet, quiet=quiet, debug=debug)
 
-    return txes
+    return txes"""
 
