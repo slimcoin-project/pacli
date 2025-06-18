@@ -539,7 +539,7 @@ class ExtAddress:
              only_initialized_p2th: bool=False,
              everything: bool=False,
              wallet: bool=False,
-             advanced: bool=False,
+             json: bool=False,
              blockchain: str=Settings.network,
              include_all: bool=None,
              search_change: bool=False,
@@ -555,9 +555,9 @@ class ExtAddress:
             Shows a table of all named addresses and those which contain coins, PoD and PoB tokens.
             Note: If P2TH addresses were named, they will be included in this list, otherwise not.
 
-        pacli address list -a
+        pacli address list -j
 
-            Advanced mode. Shows a (prettyprinted) JSON string of all stored addresses and all tokens.
+            JSON mode. Shows a (prettyprinted) JSON string of all stored addresses and all tokens.
 
         pacli address list -l [-b CHAIN]
         pacli address list -f [-b CHAIN]
@@ -572,9 +572,9 @@ class ExtAddress:
           full_labels: Show only stored labels with network prefix (debugging option).
           named: Shows only addresses which were named with a label.
           keyring: Uses the keyring of your operating system.
-          coinbalances: Only shows coin balances, not tokens (faster). Cannot be combined with -a, -f and -l.
+          coinbalances: Only shows coin balances, not tokens (faster). Cannot be combined with -j, -f and -l.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
-          advanced: Advanced mode showing a JSON string, see Usage modes above.
+          json: JSON mode showing a JSON string, see Usage modes above.
           p2th: Show the P2TH addresses of all decks and all auxiliary P2TH addresses (can be a very long list).
           only_initialized_p2th: Shows P2TH addresses from initialized decks and auxiliary P2TH addresses stored in the wallet.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
@@ -594,7 +594,7 @@ class ExtAddress:
                coinbalances: bool=False,
                labels: bool=False,
                full_labels: bool=False,
-               advanced: bool=False,
+               json: bool=False,
                p2th: bool=False,
                only_initialized_p2th: bool=False,
                named: bool=False,
@@ -698,14 +698,14 @@ class ExtAddress:
                 return
         else:
             # TODO: try to improve/unify the location of the deck search.
-            deck_list = all_decks if (advanced and all_decks is not None) else None
+            deck_list = all_decks if (json and all_decks is not None) else None
 
             return tc.all_balances(wallet=True,
                                   keyring=keyring,
                                   exclude=excluded_addresses,
                                   excluded_accounts=excluded_accounts,
                                   only_tokens=False,
-                                  advanced=advanced,
+                                  advanced=json,
                                   named=named,
                                   quiet=quiet,
                                   empty=include_all,
@@ -1423,7 +1423,7 @@ class ExtCard:
                 category: str=None,
                 owners: bool=False,
                 tokendeck: str=None,
-                advanced: bool=False,
+                json: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
                 quiet: bool=False,
@@ -1443,10 +1443,10 @@ class ExtCard:
 
         Shows balances of the standard PoB and dPoD tokens.
 
-            pacli card balances [ADDRESS|-w] -a
-            pacli token balances [ADDRESS|-w] -a
+            pacli card balances [ADDRESS|-w] -j
+            pacli token balances [ADDRESS|-w] -j
 
-        Shows balances of all tokens, either on the specified address or on the whole wallet (with -w flag).
+        Shows balances of all tokens in JSON format, either on the specified address or on the whole wallet (with -w flag).
         If ADDRESS is not given and -w is not selected, the current main address is used.
 
             pacli card balances TOKEN -o
@@ -1459,10 +1459,10 @@ class ExtCard:
         Args:
 
           tokendeck: A token (deck) whose balances should be shown. See Usage modes.
-          category: In combination with -a, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
-          advanced: See above. Shows balances of all tokens in JSON format. Not in combination with -o nor -t.
+          category: In combination with -j, limit results to one of the following token types: PoD, PoB or AT (case-insensitive).
+          json: See above. Shows balances of all tokens in JSON format. Not in combination with -o nor -t.
           owners: Show balances of all holders of cards of a token. Cannot be combined with other options except -q.
-          keyring: In combination with -a or -t (not -w), use an address stored in the keyring.
+          keyring: In combination with -j or -t (not -w), use an address stored in the keyring.
           quiet: Suppresses informative messages.
           debug: Display debug info.
           param1: Token (deck) or address. To be used as a positional argument (flag keyword not necessary). See Usage modes.
@@ -1477,13 +1477,13 @@ class ExtCard:
                 category: str=None,
                 owners: bool=False,
                 tokendeck: str=None,
-                advanced: bool=False,
+                json: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
 
-        if advanced and not quiet:
+        if json and not quiet:
                 print("Retrieving token states to show balances ...")
 
         if owners is True or Settings.compatibility_mode == "True":
@@ -1524,7 +1524,7 @@ class ExtCard:
             except AttributeError:
                 raise ei.PacliInputDataError("No category specified.")
 
-            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, only_tokens=True, advanced=advanced, deck_type=deck_type, quiet=quiet, debug=debug)
+            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, only_tokens=True, advanced=json, deck_type=deck_type, quiet=quiet, debug=debug)
 
 
     def transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
@@ -1780,6 +1780,7 @@ class ExtTransaction:
     def list(self,
              _value1: str=None,
              _value2: str=None,
+             access_wallet: str=None,
              end_height: str=None,
              from_height: str=None,
              origin: str=None,
@@ -1788,7 +1789,7 @@ class ExtTransaction:
              keyring: bool=False,
              named: bool=False,
              mempool: bool=None,
-             advanced: bool=False,
+             json: bool=False,
              burntxes: bool=None,
              claimtxes: bool=None,
              debug: bool=False,
@@ -1802,7 +1803,6 @@ class ExtTransaction:
              unclaimed: bool=False,
              view_coinbase: bool=False,
              wallet: bool=False,
-             ydb: str=None,
              xplore: bool=False) -> None:
         """Lists transactions, optionally of a specific type (burn transactions and claim transactions).
 
@@ -1861,12 +1861,12 @@ class ExtTransaction:
             Show a single parameter or variable of the transactions, together with the TXID.
             This mode can be combined with all other modes.
             Possible parameters are all first-level keys of the dictionaries output by the different modes of this command.
-            If used together with --advanced, the possible parametes are the first-level keys of the transaction JSON string,
+            If used together with --json, the possible parametes are the first-level keys of the transaction JSON string,
             with the exception of -c/--claims mode, where the attributes of a CardTransfer object can be used.
 
         Args:
 
-          advanced: Show complete transaction JSON or card transfer dictionary of claim transactions.
+          access_wallet: Access wallet database directly (may expose keys!). A custom data directory can be given after -a. Cannot be combined with -x, -c nor -m. Requires berkeleydb package. Slow.
           burntxes: Only show burn transactions.
           claimtxes: Show reward claim transactions (see Usage modes) (not in combination with -x).
           debug: Provide debugging information.
@@ -1874,6 +1874,7 @@ class ExtTransaction:
           from_height: Block height or date to start the search at (only in combination with -x).
           gatewaytxes: Only show transactions going to a gateway address of an AT token.
           ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
+          json: Show complete transaction JSON or card transfer dictionary of claim transactions.
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
           locator: In -x mode, use existing block locators to speed up the blockchain retrieval, while caching uncached blocks in the selected block interval. See Usage modes above.
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
@@ -1889,7 +1890,6 @@ class ExtTransaction:
           wallet: Show all specified transactions of all addresses in the wallet.
           view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).
-          ydb: Use database directly (may expose keys!). A custom data directory can be given after -y. Cannot be combined with -x nor -m. Requires berkeleydb package. Slow.
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
           _value2: Address (in some modes). Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
         """
@@ -1900,7 +1900,7 @@ class ExtTransaction:
     def __list(self,
              _value1: str=None,
              _value2: str=None,
-             advanced: bool=False,
+             access_wallet: str=None,
              burntxes: bool=None,
              claimtxes: bool=None,
              debug: bool=False,
@@ -1909,6 +1909,7 @@ class ExtTransaction:
              gatewaytxes: bool=None,
              ids: bool=False,
              keyring: bool=False,
+             json: bool=False,
              locator: bool=False,
              mempool: bool=None,
              named: bool=False,
@@ -1922,13 +1923,13 @@ class ExtTransaction:
              view_coinbase: bool=False,
              wallet: bool=False,
              xplore: bool=False,
-             ydb: str=None,
+
              zraw: bool=False) -> None:
 
         # TODO: Further harmonization: Results are now:
         # -x: tx_structure or tx JSON
-        # -y: tx_structure or tx JSON
-        # -a: always tx JSON
+        # --access_wallet: tx_structure or tx JSON
+        # -j: always tx JSON
         # -z: listtransactions output
         # without any label: custom dict with main parameters
         # -c: very custom "embellished" dict, should be changed -> "basic" mode now shows a more "standard" dict
@@ -1946,59 +1947,59 @@ class ExtTransaction:
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
-        if ydb is not None:
+        if access_wallet is not None:
             use_db, mempool = True, "ignore"
             wholetx = True if ids is False else False # when only requesting IDs the getrawtransaction query isn't necessary
-            advanced = advanced or ids or total # if only txids or the count are needed, we don't need the struct.
+            json = json or ids or total # if only txids or the count are needed, we don't need the struct.
         else:
             use_db = False
-        datadir = None if type(ydb) == bool else ydb # always None when ydb is not selected
+        datadir = None if type(access_wallet) == bool else access_wallet # always None when access_wallet is not selected
 
         if (not named) and (not quiet):
             print("Searching transactions (this can take several minutes) ...")
 
         if xplore is True:
             if (burntxes is True) or (gatewaytxes is True):
-                txes = bx.show_txes(deck=address_or_deck, sending_address=origin, start=from_height, end=end_height, quiet=quiet, advanced=advanced, debug=debug, burns=burntxes, use_locator=locator)
+                txes = bx.show_txes(deck=address_or_deck, sending_address=origin, start=from_height, end=end_height, quiet=quiet, advanced=json, debug=debug, burns=burntxes, use_locator=locator)
             else:
                 if wallet:
                     if sent is True or received is True:
                         wallet_mode = "sent" if sent is True else "received"
                     else:
                         wallet_mode = "all"
-                    txes = bx.show_txes(wallet_mode=wallet_mode, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
+                    txes = bx.show_txes(wallet_mode=wallet_mode, start=from_height, end=end_height, coinbase=view_coinbase, advanced=json, quiet=quiet, debug=debug, burns=False, use_locator=locator)
                 else:
-                    txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=advanced, quiet=quiet, debug=debug, burns=False, use_locator=locator)
+                    txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=json, quiet=quiet, debug=debug, burns=False, use_locator=locator)
         elif (burntxes is True) or (gatewaytxes is True):
             address = au.burn_address() if burntxes is True else None
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet) if address_or_deck else None
-            txes = au.show_wallet_dtxes(sender=origin, deckid=deckid, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=advanced, tracked_address=address, use_db=use_db, datadir=datadir, quiet=quiet, debug=debug)
+            txes = au.show_wallet_dtxes(sender=origin, deckid=deckid, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=json, tracked_address=address, use_db=use_db, datadir=datadir, quiet=quiet, debug=debug)
         elif claimtxes is True:
-            txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=advanced, param=param, quiet=quiet, debug=debug)
+            txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=json, param=param, quiet=quiet, debug=debug)
         elif named is True:
             # Shows all stored transactions and their labels.
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
-            if advanced is True:
+            if json is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
         elif wallet or zraw:
             if use_db is True:
-                txes = dbu.get_all_transactions(sort=True, advanced=advanced, datadir=datadir, wholetx=wholetx, debug=debug)
+                txes = dbu.get_all_transactions(sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
             else:
-                txes = ec.get_address_transactions(sent=sent, received=received, advanced=advanced, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
+                txes = ec.get_address_transactions(sent=sent, received=received, advanced=json, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
 
         else:
             # returns all transactions from or to that address in the wallet.
             address = Settings.key.address if address_or_deck is None else address_or_deck
             if use_db is True:
-                txes = dbu.get_all_transactions(address=address, sort=True, advanced=advanced, datadir=datadir, wholetx=wholetx, debug=debug)
+                txes = dbu.get_all_transactions(address=address, sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
 
             else:
-                txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=advanced, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
+                txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
-        if (xplore or burntxes or gatewaytxes) and (not advanced):
+        if (xplore or burntxes or gatewaytxes) and (not json):
             confpar = "blockheight"
         elif claimtxes:
-            confpar = "tx_confirmations" if advanced else "Block height"
+            confpar = "tx_confirmations" if json else "Block height"
         else:
             confpar = "confirmations"
 
