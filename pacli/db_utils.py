@@ -2,9 +2,19 @@ from pacli.provider import provider
 from pacli.blockexp_utils import get_tx_structure
 import pacli.extended_interface as ei
 import pacli.extended_txtools as et
+from pacli.config import Settings
+from pypeerassets.networks import net_query
 import sys
 import os
 import os.path
+import hashlib
+
+# TODO: check if unencrypted wallets lead to the "key" instead of "ckey" key in the database dict!
+
+# Copyright notice:
+# contains code from:
+# PyWallet 1.2.1 (Public Domain)
+# http://github.com/joric/pywallet
 
 try:
     import berkeleydb
@@ -66,10 +76,87 @@ def yield_transactions(database: object, ignore_corrupted: bool=False, debug: bo
             #    print("Processing tx:", txid)
             yield [txid, tx_json]
 
+# address tools from pywallet
 
-def get_all_transactions(address: str=None, sender: str=None, firstsender: str=None, receiver: str=None, datadir: str=None, advanced: bool=False, wholetx: bool=True, sort: bool=False, exclude_coinbase: bool=False, debug: bool=False):
-    # TODO to speed up this for -g/-b, it would be necessary to exclude some of the txes, e.g. coinbase. For these we wouldn't need the getrawtransactions.
+__b58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+__b58base = len(__b58chars)
 
+def b58encode(v):
+    """ encode v, which is a string of bytes, to base58.
+    """
+
+    long_value = 0 # 0L
+    for (i, c) in enumerate(v[::-1]):
+        long_value += (256**i) * c # ord(c)
+
+    result = ''
+    while long_value >= __b58base:
+        div, mod = divmod(long_value, __b58base)
+        result = __b58chars[mod] + result
+        long_value = div
+    result = __b58chars[long_value] + result
+
+    # Bitcoin does a little leading-zero-compression:
+    # leading 0-bytes in the input become leading-1s
+    nPad = 0
+    for c in v:
+        if c == '\0': nPad += 1
+        else: break
+
+    return (__b58chars[0]*nPad) + result
+
+def Hash(data):
+    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+
+def hash_160(public_key):
+    md = hashlib.new('ripemd160')
+    md.update(hashlib.sha256(public_key).digest())
+    return md.digest()
+
+def public_key_to_bc_address(public_key):
+    h160 = hash_160(public_key)
+    return hash_160_to_bc_address(h160)
+
+def get_addrtype(output_type: str="p2pkh"):
+    nwvalues = net_query(Settings.network)
+    try:
+        addrtype = nwvalues.base58_raw_prefixes[output_type]
+    except KeyError:
+        raise ei.PacliDataError("Unsupported output type: {}".format(output_type))
+    #print(addrtype.hex())
+    #return int(addrtype.hex(), 16)
+    return addrtype
+
+def hash_160_to_bc_address(h160):
+
+    addrtype = get_addrtype("p2pkh") # addrtype is now a bytearray
+    # vh160 = chr(addrtype) + h160
+    # vh160 = bytes([addrtype]) + h160 # python3
+    vh160 = addrtype + h160
+    h = Hash(vh160)
+    addr = vh160 + h[0:4]
+    return b58encode(addr)
+
+def get_addresses(datadir: str=None, keyring: bool=False, ignore_corrupted: bool=False, debug: bool=False):
+
+    database = get_database(datadir, debug=debug)
+    addresses = []
+
+    for k in database.keys():
+        if b"key" not in k[:10]: # k.startswith(b"\x04ckey"):
+            continue
+        # value = database.get(k)
+        size = k[0]
+        nextsize = k[5]
+        pubkey = k[6:]
+        address = public_key_to_bc_address(pubkey)
+        if debug:
+            print("Retrieving address {} from wallet with pubkey {}".format(address, pubkey))
+        addresses.append(address)
+    return set(addresses)
+
+
+def get_database(datadir: str=None, debug: bool=False):
     if datadir is None:
         datadir = determine_db_dir()
         locmsg = "standard"
@@ -87,6 +174,13 @@ def get_all_transactions(address: str=None, sender: str=None, firstsender: str=N
         raise ei.PacliDataError("Wallet file not found at the {} location.".format(locmsg))
     except berkeleydb.db.DBAccessError:
         raise ei.PacliDataError("Wallet file cannot be accessed, permission denied. Please check permissions.")
+    return d
+
+
+def get_all_transactions(address: str=None, sender: str=None, firstsender: str=None, receiver: str=None, datadir: str=None, advanced: bool=False, wholetx: bool=True, sort: bool=False, exclude_coinbase: bool=False, debug: bool=False):
+    # TODO to speed up this for -g/-b, it would be necessary to exclude some of the txes, e.g. coinbase. For these we wouldn't need the getrawtransactions.
+
+    d = get_database(datadir, debug=debug)
 
     txes = []
     for tx_tuple in yield_transactions(d, ignore_corrupted=True, debug=debug):

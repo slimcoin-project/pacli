@@ -540,6 +540,7 @@ class ExtAddress:
              everything: bool=False,
              wallet: bool=False,
              json: bool=False,
+             access_wallet: str=None,
              blockchain: str=Settings.network,
              include_all: bool=None,
              search_change: bool=False,
@@ -582,6 +583,7 @@ class ExtAddress:
           everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but without change addresses (like a combination of -i and -p).
           search_change: In combination with -c, show change addresses in addition to the regular ones. This needs an additional step and is very slow.
           xclusive_change: In combination with -c, only show change addresses.
+          access_wallet: Access wallet file directly. Slow, use if other methods don't find some addresses. Needs berkeleydb package.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
         """
@@ -603,6 +605,7 @@ class ExtAddress:
                wallet: bool=False,
                search_change: bool=False,
                xclusive_change: bool=False,
+               access_wallet: str=None,
                blockchain: str=Settings.network,
                quiet: bool=False,
                debug: bool=False):
@@ -661,11 +664,10 @@ class ExtAddress:
 
         # TODO: decide if -c should be integrated into tc.all_balances()
         if (coinbalances is True) or (labels is True) or (full_labels is True):
-            # if (labels is True) or (full_labels is True):
 
             if search_change or xclusive_change:
                 named, empty = False, True
-            result = ec.get_labels_and_addresses(prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
+            result = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
             if search_change or xclusive_change:
                 change_addresses = ec.search_change_addresses(result, balances=True, debug=debug)
                 if search_change:

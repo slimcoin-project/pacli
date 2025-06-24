@@ -5,6 +5,7 @@ import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.config_extended as ce
 import pacli.extended_constants as c
+import pacli.db_utils as dbu
 from pypeerassets.pautils import exponent_to_amount
 from pacli.config import Settings
 from pacli.provider import provider
@@ -209,6 +210,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              excluded_accounts: list=[],
                              include_only: list=[],
                              include: list=[],
+                             access_wallet: str=None,
                              keyring: bool=False,
                              named: bool=False,
                              empty: bool=False,
@@ -272,6 +274,9 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         labeled_addresses = [i["address"] for i in result]
         if include_only:
             wallet_addresses = set(include_only)
+        elif access_wallet is not None:
+            datadir = access_wallet if type(access_wallet) == str else None
+            wallet_addresses = dbu.get_addresses(datadir=datadir, debug=debug)
         else:
             wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
 
