@@ -55,7 +55,7 @@ def get_wallet_database(path: str):
         print("Txid", txid)
     return new_txid"""
 
-def yield_transactions(database: object, ignore_corrupted: bool=False, debug: bool=False):
+def yield_transactions(database: object, ignore_corrupted: bool=True, debug: bool=False):
 
     for k in database.keys():
         tx = database.get(k)
@@ -65,12 +65,16 @@ def yield_transactions(database: object, ignore_corrupted: bool=False, debug: bo
                 tx_json = provider.decoderawtransaction(raw_txdata)
                 txid = tx_json["txid"]
             except ValueError as e:
-                if not ignore_corrupted:
-                    continue
                 if debug:
-                    print("Bad tx data:", txid, raw_txdata)
+                    print("Bad tx data:", txid, raw_txid)
+                if ignore_corrupted:
+                    continue
                 tx_json = {}
                 raise ei.PacliDataError(e)
+            except AttributeError as e:
+                if debug:
+                    print("Bad value of tx wallet data: key {} value {}".format(k, tx))
+                continue
 
             #if debug:
             #    print("Processing tx:", txid)
