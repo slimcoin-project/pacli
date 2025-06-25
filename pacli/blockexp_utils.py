@@ -18,12 +18,16 @@ def show_txes_by_block(sending_addresses: list=[],
                        quiet: bool=False,
                        coinbase: bool=False,
                        advanced: bool=False,
+                       require_sender_and_receiver: bool=False,
                        force_storing: bool=False,
                        use_locator: bool=False,
                        store_locator: bool=False,
                        only_store: bool=False,
                        debug: bool=False) -> list:
     """Shows or stores transaction data from the blocks directly."""
+    #TODO: specifying a burn address does not restrict the txes to burn transactions.
+    # Maybe sending and receiving TXes are connected by OR instead of AND?
+    # (i.e. if both are specified, both sending and receiving txes are shown?)
 
     # NOTE: locator_list parameter only stores the locator
 
@@ -153,7 +157,10 @@ def show_txes_by_block(sending_addresses: list=[],
                 elif sending_addresses or receiving_addresses: # list mode is probably slower
                     receiver_present = not set(receiving_addresses).isdisjoint(set(receivers))
                     sender_present = not set(sending_addresses).isdisjoint(set(senders))
-                    addr_present = sender_present or receiver_present
+                    if require_sender_and_receiver:
+                        addr_present = sender_present and receiver_present
+                    else:
+                        addr_present = sender_present or receiver_present # TODO perhaps this line is the problem: it does an OR between senders and receivers.
 
                 if all_txes or addr_present:
                     if advanced:

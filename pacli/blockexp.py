@@ -38,6 +38,15 @@ def show_txes(receiving_address: str=None,
     receiving_address = ec.process_address(receiving_address)
     sending_address = ec.process_address(sending_address)
 
+    # sender and receiver have to be present in certain cases (e.g. burn/gateway txes).
+    # TODO: re-check if this is sufficient or if a new variable has to be added in this function too.
+    # This would be the case if there's an use case where senders/receivers are different but an OR has to be performed (unlikely),
+    # or if a mode needs to check if sender/receiver are the same address (and thus an AND between two equal addrs).
+    if sending_address and receiving_address:
+        require_sender_and_receiver = True
+    else:
+        require_sender_and_receiver = False
+
     try:
         last_block = provider.getblockcount()
         last_blocktime = provider.getblock(provider.getblockhash(last_block))["time"]
@@ -125,7 +134,7 @@ def show_txes(receiving_address: str=None,
     if not quiet:
         print("Retrieving transactions from block:", startblock, "to block:", endblock)
 
-    blockdata = bu.show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=sending_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator)
+    blockdata = bu.show_txes_by_block(receiving_addresses=receiving_addresses, sending_addresses=sending_addresses, advanced=advanced, startblock=startblock, endblock=endblock, coinbase=coinbase, quiet=quiet, debug=debug, use_locator=use_locator, locator=locator, store_locator=use_locator, require_sender_and_receiver=require_sender_and_receiver)
     txes = blockdata["txes"]
 
     if debug:
