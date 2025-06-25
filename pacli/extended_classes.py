@@ -1980,6 +1980,7 @@ class ExtTransaction:
             txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=json, param=param, quiet=quiet, debug=debug)
         elif named is True:
             # Shows all stored transactions and their labels.
+            ignore_confpar = True
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
             if json is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
