@@ -1,5 +1,17 @@
 # transaction utilities
 
+def check_receiver(tx: dict, receiver: str):
+    receivers = []
+    for o in tx["vout"]:
+        try:
+            receivers.append(o["scriptPubKey"]["addresses"][0])
+        except (KeyError, IndexError):
+            continue # case OP_RETURN etc.
+
+    #except (KeyError, AttributeError, AssertionError):
+    #    return False
+    #return True
+    return receiver in receivers
 
 def check_address_in_txstruct(tx: dict, address: str=None, sender: str=None, firstsender: str=None, receiver: str=None, debug: bool=False) -> bool:
     # Note: address means an OR relation normally (i.e. address can be sender OR receiver).
@@ -45,5 +57,25 @@ def return_tx_format(fmt: str, txjson: dict=None, txstruct: dict=None, tracked_a
                   "blockheight" : txstruct["blockheight"]}
 
     return result
+
+
+def extract_txids_from_utxodict(txdicts: list, exclude_cats: list=[], required_address: str=None, debug: bool=False):
+    # Processes listtransactions output.
+    processed_txids = []
+    for txdict in txdicts:
+        try:
+            assert txdict["txid"] not in processed_txids
+
+            for cat in exclude_cats:
+                assert txdict["category"] != cat
+
+            if required_address is not None:
+                assert txdict["address"] == required_address
+
+        except (AssertionError, KeyError):
+            continue
+
+        processed_txids.append(txdict["txid"])
+        yield txdict["txid"]
 
 

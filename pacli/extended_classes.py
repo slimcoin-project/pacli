@@ -1870,7 +1870,7 @@ class ExtTransaction:
 
           access_wallet: Access wallet database directly (may expose keys!). A custom data directory can be given after -a. Cannot be combined with -x, -c nor -m. Requires berkeleydb package. Slow.
           burntxes: Only show burn transactions.
-          claimtxes: Show reward claim transactions (see Usage modes) (not in combination with -x).
+          claimtxes: Show reward claim transactions (see Usage modes) (not to be combined with -x, -b and -g).
           debug: Provide debugging information.
           end_height: Block height or date to end the search at (only in combination with -x).
           from_height: Block height or date to start the search at (only in combination with -x).
@@ -1952,7 +1952,7 @@ class ExtTransaction:
         if access_wallet is not None:
             use_db, mempool = True, "ignore"
             wholetx = True if ids is False else False # when only requesting IDs the getrawtransaction query isn't necessary
-            json = json or ids or total # if only txids or the count are needed, we don't need the struct.
+            json = json or (not claimtxes and (ids or total))  # if only txids or the count are needed, we don't need the struct. NOTE: doesn't work with claimtxes.
         else:
             use_db = False
         datadir = None if type(access_wallet) == bool else access_wallet # always None when access_wallet is not selected
@@ -1977,7 +1977,7 @@ class ExtTransaction:
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet) if address_or_deck else None
             txes = au.show_wallet_dtxes(sender=origin, deckid=deckid, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=json, tracked_address=address, use_db=use_db, datadir=datadir, quiet=quiet, debug=debug)
         elif claimtxes is True:
-            txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=json, param=param, quiet=quiet, debug=debug)
+            txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=json, quiet=quiet, debug=debug)
         elif named is True:
             # Shows all stored transactions and their labels.
             ignore_confpar = True

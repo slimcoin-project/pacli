@@ -48,7 +48,7 @@ def show_wallet_dtxes(deckid: str=None,
                       wallet: bool=False,
                       keyring: bool=False,
                       quiet: bool=False,
-                      include_change_addresses: bool=False,
+                      # include_change_addresses: bool=False,
                       use_db: bool=False,
                       debug: bool=False) -> list:
     """Shows donation/burn/payment transactions."""
@@ -56,7 +56,10 @@ def show_wallet_dtxes(deckid: str=None,
     # MODIF: behaviour is now that if --wallet is chosen, address labels are used when possible.
     # MODIF: if neither sender not wallet is chosen then the P2TH accounts are included (leading to all initialized txes been shown).
     # MODIF: --wallet option now includes all non-P2TH addresses which are named. # TODO re-check if this works here in contrast to claims which have a P2TH to query!
-    # MODIF: --include_change_addresses with --wallet includes change addresses to the allowed senders which aren't found by listreceivedbyaddress (slower)
+    # MODIF: --include_change_addresses with --wallet includes change addresses to the allowed senders which aren't found by listreceivedbyaddress (slower) # TODO re-check, for now removed.
+    tx_type_msg = "unclaimed" if unclaimed else "sent"
+    txes_to_address = []
+
     if wallet or (not sender and not no_labels):
         if debug:
             print("Retrieving excluded addresses ...")
@@ -112,9 +115,12 @@ def show_wallet_dtxes(deckid: str=None,
         # TODO: check if we can support advanced mode
         if debug:
             print("Retrieving transactions from wallet.dat ...")
-        valid_txes = dbu.get_all_transactions(firstsender=sender, receiver=tracked_address, sort=True, advanced=False, datadir=datadir, wholetx=True, exclude_coinbase=True, debug=debug)
-        raw_txes = [] # bypass the for->next
-    elif tracked_address == burn_address() and not include_change_addresses: # include_change_addresses needs all wallet txes
+        # NOTE: set advanced to False to retrieve only the transactions.
+        db_txes = dbu.get_all_transactions(firstsender=sender, receiver=tracked_address, sort=True, advanced=False, datadir=datadir, wholetx=True, exclude_coinbase=True, debug=debug)
+        db_structs = { txstruct["txid"] : txstruct for txstruct in db_txes }
+        if debug:
+            print("{} matching transactions found.".format(len(db_structs)))
+    elif tracked_address == burn_address(): # and not include_change_addresses: # include_change_addresses needs all wallet txes
         if debug:
             print("Retrieving burn transactions ...")
         burn_txes = get_burn_transactions(create_txes=True, debug=debug)
@@ -129,67 +135,56 @@ def show_wallet_dtxes(deckid: str=None,
     if debug and not use_db:
         print(len(raw_txes), "transactions found.")
 
-    processed_txids = []
-    missing_txids = []
+    # missing_txids = []
 
     # TODO this loop (processes listtransaction output) should go into a separate function.
-    for tx in raw_txes:
-        try:
-            assert tx["txid"] not in processed_txids
-            assert tx["category"] not in ("generate", "orphan")
-            if tx["address"] != tracked_address:
-                if include_change_addresses:
-                    missing_txids.append(tx["txid"])
-                continue
-            if wallet or sender:
-                assert tx["category"] != "receive"
+    excluded = ["generate", "orphan"]
+    if wallet or sender: # wallet mode only needs txes where a wallet address was the sender.
+        excluded.append(["receive"])
+    if use_db:
+        txids = (k for (k, v) in db_structs.items())
+    else:
+        txids = et.extract_txids_from_utxodict(raw_txes, exclude_cats=excluded, required_address=tracked_address, debug=debug)
 
-        except (AssertionError, KeyError):
-            continue
+    if not quiet: # only needed for message below about number of total transactions
+        alltxes = 0
+
+    for txid in txids:
         try:
             if deck is not None:
-                full_tx = check_donation_tx_validity(tx["txid"], tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=sender, debug=debug)
-                assert full_tx is not None
+                full_tx = check_donation_tx_validity(txid, tracked_address, startblock=deck.startblock, endblock=deck.endblock, expected_sender=sender, debug=debug)
             else:
-                full_tx = provider.getrawtransaction(tx["txid"], 1)
-            if unclaimed:
-                assert tx["txid"] not in claimed_txes
+                full_tx = provider.getrawtransaction(txid, 1)
+            assert full_tx is not None and full_tx.get("txid") == txid # second condition prevents error message JSONs to be counted.
 
-            processed_txids.append(tx["txid"])
-            txstruct = bu.get_tx_structure(tx=full_tx, human_readable=False, add_txid=True)
-            valid_txes.append(txstruct) # (full_tx)
+            if unclaimed:
+                assert txid not in claimed_txes
+
+            if use_db and txid in db_structs:
+                txstruct = db_structs[txid]
+            else:
+                txstruct = bu.get_tx_structure(tx=full_tx, human_readable=False, add_txid=True)
 
         except AssertionError:
             if debug:
-                print("Transaction did not pass checks:", tx["txid"])
-            if include_change_addresses:
-                missing_txids.append(tx["txid"])
+                print("Transaction did not pass checks:", txid)
+            #if include_change_addresses:
+            #    missing_txids.append(tx["txid"])
             continue
 
-    tx_type_msg = "unclaimed" if unclaimed else "sent"
+        #if not sender:
+        #    if not no_labels:
+        #        addresses = ec.get_labels_and_addresses(keyring=keyring, empty=True)
+        #if wallet and include_change_addresses:
+        #    if debug:
+        #        print("Retrieving missing transactions for change addresses ...")
+        #    missing_txes = [provider.getrawtransaction(txid, 1) for txid in set(missing_txids)]
+        #    all_txes = valid_txes + missing_txes
+        #    change_addresses = ec.search_change_addresses(known_addresses=addresses, wallet_txes=all_txes, debug=debug)
+        #    allowed_addresses.update(set([a["address"] for a in change_addresses]))
 
-    if not quiet:
-        print("{} {} total transactions to address {} tracked by this wallet.".format(len(valid_txes), tx_type_msg, tracked_address))
-        if sender is not None:
-            print("Showing only transactions sent from the following address:", sender)
-        elif wallet is True:
-            print("Showing only transaction sent from this wallet (excluding P2TH addresses).")
+        # for txstruct in valid_txes:
 
-    txes_to_address = []
-    #if not sender:
-    #    if not no_labels:
-    #        addresses = ec.get_labels_and_addresses(keyring=keyring, empty=True)
-    if wallet and include_change_addresses:
-        if debug:
-            print("Retrieving missing transactions for change addresses ...")
-        missing_txes = [provider.getrawtransaction(txid, 1) for txid in set(missing_txids)]
-        all_txes = valid_txes + missing_txes
-        change_addresses = ec.search_change_addresses(known_addresses=addresses, wallet_txes=all_txes, debug=debug)
-        allowed_addresses.update(set([a["address"] for a in change_addresses]))
-
-    for txstruct in valid_txes:
-
-        # use_db already returns the tx struct. # TODO different format with and without use_db! Do we really need this format?
         # txstruct = bu.get_tx_structure(tx=tx, human_readable=False) if not use_db else tx
 
         if txstruct is None:
@@ -197,23 +192,23 @@ def show_wallet_dtxes(deckid: str=None,
         elif debug:
             print("Burn/Gateway TX found:", txstruct)
 
-        # MODIF: sender is always the first sender, as specified in AT protocol.
-        # tx_sender = txstruct["sender"]["sender"][0]
+        if not quiet:
+            alltxes += 1
+
+        # sender is always the first sender, as specified in AT protocol.
         tx_sender = txstruct["inputs"][0]["sender"][0]
         if wallet:
             if tx_sender not in allowed_addresses:
                 if debug:
-                    print("Transaction {} excluded: no wallet transaction proper.".format(tx["txid"]))
+                    print("Transaction {} excluded: no wallet transaction proper (e.g. P2TH).".format(txid))
                 continue
 
         if advanced is True:
-            tx_dict = tx
+            tx_dict = full_tx
         else:
             tx_dict = et.return_tx_format("gatewaytx", txstruct=txstruct, tracked_address=tracked_address, debug=debug)
             if tx_dict is None:
                 continue
-
-            # tx_dict = {"txid" : tx["txid"], "value" : txstruct["ovalue"], "outputs" : txstruct["oindices"], "blockheight" : txstruct["blockheight"]}
 
             if not sender:
                 if not no_labels:
@@ -225,6 +220,13 @@ def show_wallet_dtxes(deckid: str=None,
 
                 tx_dict.update({"sender_address" : tx_sender})
         txes_to_address.append(tx_dict)
+
+    if not quiet:
+        print("{} {} total transactions to address {} tracked by this wallet.".format(alltxes, tx_type_msg, tracked_address)) # len(valid_txes) became len(txids)
+        if sender is not None:
+            print("Showing only transactions sent from the following address:", sender)
+        elif wallet is True:
+            print("Showing only transaction sent from this wallet (excluding P2TH addresses).")
 
     return txes_to_address
 
