@@ -1816,6 +1816,7 @@ class ExtTransaction:
             ADDRESS is optional and can be a label or an address.
             If ADDRESS is not given, the current main address is used.
             Can be slow if used on wallets with many transactions.
+            With -w, all transactions sent or received by the wallet will be shown.
 
         pacli transaction list -n
 
@@ -1839,7 +1840,6 @@ class ExtTransaction:
             List token claim transactions.
             In standard mode, all claim transactions in the blockchain from all senders are shown.
             Alternatively they can be limited to those sent from wallet addresses (-w) or those sent from a specific ORIGIN_ADDRESS (-o) in the wallet.
-            Note: The -w option in this case will also include claim transactions from named addresses which are not part of the wallet.
             DECK can be a label or a deck ID.
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
 
@@ -1889,7 +1889,7 @@ class ExtTransaction:
           received: Only show received transactions (not in combination with -n, -c, -b or -g). In block explorer mode (-x), it only works together with -w.
           total: Only count transactions, do not display them.
           unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified, -x not supported).
-          wallet: Show all specified transactions of all addresses in the wallet.
+          wallet: Show transactions related to addresses in the wallet. See Usage modes for combinations with other options (-n not supported).
           view_coinbase: Include coinbase transactions in the output (not in combination with -n, -c, -b or -g).
           xplore: Block explorer mode (see Usage modes).
           _value1: Deck or address. Should be used only as a positional argument (flag keyword not mandatory). See Usage modes above.
