@@ -459,9 +459,9 @@ def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False
             or ((sender is None) and not only_wallet)):
                 claim_cards.append(card)
                 if debug:
-                    print("Card added:", card.txid)
+                    print("Card added:", card.txid, "Sender:", card.sender)
             elif debug:
-                print("Card rejected:", card.txid)
+                print("Card rejected:", card.txid, "Sender:", card.sender)
 
     return claim_cards
 

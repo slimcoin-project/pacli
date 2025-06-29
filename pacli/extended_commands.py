@@ -215,6 +215,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              named: bool=False,
                              empty: bool=False,
                              mark_duplicates: bool=False,
+                             wallet_only: bool=True,
                              labels: bool=False,
                              full_labels: bool=False,
                              no_labels: bool=False,
@@ -224,6 +225,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
        # This version is better ordered and already prepares the dict for the address table.
+       # NOTE: wallet_only excludes the named address which are not in the wallet.
 
     result = []
     addresses = []
@@ -240,7 +242,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         try:
             keyring_labels = ke.get_labels_from_keyring(prefix)
         except ImportError:
-            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
+            raise ei.PacliInputDataError("This and some other keyring features are not supported without 'secretstorage'.")
 
         for label in keyring_labels:
             label = label[4:] # wipes key_ out.
@@ -252,6 +254,9 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                 if include_only and (address not in include_only):
                     continue
                 result.append({"label" : label, "address" : address, "network" : prefix})
+
+    if debug:
+        print(len(result), "named addresses found.")
 
     if labels or full_labels:
         return result
@@ -271,7 +276,10 @@ def get_labels_and_addresses(prefix: str=Settings.network,
        result = result2
 
     if not named:
-        labeled_addresses = [i["address"] for i in result]
+        # labeled_addresses = [i["address"] for i in result]
+        labeled_addresses = {i["address"] : i for i in result}
+        if wallet_only:
+            result = [] # resets the result list, so it will only be filled with named addresses which are part of the wallet
         if include_only:
             wallet_addresses = set(include_only)
         elif access_wallet is not None:
@@ -290,12 +298,19 @@ def get_labels_and_addresses(prefix: str=Settings.network,
 
 
         for address in wallet_addresses:
-            if address not in labeled_addresses:
+            if address in labeled_addresses:
+                if wallet_only:
+                    result.append(labeled_addresses[address])
+                    if debug:
+                        print("Named address added:", address)
+            else:
                 if empty is False:
                     if provider.getbalance(address) == 0:
                         continue
 
                 result.append({"label" : "", "address" : address, "network" : prefix})
+                if debug:
+                    print("Unnamed address added:", address)
 
     if balances:
         result2 = []
@@ -559,7 +574,7 @@ def find_tx_senders(tx: dict) -> list:
             continue
     return senders
 
-def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim_tx: str=None, wallet: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
+def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim_tx: str=None, wallet: bool=False, wallet_and_named: bool=False, full: bool=False, param: str=None, basic: bool=False, quiet: bool=False, debug: bool=False):
     '''Shows all valid claim transactions for a deck, with rewards and TXIDs of tracked transactions enabling them.'''
     # NOTE: added new "basic" mode, like quiet with simplified dict, but with printouts.
 
@@ -604,9 +619,9 @@ def show_claims(deck_str: str, address: str=None, donation_txid: str=None, claim
         addresses = get_labels_and_addresses(empty=True, exclude=p2th_dict.keys(), excluded_accounts=p2th_dict.values(), debug=debug)
         # addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th(), excluded_accounts=eu.get_p2th(accounts=True), debug=debug)
         wallet_senders = set([a["address"] for a in addresses])
-        raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, allowed_senders=wallet_senders)
+        raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, allowed_senders=wallet_senders, debug=debug)
     else:
-        raw_claims = eu.get_valid_cardissues(deck, sender=address)
+        raw_claims = eu.get_valid_cardissues(deck, sender=address, debug=debug)
 
     if claim_tx is None:
         claim_txids = set([c.txid for c in raw_claims])

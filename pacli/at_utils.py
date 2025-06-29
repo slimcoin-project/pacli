@@ -77,6 +77,8 @@ def show_wallet_dtxes(deckid: str=None,
         addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses, excluded_accounts=excluded_accounts)
         if wallet:
             allowed_addresses = set([a["address"] for a in addresses])
+            if debug:
+                print("Allowed addresses:", allowed_addresses)
 
     else:
         excluded_accounts = None
@@ -137,7 +139,6 @@ def show_wallet_dtxes(deckid: str=None,
 
     # missing_txids = []
 
-    # TODO this loop (processes listtransaction output) should go into a separate function.
     excluded = ["generate", "orphan"]
     if wallet or sender: # wallet mode only needs txes where a wallet address was the sender.
         excluded.append(["receive"])
@@ -200,7 +201,7 @@ def show_wallet_dtxes(deckid: str=None,
         if wallet:
             if tx_sender not in allowed_addresses:
                 if debug:
-                    print("Transaction {} excluded: no wallet transaction proper (e.g. P2TH).".format(txid))
+                    print("Transaction {} excluded: no wallet transaction proper (e.g. P2TH). Sender: {}".format(txid, tx_sender))
                 continue
 
         if advanced is True:
