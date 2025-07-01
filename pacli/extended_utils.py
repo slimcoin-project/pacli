@@ -154,9 +154,9 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
         raise ei.PacliInputDataError(value_exists_errmsg.format(deck.id, label, deck.id))
 
 
-def get_deckinfo(deckid, p2th: bool=False):
+def get_deckinfo(d, p2th: bool=False):
     """Returns basic deck info dictionary, optionally with P2TH addresses for dPoD tokens."""
-    d = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    # d = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     d_dict = d.__dict__
     if p2th:
         print("Showing P2TH addresses.")
@@ -194,7 +194,7 @@ def get_initialized_decks(decks: list, debug: bool=False) -> list:
         initialized_decks.append(deck)
     return initialized_decks
 
-def search_global_deck_name(identifier: str, prioritize: bool=False, check_initialized: bool=True, abort_uninitialized: bool=False, quiet: bool=False):
+def search_global_deck_name(identifier: str, prioritize: bool=False, return_deck: bool=False, check_initialized: bool=True, abort_uninitialized: bool=False, quiet: bool=False):
 
     if not quiet:
         print("Deck not named locally. Searching global deck name ...")
@@ -226,7 +226,8 @@ def search_global_deck_name(identifier: str, prioritize: bool=False, check_initi
                     if abort_uninitialized:
                         raise ei.PacliDataError("Cannot show requested information for uninitialized token(s).")
 
-        return deck.id
+        result = deck if return_deck is True else deck.id
+        return result
     else:
         return None
 
@@ -476,7 +477,7 @@ def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
     if not quiet:
         print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
 
-def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True, check_initialized: bool=True, abort_uninitialized: bool=False, debug: bool=False) -> str:
+def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True, return_deck: bool=False, check_initialized: bool=True, abort_uninitialized: bool=False, debug: bool=False) -> str:
     """If the identifier is a label stored in the extended config file, return the associated txid."""
     # returns first the identifier if it's already in txid format.
     if identifier is None:
@@ -484,11 +485,14 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
 
     identifier = str(identifier) # will not work with int values, but we want ints to be possible as identifiers
     if is_possible_txid(identifier):
-        if check_deck and category == "deck":
-            # TODO: this is not ideal, it should return the deck object eventually
+        if category == "deck" and (check_deck or return_deck):
             # could also be implemented this way for proposals
-            if pa.find_deck(provider, identifier, Settings.deck_version, Settings.production) is not None:
-                return identifier
+            deck = pa.find_deck(provider, identifier, Settings.deck_version, Settings.production)
+            if deck is not None:
+                if return_deck is True:
+                    return deck
+                else:
+                    return identifier
         else:
             return identifier
 
@@ -498,12 +502,15 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
         if is_possible_txid(result):
             if not quiet:
                 print("Using {} stored locally with label {} and ID {}.".format(category, identifier, result))
-            return result
+            if return_deck is True:
+                return pa.find_deck(provider, result, Settings.deck_version, Settings.production)
+            else:
+                return result
         else:
             raise ei.PacliDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
 
     elif category == "deck":
-        result = search_global_deck_name(identifier, check_initialized=check_initialized, abort_uninitialized=abort_uninitialized, quiet=quiet)
+        result = search_global_deck_name(identifier, check_initialized=check_initialized, abort_uninitialized=abort_uninitialized, return_deck=return_deck, quiet=quiet)
         if result:
             return result
         else:
@@ -762,14 +769,18 @@ def manage_send(sign, send):
     return result
 
 
-def get_claim_tx(txid: str, deckid: str, quiet: bool=False, debug: bool=False):
+def get_claim_tx(txid: str, deck: object, quiet: bool=False, debug: bool=False):
     """Parses a claim transaction, even if it's not recognized as a card."""
     #TODO for now only supports AT/PoB.
 
-    if not is_possible_txid(txid):
-        raise ei.PacliInputDataError("No valid transaction ID provided.")
+    #if not is_possible_txid(txid):
+    #    raise ei.PacliInputDataError("No valid transaction ID provided.")
+    # deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+
+    if "at_type" not in deck.__dict__ or deck.at_type != 2:
+        raise ei.PacliDataError("{} is not a PoB or AT token and thus not supported for this command.".format(deck.id))
+
     rawtx = provider.getrawtransaction(txid, 1)
-    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     if not quiet:
         pprint("Complete transaction:")
         pprint(rawtx)

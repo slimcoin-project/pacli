@@ -1179,11 +1179,11 @@ class ExtDeck:
              debug: bool=False):
 
 
-        deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
-
+        # deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
+        deck = eu.search_for_stored_tx_label("deck", deckstr, return_deck=True, quiet=True)
 
         if info is True or rawinfo is True:
-            deckinfo = eu.get_deckinfo(deckid, show_p2th)
+            deckinfo = eu.get_deckinfo(deck, show_p2th)
 
             if param is not None:
                 print(deckinfo.get(param))
@@ -1191,8 +1191,8 @@ class ExtDeck:
                 ei.print_deckinfo(deckinfo, burn_address=au.burn_address(), quiet=quiet)
             else:
                 pprint(deckinfo)
-        else:
-            return deckid
+        elif deck is not None:
+            return deck.id
 
     def init(self,
              id_deck: str=None,

@@ -218,8 +218,8 @@ class ATTokenBase():
             quiet: Only check transaction with minimal output, suppress printouts.
             debug: Show additional debug information."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
-        return ei.run_command(eu.get_claim_tx, txid, deckid, quiet=quiet, debug=debug)
+        deck = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, return_deck=True, debug=debug)
+        return ei.run_command(eu.get_claim_tx, txid, deck, quiet=quiet, debug=debug)
 
 class ATToken(ATTokenBase):
 
