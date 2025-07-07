@@ -543,8 +543,6 @@ class ExtAddress:
              access_wallet: str=None,
              blockchain: str=Settings.network,
              include_all: bool=None,
-             search_change: bool=False,
-             xclusive_change: bool=False,
              quiet: bool=False,
              debug: bool=False):
         """Shows a list of addresses, and optionally balances of coins and/or tokens.
@@ -581,8 +579,6 @@ class ExtAddress:
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
           everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but without change addresses (like a combination of -i and -p).
-          search_change: In combination with -c, show change addresses in addition to the regular ones. This needs an additional step and is very slow.
-          xclusive_change: In combination with -c, only show change addresses.
           access_wallet: Access wallet file directly. Slow, use if other methods don't find some addresses. Needs berkeleydb package.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
@@ -603,8 +599,6 @@ class ExtAddress:
                include_all: bool=None,
                everything: bool=False,
                wallet: bool=False,
-               search_change: bool=False,
-               xclusive_change: bool=False,
                access_wallet: str=None,
                blockchain: str=Settings.network,
                quiet: bool=False,
@@ -626,14 +620,12 @@ class ExtAddress:
                 else:
                     decks = all_decks
             else:
-                decks = None
+                decks, all_decks = None, None
+
             if debug:
                 print("Retrieving P2TH dict ...")
             # if -o option is given, the auxiliary P2THs will be checked for initialization.
             p2th_dict = eu.get_p2th_dict(decks=decks, check_auxiliary=only_initialized_p2th)
-            if debug:
-                print("Getting addresses and wallets ...")
-
 
             if p2th or only_initialized_p2th:
                 include_only, include = p2th_dict.keys(), None
@@ -662,42 +654,20 @@ class ExtAddress:
             include_only, include, include_all = None, None, True
             excluded_addresses, excluded_accounts = None, None
 
-        # TODO: decide if -c should be integrated into tc.all_balances()
-        if (coinbalances is True) or (labels is True) or (full_labels is True):
-
-            if search_change or xclusive_change:
-                named, empty = False, True
-            result = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
-            if search_change or xclusive_change:
-                change_addresses = ec.search_change_addresses(result, balances=True, debug=debug)
-                if search_change:
-                    result += change_addresses
-                elif xclusive_change:
-                    result = change_addresses
-
-            if (labels is True) or (full_labels is True):
-                if labels:
-                    items = [(i.replace(blockchain + "_", ""), entry[i]) for entry in result for i in entry]
-                else:
-                    items = [(i, entry[i]) for entry in result for i in entry]
-                items.sort()
-                if quiet is True:
-                    return items
-                else:
-                    if not result:
-                        return("No results found.")
-                    pprint(items)
-                    return
-
+        if (labels is True) or (full_labels is True):
+            if labels:
+                items = [(i.replace(blockchain + "_", ""), entry[i]) for entry in result for i in entry]
             else:
-                addresses = eu.sort_address_items(result, debug=debug)
-
-                if add_p2th_account == True:
-                    for item in addresses:
-                        item.update({"account" : p2th_dict.get(item["address"])})
-
-                ei.print_address_list(addresses, p2th=add_p2th_account)
+                items = [(i, entry[i]) for entry in result for i in entry]
+            items.sort()
+            if quiet is True:
+                return items
+            else:
+                if not result:
+                    return("No results found.")
+                pprint(items)
                 return
+
         else:
             # TODO: try to improve/unify the location of the deck search.
             deck_list = all_decks if (json and all_decks is not None) else None
@@ -707,6 +677,8 @@ class ExtAddress:
                                   exclude=excluded_addresses,
                                   excluded_accounts=excluded_accounts,
                                   only_tokens=False,
+                                  no_tokens=coinbalances,
+                                  add_p2th_account=add_p2th_account,
                                   advanced=json,
                                   named=named,
                                   quiet=quiet,
@@ -714,6 +686,7 @@ class ExtAddress:
                                   include_only=include_only,
                                   include=include,
                                   decks=deck_list,
+                                  access_wallet=access_wallet,
                                   debug=debug)
 
     def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, txbalance: bool=False, wallet: bool=False, json: str=None, quiet: bool=False, debug: bool=False):

@@ -29,18 +29,23 @@ def all_balances(address: str=Settings.key.address,
                  no_labels: bool=False,
                  only_labels: bool=False,
                  only_tokens: bool=False,
+                 no_tokens: bool=False,
                  empty: bool=False,
                  advanced: bool=False,
                  named: bool=False,
+                 add_p2th_account: bool=False,
                  deck_type: int=None,
                  quiet: bool=False,
+                 access_wallet: bool=False,
                  debug: bool=False):
     """Shows all token/card balances on this address.
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
     # NOTE: decks needs to be always the list of all decks, not only the initialized decks or another subset.
 
-    if advanced is not True:
+    if no_tokens:
+        decks = []
+    elif advanced is not True:
         # the quick mode displays only default PoB and PoD decks
         decks = get_default_tokens()
     elif deck_type is not None:
@@ -54,21 +59,21 @@ def all_balances(address: str=Settings.key.address,
 
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
-    if advanced is True:
+    if advanced is True and not no_tokens:
         decks = eu.get_initialized_decks(decks, debug=debug)
 
     if debug:
         print("Retrieving addresses and/or labels ...")
     balances = False if only_tokens is True else True
     if wallet is True: # and no_labels is False:
-        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
-        addresses = ec.get_labels_and_addresses(prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
 
     # NOTE: default view needs no deck labels
     # NOTE2: Quiet mode doesn't show labels.
     deck_labels = None
-    if not no_labels and not quiet:
+    if not no_labels and not quiet and not no_tokens:
         if advanced is True:
             deck_labels = ce.get_config()["deck"]
         elif wallet is False:
@@ -106,6 +111,11 @@ def all_balances(address: str=Settings.key.address,
     elif (advanced is True) or (not wallet):
         for item in addresses:
             ei.print_address_balances(item)
+    elif no_tokens:
+        if add_p2th_account == True:
+            for item in addresses:
+                item.update({"account" : p2th_dict.get(item["address"])})
+        ei.print_address_list(addresses, p2th=add_p2th_account)
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 
