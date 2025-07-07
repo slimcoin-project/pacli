@@ -1962,16 +1962,16 @@ class ExtTransaction:
 
         if xplore is True:
             if (burntxes is True) or (gatewaytxes is True):
-                txes = bx.show_txes(deck=address_or_deck, sending_address=origin, start=from_height, end=end_height, quiet=quiet, advanced=json, debug=debug, burns=burntxes, use_locator=locator)
+                txes = bx.show_txes(deck=address_or_deck, sending_address=origin, start=from_height, end=end_height, use_locator=locator, burntoken=burntxes, advanced=json, quiet=quiet, debug=debug)
             else:
                 if wallet:
                     if sent is True or received is True:
                         wallet_mode = "sent" if sent is True else "received"
                     else:
                         wallet_mode = "all"
-                    txes = bx.show_txes(wallet_mode=wallet_mode, start=from_height, end=end_height, coinbase=view_coinbase, advanced=json, quiet=quiet, debug=debug, burns=False, use_locator=locator)
+                    txes = bx.show_txes(wallet_mode=wallet_mode, start=from_height, end=end_height, coinbase=view_coinbase, advanced=json, use_locator=locator, quiet=quiet, debug=debug)
                 else:
-                    txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=json, quiet=quiet, debug=debug, burns=False, use_locator=locator)
+                    txes = bx.show_txes(sending_address=origin, receiving_address=address_or_deck, start=from_height, end=end_height, coinbase=view_coinbase, advanced=json, use_locator=locator, quiet=quiet, debug=debug)
         elif (burntxes is True) or (gatewaytxes is True):
             address = au.burn_address() if burntxes is True else None
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet) if address_or_deck else None

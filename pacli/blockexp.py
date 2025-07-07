@@ -22,18 +22,20 @@ def show_txes(receiving_address: str=None,
               end: Union[int, str]=None,
               coinbase: bool=False,
               advanced: bool=False,
-              burns: bool=False,
+              burntoken: bool=False,
               use_locator: bool=True,
               wallet_mode: str=None,
               quiet: bool=False,
               debug: bool=False) -> None:
     '''Show all transactions to a tracked address between two block heights (very slow!).
        start and end can be blockheights or dates in the format YYYY-MM-DD.'''
+    # NOTE: burntoken option is needed if no deckid is given.
 
-    if burns:
+    if burntoken:
          if debug:
              print("Using burn address as receiving address.")
          receiving_address = au.burn_address()
+
     deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
     receiving_address = ec.process_address(receiving_address)
     sending_address = ec.process_address(sending_address)
@@ -95,14 +97,16 @@ def show_txes(receiving_address: str=None,
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         try:
-            receiving_address = deck.at_address # was originally tracked_address, but that was probably a bug.
-            # if "startblock" in deck.__dict__ and deck.startblock is not None:
+            receiving_address = deck.at_address
+            if receiving_address == au.burn_address(): # to prevent misbehaving if the -g option is used with burn tokens
+                burntoken = True
+
             if getattr(deck, "startblock", None) is not None:
                 if deck.startblock > startblock and not quiet:
                     print("Only showing transactions after the token's start block. Burn/gateway transactions before that block won't enable token claims.")
                 startblock = deck.startblock if startblock in (0, None) else max(deck.startblock, startblock)
 
-            # if "endblock" in deck.__dict__ and deck.endblock is not None:
+
             if getattr(deck, "endblock", None) is not None:
                 if deck.endblock < endblock and not quiet:
                     print("Only showing transactions before the token's end block. Burn/gateway transactions after that block won't enable token claims.")
@@ -125,9 +129,23 @@ def show_txes(receiving_address: str=None,
 
     if use_locator:
         locator = bu.get_default_locator()
+        # don't allow new address entries if not starting from 0
+        address_list = set(sending_addresses + receiving_addresses)
+        for address in address_list:
+            if deckid and not burntoken: # Burn tokens will only be cached if start is block 0.
+                token_start = getattr(deck, "startblock", 0)
+            else:
+                token_start = 0
+            if address not in locator.addresses and startblock not in (0, token_start):
+                use_locator = False
+                if not quiet:
+                   print("NOTE: At least one of the addresses you are about to display is still not cached, and you selected a custom start block.")
+                   print("Creating a new address block locator from a custom startblock is only possible with the 'address cache' command.")
+                   print("Disabling locators. Press KeyboardInterrupt (e.g. CTRL-C) to abort.")
+                break
         if not quiet:
-            address_list = set(sending_addresses + receiving_addresses)
             bu.display_caching_warnings(address_list, locator)
+
     else:
         locator = None
 
@@ -143,7 +161,7 @@ def show_txes(receiving_address: str=None,
         if "bheight" in blockdata:
             if not quiet:
                 print("Stored block data until block", blockdata["bheight"], "with hash", blockdata["bhash"])
-            bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator, quiet=quiet, debug=debug)
+            bu.store_locator_data(blockdata["blocks"], blockdata["bheight"], blockdata["bhash"], locator, startheight=startblock, quiet=quiet, debug=debug)
 
     return txes
 
