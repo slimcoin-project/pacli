@@ -1,3 +1,4 @@
+import hashlib
 import pypeerassets as pa
 import pypeerassets.at.constants as c
 from prettyprinter import cpprint as pprint
@@ -174,8 +175,8 @@ class ATTokenBase():
 
     @classmethod
     def spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
-              end_block: int=None, change: str=Settings.change, verify: bool=False, ignore_warnings: bool=False,
-              wait_for_confirmation: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
+              end_block: int=None, xtradata: str=None, change: str=Settings.change, verify: bool=False, ignore_warnings: bool=False,
+              wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
         """Spawns a new AT deck.
 
         Usage:
@@ -184,12 +185,14 @@ class ATTokenBase():
 
         Args:
 
-          multiplier: Specify an integer multiplier for the reward..
-          number_of_decimals: Specify the number of decimals of the token.
-          from_block: Specify a start block to track transactions from.
-          end_block: Specify an end block to track transactions.
+          multiplier: Specify an integer multiplier for the reward (token metadata, defaults to 1).
+          number_of_decimals: Specify the number of decimals of the token (token metadata, defaults to 2).
+          from_block: Specify a start block to track transactions from (token metadata, optional).
+          end_block: Specify an end block to track transactions (token metadata, optional).
+          xtradata: Specify additional data (like a contract hash) (token metadata, optional).
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
+          sha256: Hash the xtradata data with sha256 (only in combination with -x).
           ignore_warnings: Ignore all warnings (reorg check etc.) and create transaction anyway (be careful!).
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
@@ -200,7 +203,17 @@ class ATTokenBase():
         ke.check_main_address_lock()
         tracked_address = ei.run_command(ec.process_address, address, debug=debug)
         change_address = ei.run_command(ec.process_address, change, debug=debug)
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block, debug=debug)
+        if sha256:
+            s256hash = hashlib.sha256()
+            s256hash.update(xtradata.encode())
+            xd_bytes = s256hash.digest()
+            if debug:
+                print("Hashing data:", xtradata)
+                print("SHA256 hash:", xd_bytes, "Hex:", s256hash.hexdigest())
+        else:
+            xd_bytes = xtradata.encode()
+
+        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block, extradata=xd_bytes, debug=debug)
 
         return ei.run_command(eu.advanced_deck_spawn, name=token_name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, change_address=change_address, asset_specific_data=asset_specific_data,

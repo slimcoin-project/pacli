@@ -24,7 +24,7 @@ from pacli.utils import (sendtx, cointoolkit_verify)
 
 # Deck tools
 
-def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward: int=None, min_vote: int=None, sdp_periods: int=None, sdp_deckid: str=None, at_address: str=None, multiplier: int=None, addr_type: int=2, startblock: int=None, endblock: int=None, debug: bool=False) -> str:
+def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward: int=None, min_vote: int=None, sdp_periods: int=None, sdp_deckid: str=None, at_address: str=None, multiplier: int=None, addr_type: int=2, startblock: int=None, endblock: int=None, extradata: bytes=None, debug: bool=False) -> str:
     """Creates a Protobuf datastring with the deck metadata."""
 
     if multiplier is None:
@@ -51,7 +51,8 @@ def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward:
                   "at_address" : at_address,
                   "addr_type" : int(addr_type),
                   "startblock" : int(startblock) if startblock else 0,
-                  "endblock" : int(endblock) if endblock else 0}
+                  "endblock" : int(endblock) if endblock else 0,
+                  "extradata" : extradata if extradata else b''}
 
     try:
         data = serialize_deck_extended_data(net_query(provider.network), params=params)
