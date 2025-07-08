@@ -679,6 +679,7 @@ class ExtAddress:
                                   only_tokens=False,
                                   no_tokens=coinbalances,
                                   add_p2th_account=add_p2th_account,
+                                  p2th_dict=p2th_dict,
                                   advanced=json,
                                   named=named,
                                   quiet=quiet,
