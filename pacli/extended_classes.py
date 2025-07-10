@@ -579,7 +579,7 @@ class ExtAddress:
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
           everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but without change addresses (like a combination of -i and -p).
-          access_wallet: Access wallet file directly. Slow, use if other methods don't find some addresses. Needs berkeleydb package.
+          access_wallet: Access wallet file directly. Shows also change addresses other modes sometimes don't find. Needs the Python berkeleydb package.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
         """

@@ -116,6 +116,7 @@ def all_balances(address: str=Settings.key.address,
         if add_p2th_account == True:
             for item in addresses:
                 item.update({"account" : p2th_dict.get(item["address"])})
+
         ei.print_address_list(addresses, p2th=add_p2th_account)
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
