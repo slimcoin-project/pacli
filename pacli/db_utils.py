@@ -45,7 +45,10 @@ def get_wallet_database(path: str):
 def yield_transactions(database: object, ignore_corrupted: bool=True, debug: bool=False):
 
     for k in database.keys():
-        tx = database.get(k)
+        try:
+            tx = database.get(k)
+        except berkeleydb.db.DBPageNotFoundError:
+            raise ei.PacliDataError("Temporary database failure when accessing the wallet. Try to run the command again.")
         if k.startswith(b"\x02tx"):
             try:
                 raw_txdata = tx.hex()
@@ -168,7 +171,16 @@ def get_database(datadir: str=None, debug: bool=False):
     return d
 
 
-def get_all_transactions(address: str=None, sender: str=None, firstsender: str=None, receiver: str=None, datadir: str=None, advanced: bool=False, wholetx: bool=True, sort: bool=False, exclude_coinbase: bool=False, debug: bool=False):
+def get_all_transactions(address: str=None,
+                         sender: str=None,
+                         firstsender: str=None,
+                         receiver: str=None,
+                         datadir: str=None,
+                         advanced: bool=False,
+                         wholetx: bool=True,
+                         sort: bool=False,
+                         exclude_coinbase: bool=False,
+                         debug: bool=False):
     # TODO to speed up this for -g/-b, it would be necessary to exclude some of the txes, e.g. coinbase. For these we wouldn't need the getrawtransactions.
 
     d = get_database(datadir, debug=debug)

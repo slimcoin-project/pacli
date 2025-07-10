@@ -1924,7 +1924,8 @@ class ExtTransaction:
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
         if access_wallet is not None:
-            use_db, mempool = True, "ignore"
+            # use_db, mempool = True, "ignore"
+            use_db = True
             wholetx = True if ids is False else False # when only requesting IDs the getrawtransaction query isn't necessary
             json = json or (not claimtxes and (ids or total))  # if only txids or the count are needed, we don't need the struct. NOTE: doesn't work with claimtxes.
         else:
@@ -1949,7 +1950,7 @@ class ExtTransaction:
         elif (burntxes is True) or (gatewaytxes is True):
             address = au.burn_address() if burntxes is True else None
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet) if address_or_deck else None
-            txes = au.show_wallet_dtxes(sender=origin, deckid=deckid, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=json, tracked_address=address, use_db=use_db, datadir=datadir, quiet=quiet, debug=debug)
+            txes = au.show_wallet_dtxes(sender=origin, deckid=deckid, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=json, tracked_address=address, access_wallet=access_wallet, quiet=quiet, debug=debug)
         elif claimtxes is True:
             txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=json, quiet=quiet, debug=debug)
         elif named is True:
@@ -1958,20 +1959,24 @@ class ExtTransaction:
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
             if json is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
-        elif wallet or zraw:
-            if use_db is True:
-                txes = dbu.get_all_transactions(sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
-            else:
-                txes = ec.get_address_transactions(sent=sent, received=received, advanced=json, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
+        #elif wallet or zraw:
+        #    if use_db is True:
+        #        # NOTE: there's no further wallet restriction here (all txes in the wallet file are shown).
+        #        txes = dbu.get_all_transactions(sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
+        #    else:
+        #        txes = ec.get_address_transactions(sent=sent, received=received, advanced=json, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
 
         else:
-            # returns all transactions from or to that address in the wallet.
-            address = Settings.key.address if address_or_deck is None else address_or_deck
+            if wallet or zraw:
+                address, wallet = None, True
+            else:
+                # returns all transactions from or to that address in the wallet.
+                address = Settings.key.address if address_or_deck is None else address_or_deck
             if use_db is True:
                 txes = dbu.get_all_transactions(address=address, sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
-
             else:
-                txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
+                # txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
+                txes = ec.get_address_transactions(addr_string=address, wallet=wallet, sent=sent, received=received, raw=zraw, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
         if (xplore or burntxes or gatewaytxes) and (not json):
             confpar = "blockheight"
