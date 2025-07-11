@@ -47,6 +47,7 @@ class Swap:
           wait_for_confirmation: Wait for the first confirmation of the transaction and display a message.
           force: Create transaction even if the reorg check fails.
           quiet: Output only the transaction in hexstring format (script-friendly).
+          debug: Show additional debug information.
          """
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
@@ -60,7 +61,7 @@ class Swap:
 
     @classmethod
     def create(self,
-                 deck: str,
+                 token: str,
                  partner_address: str,
                  partner_input: str,
                  card_amount: str,
@@ -68,7 +69,8 @@ class Swap:
                  coinseller_change_address: str=None,
                  label: str=None,
                  quiet: bool=False,
-                 sign: bool=True):
+                 sign: bool=True,
+                 debug: bool=False):
         """Creates a new exchange transaction, signs it partially and outputs it in hex format to be submitted to the exchange partner.
 
         Usage:
@@ -83,10 +85,11 @@ class Swap:
           coinseller_change_address: Specify a change address of the coin seller (default: sender address)
           label: Specify a label to save the transaction hex string with.
           quiet: Suppress output.
+          debug: Show additional debug information.
         """
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet)
-        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save=label)
+        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
+        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save_identifier=label, debug=debug)
 
     @classmethod
     def finalize(self, txstr: str, send: bool=True, force: bool=False, confirm: bool=False):
@@ -134,7 +137,7 @@ class Swap:
             return dxu.prettyprint_locks(state.locks, blockheight)
 
     @classmethod
-    def select_coins(self, amount, address=Settings.key.address, utxo_type="pubkeyhash"):
+    def select_coins(self, amount, address=Settings.key.address, utxo_type="pubkeyhash", debug: bool=False):
         """Prints out all suitable utxos for an exchange transaction.
 
         Usage:
@@ -147,8 +150,9 @@ class Swap:
 
           address: Alternative address to show suitable UTXOs. To be used as a positional argument (flag name not necessary).
           utxo_type: Specify a different UTXO type (default: pubkeyhash)
+          debug: Show additional debug information.
         """
 
-        addr = ec.process_address(address)
-        return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type)
+        addr = ei.run_command(ec.process_address, address, debug=debug)
+        return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, debug=debug)
 

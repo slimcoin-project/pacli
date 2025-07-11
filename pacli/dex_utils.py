@@ -78,14 +78,17 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
 # - coinseller_address (formerly partner_address) is now the card receiver.
 # - change of coinseller input must go to coinseller address.
 
-def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, sign: bool=False):
+def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, sign: bool=False, debug: bool=False):
     # TODO: this should also get a quiet option, with the TXHEX stored in the extended config file.
     # the card seller builds the transaction
     my_key = Settings.key
     my_address = my_key.address
     my_change_address = Settings.change
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-    card = pa.CardTransfer(deck=deck, sender=my_key.address, receiver=[coinseller_address], amount=[amount_to_exponent(card_amount, deck.number_of_decimals)])
+    card = pa.CardTransfer(deck=deck,
+                           sender=my_address,
+                           receiver=[coinseller_address],
+                           amount=[amount_to_exponent(card_amount, deck.number_of_decimals)])
 
     # coinseller can submit another change address if he wants, otherwise cardseller sends it to the coinseller addr.
     if coinseller_change_address is None:
@@ -102,8 +105,15 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     # print("second_input_amount", second_input_amount)
     # first input comes from the card seller (i.e. the user who signs here)
     # We let pacli chose it automatically, based on the minimum amount. It should never give more than one, but it wouldn't matter if it's two or more.
-    own_inputs = provider.select_inputs(my_address, Decimal('0.01'))
-    inputs = {"utxos" : own_inputs["utxos"] + [coinseller_input], "total": coinseller_input_amount + own_inputs["total"]}
+    # own_inputs = provider.select_inputs(my_address, Decimal('0.01'))
+    try:
+        utxo = select_utxos(minvalue=Decimal("0.01"), address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
+    except IndexError:
+        raise ei.PacliDataError("Not enough funds. Send enough coins to this address ({}) to pay the transaction fee.".format(my_address))
+    utxo_value = Decimal(str(utxo["amount"]))
+    own_input = MutableTxIn(txid=utxo['txid'], txout=utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
+    # inputs = {"utxos" : own_inputs["utxos"] + [coinseller_input], "total": coinseller_input_amount + own_inputs["total"]}
+    inputs = {"utxos" : [own_input, coinseller_input], "total": coinseller_input_amount + utxo_value}
     utxos = inputs["utxos"]
 
     unsigned_tx = create_card_exchange(provider=provider,
@@ -111,7 +121,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
                                  card=card,
                                  coinseller_change_address=coinseller_change_address,
                                  coin_value=coin_amount,
-                                 first_input_value=own_inputs["total"],
+                                 first_input_value=utxo_value,
                                  cardseller_change_address=my_change_address
                                  )
 
@@ -120,13 +130,15 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     if sign:
         # sighash has be ALL, otherwise the counterparty could modify it, and anyonecanpay must be False.
         for i in range(len(utxos) - 1): # we sign all inputs minus the last one which is from the coin_seller.
-            result = solve_single_input(index=i, prev_txid=utxos[i].txid, prev_txout_index=utxos[i].txout, key=Settings.key, network_params=network_params)
+            if debug:
+                print("Signing utxo", utxos[i])
+            result = solve_single_input(index=i, prev_txid=utxos[i].txid, prev_txout_index=utxos[i].txout, key=Settings.key, network_params=network_params, debug=debug)
             unsigned_tx.spend_single(index=i, txout=result["txout"], solver=result["solver"])
 
-        print("The following string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).")
-        pprint(unsigned_tx.hexlify())
-        if save:
-            eu.save_transaction(save, tx_hex, partly=True)
+        print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).\n")
+        print(unsigned_tx.hexlify()) # prettyprint makes it more difficult to copy it
+        if save_identifier:
+            eu.save_transaction(save_identifier, tx_hex, partly=True)
     else:
         return unsigned_tx.hexlify()
 
@@ -151,7 +163,7 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=Fal
 
     return ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm), txhex=txhex)
 
-def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False):
+def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False, debug: bool=False):
 
     print("Signing input {} from transaction {}, output {}".format(index, prev_txid, prev_txout_index))
     prev_tx_string = provider.getrawtransaction(prev_txid)
@@ -171,10 +183,18 @@ def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: K
             # 01000000cbf4f16... when using getrawtransaction without "1"
             # 0100000018f5f16 ... when using with 1, and then from_json tries to encode it again ..."""
     #print(str(provider), provider.__dict__)
-    # print("tx JSON", prev_tx_json)
-    # TODO: this seems to have difficulties with Coinbase TXins. Re-check later.
+    if debug:
+        print("Previous transaction's JSON:", prev_tx_json)
+    # TODO: this seems to have difficulties with Coinbase TXins. Re-check later. # NOTE: for now the previous step ignores utxos with coinbase txes.
     #print("tx string", provider.getrawtransaction(prev_txid, 0))
     #print(prev_tx_json.get("time"), prev_tx_json.get("blocktime"))
+    try:
+        assert "coinbase" not in prev_tx_json["vin"][0]
+    except AssertionError:
+        raise ei.PacliDataError("UTXOs coming from coinbase transactions are not supported due to a bug in the btcpy library. Please select another input.")
+    except KeyError:
+        raise ei.PacliDataError("Broken transaction:", prev_txid)
+
     prev_tx = Transaction.from_json(prev_tx_json, network=network_params)
     prev_txout = prev_tx.outs[prev_txout_index]
 
@@ -263,7 +283,18 @@ def create_card_exchange(provider: Provider, card: CardTransfer, inputs: dict, c
     return unsigned_tx
 
 
-def select_utxos(minvalue: Decimal, address: str=None, minconf: int=1, maxconf: int=99999999, maxvalue=None, utxo_type=None):
+def select_utxos(minvalue: Decimal,
+                 address: str=None,
+                 minconf: int=1,
+                 maxconf: int=99999999,
+                 maxvalue: object=None,
+                 utxo_type: str=None,
+                 ignore_coinbase: bool=True,
+                 quiet: bool=False,
+                 debug: bool=False):
+
+    # NOTE: due to btcpy bug, UTXOs coming from coinbase transactions can't be supported currently.
+    # Once the problem is solved, the ignore_coinbase flag can be set to False.
 
     utxos = provider.listunspent(address=address, minconf=minconf, maxconf=maxconf)
     selected_utxos = []
@@ -276,16 +307,29 @@ def select_utxos(minvalue: Decimal, address: str=None, minconf: int=1, maxconf: 
         if utxo_type is not None:
             utxo_tx = provider.getrawtransaction(utxo["txid"], 1)
             utype = utxo_tx["vout"][utxo["vout"]]["scriptPubKey"]["type"]
-            if utxo_type != utype:
+
+            if ignore_coinbase and ("coinbase" in utxo_tx["vin"][0]):
+                if debug:
+                    print("UTXOs from tx {} ignored: coinbase transactions not supported.".format(utxo["txid"]))
                 continue
 
-        selected_utxos.append(utxo)
+            if utxo_type != utype:
+                if debug:
+                    print("UTXO {}:{} ignored: incorrect type ({}) instead of requested {}.".format(utxo["txid"], utxo["vout"], utype, utxo_type))
+                continue
+        if debug:
+            print("UTXO {}:{} appended.".format(utxo["txid"], utxo["vout"]))
 
-    print(len(selected_utxos), "matching utxos found.")
-    print("Use this format (TXID:OUTPUT) to initiate a new exchange.")
-    for utxo in selected_utxos:
-        pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
-        print("Amount: {} coins".format(utxo.get("amount")))
+        selected_utxos.append(utxo)
+    if quiet:
+        return selected_utxos
+    else:
+        print(len(selected_utxos), "matching utxos found.")
+        print("Use this format (TXID:OUTPUT) to initiate a new exchange.")
+        for utxo in selected_utxos:
+            pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
+            print("Amount: {} coins".format(utxo.get("amount")))
+
 
 def prettyprint_locks(locks: dict, blockheight: int):
     print("Locks at blockheight {}:".format(blockheight))

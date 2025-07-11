@@ -398,7 +398,7 @@ def get_input_types(rawtx):
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
-                 sign: bool=False, send: bool=False, balance_check: bool=False, debug: bool=False, force: bool=False, quiet: bool=False, confirm: bool=False) -> Optional[dict]:
+                 sign: bool=False, send: bool=False, balance_check: bool=False, force: bool=False, quiet: bool=False, confirm: bool=False, debug: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
 
     if not deck:
