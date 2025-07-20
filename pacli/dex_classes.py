@@ -77,7 +77,8 @@ class Swap:
 
             pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT
 
-        PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual)
+        PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual).
+        NOTE: To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
 
         Args:
 

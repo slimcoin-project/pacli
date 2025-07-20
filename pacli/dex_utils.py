@@ -109,7 +109,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     try:
         utxo = select_utxos(minvalue=Decimal("0.01"), address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
     except IndexError:
-        raise ei.PacliDataError("Not enough funds. Send enough coins to this address ({}) to pay the transaction fee.".format(my_address))
+        raise ei.PacliDataError("Not enough funds. Send enough coins to this address ({}) to pay the transaction fee.\nNOTE: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).".format(my_address))
     utxo_value = Decimal(str(utxo["amount"]))
     own_input = MutableTxIn(txid=utxo['txid'], txout=utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
     # inputs = {"utxos" : own_inputs["utxos"] + [coinseller_input], "total": coinseller_input_amount + own_inputs["total"]}

@@ -551,8 +551,9 @@ class ExtAddress:
 
         pacli address list
 
-            Shows a table of all named addresses and those which contain coins, PoD and PoB tokens.
-            Note: If P2TH addresses were named, they will be included in this list, otherwise not.
+            Shows a table of named addresses and those which contain coins, PoD and PoB tokens.
+            If P2TH addresses were named, they will be included in this list, otherwise not.
+            NOTE: Due to an upstream bug, transactions involving change addresses may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
 
         pacli address list -j
 
@@ -579,7 +580,7 @@ class ExtAddress:
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
           everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but without change addresses (like a combination of -i and -p).
-          access_wallet: Access wallet file directly. Shows also change addresses other modes sometimes don't find. Needs the Python berkeleydb package.
+          access_wallet: Access wallet file directly. May expose wallet data, so use only in safe environments. Shows also change addresses other modes sometimes don't find. Requires the berkeleydb Python package.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
         """
@@ -1791,6 +1792,7 @@ class ExtTransaction:
             If ADDRESS is not given, the current main address is used.
             Can be slow if used on wallets with many transactions.
             With -w, all transactions sent or received by the wallet will be shown.
+            NOTE: Due to an upstream bug, transactions involving change addresses may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
 
         pacli transaction list -n
 
@@ -1808,6 +1810,7 @@ class ExtTransaction:
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
             If -w is given, only transactions sent from wallet addresses will be shown.
             If no origin address nor -w is given, all burn/gateway transactions spending from and receiving to any address in your wallet, including P2TH, will be shown.
+            NOTE: Due to an upstream bug, transactions involving change addresses may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
 
         pacli transaction list DECK [-o ORIGIN_ADDRESS] -c
 
@@ -1842,9 +1845,9 @@ class ExtTransaction:
 
         Args:
 
-          access_wallet: Access wallet database directly (may expose keys!). A custom data directory can be given after -a. Cannot be combined with -x, -c nor -m. Requires berkeleydb package. Slow.
+          access_wallet: Access wallet database directly (use only in safe environments, may expose wallet data!). A custom data directory can be given after -a. Cannot be combined with -x, -c nor -m. Requires berkeleydb package. Slow.
           burntxes: Only show burn transactions.
-          claimtxes: Show reward claim transactions (see Usage modes) (not to be combined with -x, -b and -g).
+          claimtxes: Show reward claim transactions (see Usage modes) (not to be combined with -x, -b, -g and -a).
           debug: Provide debugging information.
           end_height: Block height or date to end the search at (only in combination with -x).
           from_height: Block height or date to start the search at (only in combination with -x).
