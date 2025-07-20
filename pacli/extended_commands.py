@@ -403,10 +403,10 @@ def show_claims(deck_str: str,
 
     if wallet:
         p2th_dict = eu.get_p2th_dict()
-        addresses = get_labels_and_addresses(empty=True, exclude=p2th_dict.keys(), excluded_accounts=p2th_dict.values(), debug=debug)
-        # addresses = get_labels_and_addresses(empty=True, exclude=eu.get_p2th(), excluded_accounts=eu.get_p2th(accounts=True), debug=debug)
-        wallet_senders = set([a["address"] for a in addresses])
-        raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, allowed_senders=wallet_senders, debug=debug)
+        # addresses = get_labels_and_addresses(empty=True, exclude=p2th_dict.keys(), excluded_accounts=p2th_dict.values(), debug=debug)
+        # wallet_senders = set([a["address"] for a in addresses])
+        # NOTE: changed method to restrict result to wallet addresses, now ismine and P2TH exclusion is used.
+        raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, excluded_senders=p2th_dict.keys(), debug=debug)
     else:
         raw_claims = eu.get_valid_cardissues(deck, sender=address, debug=debug)
 
@@ -436,7 +436,7 @@ def show_claims(deck_str: str,
     if full:
         result = [c.__dict__ for c in claims]
     elif param:
-        # TODO: this now is unnecessary based on the transaction list command
+        # TODO: this now is unnecessary when using the transaction list command
         # re-check other commands
         try:
             result = [{ claim.txid : claim.__dict__.get(param) } for claim in claims]

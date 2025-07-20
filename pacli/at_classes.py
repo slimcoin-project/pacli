@@ -173,7 +173,7 @@ class ATTokenBase():
                                  debug=debug
                                  )
 
-    @classmethod
+    # @classmethod
     def spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, xtradata: str=None, change: str=Settings.change, verify: bool=False, ignore_warnings: bool=False,
               wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
@@ -199,6 +199,13 @@ class ATTokenBase():
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only)."""
 
+        kwargs = locals()
+        del kwargs["self"]
+        ei.run_command(self.__spawn, **kwargs)
+
+    def __spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
+              end_block: int=None, xtradata: str=None, change: str=Settings.change, verify: bool=False, ignore_warnings: bool=False,
+              wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
 
         ke.check_main_address_lock()
         tracked_address = ei.run_command(ec.process_address, address, debug=debug)

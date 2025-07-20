@@ -52,7 +52,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     mode = [MODES[i] for i, m in enumerate([replace, modify, add, True]) if m][0]
 
     if not ALLOWED_CHARACTERS.match(str(key)):
-        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
+        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).\nNo label was stored. Store this {} with another label using only the allowed characters.".format(category))
 
     config = get_config(configfilename)
 

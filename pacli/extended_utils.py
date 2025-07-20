@@ -111,11 +111,12 @@ def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, qui
     if debug:
         print("Output of validation tool:\n", check_addr)
 
+    if not quiet:
+        print("Deck correctly initialized.")
+
     if not no_label:
         store_deck_label(deck, label=label, quiet=quiet, alt=False, debug=debug)
 
-    if not quiet:
-        print("Done.")
 
 def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool=False, debug: bool=False):
 
@@ -152,7 +153,9 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
     try:
         ce.setcfg("deck", label, deck.id, quiet=quiet, debug=debug)
     except ei.ValueExistsError:
-        raise ei.PacliInputDataError(value_exists_errmsg.format(deck.id, label, deck.id))
+        print(value_exists_errmsg.format(deck.id, label, deck.id))
+    except ei.PacliDataError as e:
+        print("Deck initialized but label not stored:", e)
 
 
 def get_deckinfo(d, p2th: bool=False):
@@ -440,7 +443,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
 
-def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, allowed_senders: list=None, debug: bool=False) -> list:
+def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, allowed_senders: list=None, excluded_senders: list=None, debug: bool=False) -> list:
     """Gets all valid CardIssues of a deck."""
     # NOTE: wallet restriction "outsourced". only_wallet = True works only with allowed_senders now.
 
@@ -458,6 +461,7 @@ def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False
         if card.type == "CardIssue":
             if (((sender is not None) and (card.sender == sender))
             or (only_wallet and (card.sender in wallet_senders))
+            or (only_wallet and is_mine(card.sender, debug=debug) and not card.sender in excluded_senders)
             or ((sender is None) and not only_wallet)):
                 claim_cards.append(card)
                 if debug:
@@ -649,6 +653,15 @@ def is_possible_address(address: str, network_name: str=Settings.network, valida
     except AssertionError:
         # raise ei.PacliInputDataError("No valid address string or non-existing label.")
         return False
+
+def is_mine(address: str, debug: bool=False) -> bool:
+    try:
+        if provider.validateaddress(address).get("ismine") == True:
+            return True
+    except:
+        pass
+    return False
+
 
 def get_p2th(accounts: bool=False, decks: list=None) -> list:
 
