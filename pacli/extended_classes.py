@@ -656,6 +656,7 @@ class ExtAddress:
             excluded_addresses, excluded_accounts = None, None
 
         if (labels is True) or (full_labels is True):
+            result = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
             if labels:
                 items = [(i.replace(blockchain + "_", ""), entry[i]) for entry in result for i in entry]
             else:
@@ -1855,7 +1856,7 @@ class ExtTransaction:
           ids: Only show transaction ids (TXIDs). If used without -q, 100000 is the maximum length of the list.
           json: Show complete transaction JSON or card transfer dictionary of claim transactions.
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
-          locator: In -x mode, use existing block locators to speed up the blockchain retrieval, while caching uncached blocks in the selected block interval. See Usage modes above.
+          locator: In -x mode, use existing block locators to speed up the blockchain retrieval, while caching uncached blocks in the selected block interval. See Usage modes above. NOTE: No caching will be done if -l is used with the -f flag, because this combination could lead to inconsistent caching.
           zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
           mempool: Show unconfirmed transactions in the mempool or the wallet. Adding 'only' shows only unconfirmed ones (not in combination with -x).
           named: Show only transactions stored with a label (see Usage modes).
