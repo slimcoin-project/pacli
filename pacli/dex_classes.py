@@ -49,6 +49,7 @@ class Swap:
           quiet: Output only the transaction in hexstring format (script-friendly).
           debug: Show additional debug information.
          """
+         #TODO: Does not prevent invalid locks. Check token balance and current locks.
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
         change_address = ec.process_address(change, debug=debug)
@@ -135,7 +136,7 @@ class Swap:
         if quiet is True:
             return state.locks
         else:
-            return dxu.prettyprint_locks(state.locks, blockheight)
+            return dxu.prettyprint_locks(state.locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
     def select_coins(self, amount, address=Settings.key.address, utxo_type="pubkeyhash", debug: bool=False):

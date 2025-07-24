@@ -331,7 +331,7 @@ def select_utxos(minvalue: Decimal,
             print("Amount: {} coins".format(utxo.get("amount")))
 
 
-def prettyprint_locks(locks: dict, blockheight: int):
+def prettyprint_locks(locks: dict, blockheight: int, decimals: int=None):
     print("Locks at blockheight {}:".format(blockheight))
     if len(locks) == 0:
         print("No locks found.")
@@ -346,4 +346,9 @@ def prettyprint_locks(locks: dict, blockheight: int):
                 print("Non-standard lock or address type still not supported. Showing raw data:")
                 print("* Lock hash: {}".format(lock.get("lockhash")))
                 print("* Lock hash type: {}".format(lock.get("lockhash_type")))
+            if decimals:
+                lock_amount = Decimal(lock["amount"]) / (10 ** decimals)
+                pprint("* Lock amount (tokens): {}".format(lock_amount))
+            else:
+                pprint("* Lock amount (token minimum units): {}".format(lock.get("amount")))
 

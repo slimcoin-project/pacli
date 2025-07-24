@@ -358,6 +358,7 @@ class ExtAddress:
 
             Without flags, sets the main address to the address named with LABEL.
             If -f/--fresh is used, a new address is generated with label LABEL and set as main address.
+            NOTE: Occasionally in heavily used wallets this command may deliver an used address. In this case a keypool refill is advised.
 
         pacli address set -a ADDRESS
 
@@ -580,7 +581,7 @@ class ExtAddress:
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
           everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but without change addresses (like a combination of -i and -p).
-          access_wallet: Access wallet file directly. May expose wallet data, so use only in safe environments. Shows also change addresses other modes sometimes don't find. Requires the berkeleydb Python package.
+          access_wallet: Access wallet file directly. May expose wallet data, so use only in safe environments. Shows also change addresses other modes sometimes don't find. Can be combined with all other flags except -b, -l and -f. Requires the berkeleydb Python package.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
         """

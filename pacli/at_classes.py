@@ -210,15 +210,18 @@ class ATTokenBase():
         ke.check_main_address_lock()
         tracked_address = ei.run_command(ec.process_address, address, debug=debug)
         change_address = ei.run_command(ec.process_address, change, debug=debug)
-        if sha256:
-            s256hash = hashlib.sha256()
-            s256hash.update(xtradata.encode())
-            xd_bytes = s256hash.digest()
-            if debug:
-                print("Hashing data:", xtradata)
-                print("SHA256 hash:", xd_bytes, "Hex:", s256hash.hexdigest())
+        if xtradata is not None:
+            if sha256:
+                s256hash = hashlib.sha256()
+                s256hash.update(str(xtradata).encode())
+                xd_bytes = s256hash.digest()
+                if debug:
+                    print("Hashing data:", xtradata)
+                    print("SHA256 hash:", xd_bytes, "Hex:", s256hash.hexdigest())
+            else:
+                xd_bytes = str(xtradata).encode()
         else:
-            xd_bytes = xtradata.encode()
+            xd_bytes = None
 
         asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block, extradata=xd_bytes, debug=debug)
 
