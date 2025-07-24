@@ -112,6 +112,9 @@ def show_txes(receiving_address: str=None,
                     print("Only showing transactions before the token's end block. Burn/gateway transactions after that block won't enable token claims.")
                 endblock = deck.endblock if endblock is None else min(deck.endblock, endblock)
 
+            if startblock > endblock:
+                raise ei.PacliInputDataError("Selected blockheights are outside the token's blockheight range for valid burn/gateway transactions.")
+
         except AttributeError:
             raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
