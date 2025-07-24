@@ -27,10 +27,12 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, change: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=True, send: bool=True, txhex: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, change: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=True, send: bool=True, txhex: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
     change_address = Settings.change if change is None else change
+    card_sender = Settings.key.address
 
     quiet = True if True in (quiet, txhex) else False
     current_blockheight = provider.getblockcount()
@@ -54,12 +56,26 @@ def card_lock(deckid: str, amount: int, lock: int, receiver: str=Settings.key.ad
            raise NotImplementedError
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    unit_amount = amount_to_exponent(Decimal(amount), deck.number_of_decimals)
+
+    if not force: # balance check, can be overridden with --force
+        if not quiet:
+            print("Checking balance and possible unavailable locked tokens ...")
+        cards = pa.find_all_valid_cards(provider, deck)
+        state = pa.protocol.DeckState(cards, cleanup_height=current_blockheight, debug=debug)
+        balance = state.balances.get(card_sender, 0)
+        locked_amount = get_locked_amount(state.locks, card_sender)
+        available_token_units = balance - locked_amount
+        if debug:
+            print("Available token units: {} Token units to lock: {}".format(available_token_units, unit_amount))
+        if unit_amount > available_token_units:
+            raise ei.PacliDataError("Not enough funds. Balance may be too low, and already locked tokens can't be used for locks.")
 
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,
-                               sender=Settings.key.address,
+                               sender=card_sender,
                                receiver=[receiver],
-                               amount=[amount_to_exponent(amount, deck.number_of_decimals)],
+                               amount=[unit_amount],
                                version=deck.version,
                                locktime=locktime,
                                lockhash=lockhash,
@@ -339,16 +355,31 @@ def prettyprint_locks(locks: dict, blockheight: int, decimals: int=None):
         pprint("Address: {}".format(address))
         for lock in locks.get(address):
             pprint("* Lock until block: {}".format(lock.get("locktime")))
-            try:
-                lock_address = henc.hash_to_address(lock.get("lockhash"), lock.get("lockhash_type"), net_query(provider.network))
-                pprint("* Lock address: {}".format(lock_address))
-            except NotImplementedError:
+            #try:
+            #    lock_address = henc.hash_to_address(lock.get("lockhash"), lock.get("lockhash_type"), net_query(provider.network))
+            lock_address = get_lock_address(lock)
+            if lock_address is None:
+                # except NotImplementedError:
                 print("Non-standard lock or address type still not supported. Showing raw data:")
                 print("* Lock hash: {}".format(lock.get("lockhash")))
                 print("* Lock hash type: {}".format(lock.get("lockhash_type")))
+            else:
+                pprint("* Lock address: {}".format(lock_address))
             if decimals:
-                lock_amount = Decimal(lock["amount"]) / (10 ** decimals)
+                lock_amount = exponent_to_amount(lock["amount"], decimals) # Decimal(lock["amount"]) / (10 ** decimals)
                 pprint("* Lock amount (tokens): {}".format(lock_amount))
             else:
                 pprint("* Lock amount (token minimum units): {}".format(lock.get("amount")))
 
+def get_lock_address(lock: dict) -> str:
+    try:
+        lock_address = henc.hash_to_address(lock.get("lockhash"), lock.get("lockhash_type"), net_query(provider.network))
+        return lock_address
+    except NotImplementedError:
+        return None
+
+
+def get_locked_amount(locks: dict, card_sender: str) -> int:
+    locks_on_address = locks.get(card_sender)
+    locked_amounts = [l["amount"] for l in locks_on_address]
+    return sum(locked_amounts)

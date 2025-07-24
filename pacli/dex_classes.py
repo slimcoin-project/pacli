@@ -13,7 +13,7 @@ class Swap:
     @classmethod
     def lock(self,
             idstr: str,
-            amount: int,
+            amount: str,
             lock: int,
             lockaddr: str,
             receiver: str=None,
@@ -45,11 +45,10 @@ class Swap:
           addrtype: Address type (default: p2pkh)
           change: Specify a custom change address.
           wait_for_confirmation: Wait for the first confirmation of the transaction and display a message.
-          force: Create transaction even if the reorg check fails.
+          force: Create transaction even if the reorg check fails. Does not check balance (faster, but use with caution).
           quiet: Output only the transaction in hexstring format (script-friendly).
           debug: Show additional debug information.
          """
-         #TODO: Does not prevent invalid locks. Check token balance and current locks.
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
         change_address = ec.process_address(change, debug=debug)
@@ -58,7 +57,7 @@ class Swap:
             receiver_address = Settings.key.address
         else:
             receiver_address = ec.process_address(receiver)
-        return ei.run_command(dxu.card_lock, deckid=deckid, amount=amount, lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
+        return ei.run_command(dxu.card_lock, deckid=deckid, amount=str(amount), lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
     def create(self,
