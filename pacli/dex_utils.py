@@ -164,8 +164,8 @@ def build_input(input_txid: str, input_vout: int):
     return MutableTxIn(txid=input_txid, txout=input_vout, script_sig=ScriptSig.empty(), sequence=Sequence.max())
 
 
-def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=False, send: bool=False, quiet: bool=False, debug: bool=False):
-    # quiet = True if True in (quiet, txhex) else False
+def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=False, send: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
+    quiet = True in (quiet, txhex)
     # this is signed by the coin vendor. Basically they add their input and solve it.
     network_params = net_query(provider.network)
     tx = MutableTransaction.unhexlify(txstr, network=network_params)
@@ -174,14 +174,15 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=Fal
     my_input_index = len(tx.ins) - 1
     if not quiet:
         print("Index for the coin seller's input:", my_input_index)
-    result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params)
+    result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params, quiet=quiet)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
-    return eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, debug=debug)
+    return ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, quiet=quiet, debug=debug), txhex=txhex)
 
-def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False, debug: bool=False):
+def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False, quiet: bool=False, debug: bool=False):
 
-    print("Signing input {} from transaction {}, output {}".format(index, prev_txid, prev_txout_index))
+    if not quiet:
+        print("Signing input {} from transaction {}, output {}".format(index, prev_txid, prev_txout_index))
     prev_tx_string = provider.getrawtransaction(prev_txid)
     prev_tx_json = provider.decoderawtransaction(prev_tx_string) # this workaround works! why?
     """#prev_tx_json = provider.getrawtransaction(utxos[i].txid, 1)

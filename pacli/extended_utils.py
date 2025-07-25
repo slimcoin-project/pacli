@@ -248,7 +248,19 @@ def signtx_by_key(rawtx, label=None, key=None):
 
     return sign_transaction(provider, rawtx, key)
 
-def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=False, confirm: bool=False, redeem_script: str=None, label: str=None, key: str=None, input_types: list=None, ignore_checkpoint: bool=False, save: bool=False, debug: bool=False, quiet: bool=False) -> object:
+def finalize_tx(rawtx: dict,
+                verify: bool=False,
+                sign: bool=False,
+                send: bool=False,
+                confirm: bool=False,
+                redeem_script: str=None,
+                label: str=None,
+                key: str=None,
+                input_types: list=None,
+                ignore_checkpoint: bool=False,
+                save: bool=False,
+                quiet: bool=False,
+                debug: bool=False) -> object:
     """Final steps of a transaction creation. Checks, verifies, signs and sends the transaction, and waits for confirmation if the 'confirm' option is used."""
     # Important function called by all AT, DT and Dex transactions and groups several checks and the last steps (signing) together.
 
@@ -320,7 +332,7 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
         tx_hex = rawtx.hexlify()
 
         if confirm:
-            ei.confirm_tx(tx, quiet=quiet)
+            ei.confirm_tx(rawtx, quiet=quiet)
 
     else:
         dict_key = 'raw hex'

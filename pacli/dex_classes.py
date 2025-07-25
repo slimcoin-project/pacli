@@ -93,7 +93,7 @@ class Swap:
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save_identifier=label, debug=debug)
 
     @classmethod
-    def finalize(self, txstr: str, send: bool=True, force: bool=False, confirm: bool=False, quiet: bool=False, debug: bool=False):
+    def finalize(self, txstr: str, send: bool=True, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
         """Signs and broadcasts an exchange transaction.
 
         Usage:
@@ -105,13 +105,13 @@ class Swap:
         Args:
 
           send: Sends the transaction
-          confirm: Waits for the transaction to confirm.
+          wait_for_confirmation: Waits for the transaction to confirm.
           force: Creates the transaction even if the reorg check fails (use with caution!).
           txhex: Shows only the hex string of the transaction.
           quiet: Suppresses some printouts.
           debug: Show additional debug information.
         """
-        return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, force=force, confirm=confirm, quiet=quiet, debug=debug)
+        return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
 
     @classmethod
     def list_locks(self, idstr: str, blockheight: int=None, quiet: bool=False, debug: bool=False):
