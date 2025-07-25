@@ -164,8 +164,8 @@ def build_input(input_txid: str, input_vout: int):
     return MutableTxIn(txid=input_txid, txout=input_vout, script_sig=ScriptSig.empty(), sequence=Sequence.max())
 
 
-def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=False, send: bool=False, txhex: bool=False):
-    quiet = True if True in (quiet, txhex) else False
+def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=False, send: bool=False, quiet: bool=False, debug: bool=False):
+    # quiet = True if True in (quiet, txhex) else False
     # this is signed by the coin vendor. Basically they add their input and solve it.
     network_params = net_query(provider.network)
     tx = MutableTransaction.unhexlify(txstr, network=network_params)
@@ -173,11 +173,11 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=Fal
     my_input = tx.ins[-1] # the coin seller's input is the last one
     my_input_index = len(tx.ins) - 1
     if not quiet:
-        print(my_input_index)
+        print("Index for the coin seller's input:", my_input_index)
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
-    return ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm), txhex=txhex)
+    return eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False, debug: bool=False):
 
@@ -342,7 +342,7 @@ def select_utxos(minvalue: Decimal,
     else:
         if len(selected_utxos) == 0:
             print("No usable utxos found.")
-            print("Due to an upstream bug, this can happen if all UTXOs on this address come directly from coinbase outputs (mining or minting)."
+            print("Due to an upstream bug, this can happen if all UTXOs on this address come directly from coinbase outputs (mining or minting).")
             print("You can transfer the needed coins from any source, including the same address.")
             return
         print(len(selected_utxos), "matching utxos found.")

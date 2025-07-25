@@ -263,8 +263,8 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
             raise ei.PacliInputDataError("Verifying by Cointoolkit is not possible on other chains than Peercoin.")
 
 
-    if (False in (sign, send)) and (not quiet):
-        print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --sign --send to the command to broadcast it")
+    if (send == False) and (not quiet):
+        print("NOTE: This is a dry run, your transaction will still not be broadcasted.\nAdd --send to the command to broadcast it")
 
     dict_key = 'hex' # key of dict returned to the user.
 
@@ -312,8 +312,11 @@ def finalize_tx(rawtx: dict, verify: bool=False, sign: bool=False, send: bool=Fa
         tx_hex = tx.hexlify()
 
     elif send:
-        # this is when the tx is already signed (DEX use case)
-        sendtx(rawtx)
+        # rawtx variable contains an already signed tx (DEX use case)
+        if not quiet:
+            pprint({'txid': sendtx(rawtx)})
+        else:
+            sendtx(rawtx)
         tx_hex = rawtx.hexlify()
 
         if confirm:
