@@ -446,7 +446,6 @@ class ExtAddress:
 
         elif label is not None and address is not None: # ex: tools store_address
             """Stores a label for an address in the extended config file."""
-
             ec.set_label(label, address, keyring=keyring, modify=modify, network_name=Settings.network, quiet=quiet)
             return
 

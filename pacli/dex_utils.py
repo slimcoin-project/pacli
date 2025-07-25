@@ -340,6 +340,11 @@ def select_utxos(minvalue: Decimal,
     if quiet:
         return selected_utxos
     else:
+        if len(selected_utxos) == 0:
+            print("No usable utxos found.")
+            print("Due to an upstream bug, this can happen if all UTXOs on this address come directly from coinbase outputs (mining or minting)."
+            print("You can transfer the needed coins from any source, including the same address.")
+            return
         print(len(selected_utxos), "matching utxos found.")
         print("Use this format (TXID:OUTPUT) to initiate a new exchange.")
         for utxo in selected_utxos:

@@ -146,6 +146,7 @@ class Swap:
             pacli swap select_coins AMOUNT [ADDRESS]
 
         If ADDRESS is not given, the current main address is used.
+        NOTE: due to an upstream bug, coinbase UTXOs can't be used for swaps. They will be ignored.
 
         Args:
 
