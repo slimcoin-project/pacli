@@ -226,7 +226,6 @@ def date_to_blockheight(date: datetime.date, last_block: int, startheight: int=0
 
     return bh
 
-# def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, tracked_address: str=None, add_txid: bool=False, ignore_blockhash: bool=False) -> dict:
 def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, add_txid: bool=False, ignore_blockhash: bool=False) -> dict:
     """Helper function showing useful values which are not part of the transaction,
        like sender(s) and block height."""

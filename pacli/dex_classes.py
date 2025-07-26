@@ -1,11 +1,15 @@
 import pacli.dex_utils as dxu
+import pacli.blockexp_utils as bxu
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pypeerassets as pa
 import pacli.extended_commands as ec
+import pacli.config_extended as ce
 from decimal import Decimal
+from prettyprinter import cpprint as pprint
 from pacli.provider import provider
 from pacli.config import Settings
+
 
 class Swap:
     """Commands allowing the decentralized exchange of tokens for coins."""
@@ -162,4 +166,86 @@ class Swap:
 
         addr = ei.run_command(ec.process_address, address, debug=debug)
         return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, debug=debug)
+
+    # @classmethod
+    def check(self, _txstring: str, coinseller_change_address: str=None, token_receiver_address: str=None, amount: str=None, debug: bool=False):
+        """Checks a swap transaction, allowing the token buyer to see if everything is correct.
+
+        Usage:
+
+            pacli swap check TRANSACTION
+
+        TRANSACTION can be either the raw transactions' hex string (TXHEX) or the label of a stored transaction.
+        If no more arguments are given, the transaction's inputs and outputs will be shown.
+
+        Args:
+
+          token_receiver_address: The address provided by the token buyer to receive the coins.
+          coinseller_change_address: The (optional) address provided by the token buyer to receive the change.
+          amount: Amount of coins provided to buy the tokens.
+          debug: Show additional debug information.
+        """
+
+        kwargs = locals()
+        del kwargs["self"]
+        ei.run_command(self.__check, **kwargs)
+
+    def __check(self, _txstring: str, coinseller_change_address: str=None, token_receiver_address: str=None, amount: str=None, debug: bool=False):
+
+        txhex = ce.show("transaction", _txstring, quiet=True)
+        if txhex is None:
+            txhex = _txstring
+        try:
+            txjson = provider.decoderawtransaction(txhex)
+            txstruct = bxu.get_tx_structure(tx=txjson, ignore_blockhash=True)
+        except:
+            raise ei.PacliInputDataError("No valid transaction hex string or label provided.")
+
+        # {'inputs': [{'sender': ['mx2tsUDBH4wVUrgdGcPuiHz9YVeJKj7PMz'], 'value': 0.01}, {'sender': ['mwzox84gMy8TKdeBftrfpmwGVZnJJdaReg'], 'value': 100.0}], 'outputs': [{'receivers': ['mkwJijAwqXNFcEBxuC93j3Kni43wzXVuik'], 'value': 0.01}, {'receivers': [], 'value': 0.01}, {'receivers': ['mzT2eco8dPUYbT765zRALjNDKQGGNogRYW'], 'value': 0.01}, {'receivers': ['mx2tsUDBH4wVUrgdGcPuiHz9YVeJKj7PMz'], 'value': 10.0}, {'receivers': ['mx2tsUDBH4wVUrgdGcPuiHz9YVeJKj7PMz'], 'value': 0.01}, {'receivers': ['mzT2eco8dPUYbT765zRALjNDKQGGNogRYW'], 'value': 89.96}]}
+
+
+        pprint("Senders and receivers of the swap transaction:")
+        pprint(txstruct)
+        try:
+            # Note: outputs 2 and 4 go to the token seller, so they aren't checked here in detail.
+            token_seller = txstruct["inputs"][0]["sender"][0]
+            token_buyer = txstruct["inputs"][1]["sender"][0]
+            amount_provided = Decimal(str(txstruct["inputs"][1]["value"]))
+            token_receiver = txstruct["outputs"][3]["receivers"][0]
+            coin_receiver = txstruct["outputs"][3]["receivers"][0]
+            change_receiver = txstruct["outputs"][5]["receivers"][0]
+            change_returned = Decimal(str(txstruct["outputs"][5]["value"]))
+            all_inputs = sum([Decimal(str(i["value"])) for i in txstruct["inputs"]])
+            all_outputs = sum([Decimal(str(o["value"])) for o in txstruct["outputs"]])
+            tx_fee = all_inputs - all_outputs
+            p2th_fee = Decimal(str(txstruct["outputs"][0]["value"]))
+            op_return_fee = Decimal(str(txstruct["outputs"][1]["value"]))
+            card_transfer_fee = Decimal(str(txstruct["outputs"][2]["value"]))
+            all_fees = tx_fee + p2th_fee + op_return_fee + card_transfer_fee
+        except (KeyError, IndexError):
+            raise ei.PacliDataError("Incorrect transaction structure. Don't proceed with the transaction.")
+
+        pprint("Token seller's address: {}".format(token_seller))
+        pprint("Token buyer's address: {}".format(token_buyer))
+        pprint("Token receiver's address: {}".format(token_receiver))
+        if token_receiver != token_buyer:
+            print("WARNING: The token receiver is different than the address providing the coins for the exchange.")
+            print("This may be intentionally set up by the token buyer, but can also be a manipulation from the token seller's part.")
+            print("If you are the token buyer, check carefully that both addresses belong to you.")
+        if token_receiver_address and (token_receiver != token_receiver_address):
+            ei.print_red("CHECK FAILED: The token receiver address you provided in this check isn't the address receiving the tokens in the swap transaction.")
+        pprint("Change receiver's address: {}".format(change_receiver))
+        pprint("Change returned: {}".format(change_returned))
+        if coinseller_change_address and (change_receiver != coinseller_change_address):
+            ei.print_red("CHECK FAILED: The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
+        pprint("Fees paid: {}".format(all_fees))
+        paid_amount = amount_provided - change_returned - all_fees
+        pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
+        if amount is not None:
+            intended_amount = Decimal(str(amount))
+            if intended_amount < paid_amount:
+                ei.print_red("CHECK FAILED: The token buyer didn't receive all the change or will pay more than expected.")
+                ei.print_red("Missing amount: {}.".format(paid_amount - intended_amount))
+
+        print("If any check failed, it is advised to the token buyer to abandon the swap.")
 
