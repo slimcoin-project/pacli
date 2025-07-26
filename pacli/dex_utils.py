@@ -386,6 +386,6 @@ def get_lock_address(lock: dict) -> str:
 
 
 def get_locked_amount(locks: dict, card_sender: str) -> int:
-    locks_on_address = locks.get(card_sender)
+    locks_on_address = locks.get(card_sender, [])
     locked_amounts = [l["amount"] for l in locks_on_address]
     return sum(locked_amounts)
