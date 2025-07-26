@@ -89,6 +89,8 @@ class Swap:
           debug: Show additional debug information.
         """
 
+        partner_address = ei.run_command(ec.process_address, partner_address, debug=debug)
+        coinseller_change_address = ei.run_command(ec.process_address, coinseller_change_address, debug=debug) if coinseller_change_address is not None else None
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save_identifier=label, debug=debug)
 
