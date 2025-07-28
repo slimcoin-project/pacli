@@ -68,9 +68,9 @@ class Swap:
                  token: str,
                  partner_address: str,
                  partner_input: str,
-                 card_amount: str,
-                 coin_amount: str,
-                 coinseller_change_address: str=None,
+                 amount_cards: str,
+                 amount_coins: str,
+                 buyer_change_address: str=None,
                  label: str=None,
                  quiet: bool=False,
                  sign: bool=True,
@@ -81,24 +81,24 @@ class Swap:
 
             pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT
 
-        PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual).
+        PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual). PARTNER_ADDRESS can be an address or a label of a stored address.
         NOTE: To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
 
         Args:
 
           sign: Sign the transaction.
-          coinseller_change_address: Specify a change address of the coin seller (default: sender address)
+          buyer_change_address: Specify a change address of the coin seller (default: sender address). Can be the address itself or a label of a stored address.
           label: Specify a label to save the transaction hex string with.
           quiet: Suppress output.
           debug: Show additional debug information.
         """
 
         partner_address = ei.run_command(ec.process_address, partner_address, debug=debug)
-        coinseller_change_address = ei.run_command(ec.process_address, coinseller_change_address, debug=debug) if coinseller_change_address is not None else None
+        buyer_change_address = ei.run_command(ec.process_address, buyer_change_address, debug=debug) if coinseller_change_address is not None else None
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
-        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(card_amount)), Decimal(str(coin_amount)), sign=sign, coinseller_change_address=coinseller_change_address, save_identifier=label, debug=debug)
+        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, coinseller_change_address=buyer_change_address, save_identifier=label, debug=debug)
 
-    @classmethod
+    # @classmethod
     def finalize(self, txstr: str, send: bool=True, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
         """Signs and broadcasts an exchange transaction.
 
@@ -117,7 +117,22 @@ class Swap:
           quiet: Suppresses some printouts.
           debug: Show additional debug information.
         """
-        return ei.run_command(dxu.finalize_coin2card_exchange, txstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
+
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(self.__finalize, **kwargs)
+
+    def __finalize(self, txstr: str, send: bool=True, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
+
+        txhexstr = ce.show("transaction", txstr, quiet=True)
+        if txhexstr is None:
+            txhexstr = txstr
+
+        if not force:
+            fail = ei.run_command(self.__check, txhexstr, return_state=True, debug=debug)
+            if fail is True:
+                raise ei.PacliDataError("Swap check failed. It is advised to not proceed with the exchange. If you are sure everything is correct, use --force.")
+        return ei.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
 
     @classmethod
     def list_locks(self, idstr: str, blockheight: int=None, quiet: bool=False, debug: bool=False):
@@ -190,8 +205,9 @@ class Swap:
         del kwargs["self"]
         ei.run_command(self.__check, **kwargs)
 
-    def __check(self, _txstring: str, coinseller_change_address: str=None, token_receiver_address: str=None, amount: str=None, debug: bool=False):
+    def __check(self, _txstring: str, coinseller_change_address: str=None, token_receiver_address: str=None, amount: str=None, return_state: bool=False, debug: bool=False):
 
+        fail, notmine = False, False
         txhex = ce.show("transaction", _txstring, quiet=True)
         if txhex is None:
             txhex = _txstring
@@ -201,9 +217,7 @@ class Swap:
         except:
             raise ei.PacliInputDataError("No valid transaction hex string or label provided.")
 
-        # {'inputs': [{'sender': ['mx2tsUDBH4wVUrgdGcPuiHz9YVeJKj7PMz'], 'value': 0.01}, {'sender': ['mwzox84gMy8TKdeBftrfpmwGVZnJJdaReg'], 'value': 100.0}], 'outputs': [{'receivers': ['mkwJijAwqXNFcEBxuC93j3Kni43wzXVuik'], 'value': 0.01}, {'receivers': [], 'value': 0.01}, {'receivers': ['mzT2eco8dPUYbT765zRALjNDKQGGNogRYW'], 'value': 0.01}, {'receivers': ['mx2tsUDBH4wVUrgdGcPuiHz9YVeJKj7PMz'], 'value': 10.0}, {'receivers': ['mx2tsUDBH4wVUrgdGcPuiHz9YVeJKj7PMz'], 'value': 0.01}, {'receivers': ['mzT2eco8dPUYbT765zRALjNDKQGGNogRYW'], 'value': 89.96}]}
-
-
+        print("Checking swap ...")
         pprint("Senders and receivers of the swap transaction:")
         pprint(txstruct)
         try:
@@ -212,7 +226,6 @@ class Swap:
             token_buyer = txstruct["inputs"][1]["sender"][0]
             amount_provided = Decimal(str(txstruct["inputs"][1]["value"]))
             token_receiver = txstruct["outputs"][3]["receivers"][0]
-            coin_receiver = txstruct["outputs"][3]["receivers"][0]
             change_receiver = txstruct["outputs"][5]["receivers"][0]
             change_returned = Decimal(str(txstruct["outputs"][5]["value"]))
             all_inputs = sum([Decimal(str(i["value"])) for i in txstruct["inputs"]])
@@ -229,23 +242,41 @@ class Swap:
         pprint("Token buyer's address: {}".format(token_buyer))
         pprint("Token receiver's address: {}".format(token_receiver))
         if token_receiver != token_buyer:
-            print("WARNING: The token receiver is different than the address providing the coins for the exchange.")
-            print("This may be intentionally set up by the token buyer, but can also be a manipulation from the token seller's part.")
-            print("If you are the token buyer, check carefully that both addresses belong to you.")
-        if token_receiver_address and (token_receiver != token_receiver_address):
-            ei.print_red("CHECK FAILED: The token receiver address you provided in this check isn't the address receiving the tokens in the swap transaction.")
+            print("WARNING: The address providing the coins for the swap isn't identic to the address which will receive the tokens.")
+            print("This may be intentionally set up by the token buyer for privacy reasons, but can also be a manipulation from the token seller's part.")
+
+        if token_receiver_address is not None and (token_receiver != token_receiver_address):
+            ei.print_red("The token receiver address you provided in this check isn't the address receiving the tokens in the swap transaction.")
+            fail = True
         pprint("Change receiver's address: {}".format(change_receiver))
         pprint("Change returned: {}".format(change_returned))
-        if coinseller_change_address and (change_receiver != coinseller_change_address):
-            ei.print_red("CHECK FAILED: The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
+        if coinseller_change_address is not None and (change_receiver != coinseller_change_address):
+            ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
+            fail = True
         pprint("Fees paid: {}".format(all_fees))
         paid_amount = amount_provided - change_returned - all_fees
         pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
         if amount is not None:
             intended_amount = Decimal(str(amount))
             if intended_amount < paid_amount:
-                ei.print_red("CHECK FAILED: The token buyer didn't receive all the change or will pay more than expected.")
+                ei.print_red("The token buyer didn't receive all the change or will pay more than expected.")
                 ei.print_red("Missing amount: {}.".format(paid_amount - intended_amount))
+                fail = True
 
-        print("If any check failed, it is advised to the token buyer to abandon the swap.")
-
+        for adr in token_receiver, change_receiver:
+            validation = provider.validateaddress(adr)
+            if validation.get("ismine") != True:
+                notmine = True
+                fail = True
+        if notmine is True:
+            ei.print_red("Ownership check failed: At least one of the addresses which should be under the token buyer's control in this swap (token receiver and change receiver) isn't part of your current wallet.")
+            print("This may be intentional if you provided an address of another wallet, or are using this command running the client with a different wallet than the swap's wallet, but can also be a manipulation by the token buyer. Be careful.")
+        else:
+            print("Ownership check passed: Both the token receiver and the change address for the provided coins are part of your currently used wallet.")
+        if return_state is True:
+            return fail
+        else:
+            if fail is True:
+                ei.print_red("SWAP CHECK FAILED. If you are the token buyer and see this or any red warning, it is advised to abandon the swap.")
+            else:
+                print("SWAP CHECK PASSED. If there is a warning, read it carefully to avoid any losses.")
