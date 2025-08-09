@@ -20,9 +20,10 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              access_wallet: str=None,
                              keyring: bool=False,
                              named: bool=False,
+                             all_named: bool=False,
+                             wallet_only: bool=True,
                              empty: bool=False,
                              mark_duplicates: bool=False,
-                             wallet_only: bool=True,
                              labels: bool=False,
                              full_labels: bool=False,
                              no_labels: bool=False,
@@ -32,7 +33,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
        # This version is better ordered and already prepares the dict for the address table.
-       # NOTE: wallet_only excludes the named address which are not in the wallet.
+       # NOTE: wallet_only excludes the named addresses which are not in the wallet.
 
     result = []
     addresses = []
@@ -86,14 +87,16 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         # labeled_addresses = [i["address"] for i in result]
         labeled_addresses = {i["address"] : i for i in result}
         if wallet_only:
-            result = [] # resets the result list, so it will only be filled with named addresses which are part of the wallet
+            # result = [] # resets the result list, so it will only be filled with named addresses which are part of the wallet
+            result = [i for i in result if eu.is_mine(i["address"])]
         if include_only:
             wallet_addresses = set(include_only)
         elif access_wallet is not None:
             datadir = access_wallet if type(access_wallet) == str else None
             wallet_addresses = dbu.get_addresses(datadir=datadir, debug=debug)
         else:
-            wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
+            # Note: if all_named is given, empty addresses will be retrieved, but only added to the result if named
+            wallet_addresses = eu.get_wallet_address_set(empty=empty or all_named, excluded_accounts=excluded_accounts)
 
         if include:
             wallet_addresses = wallet_addresses | set(include)
@@ -105,15 +108,14 @@ def get_labels_and_addresses(prefix: str=Settings.network,
 
 
         for address in wallet_addresses:
-            if address in labeled_addresses:
-                if wallet_only:
-                    result.append(labeled_addresses[address])
-                    if debug:
-                        print("Named address added:", address)
-            else:
-                if empty is False:
-                    if provider.getbalance(address) == 0:
-                        continue
+            if address not in labeled_addresses:
+                #if wallet_only:
+                #    result.append(labeled_addresses[address])
+                #    if debug:
+                #        print("Named address added (wallet only mode):", address)
+                # else:
+                if empty is False and provider.getbalance(address) == 0:
+                    continue
 
                 result.append({"label" : "", "address" : address, "network" : prefix})
                 if debug:

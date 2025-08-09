@@ -87,7 +87,7 @@ class Swap:
         Args:
 
           sign: Sign the transaction.
-          buyer_change_address: Specify a change address of the coin seller (default: sender address). Can be the address itself or a label of a stored address.
+          buyer_change_address: Specify a change address of the token buyer (default: sender address). Can be the address itself or a label of a stored address.
           label: Specify a label to save the transaction hex string with.
           quiet: Suppress output.
           debug: Show additional debug information.

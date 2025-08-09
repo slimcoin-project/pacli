@@ -358,7 +358,7 @@ class ExtAddress:
 
             Without flags, sets the main address to the address named with LABEL.
             If -f/--fresh is used, a new address is generated with label LABEL and set as main address.
-            NOTE: Occasionally in heavily used wallets this command may deliver an used address. In this case a keypool refill is advised.
+            NOTE: Occasionally in heavily used wallets this command may deliver an address which was already used. This applies above all if the wallet is encrypted. In this case it is advised to run the keypoolrefill command.
 
         pacli address set -a ADDRESS
 
@@ -631,11 +631,13 @@ class ExtAddress:
             if p2th or only_initialized_p2th:
                 include_only, include = p2th_dict.keys(), None
                 coinbalances = True
+                all_named, wallet_only = False, False
                 include_all = True if include_all in (None, True) else False
                 excluded_addresses = []
                 excluded_accounts = []
                 add_p2th_account = True
             elif everything or wallet:
+                all_named, wallet_only = True, wallet
                 if everything:
                     include = p2th_dict.keys()
                 else:
@@ -644,8 +646,9 @@ class ExtAddress:
                 excluded_addresses = []
                 excluded_accounts = []
                 add_p2th_account = False
-            else:
+            else: # standard mode: all named + addresses with balance
                 include_only, include = None, None
+                all_named, wallet_only = True, True
                 include_all = False if include_all in (None, False) else True
                 excluded_addresses = p2th_dict.keys()
                 excluded_accounts = p2th_dict.values()
@@ -684,6 +687,8 @@ class ExtAddress:
                                   p2th_dict=p2th_dict,
                                   advanced=json,
                                   named=named,
+                                  all_named=all_named,
+                                  wallet_only=wallet_only,
                                   quiet=quiet,
                                   empty=include_all,
                                   include_only=include_only,

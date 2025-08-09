@@ -33,6 +33,8 @@ def all_balances(address: str=Settings.key.address,
                  empty: bool=False,
                  advanced: bool=False,
                  named: bool=False,
+                 all_named: bool=False,
+                 wallet_only: bool=False,
                  add_p2th_account: bool=False,
                  p2th_dict: dict=None,
                  deck_type: int=None,
@@ -43,6 +45,7 @@ def all_balances(address: str=Settings.key.address,
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
     # NOTE: decks needs to be always the list of all decks, not only the initialized decks or another subset.
+    # NOTE: added all_named parameter: includes always all named addresses.
 
     if no_tokens:
         decks = []
@@ -67,7 +70,14 @@ def all_balances(address: str=Settings.key.address,
         print("Retrieving addresses and/or labels ...")
     balances = False if only_tokens is True else True
     if wallet is True: # and no_labels is False:
-        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, no_labels=no_labels, balances=balances, debug=debug)
+        if debug:
+            print("Parameters for address selection:")
+            print("named:", named, "all_named:", all_named, "empty:", empty, "wallet_only:", wallet_only, "access wallet", access_wallet)
+            print("exclude:", exclude)
+            print("excluded accounts:", excluded_accounts)
+            print("include:", include)
+            print("include_only", include_only)
+        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, all_named=all_named, wallet_only=wallet_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
         addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
 
