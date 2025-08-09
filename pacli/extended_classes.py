@@ -631,13 +631,13 @@ class ExtAddress:
             if p2th or only_initialized_p2th:
                 include_only, include = p2th_dict.keys(), None
                 coinbalances = True
-                all_named, wallet_only = False, False
+                named_and_nonempty, wallet_only = False, False
                 include_all = True if include_all in (None, True) else False
                 excluded_addresses = []
                 excluded_accounts = []
                 add_p2th_account = True
             elif everything or wallet:
-                all_named, wallet_only = True, wallet
+                named_and_nonempty, wallet_only = True, wallet
                 if everything:
                     include = p2th_dict.keys()
                 else:
@@ -648,7 +648,7 @@ class ExtAddress:
                 add_p2th_account = False
             else: # standard mode: all named + addresses with balance
                 include_only, include = None, None
-                all_named, wallet_only = True, True
+                named_and_nonempty, wallet_only = True, True
                 include_all = False if include_all in (None, False) else True
                 excluded_addresses = p2th_dict.keys()
                 excluded_accounts = p2th_dict.values()
@@ -687,7 +687,7 @@ class ExtAddress:
                                   p2th_dict=p2th_dict,
                                   advanced=json,
                                   named=named,
-                                  all_named=all_named,
+                                  named_and_nonempty=named_and_nonempty,
                                   wallet_only=wallet_only,
                                   quiet=quiet,
                                   empty=include_all,

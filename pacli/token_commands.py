@@ -33,7 +33,7 @@ def all_balances(address: str=Settings.key.address,
                  empty: bool=False,
                  advanced: bool=False,
                  named: bool=False,
-                 all_named: bool=False,
+                 named_and_nonempty: bool=False,
                  wallet_only: bool=False,
                  add_p2th_account: bool=False,
                  p2th_dict: dict=None,
@@ -45,7 +45,7 @@ def all_balances(address: str=Settings.key.address,
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
     # NOTE: decks needs to be always the list of all decks, not only the initialized decks or another subset.
-    # NOTE: added all_named parameter: includes always all named addresses.
+    # NOTE: added named_and_nonempty parameter: includes always all named addresses, and also those which have either coins or tokens on it.
 
     if no_tokens:
         decks = []
@@ -72,14 +72,14 @@ def all_balances(address: str=Settings.key.address,
     if wallet is True: # and no_labels is False:
         if debug:
             print("Parameters for address selection:")
-            print("named:", named, "all_named:", all_named, "empty:", empty, "wallet_only:", wallet_only, "access wallet", access_wallet)
+            print("named:", named, "named_and_nonempty:", named_and_nonempty, "empty:", empty, "wallet_only:", wallet_only, "access wallet", access_wallet)
             print("exclude:", exclude)
             print("excluded accounts:", excluded_accounts)
             print("include:", include)
             print("include_only", include_only)
-        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=empty, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, all_named=all_named, wallet_only=wallet_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, wallet_only=wallet_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
-        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=empty, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
+        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
 
     # NOTE: default view needs no deck labels
     # NOTE2: Quiet mode doesn't show labels.
@@ -113,6 +113,27 @@ def all_balances(address: str=Settings.key.address,
             if debug:
                 print("Warning: Omitting deck with initialization problem:", deck.id)
             continue
+
+    if not empty:
+        non_empty_addresses = []
+        for address in addresses:
+            if named_and_nonempty and address.get("label", ""):
+                if debug:
+                    print(address["address"], "kept. Label:", address.get("label"))
+                    non_empty_addresses.append(address)
+                    # continue # if named_and_nonempty is set, no empty named addresses will be deleted from output.
+            if address.get("balance", "0") == "0":
+                if debug:
+                    print("Checking empty address:", address)
+                if not address.get("tokens", None):
+                    if debug:
+                        print("Deleted empty address without tokens.")
+                else:
+                    if debug:
+                        print("Kept empty address with tokens.")
+                    non_empty_addresses.append(address)
+        addresses = non_empty_addresses
+
 
     if len(addresses) > 1:
         addresses = eu.sort_address_items(addresses, debug=debug)

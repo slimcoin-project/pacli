@@ -5,7 +5,6 @@ import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.config_extended as ce
 import pacli.extended_constants as c
-import pacli.db_utils as dbu
 from pypeerassets.pautils import exponent_to_amount
 from pacli.config import Settings
 from pacli.provider import provider
@@ -20,7 +19,6 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              access_wallet: str=None,
                              keyring: bool=False,
                              named: bool=False,
-                             all_named: bool=False,
                              wallet_only: bool=True,
                              empty: bool=False,
                              mark_duplicates: bool=False,
@@ -34,6 +32,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
        Addresses without label are not included if "named" is True."""
        # This version is better ordered and already prepares the dict for the address table.
        # NOTE: wallet_only excludes the named addresses which are not in the wallet.
+       # note 2: empty parameter here only refers to coin balances, not token balances.
 
     result = []
     addresses = []
@@ -92,11 +91,11 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         if include_only:
             wallet_addresses = set(include_only)
         elif access_wallet is not None:
+            import pacli.db_utils as dbu
             datadir = access_wallet if type(access_wallet) == str else None
             wallet_addresses = dbu.get_addresses(datadir=datadir, debug=debug)
         else:
-            # Note: if all_named is given, empty addresses will be retrieved, but only added to the result if named
-            wallet_addresses = eu.get_wallet_address_set(empty=empty or all_named, excluded_accounts=excluded_accounts)
+            wallet_addresses = eu.get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
 
         if include:
             wallet_addresses = wallet_addresses | set(include)
@@ -106,14 +105,8 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         if debug:
             print("{} wallet addresses processed: {}".format(len(wallet_addresses), wallet_addresses))
 
-
         for address in wallet_addresses:
             if address not in labeled_addresses:
-                #if wallet_only:
-                #    result.append(labeled_addresses[address])
-                #    if debug:
-                #        print("Named address added (wallet only mode):", address)
-                # else:
                 if empty is False and provider.getbalance(address) == 0:
                     continue
 
