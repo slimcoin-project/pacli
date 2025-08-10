@@ -1438,6 +1438,7 @@ class ExtCard:
         Shows balances of all owners of a token (addresses with cards of this deck) TOKEN (ID, global name or local label).
         Similar to the vanilla 'card balances' command.
         If compatibility mode is active, this is the standard mode and -o is not required.
+        Note: This command shows a balance of zero if an address has received tokens in the past but then all were moved. If addresses were never used with a token, they won't be shown.
 
         Args:
 
@@ -1493,7 +1494,7 @@ class ExtCard:
             if addr_str is None:
                 addr_str = Settings.key.address
             address = ec.process_address(addr_str) if addr_str is not None else Settings.key.address
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
+            deckid = eu.search_for_stored_tx_label("deck", deck_str, quiet=quiet)
             return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, quiet=quiet)
         else:
             # TODO seems like label names are not given in this mode if a an address is given.

@@ -99,8 +99,12 @@ def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, qui
         print("Importing deck:", deckid)
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    if debug:
+        print("Deck private key WIF (publicly available, so this is not a security leak):", deck.p2th_wif)
     if deckid not in provider.listaccounts():
-        provider.importprivkey(deck.p2th_wif, deck.id, rescan)
+        err = provider.importprivkey(deck.p2th_wif, deck.id, rescan)
+        if type(err) == dict and err.get("code") == -13:
+            raise ei.PacliDataError("Wallet locked, initializing deck is not possible. Please unlock the wallet and repeat the command.")
         if not quiet:
             print("Importing P2TH address from deck.")
     else:

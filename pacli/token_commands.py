@@ -46,6 +46,7 @@ def all_balances(address: str=Settings.key.address,
     which are part of the wallet."""
     # NOTE: decks needs to be always the list of all decks, not only the initialized decks or another subset.
     # NOTE: added named_and_nonempty parameter: includes always all named addresses, and also those which have either coins or tokens on it.
+    # TODO: currently -w mode shows too few balances, even addresses with token balances are omitted.
 
     if no_tokens:
         decks = []
@@ -161,12 +162,11 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
     --wallet flag allows to show all balances of addresses
     which are part of the wallet."""
 
-    deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck, quiet=quiet) if deck else None
+    deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if wallet:
-        # wallet_addresses = list(eu.get_wallet_address_set(empty=True, include_named=True)) # TODO: deactivated, wallet_addresses is currently not used.
-        addresses = ec.get_labels_and_addresses(keyring=keyring)
+        addresses = ec.get_labels_and_addresses(keyring=keyring, empty=True)
         balances = eu.get_wallet_token_balances(deck, include_named=True)
 
         if quiet:
@@ -176,9 +176,9 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
         else:
             addresses_with_tokens = ei.add_token_balances(addresses, deck.id, balances, return_present=True)
             pprint([{a["addr_identifier"] : a["tokens"][deck.id]} for a in addresses_with_tokens])
-            #for a in addresses:
-            #    if "tokens" in a and deck.id in a["tokens"]:
-            #        pprint({ a["addr_identifier"] : a["tokens"][deck.id] })
+                #for a in addresses:
+                #    if "tokens" in a and deck.id in a["tokens"]:
+                #            pprint({ a["addr_identifier"] : a["tokens"][deck.id] })
             return
     else:
         balance = eu.get_address_token_balance(deck, address)

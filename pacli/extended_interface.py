@@ -181,10 +181,11 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
 
 
 def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, return_present: bool=False, no_labels: bool=False, suppress_addresses: bool=False) -> None:
-    # TODO probably now obsolete
-    # balances = {}
+
     # TODO consider making addresses a dict, so we can remove items fast.
     for address, balance in token_balances.items():
+        if balance == 0:
+            continue
         for item in addresses:
             if "addr_identifier" not in item:
                 add_address_identifier(item, no_labels, suppress_addresses)
