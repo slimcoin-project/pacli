@@ -121,17 +121,21 @@ def all_balances(address: str=Settings.key.address,
                 if debug:
                     print(address["address"], "kept. Label:", address.get("label"))
                     non_empty_addresses.append(address)
-                    # continue # if named_and_nonempty is set, no empty named addresses will be deleted from output.
+                    continue # if named_and_nonempty is set, no empty named addresses will be deleted from output.
             if address.get("balance", "0") == "0":
                 if debug:
                     print("Checking empty address:", address)
                 if not address.get("tokens", None):
                     if debug:
                         print("Deleted empty address without tokens.")
+                        continue
                 else:
                     if debug:
                         print("Kept empty address with tokens.")
-                    non_empty_addresses.append(address)
+            else:
+                if debug:
+                    print("Kept address with coin balance.")
+            non_empty_addresses.append(address)
         addresses = non_empty_addresses
 
 
