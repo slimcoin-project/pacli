@@ -551,9 +551,9 @@ class ExtAddress:
 
         pacli address list
 
-            Shows a table of named addresses and those which contain coins, PoD and PoB tokens.
+            Shows a table of addresses of the wallet. Includes named addresses and those which contain coins, PoD and PoB tokens.
             If P2TH addresses were named, they will be included in this list, otherwise not.
-            NOTE: Due to an upstream bug, transactions involving change addresses may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
+            NOTE: Due to an upstream bug, change addresses may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
 
         pacli address list -j
 
@@ -579,7 +579,7 @@ class ExtAddress:
           only_initialized_p2th: Shows P2TH addresses from initialized decks and auxiliary P2TH addresses stored in the wallet.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
-          everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but without change addresses (like a combination of -i and -p).
+          everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but change addresses may not be found (like a combination of -i and -p). NOTE: If addresses are named and not part of the wallet, they are also shown but their coin balances cannot be retrieve.
           access_wallet: Access wallet file directly. May expose wallet data, so use only in safe environments. Shows also change addresses other modes sometimes don't find. Can be combined with all other flags except -b, -l and -f. Requires the berkeleydb Python package.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
@@ -608,8 +608,18 @@ class ExtAddress:
         if True not in (labels, full_labels) and (blockchain != Settings.network):
             raise ei.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
 
-        # include_all is standard for P2TH, otherwise not.
-        if (labels, full_labels) == (False, False):
+        if True in (labels, full_labels): # labels/full_labels options
+
+            result = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=blockchain, keyring=keyring, named=True, empty=True, labels=labels, full_labels=full_labels, debug=debug)
+            if quiet is True:
+                return result
+            else:
+                if not result:
+                    return("No results found.")
+                pprint(result)
+                return
+        else:
+
             if p2th or only_initialized_p2th or wallet or everything:
                 if debug:
                     print("Retrieving decks ...")
@@ -640,6 +650,8 @@ class ExtAddress:
                 named_and_nonempty, wallet_only = True, wallet
                 if everything:
                     include = p2th_dict.keys()
+                    if not quiet:
+                        print("Note: -e mode shows named non-wallet addresses, but the balances can't be retrieved and will be shown as 0.")
                 else:
                     include = None
                 include_all, include_only = True, None
@@ -653,27 +665,8 @@ class ExtAddress:
                 excluded_addresses = p2th_dict.keys()
                 excluded_accounts = p2th_dict.values()
                 add_p2th_account = False
-        else: # labels/full_labels options
-            named = True
-            include_only, include, include_all = None, None, True
-            excluded_addresses, excluded_accounts = None, None
 
-        if (labels is True) or (full_labels is True):
-            result = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=blockchain, keyring=keyring, named=named, empty=include_all, include_only=include_only, include=include, labels=labels, full_labels=full_labels, exclude=excluded_addresses, excluded_accounts=excluded_accounts, balances=True, debug=debug)
-            if labels:
-                items = [(i.replace(blockchain + "_", ""), entry[i]) for entry in result for i in entry]
-            else:
-                items = [(i, entry[i]) for entry in result for i in entry]
-            items.sort()
-            if quiet is True:
-                return items
-            else:
-                if not result:
-                    return("No results found.")
-                pprint(items)
-                return
 
-        else:
             # TODO: try to improve/unify the location of the deck search.
             deck_list = all_decks if (json and all_decks is not None) else None
 

@@ -66,7 +66,12 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         print(len(result), "named addresses found.")
 
     if labels or full_labels:
-        return result
+        if labels:
+            items = [(i.replace(prefix + "_", ""), entry[i]) for entry in result for i in entry]
+        elif full_labels:
+            items = [(i, entry[i]) for entry in result for i in entry]
+        items.sort()
+        return items
 
     if include_only:
         result = [item for item in result if item["address"] in include_only]
