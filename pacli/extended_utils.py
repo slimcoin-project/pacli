@@ -492,14 +492,15 @@ def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False
 
 # Transaction storage tools
 
-def save_transaction(identifier: str, tx_hex: str, partly: bool=False) -> None:
+def save_transaction(identifier: str, tx_hex: str, partly: bool=False, quiet: bool=False) -> None:
     """Stores transaction in configuration file.
     'partly' indicates that it's a partly signed transaction"""
     # the identifier can be a txid or (in the case of partly signed transactions) an arbitrary string.
-    cat = "txhex" if partly else "transaction"
-    ce.write_item(cat, identifier, tx_hex)
+    # cat = "txhex" if partly else "transaction"
+    cat = "transaction"
+    ce.write_item(category=cat, key=identifier, value=tx_hex)
     if not quiet:
-        print("Transaction {} saved. Retrieve it with 'pacli tools show_transaction TXID'.".format(txid))
+        print("Transaction saved. Retrieve it with 'pacli transaction show {}'.".format(identifier))
 
 def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False, check_deck: bool=True, return_deck: bool=False, check_initialized: bool=True, abort_uninitialized: bool=False, debug: bool=False) -> str:
     """If the identifier is a label stored in the extended config file, return the associated txid."""

@@ -152,7 +152,8 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
             unsigned_tx.spend_single(index=i, txout=result["txout"], solver=result["solver"])
 
         print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).\n")
-        print(unsigned_tx.hexlify()) # prettyprint makes it more difficult to copy it
+        tx_hex = unsigned_tx.hexlify()
+        print(tx_hex) # prettyprint makes it more difficult to copy it
         if save_identifier:
             eu.save_transaction(save_identifier, tx_hex, partly=True)
     else:

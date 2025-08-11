@@ -94,7 +94,7 @@ class Swap:
         """
 
         partner_address = ei.run_command(ec.process_address, partner_address, debug=debug)
-        buyer_change_address = ei.run_command(ec.process_address, buyer_change_address, debug=debug) if coinseller_change_address is not None else None
+        buyer_change_address = ei.run_command(ec.process_address, buyer_change_address, debug=debug) if buyer_change_address is not None else None
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, coinseller_change_address=buyer_change_address, save_identifier=label, debug=debug)
 
@@ -183,7 +183,7 @@ class Swap:
         return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, debug=debug)
 
     # @classmethod
-    def check(self, _txstring: str, coinseller_change_address: str=None, token_receiver_address: str=None, amount: str=None, debug: bool=False):
+    def check(self, _txstring: str, buyer_change_address: str=None, token_receiver_address: str=None, amount: str=None, debug: bool=False):
         """Checks a swap transaction, allowing the token buyer to see if everything is correct.
 
         Usage:
@@ -196,16 +196,17 @@ class Swap:
         Args:
 
           token_receiver_address: The address provided by the token buyer to receive the coins.
-          coinseller_change_address: The (optional) address provided by the token buyer to receive the change.
+          buyer_change_address: The (optional) address provided by the token buyer to receive the change.
           amount: Amount of coins provided to buy the tokens.
           debug: Show additional debug information.
         """
+        #TODO: swap check still has bug: if no change output is added, it will raise an error.
 
         kwargs = locals()
         del kwargs["self"]
         ei.run_command(self.__check, **kwargs)
 
-    def __check(self, _txstring: str, coinseller_change_address: str=None, token_receiver_address: str=None, amount: str=None, return_state: bool=False, debug: bool=False):
+    def __check(self, _txstring: str, buyer_change_address: str=None, token_receiver_address: str=None, amount: str=None, return_state: bool=False, debug: bool=False):
 
         fail, notmine = False, False
         txhex = ce.show("transaction", _txstring, quiet=True)
@@ -225,7 +226,7 @@ class Swap:
             token_seller = txstruct["inputs"][0]["sender"][0]
             token_buyer = txstruct["inputs"][1]["sender"][0]
             amount_provided = Decimal(str(txstruct["inputs"][1]["value"]))
-            token_receiver = txstruct["outputs"][3]["receivers"][0]
+            token_receiver = txstruct["outputs"][2]["receivers"][0] # was 3
             change_receiver = txstruct["outputs"][5]["receivers"][0]
             change_returned = Decimal(str(txstruct["outputs"][5]["value"]))
             all_inputs = sum([Decimal(str(i["value"])) for i in txstruct["inputs"]])
@@ -250,7 +251,7 @@ class Swap:
             fail = True
         pprint("Change receiver's address: {}".format(change_receiver))
         pprint("Change returned: {}".format(change_returned))
-        if coinseller_change_address is not None and (change_receiver != coinseller_change_address):
+        if buyer_change_address is not None and (change_receiver != buyer_change_address):
             ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
             fail = True
         pprint("Fees paid: {}".format(all_fees))

@@ -651,7 +651,7 @@ class ExtAddress:
                 if everything:
                     include = p2th_dict.keys()
                     if not quiet:
-                        print("Note: -e mode shows named non-wallet addresses, but the balances can't be retrieved and will be shown as 0.")
+                        print("Note: -e mode shows named non-wallet addresses, but their coin balances can't be retrieved and will be shown as 0. Token balances are shown.")
                 else:
                     include = None
                 include_all, include_only = True, None
