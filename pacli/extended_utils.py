@@ -4,12 +4,12 @@ import pypeerassets as pa
 from typing import Optional, Union
 from prettyprinter import cpprint as pprint
 from btcpy.structs.address import InvalidAddress
-from pypeerassets.transactions import sign_transaction
+from pypeerassets.transactions import sign_transaction, NulldataScript
 from pypeerassets.networks import net_query
 from pypeerassets.pa_constants import param_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
-from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
+from pypeerassets.pautils import amount_to_exponent, exponent_to_amount, parse_card_transfer_metainfo
 from pypeerassets.exceptions import InsufficientFunds
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
@@ -777,14 +777,17 @@ def get_deck_related_addresses(deck, advanced: bool=False, debug: bool=False):
 
     return addresses
 
-def find_decks_by_address(address: str, debug: bool=False) -> object:
+def find_decks_by_address(address: str, addrtype: str=None, debug: bool=False) -> object:
     all_decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
     matching_decks = []
     for deck in all_decks:
         deck_addresses = get_deck_related_addresses(deck, advanced=True, debug=debug)
         if debug:
             print("Deck:", deck.id, "Addresses:", deck_addresses)
+
         for key, value in deck_addresses.items():
+            if addrtype is not None and key != addrtype:
+                continue
             if value == address:
                 matching_decks.append({"deck" : deck, "type" : key})
 
@@ -912,3 +915,13 @@ def sort_address_items(addresses: list, debug: bool=False) -> list:
     unnamed.sort(key=lambda x: x["address"])
     sorted_addresses = named + unnamed
     return sorted_addresses
+
+def decode_card(op_return_output):
+    try:
+        encoded = op_return_output["scriptPubKey"]["hex"]
+        script = NulldataScript.unhexlify(encoded).decompile().split(' ')[1]
+    except:
+        raise ei.PacliDataError("Incorrect OP_RETURN output. Re-check the transaction, it may be corrupted.")
+
+    return parse_card_transfer_metainfo(bytes.fromhex(script),
+                                            Settings.deck_version)

@@ -7,7 +7,6 @@ from pacli.config import Settings
 from pacli.provider import provider
 from pacli.utils import sendtx
 from pypeerassets.kutil import Kutil
-from pypeerassets.provider import Provider
 from pypeerassets.protocol import Deck, CardTransfer
 from btcpy.structs.sig import Sighash, P2pkSolver, P2pkhSolver
 from btcpy.structs.transaction import ScriptSig, Locktime
@@ -94,7 +93,7 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
 # - coinseller_address (formerly partner_address) is now the card receiver.
 # - change of coinseller input must go to coinseller address.
 
-def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, sign: bool=False, debug: bool=False):
+def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, check_lock: bool=True, sign: bool=False, debug: bool=False):
     # TODO: this should also get a quiet option, with the TXHEX stored in the extended config file.
     # the card seller builds the transaction
     my_key = Settings.key
@@ -110,6 +109,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     if coinseller_change_address is None:
         coinseller_change_address = coinseller_address
 
+    print("Token seller:", card.sender, "Token buyer:", card.receiver[0])
     print("Change of the coins sold will be sent to address", coinseller_change_address)
 
     coinseller_input_values = coinseller_input.split(":")
@@ -118,27 +118,24 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     coinseller_input = build_input(coinseller_input_txid, coinseller_input_vout)
     amount_str = str(provider.getrawtransaction(coinseller_input_txid, 1)["vout"][coinseller_input_vout]["value"])
     coinseller_input_amount = Decimal(amount_str)
-    # print("second_input_amount", second_input_amount)
     # first input comes from the card seller (i.e. the user who signs here)
     # We let pacli chose it automatically, based on the minimum amount. It should never give more than one, but it wouldn't matter if it's two or more.
-    # own_inputs = provider.select_inputs(my_address, Decimal('0.01'))
     try:
         utxo = select_utxos(minvalue=Decimal("0.01"), address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
     except IndexError:
         raise ei.PacliDataError("Not enough funds. Send enough coins to this address ({}) to pay the transaction fee.\nNOTE: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).".format(my_address))
     utxo_value = Decimal(str(utxo["amount"]))
     own_input = MutableTxIn(txid=utxo['txid'], txout=utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
-    # inputs = {"utxos" : own_inputs["utxos"] + [coinseller_input], "total": coinseller_input_amount + own_inputs["total"]}
     inputs = {"utxos" : [own_input, coinseller_input], "total": coinseller_input_amount + utxo_value}
     utxos = inputs["utxos"]
 
-    unsigned_tx = create_card_exchange(provider=provider,
-                                 inputs=inputs,
+    unsigned_tx = create_card_exchange(inputs=inputs,
                                  card=card,
                                  coinseller_change_address=coinseller_change_address,
                                  coin_value=coin_amount,
                                  first_input_value=utxo_value,
-                                 cardseller_change_address=my_change_address
+                                 cardseller_change_address=my_change_address,
+                                 debug=debug
                                  )
 
     network_params = net_query(provider.network)
@@ -225,7 +222,7 @@ def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: K
     return { "txout" : prev_txout, "solver" : solver }
 
 
-def create_card_exchange(provider: Provider, card: CardTransfer, inputs: dict, coinseller_change_address: str, cardseller_change_address: str, coin_value: Decimal, first_input_value: Decimal, locktime: int=0) -> Transaction:
+def create_card_exchange(card: CardTransfer, inputs: dict, coinseller_change_address: str, cardseller_change_address: str, coin_value: Decimal, first_input_value: Decimal, locktime: int=0, debug: bool=False) -> Transaction:
     # extended version of card_transfer which allows to add another output to the other party,
     # and allows signing only a part of the inputs.
 
@@ -251,7 +248,6 @@ def create_card_exchange(provider: Provider, card: CardTransfer, inputs: dict, c
 
     if card.deck_p2th is None:
         raise Exception("card.deck_p2th required for tx_output")
-    print("card sender", card.sender, "card receiver", card.receiver)
 
     # TODO: we could unify outputs 3 and 4, at least if the card seller doesn't need a different change address.
     # This would make the transaction "less transparent", but make the transaction footprint smaller.
@@ -353,13 +349,21 @@ def select_utxos(minvalue: Decimal,
             pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
             print("Amount: {} coins".format(utxo.get("amount")))
 
+# locks
+
+def get_locks(deckid: str, blockheight: int, debug: bool=False):
+    deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    cards = pa.find_all_valid_cards(provider, deck)
+    state = pa.protocol.DeckState(cards, cleanup_height=blockheight, debug=debug)
+    return state.locks
+
 
 def prettyprint_locks(locks: dict, blockheight: int, decimals: int=None):
     print("Locks at blockheight {}:".format(blockheight))
     if len(locks) == 0:
         print("No locks found.")
     for address in locks.keys():
-        pprint("Address: {}".format(address))
+        pprint("Origin address: {}".format(address))
         for lock in locks.get(address):
             pprint("* Lock until block: {}".format(lock.get("locktime")))
             #try:
@@ -371,12 +375,12 @@ def prettyprint_locks(locks: dict, blockheight: int, decimals: int=None):
                 print("* Lock hash: {}".format(lock.get("lockhash")))
                 print("* Lock hash type: {}".format(lock.get("lockhash_type")))
             else:
-                pprint("* Lock address: {}".format(lock_address))
+                pprint("* Lock address (address to receive the tokens): {}".format(lock_address))
             if decimals:
                 lock_amount = exponent_to_amount(lock["amount"], decimals) # Decimal(lock["amount"]) / (10 ** decimals)
-                pprint("* Lock amount (tokens): {}".format(lock_amount))
+                pprint("* Tokens locked (units): {}".format(lock_amount))
             else:
-                pprint("* Lock amount (token minimum units): {}".format(lock.get("amount")))
+                pprint("* Tokens locked (minimum units): {}".format(lock.get("amount")))
 
 def get_lock_address(lock: dict) -> str:
     try:
@@ -390,3 +394,51 @@ def get_locked_amount(locks: dict, card_sender: str) -> int:
     locks_on_address = locks.get(card_sender, [])
     locked_amounts = [l["amount"] for l in locks_on_address]
     return sum(locked_amounts)
+
+def check_lock(deck: object, card_sender: str, card_receiver: str, amount: int, blockheight: int, limit: int=None, quiet: bool=False, debug: bool=False):
+    # Checks if the lock is correct.
+    # NOTE: amount is in token minimum units.
+    deckid = deck.id
+    decimals = deck.number_of_decimals
+    locks = get_locks(deckid, blockheight)
+    locktime_limit = blockheight + 100 if limit is None else blockheight + limit
+    if debug:
+         print("Expected values: sender", card_sender, "receiver", card_receiver, "amount", amount, "deckid", deckid, "block height limit" , locktime_limit)
+    # NOTE 2: locktime limit default is blockheight + 100 blocks.
+    # check 1: card_sender is the origin_address of the lock
+    try:
+        sender_locks = locks[card_sender]
+        if debug:
+            print("Current locks of sender:", card_sender, "for deck:", deckid)
+            print(sender_locks)
+    except KeyError:
+        if not quiet:
+            print("Lock check failed: Token seller is not present in the lock dictionary.")
+        return False
+    # check 2: card_receiver is the lock address and locktime blockheights are far enough in the future
+
+    matching_locks, lock_amount, lowest_blockheight = [], 0, None
+    for lock in sender_locks:
+        lock_address = get_lock_address(lock)
+        if debug:
+            print("Checking lock: {} token min units to address {}.".format(lock["amount"], lock_address))
+        if lock_address == card_receiver:
+            if lock["locktime"] < locktime_limit:
+                if not quiet:
+                    print("Lock of {} coins ignored as the locktime {} is below the set limit of block {}.".format(lock["amount"], lock["locktime"], locktime_limit))
+                continue
+            matching_locks.append(lock)
+            lock_amount += lock["amount"]
+
+    if not matching_locks:
+        if not quiet:
+            print("Lock check failed: No tokens locked to token receiver, or all locks are below the locktime limit.")
+        return False
+    # check 3: amount is correct
+    formatted_lock_amount = exponent_to_amount(lock_amount, decimals)
+    if amount > formatted_lock_amount:
+        if not quiet:
+            print("Lock check failed: Locked tokens {}, but swap requires {} tokens.".format(lock_amount, amount))
+        return False
+
+    return True

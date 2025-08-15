@@ -1,3 +1,4 @@
+import time
 import pacli.dex_utils as dxu
 import pacli.blockexp_utils as bxu
 import pacli.extended_interface as ei
@@ -39,13 +40,14 @@ class Swap:
         By default, you specify the number of blocks to lock the tokens; with --blockheight you specify the final block height.
         Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the swap DEX.
         Card default receiver is the sender (the current main address).
+        If -r option is used, the cards instead will be sent to the address specified behind that flag. This address becomes the one where you have to initiate a swap from.
 
         Args:
 
           sign: Sign the transaction.
           send: Send the transaction.
           blockheight: Lock to an absolute block height (instead of a relative number of blocks).
-          receiver: Specify another receiver (can be only one)
+          receiver: Specify a receiver for the tokens (can be only one).
           addrtype: Address type (default: p2pkh)
           change: Specify a custom change address.
           wait_for_confirmation: Wait for the first confirmation of the transaction and display a message.
@@ -99,22 +101,29 @@ class Swap:
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, coinseller_change_address=buyer_change_address, save_identifier=label, debug=debug)
 
     # @classmethod
-    def finalize(self, txstr: str, send: bool=True, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
+    def finalize(self,
+                 ftxstr: str,
+                 send: bool=True,
+                 force: bool=False,
+                 wait_for_confirmation: bool=False,
+                 txhex: bool=False,
+                 quiet: bool=False,
+                 debug: bool=False):
         """Signs and broadcasts an exchange transaction.
 
         Usage:
 
             pacli swap finalize TX_HEXSTRING
 
-        TX_HEXSTRING is the partially signed transaction as an hex string.
+        TX_HEXSTRING is the partially signed transaction in the format of an hex string.
 
         Args:
 
-          send: Sends the transaction
+          send: Sends the transaction (by default set to True).
           wait_for_confirmation: Waits for the transaction to confirm.
-          force: Creates the transaction even if the reorg check fails (use with caution!).
+          force: Creates the transaction even if the checks fail. WARNING: Use with caution, do not use if the token seller insists on it as it can lead to coin/token loss!
           txhex: Shows only the hex string of the transaction.
-          quiet: Suppresses some printouts.
+          quiet: Suppresses some printouts (with the exception of the --force warning).
           debug: Show additional debug information.
         """
 
@@ -122,16 +131,21 @@ class Swap:
         del kwargs["self"]
         return ei.run_command(self.__finalize, **kwargs)
 
-    def __finalize(self, txstr: str, send: bool=True, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
+    def __finalize(self, ftxstr: str, send: bool=True, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
 
-        txhexstr = ce.show("transaction", txstr, quiet=True)
+        txhexstr = ce.show("transaction", ftxstr, quiet=True)
         if txhexstr is None:
-            txhexstr = txstr
+            txhexstr = ftxstr
 
-        if not force:
+        if force:
+            print("WARNING: --force option used. Do only proceed if you REALLY know what your are doing.")
+            print("NEVER use this option if your swap counterparty (the token seller) insists on using it.")
+            print("You have 20 seconds to abort the exchange with KeyboardInterrupt (e.g. CTRL-C or CTRL-D).")
+            time.sleep(20)
+        else:
             fail = ei.run_command(self.__check, txhexstr, return_state=True, debug=debug)
             if fail is True:
-                raise ei.PacliDataError("Swap check failed. It is advised to not proceed with the exchange. If you are sure everything is correct, use --force.")
+                raise ei.PacliDataError("Swap check failed. It is advised to not proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and eventually the change of the coins you paid) on an address you own, use --force. Do NOT use the --force option if you suspect the token seller may trick you into a fraudulent swap.")
         return ei.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
 
     @classmethod
@@ -152,9 +166,10 @@ class Swap:
 
         blockheight = provider.getblockcount() if blockheight is None else blockheight
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
-        deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        cards = pa.find_all_valid_cards(dxu.provider, deck)
-        state = pa.protocol.DeckState(cards, cleanup_height=blockheight, debug=debug)
+        locks = dxu.get_locks(deckid, blockheight, debug=debug)
+        #deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+        #cards = pa.find_all_valid_cards(dxu.provider, deck)
+        #state = pa.protocol.DeckState(cards, cleanup_height=blockheight, debug=debug)
 
         if quiet is True:
             return state.locks
@@ -162,28 +177,30 @@ class Swap:
             return dxu.prettyprint_locks(state.locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
-    def select_coins(self, amount, address=Settings.key.address, utxo_type="pubkeyhash", debug: bool=False):
+    def select_coins(self, amount, address=Settings.key.address, wallet: bool=False, utxo_type="pubkeyhash", debug: bool=False):
         """Prints out all suitable utxos for an exchange transaction.
 
         Usage:
 
-            pacli swap select_coins AMOUNT [ADDRESS]
+            pacli swap select_coins AMOUNT [ADDRESS|-w]
 
         If ADDRESS is not given, the current main address is used.
-        NOTE: due to an upstream bug, coinbase UTXOs can't be used for swaps. They will be ignored.
+        Using the -w flag instead of an address searches UTXOs in the whole wallet.
+        NOTE: due to an upstream bug, coinbase UTXOs can't be used for swaps. They will be ignored by this command.
 
         Args:
 
           address: Alternative address to show suitable UTXOs. To be used as a positional argument (flag name not necessary).
           utxo_type: Specify a different UTXO type (default: pubkeyhash)
+          wallet: Search UTXOs in all addresses of the wallet.
           debug: Show additional debug information.
         """
 
-        addr = ei.run_command(ec.process_address, address, debug=debug)
+        addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
         return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, debug=debug)
 
     # @classmethod
-    def check(self, _txstring: str, buyer_change_address: str=None, token_receiver_address: str=None, amount: str=None, debug: bool=False):
+    def check(self, _txstring: str, change_address: str=None, buyer_address: str=None, amount_coins: str=None, tokens: str=None, debug: bool=False):
         """Checks a swap transaction, allowing the token buyer to see if everything is correct.
 
         Usage:
@@ -191,22 +208,27 @@ class Swap:
             pacli swap check TRANSACTION
 
         TRANSACTION can be either the raw transactions' hex string (TXHEX) or the label of a stored transaction.
-        If no more arguments are given, the transaction's inputs and outputs will be shown.
+        If no more arguments are given, the transaction's inputs and outputs will be shown and basic checks will be performed.
 
         Args:
 
-          token_receiver_address: The address provided by the token buyer to receive the coins.
-          buyer_change_address: The (optional) address provided by the token buyer to receive the change.
-          amount: Amount of coins provided to buy the tokens.
+          buyer_address: The address provided by the token buyer to receive the coins.
+          change_address: The (optional) address provided by the token buyer to receive the change.
+          amount_coins: Amount of coins provided to buy the tokens.
+          tokens: Amount of tokens to receive for the coins.
           debug: Show additional debug information.
         """
         #TODO: swap check still has bug: if no change output is added, it will raise an error.
 
-        kwargs = locals()
-        del kwargs["self"]
-        ei.run_command(self.__check, **kwargs)
+        ei.run_command(self.__check, _txstring,
+                       buyer_change_address=change_address,
+                       token_receiver_address=buyer_address,
+                       amount=amount_coins,
+                       token_amount=tokens,
+                       debug=debug
+                       )
 
-    def __check(self, _txstring: str, buyer_change_address: str=None, token_receiver_address: str=None, amount: str=None, return_state: bool=False, debug: bool=False):
+    def __check(self, _txstring: str, buyer_change_address: str=None, token_receiver_address: str=None, amount: str=None, token_amount: str=None, return_state: bool=False, debug: bool=False):
 
         fail, notmine = False, False
         txhex = ce.show("transaction", _txstring, quiet=True)
@@ -226,6 +248,7 @@ class Swap:
             token_seller = txstruct["inputs"][0]["sender"][0]
             token_buyer = txstruct["inputs"][1]["sender"][0]
             amount_provided = Decimal(str(txstruct["inputs"][1]["value"]))
+            p2th_address = txstruct["outputs"][0]["receivers"][0]
             token_receiver = txstruct["outputs"][2]["receivers"][0] # was 3
             change_receiver = txstruct["outputs"][5]["receivers"][0]
             change_returned = Decimal(str(txstruct["outputs"][5]["value"]))
@@ -233,9 +256,13 @@ class Swap:
             all_outputs = sum([Decimal(str(o["value"])) for o in txstruct["outputs"]])
             tx_fee = all_inputs - all_outputs
             p2th_fee = Decimal(str(txstruct["outputs"][0]["value"]))
+
             op_return_fee = Decimal(str(txstruct["outputs"][1]["value"]))
             card_transfer_fee = Decimal(str(txstruct["outputs"][2]["value"]))
+
             all_fees = tx_fee + p2th_fee + op_return_fee + card_transfer_fee
+
+            op_return_output = txjson["vout"][1]
         except (KeyError, IndexError):
             raise ei.PacliDataError("Incorrect transaction structure. Don't proceed with the transaction.")
 
@@ -274,6 +301,28 @@ class Swap:
             print("This may be intentional if you provided an address of another wallet, or are using this command running the client with a different wallet than the swap's wallet, but can also be a manipulation by the token buyer. Be careful.")
         else:
             print("Ownership check passed: Both the token receiver and the change address for the provided coins are part of your currently used wallet.")
+
+        card_transfer = eu.decode_card(op_return_output)
+        card_amount = card_transfer["amount"][0]
+        decimals = card_transfer["number_of_decimals"]
+        formatted_card_amount = Decimal(str(dxu.exponent_to_amount(card_amount, decimals)))
+        if token_amount is not None:
+            if formatted_card_amount != Decimal(str(token_amount)):
+                fail = True
+                ei.print_red("The number of tokens transferred is {}, while the expected token amount is {}.".format(formatted_card_amount, token_amount))
+            else:
+                print("Token transfer check passed: tokens transferred: {}, expected: {}.".format(formatted_card_amount, token_amount))
+
+        print("Deck ID and lock check (may take some time) ....")
+        matching_decks = eu.find_decks_by_address(p2th_address, addrtype="p2th_main", debug=False)
+        deck = matching_decks[0]["deck"]
+
+        # lock check: tokens need to be locked until at least 100 blocks (default) in the future
+        blockheight = provider.getblockcount()
+        if not dxu.check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
+            # locks: dict, card_sender: str, card_receiver: str, amount: int, blockheight: int, limit: int=None, quiet: bool=False, debug: bool=False)
+            fail = True
+
         if return_state is True:
             return fail
         else:
