@@ -32,15 +32,19 @@ class Swap:
             quiet: bool=False,
             debug: bool=False):
         """Locks a number of tokens on the receiving address.
-
-        Usage:
-
-            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER]
-
-        By default, you specify the number of blocks to lock the tokens; with --blockheight you specify the final block height.
         Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the swap DEX.
         Card default receiver is the sender (the current main address).
         If -r option is used, the cards instead will be sent to the address specified behind that flag. This address becomes the one where you have to initiate a swap from.
+
+        Usage modes:
+
+            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER]
+
+        By default, you specify the relative number of blocks (counted from the current block height) to lock the tokens.
+
+            pacli swap lock TOKEN TOKEN_AMOUNT BLOCKHEIGHT LOCK_ADDRESS [RECEIVER] -b
+
+        Using -b/--blockheight, the third positional argument indicates the absolute block height.
 
         Args:
 

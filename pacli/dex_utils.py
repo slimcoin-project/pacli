@@ -38,7 +38,7 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
     if absolute:
         locktime = lock
         if lock < current_blockheight:
-             print("ERROR: Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
+             raise ei.PacliInputDataError("Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
     else:
         locktime = lock + current_blockheight
     if not quiet:
