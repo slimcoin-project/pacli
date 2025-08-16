@@ -103,7 +103,9 @@ class Swap:
     # @classmethod
     def finalize(self,
                  ftxstr: str,
-                 send: bool=True,
+                 id_deck: str=None,
+                 units: str=None,
+                 send: bool=False,
                  force: bool=False,
                  wait_for_confirmation: bool=False,
                  txhex: bool=False,
@@ -113,13 +115,18 @@ class Swap:
 
         Usage:
 
-            pacli swap finalize TX_HEXSTRING
+            pacli swap finalize TX_HEXSTRING TOKEN UNITS [--send]
 
         TX_HEXSTRING is the partially signed transaction in the format of an hex string.
+        TOKEN can be a label or a token (deck) ID. Mandatory for a safe swap.
+        UNITS is the expected amount of tokens.
+        Check first if everything is correct with a dry run, then add --send to broadcast transaction.
 
         Args:
 
-          send: Sends the transaction (by default set to True).
+          send: Sends the transaction (by default set to False).
+          id_deck: Token (deck) to conduct the swap.
+          units: Token units expected in the swap.
           wait_for_confirmation: Waits for the transaction to confirm.
           force: Creates the transaction even if the checks fail. WARNING: Use with caution, do not use if the token seller insists on it as it can lead to coin/token loss!
           txhex: Shows only the hex string of the transaction.
@@ -131,7 +138,7 @@ class Swap:
         del kwargs["self"]
         return ei.run_command(self.__finalize, **kwargs)
 
-    def __finalize(self, ftxstr: str, send: bool=True, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
+    def __finalize(self, ftxstr: str, id_deck: str=None, units: str=None, send: bool=False, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
 
         txhexstr = ce.show("transaction", ftxstr, quiet=True)
         if txhexstr is None:
@@ -140,12 +147,16 @@ class Swap:
         if force:
             print("WARNING: --force option used. Do only proceed if you REALLY know what your are doing.")
             print("NEVER use this option if your swap counterparty (the token seller) insists on using it.")
-            print("You have 20 seconds to abort the exchange with KeyboardInterrupt (e.g. CTRL-C or CTRL-D).")
+            print("You have 20 seconds to abort the exchange with a keyboard interruption (e.g. CTRL-C or CTRL-D depending on the operating system) or close the terminal window.")
             time.sleep(20)
         else:
-            fail = ei.run_command(self.__check, txhexstr, return_state=True, debug=debug)
+            if id_deck is None:
+                raise ei.PacliInputDataError("No deck provided. Deck check is mandatory.")
+            if units is None:
+                raise ei.PacliInputDataError("Number of expected token units not provided. Mandatory for a safe swap.")
+            fail = ei.run_command(self.__check, txhexstr, return_state=True, deckstr=id_deck, token_amount=units, debug=debug)
             if fail is True:
-                raise ei.PacliDataError("Swap check failed. It is advised to not proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and eventually the change of the coins you paid) on an address you own, use --force. Do NOT use the --force option if you suspect the token seller may trick you into a fraudulent swap.")
+                raise ei.PacliDataError("Swap check failed. It is advised to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and eventually the change of the coins you paid) on an address you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")
         return ei.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
 
     @classmethod
@@ -200,7 +211,7 @@ class Swap:
         return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, debug=debug)
 
     # @classmethod
-    def check(self, _txstring: str, change_address: str=None, buyer_address: str=None, amount_coins: str=None, tokens: str=None, debug: bool=False):
+    def check(self, _txstring: str, token: str=None, change_address: str=None, buyer_address: str=None, amount_coins: str=None, units_token: str=None, debug: bool=False):
         """Checks a swap transaction, allowing the token buyer to see if everything is correct.
 
         Usage:
@@ -215,7 +226,8 @@ class Swap:
           buyer_address: The address provided by the token buyer to receive the coins.
           change_address: The (optional) address provided by the token buyer to receive the change.
           amount_coins: Amount of coins provided to buy the tokens.
-          tokens: Amount of tokens to receive for the coins.
+          token: Label or ID of the token.
+          units_token: Amount of tokens to receive for the coins.
           debug: Show additional debug information.
         """
         #TODO: swap check still has bug: if no change output is added, it will raise an error.
@@ -223,13 +235,15 @@ class Swap:
         ei.run_command(self.__check, _txstring,
                        buyer_change_address=change_address,
                        token_receiver_address=buyer_address,
+                       deckstr=token,
                        amount=amount_coins,
-                       token_amount=tokens,
+                       token_amount=units_token,
                        debug=debug
                        )
 
-    def __check(self, _txstring: str, buyer_change_address: str=None, token_receiver_address: str=None, amount: str=None, token_amount: str=None, return_state: bool=False, debug: bool=False):
+    def __check(self, _txstring: str, deckstr: str=None, buyer_change_address: str=None, token_receiver_address: str=None, amount: str=None, token_amount: str=None, return_state: bool=False, debug: bool=False):
 
+        deckid = eu.search_for_stored_tx_label("deck", deckstr, debug=debug)
         fail, notmine = False, False
         txhex = ce.show("transaction", _txstring, quiet=True)
         if txhex is None:
@@ -270,8 +284,9 @@ class Swap:
         pprint("Token buyer's address: {}".format(token_buyer))
         pprint("Token receiver's address: {}".format(token_receiver))
         if token_receiver != token_buyer:
-            print("WARNING: The address providing the coins for the swap isn't identic to the address which will receive the tokens.")
-            print("This may be intentionally set up by the token buyer for privacy reasons, but can also be a manipulation from the token seller's part.")
+            print("NOTE: The address providing the coins for the swap isn't identic to the address which will receive the tokens.")
+            print("This may be intentionally set up by the token buyer, e.g. for privacy reasons.")
+            print("If you are the token buyer, make sure the token receiver address {} belongs to you (will be checked in the ownership check).".format(token_receiver))
 
         if token_receiver_address is not None and (token_receiver != token_receiver_address):
             ei.print_red("The token receiver address you provided in this check isn't the address receiving the tokens in the swap transaction.")
@@ -298,7 +313,7 @@ class Swap:
                 fail = True
         if notmine is True:
             ei.print_red("Ownership check failed: At least one of the addresses which should be under the token buyer's control in this swap (token receiver and change receiver) isn't part of your current wallet.")
-            print("This may be intentional if you provided an address of another wallet, or are using this command running the client with a different wallet than the swap's wallet, but can also be a manipulation by the token buyer. Be careful.")
+            print("This may be intentional if you provided an address of another wallet, or are using this command running the client with a different wallet than the swap's wallet, but can also be a manipulation by the token buyer.")
         else:
             print("Ownership check passed: Both the token receiver and the change address for the provided coins are part of your currently used wallet.")
 
@@ -316,11 +331,13 @@ class Swap:
         print("Deck ID and lock check (may take some time) ....")
         matching_decks = eu.find_decks_by_address(p2th_address, addrtype="p2th_main", debug=False)
         deck = matching_decks[0]["deck"]
+        if deck.id != deckid:
+            fail = True
+            ei.print_red("Transferred token is not the expected one. Expected token: {}, transferred token: {}.".format(deckid, deck.id))
 
         # lock check: tokens need to be locked until at least 100 blocks (default) in the future
         blockheight = provider.getblockcount()
         if not dxu.check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
-            # locks: dict, card_sender: str, card_receiver: str, amount: int, blockheight: int, limit: int=None, quiet: bool=False, debug: bool=False)
             fail = True
 
         if return_state is True:

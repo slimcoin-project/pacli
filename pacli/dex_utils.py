@@ -93,7 +93,7 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
 # - coinseller_address (formerly partner_address) is now the card receiver.
 # - change of coinseller input must go to coinseller address.
 
-def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, check_lock: bool=True, sign: bool=False, debug: bool=False):
+def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, sign: bool=False, debug: bool=False):
     # TODO: this should also get a quiet option, with the TXHEX stored in the extended config file.
     # the card seller builds the transaction
     my_key = Settings.key
@@ -140,6 +140,10 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
 
     network_params = net_query(provider.network)
     # print(network_params)
+    # lock check: tokens need to be locked until at least 100 blocks (default) in the future
+    if not check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug):
+        pprint("WARNING: Lock check failed, tokens were not properly locked before the swap creation. The buyer will probably reject the swap.")
+
     if sign:
         # sighash has be ALL, otherwise the counterparty could modify it, and anyonecanpay must be False.
         for i in range(len(utxos) - 1): # we sign all inputs minus the last one which is from the coin_seller.
@@ -417,7 +421,7 @@ def check_lock(deck: object, card_sender: str, card_receiver: str, amount: int, 
         return False
     # check 2: card_receiver is the lock address and locktime blockheights are far enough in the future
 
-    matching_locks, lock_amount, lowest_blockheight = [], 0, None
+    matching_locks, lock_amount, lock_heights = [], 0, []
     for lock in sender_locks:
         lock_address = get_lock_address(lock)
         if debug:
@@ -429,16 +433,18 @@ def check_lock(deck: object, card_sender: str, card_receiver: str, amount: int, 
                 continue
             matching_locks.append(lock)
             lock_amount += lock["amount"]
+            lock_heights.append(lock["locktime"])
 
     if not matching_locks:
         if not quiet:
-            print("Lock check failed: No tokens locked to token receiver, or all locks are below the locktime limit.")
+            ei.print_red("Lock check failed: No tokens locked to token receiver, or all locks are below the locktime limit.")
         return False
     # check 3: amount is correct
     formatted_lock_amount = exponent_to_amount(lock_amount, decimals)
     if amount > formatted_lock_amount:
         if not quiet:
-            print("Lock check failed: Locked tokens {}, but swap requires {} tokens.".format(lock_amount, amount))
+            ei.print_red("Lock check failed: Locked tokens {}, but swap requires {} tokens.".format(lock_amount, amount))
         return False
 
+    print("Lock check PASSED. Locked tokens to address {}: {} tokens until at least block {} (limit: {}, current block: {}).".format(card_receiver, formatted_lock_amount, min(lock_heights), locktime_limit, blockheight))
     return True
