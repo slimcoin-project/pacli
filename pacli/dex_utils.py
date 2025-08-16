@@ -38,7 +38,7 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
     if absolute:
         locktime = lock
         if lock < current_blockheight:
-             raise ei.PacliInputDataError("Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
+             raise ei.PacliInputDataError("Aborted. Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
     else:
         locktime = lock + current_blockheight
     if not quiet:
@@ -346,6 +346,7 @@ def select_utxos(minvalue: Decimal,
             print("No usable utxos found.")
             print("Due to an upstream bug, this can happen if all UTXOs on this address come directly from coinbase outputs (mining or minting).")
             print("You can transfer the needed coins from any source, including the same address.")
+            print("If you recently sent coins to this address and they are still not credited, restart the client with the -rescan option.")
             return
         print(len(selected_utxos), "matching utxos found.")
         print("Use this format (TXID:OUTPUT) to initiate a new exchange.")

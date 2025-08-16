@@ -516,7 +516,7 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
         key = pa.Kutil(network=Settings.network, from_wif=wif_key).privkey
     except ValueError as e:
         if "Invalid wif length" in str(e):
-            raise ei.PacliDataError("Address does not exist or your {} client's wallet is locked. Changing the main address is not possible, but if a new label or a fresh address was created they will persist. If your wallet is locked with a passphrase, you need to unlock it and change the main address again.".format(Settings.network.upper()))
+            raise ei.PacliDataError("Address does not exist or your {} client's wallet is locked. Changing the main address wasn't possible, however if you were running this command to create a fresh address with a new label the address was created and associated with the label of your choice. If your wallet is locked with a passphrase, you need to unlock it before you change the main address.".format(Settings.network.upper()))
         else:
             raise ei.PacliDataError("Invalid or non-wallet address (or incorrect command usage).")
         return
