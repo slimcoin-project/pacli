@@ -18,7 +18,6 @@ import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.hash_encoding as henc
 import json
 from decimal import Decimal
-from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 from pypeerassets.pa_constants import param_query

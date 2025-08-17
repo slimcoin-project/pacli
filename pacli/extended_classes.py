@@ -570,7 +570,7 @@ class ExtAddress:
 
           labels: Show only stored labels.
           full_labels: Show only stored labels with network prefix (debugging option).
-          named: Shows only addresses which were named with a label.
+          named: Shows only addresses which were named with a label. Addresses which aren't part of the wallet are shown, but balances then cannot be retrieved.
           keyring: Uses the keyring of your operating system.
           coinbalances: Only shows coin balances, not tokens (faster). Cannot be combined with -j, -f and -l.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
@@ -579,7 +579,7 @@ class ExtAddress:
           only_initialized_p2th: Shows P2TH addresses from initialized decks and auxiliary P2TH addresses stored in the wallet.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
           wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
-          everything: Show all wallet addresses and all P2TH addresses, including those related to uninitialized tokens and auxiliary P2TH addresses, but change addresses may not be found (like a combination of -i and -p). NOTE: If addresses are named and not part of the wallet, they are also shown but their coin balances cannot be retrieve.
+          everything: Show all wallet addresses and all P2TH addresses (like a combination of -i and -p), including those related to uninitialized tokens and auxiliary P2TH addresses, but even in this mode some change addresses may not be found. NOTE: If addresses are named and not part of the wallet, they are also shown but their coin balances cannot be retrieved.
           access_wallet: Access wallet file directly. May expose wallet data, so use only in safe environments. Shows also change addresses other modes sometimes don't find. Can be combined with all other flags except -b, -l and -f. Requires the berkeleydb Python package.
           quiet: Suppress output, printout in script-friendly way.
           debug: Show debug information.
