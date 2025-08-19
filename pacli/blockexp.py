@@ -610,7 +610,7 @@ def load_rpc_txes(filename, sort: bool=False, unconfirmed: bool=False):
         txes.sort(key=lambda d: d["confirmations"], reverse=True) #
     return txes
 
-def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_zerovalue: bool=True, ignore_coinstake: bool=False, debug: bool=False): # debugging function, takes complete txes
+def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_zerovalue: bool=True, ignore_coinstake: bool=False, compute_coinstake: bool=False, debug: bool=False): # debugging function, takes complete txes
 
     utxos = {}
     for tx in txes:
@@ -620,25 +620,46 @@ def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_z
         if debug:
             print("UTXO test: txid", tx["txid"], "conf", tx["confirmations"], "utxos", len(utxos))
 
+        coinstake = is_coinstake(tx)
+        cstake_value = 0
+        if coinstake:
+            if ignore_coinstake:
+                if debug:
+                    print("Coinstake UTXOs ignored for tx:", tx["txid"])
+                continue
+            elif compute_coinstake:
+                coinstake_utxos = {}
         for oup in tx["vout"]:
             oup_tuple = (tx["txid"], oup["n"])
             skey = oup["scriptPubKey"]
-            if ignore_coinstake is True:
-                if oup["n"] == 0 and skey["type"] == "nonstandard":
-                    if debug:
-                        print("Coinstake UTXOs ignored for tx:", tx["txid"])
-                    break
 
             if "addresses" not in skey or address not in skey["addresses"]:
                 continue # only utxos sent to this address will be recorded
-            if ignore_opreturn is True and skey["type"] == "nulldata":
+            if ignore_opreturn is True and skey["type"] == "nulldata": # the 0.01 OPRETURN losses aren't relevant as they're not added to the utxo set balance.
                 continue
             if ignore_zerovalue is True and oup["value"] == 0:
                 continue
             if oup_tuple not in utxos.keys():
-                utxos.update({oup_tuple : oup["value"]})
+                if coinstake and compute_coinstake:
+                    coinstake_utxos.update({oup_tuple : oup["value"]})
+                else:
+                    utxos.update({oup_tuple : oup["value"]})
+
             if debug:
                 print("Added UTXO", oup_tuple)
+
+        if coinstake and compute_coinstake:
+            # theory: compute coinstake subtracting the input value. But the input is then not "spent".
+            cinp = tx["vin"][0]
+            cinp_tuple = (cinp["txid"], cinp["vout"])
+            try:
+                cinp_value = utxos[cinp_tuple]
+                coup_value = sum(coinstake_utxos.values())
+                cvalue = coup_value - cinp_value
+            except KeyError:
+                print("UTXO spent in Coinstake which doesn't exist already:", cinp_tuple)
+            if debug:
+                print("coinstake input:", cinp_tuple, "computed. Value:", cvalue)
         for inp in tx["vin"]:
             if "vout" in inp:
                 inp_tuple = (inp["txid"], inp["vout"])
@@ -678,3 +699,15 @@ def analyze_utxos(utxos: list):
     print("PoB coinbase utxos:", pob_coinbase_utxos)
     print("PoW coinbase utxos:", pow_coinbase_utxos)
     print("Other utxos:", other_utxos)
+
+
+def is_coinstake(tx):
+    try:
+        if tx["vout"][0]["scriptPubKey"]["type"] == "nonstandard":
+            block = provider.getblock(tx["blockhash"])
+            # coinstake tx is at index 1 in proof-of-stake blocks
+            if block["flags"] == "proof-of-stake" and block["tx"].index(tx["txid"]) == 1:
+                return True
+    except:
+        pass
+    return False

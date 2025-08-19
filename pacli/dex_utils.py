@@ -306,6 +306,7 @@ def select_utxos(minvalue: Decimal,
                  maxconf: int=99999999,
                  maxvalue: object=None,
                  utxo_type: str=None,
+                 show_address: bool=False,
                  ignore_coinbase: bool=True,
                  quiet: bool=False,
                  debug: bool=False):
@@ -321,9 +322,13 @@ def select_utxos(minvalue: Decimal,
             continue
         if maxvalue is not None and utxo["amount"] > maxvalue:
             continue
-        if utxo_type is not None:
+        if utxo_type is not None or show_address is True:
             utxo_tx = provider.getrawtransaction(utxo["txid"], 1)
-            utype = utxo_tx["vout"][utxo["vout"]]["scriptPubKey"]["type"]
+            if utxo_type:
+                utype = utxo_tx["vout"][utxo["vout"]]["scriptPubKey"]["type"]
+            if show_address:
+                uaddr = utxo_tx["vout"][utxo["vout"]]["scriptPubKey"]["addresses"]
+                utxo.update({"address" : uaddr})
 
             if ignore_coinbase and ("coinbase" in utxo_tx["vin"][0]):
                 if debug:
@@ -352,14 +357,22 @@ def select_utxos(minvalue: Decimal,
         for utxo in selected_utxos:
             pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
             print("Amount: {} coins".format(utxo.get("amount")))
+            if show_address and "address" in utxo:
+                if len(utxo["address"]) == 1:
+                    print("Address:", utxo["address"][0])
+                else:
+                    print("Addresses (e.g. multisig):", utxo["address"])
 
 # locks
 
-def get_locks(deckid: str, blockheight: int, debug: bool=False):
+def get_locks(deckid: str, blockheight: int, return_deck: bool=False, debug: bool=False):
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     cards = pa.find_all_valid_cards(provider, deck)
     state = pa.protocol.DeckState(cards, cleanup_height=blockheight, debug=debug)
-    return state.locks
+    if return_deck:
+        return (state.locks, deck)
+    else:
+        return state.locks
 
 
 def prettyprint_locks(locks: dict, blockheight: int, decimals: int=None):

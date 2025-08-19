@@ -182,15 +182,15 @@ class Swap:
 
         blockheight = provider.getblockcount() if blockheight is None else blockheight
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
-        locks = dxu.get_locks(deckid, blockheight, debug=debug)
+        locks, deck = dxu.get_locks(deckid, blockheight, return_deck=True, debug=debug)
         #deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         #cards = pa.find_all_valid_cards(dxu.provider, deck)
         #state = pa.protocol.DeckState(cards, cleanup_height=blockheight, debug=debug)
 
         if quiet is True:
-            return state.locks
+            return locks
         else:
-            return dxu.prettyprint_locks(state.locks, blockheight, decimals=deck.number_of_decimals)
+            return dxu.prettyprint_locks(locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
     def select_coins(self, amount, address=Settings.key.address, wallet: bool=False, utxo_type="pubkeyhash", debug: bool=False):
@@ -213,7 +213,7 @@ class Swap:
         """
 
         addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
-        return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, debug=debug)
+        return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, show_address=wallet, debug=debug)
 
     # @classmethod
     def check(self,
