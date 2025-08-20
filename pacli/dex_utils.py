@@ -40,6 +40,9 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
              raise ei.PacliInputDataError("Aborted. Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
     else:
         locktime = lock + current_blockheight
+    if (locktime - current_blockheight) < 100 and not force:
+        raise ei.PacliInputDataError("Aborted. Locktime is too low (< 100 blocks in the future). By default, a token buyer will not accept that lock. Use --force to override this check, e.g. if there is some trust between buyer and seller.")
+
     if not quiet:
         print("Locking tokens until block {} (current blockheight: {})".format(locktime, current_blockheight))
     try:
