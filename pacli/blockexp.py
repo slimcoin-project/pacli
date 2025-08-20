@@ -441,7 +441,7 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
         else:
             ei.print_red("NOT PASSED")
 
-        if debug and balances is not None:
+        if debug and balance is not None:
             rtxes = set([r["txid"] for r in rpc_txes_struct])
             if blockchain_txes:
                 btxes = set([b["txid"] for b in blockchain_txes])
@@ -468,26 +468,28 @@ def get_tx_address_balance(address: str, txstruct: dict, debug: bool=False):
     # print("TX", tx)
     balance = 0
     observed = False
-    for i in txstruct["inputs"]:
-        if address in i["sender"]:
-            if len(set(i["sender"])) == 1:
-                balance -= Decimal(str(i["value"]))
-                if debug:
-                    print("TX {}: Spent: {}".format(txstruct["txid"], i["value"]))
-            else:
-                observed = True
-                if debug:
-                    print("TX {}: OBSERVED. Multiple senders of single input (e.g. multisig): {}".format(txstruct["txid"], str(i["sender"])))
+    height = txstruct["blockheight"]
+
     for o in txstruct["outputs"]:
         if address in o["receivers"]:
             if len(set(o["receivers"])) == 1:
                 balance += Decimal(str(o["value"]))
                 if debug:
-                    print("TX {}: Received: {}".format(txstruct["txid"], o["value"]))
+                    print("TX {}: Received: {} Height: {}".format(txstruct["txid"], o["value"], height))
             else:
                 observed = True
                 if debug:
-                    print("TX {}: OBSERVED. Multiple receivers of single output: {}".format(txstruct["txid"], str(o["receivers"])))
+                    print("TX {}: OBSERVED. Multiple receivers of single output: {}. Height: {}".format(txstruct["txid"], str(o["receivers"]), height))
+    for i in txstruct["inputs"]:
+        if address in i["sender"]:
+            if len(set(i["sender"])) == 1:
+                balance -= Decimal(str(i["value"]))
+                if debug:
+                    print("TX {}: Spent: {} Height: {}".format(txstruct["txid"], i["value"], height))
+            else:
+                observed = True
+                if debug:
+                    print("TX {}: OBSERVED. Multiple senders of single input (e.g. multisig): {}. Height {}".format(txstruct["txid"], str(i["sender"]), height))
 
     return (balance, observed)
 
@@ -610,13 +612,17 @@ def load_rpc_txes(filename, sort: bool=False, unconfirmed: bool=False):
         txes.sort(key=lambda d: d["confirmations"], reverse=True) #
     return txes
 
-def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_zerovalue: bool=True, ignore_coinstake: bool=False, compute_coinstake: bool=False, debug: bool=False): # debugging function, takes complete txes
+def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_zerovalue: bool=True, ignore_coinstake: bool=False, advanced: bool=False, debug: bool=False): # debugging function, takes complete txes
+
+    # TODO: possible source for errors: txes in the same block which spend each other's utxos.
 
     utxos = {}
     for tx in txes:
         conf = tx["confirmations"]
-        if conf == 0:
+        if conf == 0 or "blockhash" not in tx:
             continue
+        # bheight = provider.getblock(tx["blockhash"])["height"]
+        blocktime = tx["blocktime"]
         if debug:
             print("UTXO test: txid", tx["txid"], "conf", tx["confirmations"], "utxos", len(utxos))
 
@@ -627,8 +633,8 @@ def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_z
                 if debug:
                     print("Coinstake UTXOs ignored for tx:", tx["txid"])
                 continue
-            elif compute_coinstake:
-                coinstake_utxos = {}
+            ##elif compute_coinstake:
+            ##    coinstake_utxos = {}
         for oup in tx["vout"]:
             oup_tuple = (tx["txid"], oup["n"])
             skey = oup["scriptPubKey"]
@@ -639,27 +645,32 @@ def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_z
                 continue
             if ignore_zerovalue is True and oup["value"] == 0:
                 continue
-            if oup_tuple not in utxos.keys():
-                if coinstake and compute_coinstake:
-                    coinstake_utxos.update({oup_tuple : oup["value"]})
+            if oup_tuple not in utxos.keys(): # TODO: can that even happen?
+                #if coinstake and compute_coinstake:
+                #    coinstake_utxos.update({oup_tuple : oup["value"]})
+                #else:
+                if advanced:
+                    utxos.update({oup_tuple : {"value" : oup["value"], "coinstake" : coinstake, "blocktime" : blocktime }})
                 else:
                     utxos.update({oup_tuple : oup["value"]})
 
             if debug:
                 print("Added UTXO", oup_tuple)
 
-        if coinstake and compute_coinstake:
-            # theory: compute coinstake subtracting the input value. But the input is then not "spent".
-            cinp = tx["vin"][0]
-            cinp_tuple = (cinp["txid"], cinp["vout"])
-            try:
-                cinp_value = utxos[cinp_tuple]
-                coup_value = sum(coinstake_utxos.values())
-                cvalue = coup_value - cinp_value
-            except KeyError:
-                print("UTXO spent in Coinstake which doesn't exist already:", cinp_tuple)
-            if debug:
-                print("coinstake input:", cinp_tuple, "computed. Value:", cvalue)
+        #if coinstake and compute_coinstake:
+        #    # theory: compute coinstake subtracting the input value. But the input is then not "spent".
+        #    cinp = tx["vin"][0]
+        #    cinp_tuple = (cinp["txid"], cinp["vout"])
+        #    try:
+        #        cinp_value = utxos[cinp_tuple]
+        #        coup_value = sum(coinstake_utxos.values())
+        #        cvalue = coup_value - cinp_value
+        #    except KeyError:
+        #        print("UTXO spent in Coinstake which doesn't exist already:", cinp_tuple)
+        #    if debug:
+        #        print("coinstake input:", cinp_tuple, "computed. Value:", cvalue)
+
+
         for inp in tx["vin"]:
             if "vout" in inp:
                 inp_tuple = (inp["txid"], inp["vout"])

@@ -140,8 +140,17 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     network_params = net_query(provider.network)
     # print(network_params)
     # lock check: tokens need to be locked until at least 100 blocks (default) in the future
+    print("Checking token balance and locks ...")
     if not check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug):
-        pprint("WARNING: Lock check failed, tokens were not properly locked before the swap creation. The buyer will probably reject the swap.")
+        pprint("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap.")
+        # token balance check
+
+        token_balance = eu.get_address_token_balance(deck, my_address)
+        if token_balance < card_amount:
+            raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
+        print("Token balance of the sender:", token_balance)
+    else:
+        print("Lock check passed: Enough tokens are on the sender's address and properly locked.")
 
     if sign:
         # sighash has be ALL, otherwise the counterparty could modify it, and anyonecanpay must be False.

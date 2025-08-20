@@ -19,8 +19,8 @@ class Swap:
     def lock(self,
             idstr: str,
             amount: str,
-            lock: int,
             lockaddr: str,
+            lock: int=1000,
             receiver: str=None,
             blockheight: bool=False,
             addrtype: str="p2pkh",
@@ -35,14 +35,16 @@ class Swap:
         Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the swap DEX.
         Card default receiver is the sender (the current main address).
         If -r option is used, the cards instead will be sent to the address specified behind that flag. This address becomes the one where you have to initiate a swap from.
+        NOTE: The token buyer, by default, will reject swaps where the tokens are not locked for at least 100 blocks after they run the command to finalize the swap.
+        For this reason, it is advised to chose a much higher locktime, e.g. 1000 blocks (the default).
 
         Usage modes:
 
-            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_BLOCKS LOCK_ADDRESS [RECEIVER]
+            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_ADDRESS [LOCK_BLOCKS] [RECEIVER]
 
-        By default, you specify the relative number of blocks (counted from the current block height) to lock the tokens.
+        By default, you specify the relative number of blocks (counted from the current block height) to lock the tokens (default: 1000).
 
-            pacli swap lock TOKEN TOKEN_AMOUNT BLOCKHEIGHT LOCK_ADDRESS [RECEIVER] -b
+            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_ADDRESS [BLOCKHEIGHT] [RECEIVER] -b
 
         Using -b/--blockheight, the third positional argument indicates the absolute block height.
 
@@ -61,12 +63,12 @@ class Swap:
          """
 
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
-        change_address = ec.process_address(change, debug=debug)
-        lock_address = ec.process_address(lockaddr, debug=debug)
+        change_address = ei.run_command(ec.process_address, change, debug=debug)
+        lock_address = ei.run_command(ec.process_address, lockaddr, debug=debug)
         if receiver is None:
             receiver_address = Settings.key.address
         else:
-            receiver_address = ec.process_address(receiver)
+            receiver_address = ei.run_command(ec.process_address, receiver)
         return ei.run_command(dxu.card_lock, deckid=deckid, amount=str(amount), lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
@@ -89,6 +91,7 @@ class Swap:
 
         PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual). PARTNER_ADDRESS can be an address or a label of a stored address.
         NOTE: To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
+        NOTE 2: tokens need to be locked until at least 100 blocks (default) in the future for the token buyer accepting the swap by default. It is advisable to lock them for significantly more blocks than that.
 
         Args:
 

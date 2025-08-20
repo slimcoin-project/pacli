@@ -12,6 +12,7 @@ from pypeerassets.transactions import (tx_output,
 from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import sign_transaction, sendtx
+from pacli.extended_utils import finalize_tx
 
 
 class Coin:
@@ -20,14 +21,26 @@ class Coin:
 
     def sendto(self, address: Union[str], amount: Union[float],
                locktime: int=0) -> str:
-        '''send coins to address'''
+        '''Send coins from the current main address to another address(es).
 
-        if not len(address) == amount:
+        Usage:
+
+            pacli coin sendto [ADDRESS1, ADDRESS2 ...] [AMOUNT1, AMOUNT2 ...]
+
+        Brackets are mandatory even if there is only one address and amount.
+        Number of addresses and amounts must match.
+
+        Args:
+
+            locktime: Specify a lock time.'''
+
+        if not len(address) == len(amount):
             raise RecieverAmountMismatch
 
         network_params = net_query(Settings.network)
 
-        inputs = provider.select_inputs(Settings.key.address, sum(amount))
+        amount_sum = sum(amount)
+        inputs = provider.select_inputs(Settings.key.address, amount_sum)
 
         outs = []
 
@@ -40,7 +53,7 @@ class Coin:
             )
 
         #  first round of txn making is done by presuming minimal fee
-        change_sum = Decimal(inputs['total'] - network_params.min_tx_fee)
+        change_sum = Decimal(inputs['total'] - amount_sum - network_params.min_tx_fee)
 
         outs.append(
             tx_output(network=provider.network,
@@ -55,9 +68,10 @@ class Coin:
                                            locktime=Locktime(locktime)
                                            )
 
-        signedtx = sign_transaction(provider, unsigned_tx, Settings.key)
+        #signedtx = sign_transaction(provider, unsigned_tx, Settings.key)
+        finalize_tx(unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
 
-        return sendtx(signedtx)
+        # return sendtx(signedtx)
 
     def opreturn(self, string: hex, locktime: int=0) -> str:
         '''send op_return transaction'''
