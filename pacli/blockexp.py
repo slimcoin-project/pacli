@@ -461,38 +461,6 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
             print("Try to rescan the blockchain, restarting the {} client with the -rescan option, and repeat the test.".format(Settings.network.upper()))
             print("If the test still doesn't pass, sometimes restarting the {} client again works.".format (Settings.network.upper()))
 
-
-
-def get_tx_address_balance(address: str, txstruct: dict, debug: bool=False):
-    # this takes TX Structure as a dict!
-    # print("TX", tx)
-    balance = 0
-    observed = False
-    height = txstruct["blockheight"]
-
-    for o in txstruct["outputs"]:
-        if address in o["receivers"]:
-            if len(set(o["receivers"])) == 1:
-                balance += Decimal(str(o["value"]))
-                if debug:
-                    print("TX {}: Received: {} Height: {}".format(txstruct["txid"], o["value"], height))
-            else:
-                observed = True
-                if debug:
-                    print("TX {}: OBSERVED. Multiple receivers of single output: {}. Height: {}".format(txstruct["txid"], str(o["receivers"]), height))
-    for i in txstruct["inputs"]:
-        if address in i["sender"]:
-            if len(set(i["sender"])) == 1:
-                balance -= Decimal(str(i["value"]))
-                if debug:
-                    print("TX {}: Spent: {} Height: {}".format(txstruct["txid"], i["value"], height))
-            else:
-                observed = True
-                if debug:
-                    print("TX {}: OBSERVED. Multiple senders of single input (e.g. multisig): {}. Height {}".format(txstruct["txid"], str(i["sender"]), height))
-
-    return (balance, observed)
-
 def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, debug: bool=False) -> None:
 
     locator = bu.get_default_locator()
@@ -574,7 +542,39 @@ def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, de
                     print("{}: {}".format(readable[k], v))
 
 
+def get_tx_address_balance(address: str, txstruct: dict, debug: bool=False):
+    # this takes TX Structure as a dict!
+    # print("TX", tx)
+    balance = 0
+    observed = False
+    height = txstruct["blockheight"]
+
+    for o in txstruct["outputs"]:
+        if address in o["receivers"]:
+            if len(set(o["receivers"])) == 1:
+                balance += Decimal(str(o["value"]))
+                if debug:
+                    print("TX {}: Received: {} Height: {}".format(txstruct["txid"], o["value"], height))
+            else:
+                observed = True
+                if debug:
+                    print("TX {}: OBSERVED. Multiple receivers of single output: {}. Height: {}".format(txstruct["txid"], str(o["receivers"]), height))
+    for i in txstruct["inputs"]:
+        if address in i["sender"]:
+            if len(set(i["sender"])) == 1:
+                balance -= Decimal(str(i["value"]))
+                if debug:
+                    print("TX {}: Spent: {} Height: {}".format(txstruct["txid"], i["value"], height))
+            else:
+                observed = True
+                if debug:
+                    print("TX {}: OBSERVED. Multiple senders of single input (e.g. multisig): {}. Height {}".format(txstruct["txid"], str(i["sender"]), height))
+
+    return (balance, observed)
+
+
 def get_balances_from_structs(address_list: list, txes: list, endblock: int=None, debug: bool=False):
+    # TODO this may be flawed, it gives different results than the UTXO analysis.
     balances = {}
     # coinbase_balance = Decimal(0)
     for address in address_list:

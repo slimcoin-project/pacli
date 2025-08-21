@@ -177,18 +177,14 @@ class Swap:
 
         Args:
 
-          blockheight: Specify a block height to show locks at (BUGGY). To be used as a positional argument (flag name not necessary).
+          blockheight: Specify a block height to show locks at. To be used as a positional argument (flag name not necessary).
           quiet: Don't prettyprint the lock dictionary and suppress additional output.
           debug: Show debug information.
         """
-        # TODO: blockheight seems not to work.
 
         blockheight = provider.getblockcount() if blockheight is None else blockheight
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
         locks, deck = dxu.get_locks(deckid, blockheight, return_deck=True, debug=debug)
-        #deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        #cards = pa.find_all_valid_cards(dxu.provider, deck)
-        #state = pa.protocol.DeckState(cards, cleanup_height=blockheight, debug=debug)
 
         if quiet is True:
             return locks

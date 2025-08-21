@@ -392,9 +392,9 @@ def prettyprint_locks(locks: dict, blockheight: int, decimals: int=None):
     if len(locks) == 0:
         print("No locks found.")
     for address in locks.keys():
-        pprint("Origin address: {}".format(address))
+        print("Origin address: {}".format(address))
         for lock in locks.get(address):
-            pprint("* Lock until block: {}".format(lock.get("locktime")))
+            print("* Lock until block: {}".format(lock.get("locktime")))
             #try:
             #    lock_address = henc.hash_to_address(lock.get("lockhash"), lock.get("lockhash_type"), net_query(provider.network))
             lock_address = get_lock_address(lock)
@@ -404,12 +404,12 @@ def prettyprint_locks(locks: dict, blockheight: int, decimals: int=None):
                 print("* Lock hash: {}".format(lock.get("lockhash")))
                 print("* Lock hash type: {}".format(lock.get("lockhash_type")))
             else:
-                pprint("* Lock address (address to receive the tokens): {}".format(lock_address))
+                print("* Lock address (address to receive the tokens): {}".format(lock_address))
             if decimals:
                 lock_amount = exponent_to_amount(lock["amount"], decimals) # Decimal(lock["amount"]) / (10 ** decimals)
-                pprint("* Tokens locked (units): {}".format(lock_amount))
+                print("* Tokens locked (units): {}".format(lock_amount))
             else:
-                pprint("* Tokens locked (minimum units): {}".format(lock.get("amount")))
+                print("* Tokens locked (minimum units): {}".format(lock.get("amount")))
 
 def get_lock_address(lock: dict) -> str:
     try:
