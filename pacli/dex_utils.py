@@ -65,12 +65,15 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
         cards = pa.find_all_valid_cards(provider, deck)
         state = pa.protocol.DeckState(cards, cleanup_height=current_blockheight, debug=debug)
         balance = state.balances.get(card_sender, 0)
-        locked_amount = get_locked_amount(state.locks, card_sender)
-        available_token_units = balance - locked_amount
+        locked_units = get_locked_amount(state.locks, card_sender)
+        available_token_units = balance - locked_units
         if debug:
             print("Available token units: {} Token units to lock: {}".format(available_token_units, unit_amount))
         if unit_amount > available_token_units:
-            raise ei.PacliDataError("Not enough funds. Balance may be too low, and already locked tokens can't be used for locks.")
+            balance_tokens = exponent_to_amount(balance, deck.number_of_decimals)
+            locked_tokens = exponent_to_amount(locked_units, deck.number_of_decimals)
+            available_tokens = exponent_to_amount(available_token_units, deck.number_of_decimals)
+            raise ei.PacliDataError("Not enough tokens: Total balance: {}, Locked: {}, required: {}. Locked tokens can't be used for new locks.".format(balance_tokens, locked_tokens, amount))
 
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,

@@ -8,6 +8,7 @@ from pypeerassets.transactions import (tx_output,
                                        nulldata_script,
                                        make_raw_transaction,
                                        Locktime)
+from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -74,20 +75,36 @@ class Coin:
         # return sendtx(signedtx)
 
     def opreturn(self, string: hex, locktime: int=0) -> str:
-        '''send op_return transaction'''
+        '''Send OP_RETURN transaction from the current main address.
+
+        Usage:
+
+            pacli coin opreturn STRING
+
+        The STRING must be a valid number of hexadecimal bytes.
+
+        Args:
+
+            locktime: Specify a lock time.'''
 
         network_params = net_query(Settings.network)
 
-        inputs = provider.select_inputs(Settings.key.address, 0.01)
+        if is_legacy_blockchain(Settings.network, "nulldata"):
+            op_return_fee = legacy_mintx(Settings.network) * Decimal(str(network_params.from_unit))
+        else:
+            op_return_fee = 0
+        total_fees = op_return_fee + network_params.min_tx_fee
+
+        inputs = provider.select_inputs(Settings.key.address, total_fees)
 
         outs = [tx_output(network=provider.network,
-                          value=Decimal(0), n=1,
-                          script=nulldata_script(bytes.fromhex(string))
+                          value=Decimal(op_return_fee), n=1,
+                          script=nulldata_script(bytes.fromhex(str(string)))
                           )
                 ]
 
         #  first round of txn making is done by presuming minimal fee
-        change_sum = Decimal(inputs['total'] - network_params.min_tx_fee)
+        change_sum = Decimal(inputs['total'] - total_fees)
 
         outs.append(
             tx_output(network=provider.network,
@@ -102,6 +119,7 @@ class Coin:
                                            locktime=Locktime(locktime)
                                            )
 
-        signedtx = sign_transaction(provider, unsigned_tx, Settings.key)
+        #signedtx = sign_transaction(provider, unsigned_tx, Settings.key)
 
-        return sendtx(signedtx)
+        #return sendtx(signedtx)
+        finalize_tx(unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
