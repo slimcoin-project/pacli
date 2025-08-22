@@ -196,7 +196,7 @@ def get_all_transactions(address: str=None,
 
         if (address or firstsender or sender) or advanced is False:
             try:
-                struct = get_tx_structure(tx=tx, human_readable=False, add_txid=True)
+                struct = get_tx_structure(tx=tx, human_readable=False, add_txid=True) # this does not call getrawtransaction, the tx is already loaded
             except ei.PacliDataError as e:
                 if debug:
                     print("Bad tx data:", tx, e)

@@ -1845,7 +1845,7 @@ class ExtTransaction:
 
         Args:
 
-          access_wallet: Access wallet database directly (use only in safe environments, may expose wallet data!). A custom data directory can be given after -a. Cannot be combined with -x, -c nor -m. Requires berkeleydb package. Slow.
+          access_wallet: Access wallet database directly (use only in safe environments, may expose wallet data!). A custom data directory can be given after -a. Cannot be combined with -x, -c, -m nor -s and -r. Requires berkeleydb package. Slow.
           burntxes: Only show burn transactions.
           claimtxes: Show reward claim transactions (see Usage modes) (not to be combined with -x, -b, -g and -a).
           debug: Provide debugging information.
@@ -1910,13 +1910,14 @@ class ExtTransaction:
         # --access_wallet: tx_structure or tx JSON
         # -j: always tx JSON
         # -z: listtransactions output
-        # without any label: custom dict with main parameters
-        # -c: very custom "embellished" dict, should be changed -> "basic" mode now shows a more "standard" dict
+        # without any label: tx JSON, tx structure or custom dict with main parameters if --sent or --received was used.
+        # -c: very custom "embellished" dict, in "basic" mode shows a more "standard" dict
         # NOTE: harmonization of -o done for -c -g and -b it is mandatory now if result should be restricted to an address.
 
         address_or_deck = _value1
         address = _value2
         ignore_confpar = False
+        txstruct = False
 
         if (burntxes or gatewaytxes or claimtxes) and (origin == True):
             origin = Settings.key.address
@@ -1962,13 +1963,6 @@ class ExtTransaction:
             txes = ce.list("transaction", quiet=quiet, prettyprint=False, return_list=True)
             if json is True:
                 txes = [{key : provider.decoderawtransaction(item[key])} for item in txes for key in item]
-        #elif wallet or zraw:
-        #    if use_db is True:
-        #        # NOTE: there's no further wallet restriction here (all txes in the wallet file are shown).
-        #        txes = dbu.get_all_transactions(sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
-        #    else:
-        #        txes = ec.get_address_transactions(sent=sent, received=received, advanced=json, sort=True, wallet=wallet, debug=debug, include_coinbase=view_coinbase, keyring=keyring, raw=zraw)
-
         else:
             if wallet or zraw:
                 address, wallet = None, True
@@ -1976,12 +1970,14 @@ class ExtTransaction:
                 # returns all transactions from or to that address in the wallet.
                 address = Settings.key.address if address_or_deck is None else address_or_deck
             if use_db is True:
+                txstruct = False if json else True
                 txes = dbu.get_all_transactions(address=address, sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
-            else:
-                # txes = ec.get_address_transactions(addr_string=address, sent=sent, received=received, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
-                txes = ec.get_address_transactions(addr_string=address, wallet=wallet, sent=sent, received=received, raw=zraw, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, debug=debug)
 
-        if (xplore or burntxes or gatewaytxes) and (not json):
+            else:
+                txstruct = False if (json or sent or received) else True
+                txes = ec.get_address_transactions(addr_string=address, wallet=wallet, sent=sent, received=received, raw=zraw, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, txstruct=txstruct, debug=debug)
+
+        if (xplore or burntxes or gatewaytxes or txstruct) and (not json):
             confpar = "blockheight"
         elif claimtxes:
             confpar = "tx_confirmations" if json else "Block height"

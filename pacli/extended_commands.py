@@ -5,6 +5,7 @@ import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.config_extended as ce
 import pacli.extended_constants as c
+from pacli.blockexp_utils import get_tx_structure
 from pypeerassets.pautils import exponent_to_amount
 from pacli.config import Settings
 from pacli.provider import provider
@@ -151,8 +152,10 @@ def get_address_transactions(addr_string: str=None,
                              unconfirmed: bool=True,
                              wallet: bool=False,
                              raw: bool=False,
+                             txstruct: bool=False,
                              debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
+    # TODO: a mode would be useful where the tx_structure is returned here instead of the simplified TX dict.
 
     if not wallet and not raw:
         address = process_address(addr_string, keyring=keyring, try_alternative=False)
@@ -248,6 +251,10 @@ def get_address_transactions(addr_string: str=None,
 
         tx = provider.getrawtransaction(txid, 1)
         txdict = None
+        if txstruct:
+            formatted_tx = get_tx_structure(tx=tx, human_readable=False, add_txid=True)
+        elif advanced:
+            formatted_tx = tx
         try:
             confs = tx["confirmations"]
         except KeyError:
@@ -281,7 +288,10 @@ def get_address_transactions(addr_string: str=None,
                     value_sent += sender_dict["value"]
 
                     if txdict is None:
-                        txdict = tx if advanced else {"txid" : tx["txid"], "type": ["send"], "value_sent" : value_sent, "confirmations": confs}
+                        if advanced or txstruct:
+                            txdict = formatted_tx
+                        else:
+                            txdict = {"txid" : tx["txid"], "type": ["send"], "value_sent" : value_sent, "confirmations": confs}
                         if advanced:
                             break
                     else:
@@ -323,12 +333,15 @@ def get_address_transactions(addr_string: str=None,
             # This could be problematic in the future if 0-value-txes are allowed.
             if value_received > 0:
                 if txdict is not None:
-                    if not advanced and "type" in txdict:
+                    if not advanced and not txstruct and "type" in txdict:
                         # print(txdict["type"], categories)
                         txdict["type"] += categories
                         txdict.update({"value_received" : value_received})
                 else:
-                    txdict = tx if advanced else {"txid" : tx["txid"], "type" : categories, "value_received": value_received, "confirmations": confs}
+                    if advanced or txstruct:
+                        txdict = formatted_tx
+                    else:
+                        txdict = {"txid" : tx["txid"], "type" : categories, "value_received": value_received, "confirmations": confs}
 
                 if debug:
                     print("True.")
@@ -345,8 +358,11 @@ def get_address_transactions(addr_string: str=None,
 
     if sort:
         if debug:
-            print("Sorting result by confirmations ...")
-        result.sort(key=lambda x: x["confirmations"], reverse=reverse_sort)
+            print("Sorting result by confirmations or block height ...")
+        if txstruct:
+            result.sort(key=lambda x: x["blockheight"], reverse=not reverse_sort) # inverted sorting
+        else:
+            result.sort(key=lambda x: x["confirmations"], reverse=reverse_sort)
 
     return result
 
