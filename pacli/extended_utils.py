@@ -9,7 +9,7 @@ from pypeerassets.networks import net_query
 from pypeerassets.pa_constants import param_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
-from pypeerassets.pautils import amount_to_exponent, exponent_to_amount, parse_card_transfer_metainfo
+from pypeerassets.pautils import amount_to_exponent, exponent_to_amount, parse_card_transfer_metainfo, read_tx_opreturn
 from pypeerassets.exceptions import InsufficientFunds
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
@@ -924,3 +924,15 @@ def decode_card(op_return_output):
 
     return parse_card_transfer_metainfo(bytes.fromhex(script),
                                             Settings.deck_version)
+
+def read_all_tx_opreturns(txid: str=None, tx: str=None):
+    if txid and not tx:
+        tx = provider.getrawtransaction(txid, 1)
+    opreturns = {}
+    for n, output in enumerate(tx["vout"]):
+        try:
+            opreturn = read_tx_opreturn(output)
+            opreturns.update({n : opreturn})
+        except:
+            pass
+    return opreturns

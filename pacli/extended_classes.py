@@ -1657,7 +1657,15 @@ class ExtTransaction:
         return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify, debug=show_debug_info)
 
 
-    def show(self, label_or_idstr: str, claim: str=None, txref: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, id: bool=False):
+    def show(self,
+             label_or_idstr: str,
+             claim: str=None,
+             txref: str=None,
+             structure: bool=False,
+             decode: bool=False,
+             opreturn: bool=False,
+             id: bool=False,
+             quiet: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
@@ -1675,6 +1683,10 @@ class ExtTransaction:
 
             Shows senders and receivers of any transaction.
 
+        pacli transaction show TXID -o
+
+            Shows OP_RETURN content of the transaction, if present.
+
         pacli transaction show TOKEN -c CLAIM_TXID
 
             Shows parameters of a claim transaction CLAIM_TXID.
@@ -1690,12 +1702,21 @@ class ExtTransaction:
            txref: In combination with -c, shows a claim corresponding to a burn, gateway or donation transaction.
            quiet: Suppress output, printout in script-friendly way.
            decode: Show transaction in JSON format (default: hex format).
+           opreturn: Show the OP_RETURN byte string(s) in the transaction.
            id: Show transaction ID.
 
         """
-        return ei.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, decode=decode, txid=id)
+        return ei.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, opreturn=opreturn, decode=decode, txid=id)
 
-    def __show(self, idstr: str, claim: str=None, txref: str=None, quiet: bool=False, structure: bool=False, decode: bool=False, txid: bool=False):
+    def __show(self,
+               idstr: str,
+               claim: str=None,
+               txref: str=None,
+               structure: bool=False,
+               opreturn: bool=False,
+               decode: bool=False,
+               txid: bool=False,
+               quiet: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
 
         hexstr = decode is False and structure is False
@@ -1713,17 +1734,21 @@ class ExtTransaction:
             else:
                 pprint(txes)
 
-        elif structure is True:
+        elif structure is True or opreturn is True:
 
             if not eu.is_possible_txid(idstr):
-                raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s mode currently doesn't support labels.")
+                raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s and --opreturn/-o modes currently don't support labels.")
 
-            tx_structure = ei.run_command(bu.get_tx_structure, txid=idstr)
+            if structure is True:
+                result = ei.run_command(bu.get_tx_structure, txid=idstr)
+            elif opreturn is True:
+
+                result = eu.read_all_tx_opreturns(idstr)
 
             if quiet is True:
-                return tx_structure
+                return result
             else:
-                pprint(tx_structure)
+                pprint(result)
 
         else:
             result = ce.show("transaction", idstr, quiet=True)
