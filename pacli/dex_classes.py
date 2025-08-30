@@ -162,7 +162,7 @@ class Swap:
                 raise ei.PacliInputDataError("No deck provided. Deck check is mandatory.")
             if units is None:
                 raise ei.PacliInputDataError("Number of expected token units not provided. Mandatory for a safe swap.")
-            fail = ei.run_command(self.__check, txhexstr, return_state=True, deckstr=id_deck, token_amount=units, presign_check=True, debug=debug)
+            fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=units, presign_check=True, debug=debug)
             if fail is True:
                 raise ei.PacliDataError("Swap check failed. It is either not possible to continue or highly recommended to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and the change of the coins you paid) on addresses you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")
         return ei.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
@@ -248,7 +248,7 @@ class Swap:
         ei.run_command(self.__check, _txstring,
                        buyer_change_address=change_address,
                        token_receiver_address=buyer_address,
-                       deckstr=token,
+                       token=token,
                        amount=amount_coins,
                        token_amount=units_token,
                        presign_check=presign_check,
@@ -257,7 +257,7 @@ class Swap:
 
     def __check(self,
                 _txstring: str,
-                deckstr: str=None,
+                token: str=None,
                 buyer_change_address: str=None,
                 token_receiver_address: str=None,
                 amount: str=None,
@@ -266,7 +266,7 @@ class Swap:
                 presign_check: bool=False,
                 debug: bool=False):
 
-        deckid = eu.search_for_stored_tx_label("deck", deckstr, debug=debug)
+        deckid = None if token is None else eu.search_for_stored_tx_label("deck", token, debug=debug)
         fail, notmine = False, False
         txhex = ce.show("transaction", _txstring, quiet=True)
         if txhex is None:
@@ -357,12 +357,13 @@ class Swap:
             else:
                 print("Token transfer check passed: tokens transferred: {}, expected: {}.".format(formatted_card_amount, token_amount))
 
-        print("Deck ID and lock check (may take some time) ....")
-        matching_decks = eu.find_decks_by_address(p2th_address, addrtype="p2th_main", debug=False)
-        deck = matching_decks[0]["deck"]
-        if deck.id != deckid:
-            fail = True
-            ei.print_red("Transferred token is not the expected one. Expected token: {}, transferred token: {}.".format(deckid, deck.id))
+        if deckid:
+            print("Deck ID and lock check (may take some time) ....")
+            matching_decks = eu.find_decks_by_address(p2th_address, addrtype="p2th_main", debug=False)
+            deck = matching_decks[0]["deck"]
+            if deck.id != deckid:
+                fail = True
+                ei.print_red("Transferred token is not the expected one. Expected token: {}, transferred token: {}.".format(deckid, deck.id))
 
         # lock check: tokens need to be locked until at least 100 blocks (default) in the future
         blockheight = provider.getblockcount()
