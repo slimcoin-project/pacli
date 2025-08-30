@@ -118,7 +118,7 @@ def show_wallet_dtxes(deckid: str=None,
         if debug:
             print("Retrieving transactions from wallet.dat ...")
         # NOTE: set advanced to False to retrieve only the transactions.
-        db_txes = dbu.get_all_transactions(firstsender=sender, receiver=tracked_address, sort=True, advanced=False, datadir=datadir, wholetx=True, exclude_coinbase=True, debug=debug)
+        db_txes = dbu.get_all_transactions(firstsender=sender, receiver=tracked_address, sort=True, advanced=False, datadir=datadir, wholetx=True, include_coinbase=False, debug=debug)
         db_structs = { txstruct["txid"] : txstruct for txstruct in db_txes }
         if debug:
             print("{} matching transactions found.".format(len(db_structs)))

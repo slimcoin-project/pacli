@@ -18,6 +18,7 @@ def show_txes_by_block(sending_addresses: list=[],
                        quiet: bool=False,
                        coinbase: bool=False,
                        advanced: bool=False,
+                       advanced_struct: bool=False,
                        require_sender_and_receiver: bool=False,
                        force_storing: bool=False,
                        use_locator: bool=False,
@@ -138,7 +139,9 @@ def show_txes_by_block(sending_addresses: list=[],
 
             for txid in block_txes:
                 try:
-                    tx_struct = get_tx_structure(txid=txid)
+                    txjson = provider.getrawtransaction(txid, 1)
+                    # tx_struct = get_tx_structure(txid=txid)
+                    tx_struct = get_tx_structure(tx=txjson)
                 except Exception as e:
                     if debug:
                         print("TX {} Error: {}".format(txid, e))
@@ -164,10 +167,13 @@ def show_txes_by_block(sending_addresses: list=[],
 
                 if all_txes or addr_present:
                     if advanced:
-                        tx_dict = provider.getrawtransaction(txid, 1)
+                        # tx_dict = provider.getrawtransaction(txid, 1)
+                        tx_dict = txjson
                     else:
                         tx_dict = {"txid" : txid}
                         tx_dict.update(tx_struct)
+                        if advanced_struct:
+                            tx_dict.update({"txjson" : txjson})
                         if debug:
                             print("TX detected: {} struct: {}".format(txid, tx_struct))
 

@@ -179,7 +179,7 @@ def get_all_transactions(address: str=None,
                          advanced: bool=False,
                          wholetx: bool=True,
                          sort: bool=False,
-                         exclude_coinbase: bool=False,
+                         include_coinbase: bool=True,
                          debug: bool=False):
     # TODO to speed up this for -g/-b, it would be necessary to exclude some of the txes, e.g. coinbase. For these we wouldn't need the getrawtransactions.
 
@@ -188,7 +188,7 @@ def get_all_transactions(address: str=None,
     txes = []
     for tx_tuple in yield_transactions(d, ignore_corrupted=True, debug=debug):
         txid, tx = tx_tuple
-        if exclude_coinbase:
+        if include_coinbase is not True:
             if "coinbase" in [v.keys() for v in tx["vin"]]:
                 continue
         if receiver is not None and not et.check_receiver(tx, receiver): # optimization: receivers are much cheaper to check

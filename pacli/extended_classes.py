@@ -690,7 +690,16 @@ class ExtAddress:
                                   access_wallet=access_wallet,
                                   debug=debug)
 
-    def balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, txbalance: bool=False, wallet: bool=False, json: str=None, quiet: bool=False, debug: bool=False):
+    def balance(self,
+                label_or_address: str=None,
+                keyring: bool=False,
+                integrity_test: bool=False,
+                txbalance: bool=False,
+                wallet: bool=False,
+                json: str=None,
+                skip_rpc: bool=False,
+                quiet: bool=False,
+                debug: bool=False):
         """Shows the balance of an address, by default of the current main address.
 
         Usage modes:
@@ -733,12 +742,31 @@ class ExtAddress:
            address_or_label: To be used as a positional argument (without flag keyword), see "Usage modes" above.
            quiet: Do not output additional information, only the balance.
            debug: Show debug information.
+           skip_rpc: Skip RPC txes collection in the intergrity test (only with -i, faster).
            json: Store or load txes to/from json file FILENAME (only with -t and -i, debugging option).
         """
 
-        return ei.run_command(self.__balance, label_or_address=label_or_address, keyring=keyring, integrity_test=integrity_test, txbalance=txbalance, wallet=wallet, json=json, quiet=quiet, debug=debug)
+        return ei.run_command(self.__balance,
+                              label_or_address=label_or_address,
+                              keyring=keyring,
+                              integrity_test=integrity_test,
+                              txbalance=txbalance,
+                              wallet=wallet,
+                              json=json,
+                              skip_rpc=skip_rpc,
+                              quiet=quiet,
+                              debug=debug)
 
-    def __balance(self, label_or_address: str=None, keyring: bool=False, integrity_test: bool=False, txbalance: bool=False, wallet: bool=False, json: str=None, quiet: bool=False, debug: bool=False):
+    def __balance(self,
+                  label_or_address: str=None,
+                  keyring: bool=False,
+                  integrity_test: bool=False,
+                  txbalance: bool=False,
+                  wallet: bool=False,
+                  json: str=None,
+                  skip_rpc: bool=False,
+                  quiet: bool=False,
+                  debug: bool=False):
 
         ke.check_main_address_lock()
         if label_or_address is not None:
@@ -771,7 +799,7 @@ class ExtAddress:
             if integrity_test or debug:
                 print("Getting RPC txes ...")
 
-            if json:
+            if json and not skip_rpc:
                 try:
                     rpc_txes = bx.load_rpc_txes(json, sort=True, unconfirmed=False)
                     if debug:
@@ -780,8 +808,10 @@ class ExtAddress:
                     rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
                     bx.store_rpc_txes(rpc_txes, json)
                     return
-            else:
+            elif not skip_rpc:
                 rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
+            else:
+                rpc_txes = None
 
             if integrity_test:
                 return bx.integrity_test([address], rpc_txes, lastblockheight=lastblockheight, debug=debug) # TODO: implement lastblockheight
@@ -1887,8 +1917,8 @@ class ExtTransaction:
           origin: Show transactions sent by a specific sender address (only necessary in combination with -x, -b, -g and -c).
           param: Show the value of a specific parameter/variable of the transaction.
           quiet: Suppress additional output, printout in script-friendly way.
-          sent: Only show sent transactions (not in combination with -n, -c, -b or -g). In block explorer mode (-x), it only works together with -w.
-          received: Only show received transactions (not in combination with -n, -c, -b or -g). In block explorer mode (-x), it only works together with -w.
+          sent: Only show sent transactions (not in combination with -n, -c, -b, -g and -a). In block explorer mode (-x), it only works together with -w.
+          received: Only show received transactions (not in combination with -n, -c, -b, -g and -a). In block explorer mode (-x), it only works together with -w.
           total: Only count transactions, do not display them.
           unclaimed: Show only unclaimed burn or gateway transactions (only -b and -g, needs a deck to be specified, -x not supported).
           wallet: Show transactions related to addresses in the wallet. See Usage modes for combinations with other options (-n not supported).
@@ -1948,7 +1978,6 @@ class ExtTransaction:
             origin = Settings.key.address
 
         # TODO: -c should show senders if -o is not given.
-        # TODO: best would be to show the "structure" by default, or at least provide this option for all variants (only -x has it at this time).
 
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
@@ -1996,7 +2025,7 @@ class ExtTransaction:
                 address = Settings.key.address if address_or_deck is None else address_or_deck
             if use_db is True:
                 txstruct = False if json else True
-                txes = dbu.get_all_transactions(address=address, sort=True, advanced=json, datadir=datadir, wholetx=wholetx, debug=debug)
+                txes = dbu.get_all_transactions(address=address, sort=True, advanced=json, datadir=datadir, include_coinbase=view_coinbase, wholetx=wholetx, debug=debug)
 
             else:
                 txstruct = False if (json or sent or received) else True
