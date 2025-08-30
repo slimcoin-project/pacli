@@ -182,10 +182,8 @@ def get_address_transactions(addr_string: str=None,
         excluded_addresses = []
 
     else: # normally exclude p2th accounts
-        # p2th_accounts = eu.get_p2th(accounts=True)
         p2th_accounts = p2th_dict.values()
         if wallet:
-            # p2th_addresses = set(eu.get_p2th())
             p2th_addresses = set(p2th_dict.keys())
             wallet_addresses = wallet_addresses - p2th_addresses
         if debug:
@@ -360,9 +358,9 @@ def get_address_transactions(addr_string: str=None,
         if debug:
             print("Sorting result by confirmations or block height ...")
         if txstruct:
-            result.sort(key=lambda x: x["blockheight"], reverse=not reverse_sort) # inverted sorting
+            result.sort(key=lambda x: x.get("blockheight", 0), reverse=not reverse_sort) # inverted sorting
         else:
-            result.sort(key=lambda x: x["confirmations"], reverse=reverse_sort)
+            result.sort(key=lambda x: x.get("confirmations", 0), reverse=reverse_sort)
 
     return result
 
