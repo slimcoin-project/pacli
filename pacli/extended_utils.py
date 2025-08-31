@@ -279,7 +279,7 @@ def finalize_tx(rawtx: dict,
             raise ei.PacliInputDataError("Verifying by Cointoolkit is not possible on other chains than Peercoin.")
 
     if (send == False) and (not quiet):
-        print("NOTE: Your transaction will still not be broadcasted (dry run or partially signed transaction if this is a swap).")
+        print("NOTE: Your transaction will still not be broadcasted (dry run which can be continued with --send/-s or partially signed transaction if this is a swap).")
 
     dict_key = 'hex' # key of dict returned to the user.
 
@@ -351,7 +351,7 @@ def finalize_tx(rawtx: dict,
         else:
             save_transaction(txid, tx_hex)
 
-    if not quiet:
+    if send and not quiet:
         print("Note: Balances called with 'address balance' and 'address list' commands may not update even after the first confirmation.")
         print("In this case, restart your {} client.".format(Settings.network.upper()))
     return { dict_key : tx_hex }
