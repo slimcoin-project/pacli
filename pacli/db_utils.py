@@ -189,7 +189,7 @@ def get_all_transactions(address: str=None,
     for tx_tuple in yield_transactions(d, ignore_corrupted=True, debug=debug):
         txid, tx = tx_tuple
         if include_coinbase is not True:
-            if "coinbase" in [v.keys() for v in tx["vin"]]:
+            if "coinbase" in [k for i in tx["vin"] for k in i.keys()]:
                 continue
         if receiver is not None and not et.check_receiver(tx, receiver): # optimization: receivers are much cheaper to check
             continue
