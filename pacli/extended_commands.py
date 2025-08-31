@@ -155,7 +155,6 @@ def get_address_transactions(addr_string: str=None,
                              txstruct: bool=False,
                              debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
-    # TODO: a mode would be useful where the tx_structure is returned here instead of the simplified TX dict.
 
     if not wallet and not raw:
         address = process_address(addr_string, keyring=keyring, try_alternative=False)
@@ -168,6 +167,8 @@ def get_address_transactions(addr_string: str=None,
     p2th_dict = eu.get_p2th_dict()
     if wallet:
         wallet_addresses = eu.get_wallet_address_set(empty=True)
+    if sort and txstruct:
+        unconfirmed = False # we can only sort by blockheight if there is a value for confirmations.
 
     if debug:
         print("Get wallet transactions ...")
@@ -196,10 +197,6 @@ def get_address_transactions(addr_string: str=None,
         return wallet_txes
 
     unique_txes = list(set([(t["txid"], t["category"]) for t in wallet_txes]))
-    #if wallet:
-    #    unique_txes = list(set([(t["txid"], t["category"]) for t in wallet_txes]))
-    #else:
-    #    unique_txes = list(set([(t["txid"], None) for t in wallet_txes])) # if an address is given, we can use the fastest mode.
     if debug:
         print("Sorting ...")
 
@@ -355,12 +352,11 @@ def get_address_transactions(addr_string: str=None,
             result.append(txdict)
 
     if sort:
+        confpar = "blockheight" if txstruct else "confirmations"
+        rev = not reverse_sort if txstruct else reverse_sort
         if debug:
             print("Sorting result by confirmations or block height ...")
-        if txstruct:
-            result.sort(key=lambda x: x.get("blockheight", 0), reverse=not reverse_sort) # inverted sorting
-        else:
-            result.sort(key=lambda x: x.get("confirmations", 0), reverse=reverse_sort)
+        result.sort(key=lambda x: x[confpar], reverse=rev)
 
     return result
 

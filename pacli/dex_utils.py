@@ -452,12 +452,13 @@ def check_lock(deck: object, card_sender: str, card_receiver: str, amount: int, 
     matching_locks, lock_amount, lock_heights = [], 0, []
     for lock in sender_locks:
         lock_address = get_lock_address(lock)
+        formatted_single_lock = exponent_to_amount(lock_amount, decimals)
         if debug:
-            print("Checking lock: {} token min units to address {}.".format(lock["amount"], lock_address))
+            print("Checking lock: {} tokens to address {}.".format(formatted_single_lock, lock_address))
         if lock_address == card_receiver:
             if lock["locktime"] < locktime_limit:
                 if not quiet:
-                    print("Lock of {} coins ignored as the locktime {} is below the set limit of block {}.".format(lock["amount"], lock["locktime"], locktime_limit))
+                    print("Lock of {} tokens ignored as the locktime {} is below the set limit of block {}.".format(formatted_single_lock, lock["locktime"], locktime_limit))
                 continue
             matching_locks.append(lock)
             lock_amount += lock["amount"]
@@ -471,7 +472,7 @@ def check_lock(deck: object, card_sender: str, card_receiver: str, amount: int, 
     formatted_lock_amount = exponent_to_amount(lock_amount, decimals)
     if amount > formatted_lock_amount:
         if not quiet:
-            ei.print_red("Lock check failed: Locked tokens {}, but swap requires {} tokens.".format(lock_amount, amount))
+            ei.print_red("Lock check failed: Locked tokens {}, but swap requires {} tokens.".format(formatted_lock_amount, amount))
         return False
 
     print("Lock check PASSED. Locked tokens to address {}: {} tokens until at least block {} (limit: {}, current block: {}).".format(card_receiver, formatted_lock_amount, min(lock_heights), locktime_limit, blockheight))
