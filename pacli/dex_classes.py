@@ -21,10 +21,10 @@ class Swap:
             amount: str,
             lockaddr: str,
             lock: int=1000,
-            receiver: str=None,
             blockheight: bool=False,
             addrtype: str="p2pkh",
             change: str=Settings.change,
+            receiver: str=None,
             force: bool=False,
             wait_for_confirmation: bool=False,
             sign: bool=True,
@@ -33,18 +33,18 @@ class Swap:
             debug: bool=False):
         """Locks a number of tokens on the receiving address.
         Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the swap DEX.
-        Card default receiver is the sender (the current main address).
-        If -r option is used, the cards instead will be sent to the address specified behind that flag. This address becomes the one where you have to initiate a swap from.
+        The lock is a token transaction, where the default receiver is the sender (the current main address).
+        If -r option is used, the tokens will be sent to the RECEIVER address and locked after that process. This is only recommended with your own addresses, and the address becomes the one where you have to initiate a swap from.
         NOTE: The token buyer, by default, will reject swaps where the tokens are not locked for at least 100 blocks after they run the command to finalize the swap.
         For this reason, it is advised to chose a much higher locktime, e.g. 1000 blocks (the default).
 
         Usage modes:
 
-            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_ADDRESS [LOCK_BLOCKS] [RECEIVER]
+            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_ADDRESS [LOCK_BLOCKS] [-r RECEIVER]
 
         By default, you specify the relative number of blocks (counted from the current block height) to lock the tokens (default: 1000).
 
-            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_ADDRESS [BLOCKHEIGHT] [RECEIVER] -b
+            pacli swap lock TOKEN TOKEN_AMOUNT LOCK_ADDRESS [BLOCKHEIGHT] [-r RECEIVER] -b
 
         Using -b/--blockheight, the third positional argument indicates the absolute block height.
 
@@ -53,7 +53,7 @@ class Swap:
           sign: Sign the transaction.
           send: Send the transaction.
           blockheight: Lock to an absolute block height (instead of a relative number of blocks).
-          receiver: Specify a receiver for the tokens (can be only one).
+          receiver: Specify a receiver for the tokens (can be only one). NOTE: DO NOT confuse this receiver with the lock address! The receiver will be the full owner of the tokens after the lock expires!
           addrtype: Address type (default: p2pkh)
           change: Specify a custom change address.
           wait_for_confirmation: Wait for the first confirmation of the transaction and display a message.
@@ -69,6 +69,7 @@ class Swap:
             receiver_address = Settings.key.address
         else:
             receiver_address = ei.run_command(ec.process_address, receiver)
+
         return ei.run_command(dxu.card_lock, deckid=deckid, amount=str(amount), lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=receiver_address, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
