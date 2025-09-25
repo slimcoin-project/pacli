@@ -370,6 +370,7 @@ def get_tx_blockheight(txid: str): # TODO look if this is a duplicate.
 
 def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None, skip_rpc: bool=True, debug: bool=False):
     # TODO: perhaps add balance from wallet.dat.
+    # TODO: (25/9) UnboundLocalError: cannot access local variable 'blockchain_jsons' where it is not associated with a value
     loc = bu.get_default_locator()
     last_locator = loc.get_address_data(address_list, debug=debug)[1]
     currentblock = provider.getblockcount()
@@ -395,6 +396,7 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
         print("Abort with KeyboardInterrupt (e.g. Ctrl-C) and cache the address with 'address cache ' to fix that.")
         blockchain_balances = {}
         blockchain_txes = []
+        blockchain_jsons = []
     # source 2: RPC listtransactions
     if not skip_rpc:
         if debug:
@@ -469,9 +471,11 @@ def integrity_test(address_list: list, rpc_txes: list, lastblockheight: int=None
             print("UTXOs not listed in listunspent:")
             not_listunspent_set = tx_utxo_set - lusp_utxo_set
             not_listunspent = {u : tx_utxos[u] for u in tx_utxos if u in not_listunspent_set}
-            analyze_utxos(not_listunspent, advanced=True)
-            print("UTXOs not gathered from transaction list:")
-            analyze_utxos(lusp_utxo_set - tx_utxo_set)
+            analyze_utxos(not_listunspent, advanced=True, lusp_utxos=lusp_utxo_set)
+
+            if not skip_rpc:
+                print("UTXOs not gathered from transaction list:")
+                analyze_utxos(lusp_utxo_set - tx_utxo_set)
 
             print("Try to rescan the blockchain, restarting the {} client with the -rescan option, and repeat the test.".format(Settings.network.upper()))
             print("If the test still doesn't pass, sometimes restarting the {} client again works.".format (Settings.network.upper()))
@@ -629,7 +633,8 @@ def load_rpc_txes(filename, sort: bool=False, unconfirmed: bool=False):
 
 def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_zerovalue: bool=True, ignore_coinstake: bool=False, advanced: bool=False, debug: bool=False): # debugging function, takes complete txes
 
-    # TODO: possible source for errors: txes in the same block which spend each other's utxos.
+    # NOTE: new version first builds up all utxos, then reduces them in a second loop.
+    # this should be faster and even less error prone.
 
     utxos = {}
     for tx in txes:
@@ -649,8 +654,6 @@ def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_z
                 if debug:
                     print("Coinstake UTXOs ignored for tx:", tx["txid"])
                 continue
-            ##elif compute_coinstake:
-            ##    coinstake_utxos = {}
         for oup in tx["vout"]:
             oup_tuple = (tx["txid"], oup["n"])
             skey = oup["scriptPubKey"]
@@ -673,26 +676,12 @@ def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_z
             if debug:
                 print("Added UTXO", oup_tuple)
 
-        #if coinstake and compute_coinstake:
-        #    # theory: compute coinstake subtracting the input value. But the input is then not "spent".
-        #    cinp = tx["vin"][0]
-        #    cinp_tuple = (cinp["txid"], cinp["vout"])
-        #    try:
-        #        cinp_value = utxos[cinp_tuple]
-        #        coup_value = sum(coinstake_utxos.values())
-        #        cvalue = coup_value - cinp_value
-        #    except KeyError:
-        #        print("UTXO spent in Coinstake which doesn't exist already:", cinp_tuple)
-        #    if debug:
-        #        print("coinstake input:", cinp_tuple, "computed. Value:", cvalue)
+    for tx in txes:
 
 
         for inp in tx["vin"]:
             if "vout" in inp:
                 inp_tuple = (inp["txid"], inp["vout"])
-                # print(inp_tuple, utxos.keys()) #####
-                #if len(utxos.keys()) > 30:
-                #    return
                 if inp_tuple in utxos.keys():
                     if debug:
                         print("Spent UTXO", inp_tuple)
@@ -700,26 +689,36 @@ def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_z
 
     return utxos
 
-def analyze_utxos(utxos: list, advanced: bool=False):
+def analyze_utxos(utxos: list, same_addr_analysis: bool=True, lusp_utxos: set=None, advanced: bool=False):
     coinstake_utxos = []
     pow_coinbase_utxos = []
     pob_coinbase_utxos = []
     other_utxos = []
+    utxos_to_same_address = []
+    utxos_in_lusp = []
+    utxos_not_in_lusp = []
     balance = 0
     alt_balance = 0
+
     for utxo in utxos:
         txid = utxo[0]
+        n = utxo[1]
         if advanced:
             tx = utxos[utxo]["tx"]
         else:
             tx = provider.getrawtransaction(txid, 1)
 
         if advanced:
-            n = utxo[1]
             balance += Decimal(str(utxos[utxo]["value"]))
             alt_balance += Decimal(str(utxos[utxo]["tx"]["vout"][n]["value"]))
 
-        if is_coinstake(tx): # tx["vout"][0]["scriptPubKey"]["type"] == "nonstandard" and tx["vout"][0]["value"] == 0:
+        if lusp_utxos is not None:
+            if utxo in lusp_utxos:
+                utxos_in_lusp.append(utxo)
+            else:
+                utxos_not_in_lusp.append(utxo)
+
+        if is_coinstake(tx):
             coinstake_utxos.append(utxo)
             continue
         if "coinbase" in tx["vin"][0]:
@@ -730,17 +729,33 @@ def analyze_utxos(utxos: list, advanced: bool=False):
             elif block["flags"] == "proof-of-work":
                 pow_coinbase_utxos.append(utxo)
                 continue
+        if same_addr_analysis: # seems not to work, probably because senders and receivers are lists! TODO NOT FIXED
+            txstruct = bu.get_tx_structure(tx=tx, human_readable=False, add_txid=False)
+            senders = [i["sender"][0] for i in txstruct["inputs"]]
+            print("Senders", senders)
+            try:
+                receiver = txstruct["outputs"][n]["receivers"][0]
+                print("Receiver", receiver)
+                if receiver in senders:
+                    utxos_to_same_address.append(utxo)
+                    continue
+            except (KeyError, IndexError):
+                print("Error.", txid, senders)
+                pass
 
         other_utxos.append(utxo)
-
 
 
     print("Coinstake utxos:", coinstake_utxos)
     print("PoB coinbase utxos:", pob_coinbase_utxos)
     print("PoW coinbase utxos:", pow_coinbase_utxos)
+    print("UTXOs to same address", utxos_to_same_address)
     print("Other utxos:", other_utxos)
     print("UTXO balance:", balance)
     print("ALT UTXO balance:", alt_balance)
+    if lusp_utxos is not None:
+        print("UTXOS in LUSP:", utxos_in_lusp)
+        print("UTXOS not in LUSP:", utxos_not_in_lusp)
 
 
 def is_coinstake(tx):

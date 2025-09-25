@@ -112,7 +112,8 @@ class Swap:
     def finalize(self,
                  ftxstr: str,
                  id_deck: str=None,
-                 units: str=None,
+                 expected_tokens: str=None,
+                 payment: str=None,
                  send: bool=False,
                  force: bool=False,
                  wait_for_confirmation: bool=False,
@@ -123,11 +124,11 @@ class Swap:
 
         Usage:
 
-            pacli swap finalize TX_HEXSTRING TOKEN UNITS [--send]
+            pacli swap finalize TX_HEXSTRING TOKEN EXPECTED_TOKENS PAYMENT [--send]
 
         TX_HEXSTRING is the partially signed transaction in the format of an hex string.
         TOKEN can be a label or a token (deck) ID. Mandatory for a safe swap.
-        UNITS is the expected amount of tokens.
+        EXPECTED_TOKENS is the expected amount of tokens to acquire, PAYMENT the coins expected to be paid.
         Check first if everything is correct with a dry run, then add --send to broadcast transaction.
         Note: Before launching this command, be sure to change the Pacli main address to the address providing the coins to be able to sign the transaction. This is often, but not necessarily the same address where you'll receive the tokens, depending on which UTXO you provided to the token seller.
 
@@ -135,7 +136,8 @@ class Swap:
 
           send: Sends the transaction (by default set to False).
           id_deck: Token (deck) to conduct the swap.
-          units: Token units expected in the swap.
+          expected_tokens: Token units expected to get transferred in the swap.
+          payment: The coins expected to be paid for the tokens.
           wait_for_confirmation: Waits for the transaction to confirm.
           force: Creates the transaction even if the checks fail. WARNING: Use with caution, do not use if the token seller insists on it as it can lead to coin/token loss!
           txhex: Shows only the hex string of the transaction.
@@ -147,7 +149,17 @@ class Swap:
         del kwargs["self"]
         return ei.run_command(self.__finalize, **kwargs)
 
-    def __finalize(self, ftxstr: str, id_deck: str=None, units: str=None, send: bool=False, force: bool=False, wait_for_confirmation: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
+    def __finalize(self,
+                   ftxstr: str,
+                   id_deck: str=None,
+                   expected_tokens: str=None,
+                   payment: str=None,
+                   send: bool=False,
+                   force: bool=False,
+                   wait_for_confirmation: bool=False,
+                   txhex: bool=False,
+                   quiet: bool=False,
+                   debug: bool=False):
 
         txhexstr = ce.show("transaction", ftxstr, quiet=True)
         if txhexstr is None:
@@ -156,14 +168,14 @@ class Swap:
         if force:
             print("WARNING: --force option used. Do only proceed if you REALLY know what your are doing.")
             print("NEVER use this option if your swap counterparty (the token seller) insists on using it.")
-            print("You have 20 seconds to abort the exchange with a keyboard interruption (e.g. CTRL-C or CTRL-D depending on the operating system) or close the terminal window.")
+            print("You have 20 seconds to abort the exchange with a keyboard interruption (e.g. CTRL-C or CTRL-D depending on the operating system) or closing the terminal window.")
             time.sleep(20)
         else:
             if id_deck is None:
                 raise ei.PacliInputDataError("No deck provided. Deck check is mandatory.")
-            if units is None:
+            if expected_tokens is None:
                 raise ei.PacliInputDataError("Number of expected token units not provided. Mandatory for a safe swap.")
-            fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=units, presign_check=True, debug=debug)
+            fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=expected_tokens, amount=payment, presign_check=True, require_amounts=True, debug=debug)
             if fail is True:
                 raise ei.PacliDataError("Swap check failed. It is either not possible to continue or highly recommended to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and the change of the coins you paid) on addresses you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")
         return ei.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
@@ -265,10 +277,13 @@ class Swap:
                 token_amount: str=None,
                 return_state: bool=False,
                 presign_check: bool=False,
+                require_amounts: bool=False,
                 debug: bool=False):
 
         deckid = None if token is None else eu.search_for_stored_tx_label("deck", token, debug=debug)
         fail, notmine = False, False
+        if require_amounts is True and (None in (token_amount, amount)):
+            raise ei.PacliInputDataError("Both the expected payment in coins and the expected token amount have to be provided for a safe swap check.")
         txhex = ce.show("transaction", _txstring, quiet=True)
         if txhex is None:
             txhex = _txstring
@@ -334,6 +349,10 @@ class Swap:
             if intended_amount < paid_amount:
                 ei.print_red("The token buyer didn't receive all the change or will pay more than expected.")
                 ei.print_red("Missing amount: {}.".format(paid_amount - intended_amount))
+                fail = True
+            elif intended_amount > paid_amount:
+                ei.print_red("The token buyer will receive more coins as change than expected, lowering the payment. Revise your settings for the expected tokens or communicate with the seller if they wanted to concede you a discount, in this case enter this command again with --force (you will not lose coins, but your counterparty may).")
+                ei.print_red("Difference: {}.".format(intended_amount - paid_amount))
                 fail = True
 
         for adr in token_receiver, change_receiver:
