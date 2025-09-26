@@ -281,119 +281,18 @@ class Swap:
                 debug: bool=False):
 
         deckid = None if token is None else eu.search_for_stored_tx_label("deck", token, debug=debug)
-        fail, notmine = False, False
         if require_amounts is True and (None in (token_amount, amount)):
             raise ei.PacliInputDataError("Both the expected payment in coins and the expected token amount have to be provided for a safe swap check.")
         txhex = ce.show("transaction", _txstring, quiet=True)
         if txhex is None:
             txhex = _txstring
-        try:
-            txjson = provider.decoderawtransaction(txhex)
-            txstruct = bxu.get_tx_structure(tx=txjson, ignore_blockhash=True)
-        except:
-            raise ei.PacliInputDataError("No valid transaction hex string or label provided.")
 
-        print("Checking swap ...")
-        pprint("Senders and receivers of the swap transaction:")
-        pprint(txstruct)
-        try:
-            # Note: outputs 2 and 4 go to the token seller, so they aren't checked here in detail.
-            token_seller = txstruct["inputs"][0]["sender"][0]
-            token_buyer = txstruct["inputs"][1]["sender"][0]
-            amount_provided = Decimal(str(txstruct["inputs"][1]["value"]))
-            p2th_address = txstruct["outputs"][0]["receivers"][0]
-            token_receiver = txstruct["outputs"][2]["receivers"][0] # was 3
-            change_receiver = txstruct["outputs"][5]["receivers"][0]
-            change_returned = Decimal(str(txstruct["outputs"][5]["value"]))
-            all_inputs = sum([Decimal(str(i["value"])) for i in txstruct["inputs"]])
-            all_outputs = sum([Decimal(str(o["value"])) for o in txstruct["outputs"]])
-            tx_fee = all_inputs - all_outputs
-            p2th_fee = Decimal(str(txstruct["outputs"][0]["value"]))
-
-            op_return_fee = Decimal(str(txstruct["outputs"][1]["value"]))
-            card_transfer_fee = Decimal(str(txstruct["outputs"][2]["value"]))
-
-            all_fees = tx_fee + p2th_fee + op_return_fee + card_transfer_fee
-
-            op_return_output = txjson["vout"][1]
-        except (KeyError, IndexError):
-            raise ei.PacliDataError("Incorrect transaction structure. Don't proceed with the transaction.")
-
-        pprint("Token seller's address: {}".format(token_seller))
-        pprint("Token buyer's address: {}".format(token_buyer))
-        pprint("Token receiver's address: {}".format(token_receiver))
-        # presign check: check if you are currently able to sign the token buyer input
-        if presign_check and (token_buyer != Settings.key.address):
-            ei.print_red("The token buyer address is not your current Pacli main address, so you will not be able to sign the transaction.")
-            ei.print_red("Switch to the correct address with 'pacli address set -a {}' and repeat the command.".format(token_buyer))
-            print("Current Pacli main address:", Settings.key.address)
-            fail = True
-        if token_receiver != token_buyer:
-            print("NOTE: The address providing the coins for the swap isn't identic to the address which will receive the tokens.")
-            print("This may be intentionally set up by the token buyer, e.g. for privacy reasons.")
-            print("If you are the token buyer, make sure the token receiver address {} belongs to you (will be checked in the ownership check).".format(token_receiver))
-
-        if token_receiver_address is not None and (token_receiver != token_receiver_address):
-            ei.print_red("The token receiver address you provided in this check isn't the address receiving the tokens in the swap transaction.")
-            fail = True
-        pprint("Change receiver's address: {}".format(change_receiver))
-        pprint("Change returned: {}".format(change_returned))
-        if buyer_change_address is not None and (change_receiver != buyer_change_address):
-            ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
-            fail = True
-        pprint("Fees paid: {}".format(all_fees))
-        paid_amount = amount_provided - change_returned - all_fees
-        pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
-        if amount is not None:
-            intended_amount = Decimal(str(amount))
-            if intended_amount < paid_amount:
-                ei.print_red("The token buyer didn't receive all the change or will pay more than expected.")
-                ei.print_red("Missing amount: {}.".format(paid_amount - intended_amount))
-                fail = True
-            elif intended_amount > paid_amount:
-                ei.print_red("The token buyer will receive more coins as change than expected, lowering the payment. Revise your settings for the expected tokens or communicate with the seller if they wanted to concede you a discount, in this case enter this command again with --force (you will not lose coins, but your counterparty may).")
-                ei.print_red("Difference: {}.".format(intended_amount - paid_amount))
-                fail = True
-
-        for adr in token_receiver, change_receiver:
-            validation = provider.validateaddress(adr)
-            if validation.get("ismine") != True:
-                notmine = True
-                fail = True
-        if notmine is True:
-            ei.print_red("Ownership check failed: At least one of the addresses which should be under the token buyer's control in this swap (token receiver and change receiver) isn't part of your current wallet.")
-            print("This may be intentional if you provided an address of another wallet, or are using this command running the client with a different wallet than the swap's wallet, but can also be a manipulation by the token buyer.")
-        else:
-            print("Ownership check passed: Both the token receiver and the change address for the provided coins are part of your currently used wallet.")
-
-        card_transfer = eu.decode_card(op_return_output)
-        card_amount = card_transfer["amount"][0]
-        decimals = card_transfer["number_of_decimals"]
-        formatted_card_amount = Decimal(str(dxu.exponent_to_amount(card_amount, decimals)))
-        if token_amount is not None:
-            if formatted_card_amount != Decimal(str(token_amount)):
-                fail = True
-                ei.print_red("The number of tokens transferred is {}, while the expected token amount is {}.".format(formatted_card_amount, token_amount))
-            else:
-                print("Token transfer check passed: tokens transferred: {}, expected: {}.".format(formatted_card_amount, token_amount))
-
-        if deckid:
-            print("Deck ID and lock check (may take some time) ....")
-            matching_decks = eu.find_decks_by_address(p2th_address, addrtype="p2th_main", debug=False)
-            deck = matching_decks[0]["deck"]
-            if deck.id != deckid:
-                fail = True
-                ei.print_red("Transferred token is not the expected one. Expected token: {}, transferred token: {}.".format(deckid, deck.id))
-
-        # lock check: tokens need to be locked until at least 100 blocks (default) in the future
-        blockheight = provider.getblockcount()
-        if not dxu.check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
-            fail = True
-
-        if return_state is True:
-            return fail
-        else:
-            if fail is True:
-                ei.print_red("SWAP CHECK FAILED. If you are the token buyer and see this or any red warning, you cannot perform the swap or it is recommended to abandon it.")
-            else:
-                print("SWAP CHECK PASSED. If there is a warning, read it carefully to avoid any losses.")
+        return dxu.check_swap(txhex,
+               deckid=deckid,
+               buyer_change_address=buyer_change_address,
+               token_receiver_address=token_receiver_address,
+               amount=amount,
+               token_amount=token_amount,
+               return_state=return_state,
+               presign_check=presign_check,
+               debug=debug)
