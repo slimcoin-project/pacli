@@ -153,7 +153,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     # lock check: tokens need to be locked until at least 100 blocks (default) in the future
     print("Checking token balance and locks ...")
     if not check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug):
-        pprint("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap.")
+        pprint("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the swap string.")
         # token balance check
 
         token_balance = eu.get_address_token_balance(deck, my_address)
@@ -171,7 +171,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
             result = solve_single_input(index=i, prev_txid=utxos[i].txid, prev_txout_index=utxos[i].txout, key=Settings.key, network_params=network_params, debug=debug)
             unsigned_tx.spend_single(index=i, txout=result["txout"], solver=result["solver"])
 
-        print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).\n")
+        print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen). NOTE: If you saw any warning or error message, consider checking and modifying your settings and then re-creating the swap.\n")
         tx_hex = unsigned_tx.hexlify()
         print(tx_hex) # prettyprint makes it more difficult to copy it
         if save_identifier:
@@ -510,8 +510,7 @@ def check_swap(txhex: str,
         amount_provided = Decimal(str(txstruct["inputs"][1]["value"]))
         p2th_address = txstruct["outputs"][0]["receivers"][0]
         token_receiver = txstruct["outputs"][2]["receivers"][0] # was 3
-        change_receiver = txstruct["outputs"][5]["receivers"][0]
-        change_returned = Decimal(str(txstruct["outputs"][5]["value"]))
+
         all_inputs = sum([Decimal(str(i["value"])) for i in txstruct["inputs"]])
         all_outputs = sum([Decimal(str(o["value"])) for o in txstruct["outputs"]])
         tx_fee = all_inputs - all_outputs
@@ -525,6 +524,14 @@ def check_swap(txhex: str,
         op_return_output = txjson["vout"][1]
     except (KeyError, IndexError):
         raise ei.PacliDataError("Incorrect transaction structure. Don't proceed with the transaction.")
+
+    try:
+        change_receiver = txstruct["outputs"][5]["receivers"][0]
+        change_returned = Decimal(str(txstruct["outputs"][5]["value"]))
+    except IndexError:
+        change_receiver = None
+        change_returned = 0
+
 
     pprint("Token seller's address: {}".format(token_seller))
     pprint("Token buyer's address: {}".format(token_buyer))
@@ -543,11 +550,12 @@ def check_swap(txhex: str,
     if token_receiver_address is not None and (token_receiver != token_receiver_address):
         ei.print_red("The token receiver address you provided in this check isn't the address receiving the tokens in the swap transaction.")
         fail = True
-    pprint("Change receiver's address: {}".format(change_receiver))
-    pprint("Change returned: {}".format(change_returned))
-    if buyer_change_address is not None and (change_receiver != buyer_change_address):
-        ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
-        fail = True
+    if change_receiver is not None:
+        pprint("Change receiver's address: {}".format(change_receiver))
+        pprint("Change returned: {}".format(change_returned))
+        if buyer_change_address is not None and (change_receiver != buyer_change_address):
+            ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
+            fail = True
     pprint("Fees paid: {}".format(all_fees))
     paid_amount = amount_provided - change_returned - all_fees
     pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
@@ -562,7 +570,7 @@ def check_swap(txhex: str,
             ei.print_red("Difference: {}.".format(intended_amount - paid_amount))
             fail = True
 
-    for adr in token_receiver, change_receiver:
+    for adr in [a for a in (token_receiver, change_receiver) if a is not None]:
         validation = provider.validateaddress(adr)
         if validation.get("ismine") != True:
             notmine = True
