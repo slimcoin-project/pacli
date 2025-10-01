@@ -478,7 +478,7 @@ def check_lock(deck: object, card_sender: str, card_receiver: str, amount: int, 
             ei.print_red("Lock check failed: No tokens locked to token receiver, or all locks are below the locktime limit.")
         return False
     # check 3: amount is correct
-    formatted_lock_amount = exponent_to_amount(lock_amount, decimals)
+    formatted_lock_amount = exponent_to_amount(Decimal(lock_amount), decimals)
     if amount > formatted_lock_amount:
         if not quiet:
             ei.print_red("Lock check failed: Locked tokens {}, but swap requires {} tokens.".format(formatted_lock_amount, amount))
