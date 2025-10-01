@@ -782,7 +782,7 @@ class ExtAddress:
 
         try:
             balance = provider.getbalance(address)
-            if (balance == 0) and (address not in eu.get_wallet_address_set(empty=True)):
+            if (balance == 0) and eu.is_mine(address, debug=debug) is False: # (address not in eu.get_wallet_address_set(empty=True)):
                 raise ei.PacliInputDataError("This address is not in your wallet. Command works only for wallet addresses.")
         except TypeError:
             raise ei.PacliInputDataError("Address does not exist.")
