@@ -151,17 +151,18 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     network_params = net_query(provider.network)
     # print(network_params)
     # lock check: tokens need to be locked until at least 100 blocks (default) in the future
-    print("Checking token balance and locks ...")
-    if not check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug):
-        pprint("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the swap string.")
-        # token balance check
-
-        token_balance = eu.get_address_token_balance(deck, my_address)
-        if token_balance < card_amount:
-            raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
-        print("Token balance of the sender:", token_balance)
+    print("Checking token balance ...")
+    token_balance = eu.get_address_token_balance(deck, my_address)
+    if token_balance < card_amount:
+        raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
+    print("Token balance of the sender:", token_balance)
+    print("Checking locks ...")
+    lockcheck_passed = check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
+    if not lockcheck_passed:
+        print("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string.")
     else:
         print("Lock check passed: Enough tokens are on the sender's address and properly locked.")
+
 
     if sign:
         # sighash has be ALL, otherwise the counterparty could modify it, and anyonecanpay must be False.
@@ -171,9 +172,12 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
             result = solve_single_input(index=i, prev_txid=utxos[i].txid, prev_txout_index=utxos[i].txout, key=Settings.key, network_params=network_params, debug=debug)
             unsigned_tx.spend_single(index=i, txout=result["txout"], solver=result["solver"])
 
-        print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen). NOTE: If you saw any warning or error message, consider checking and modifying your settings and then re-creating the swap.\n")
+        print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).\n")
         tx_hex = unsigned_tx.hexlify()
         print(tx_hex) # prettyprint makes it more difficult to copy it
+        if not lockcheck_passed:
+            ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, lock the tokens with the following command:")
+            ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), coinseller_address))
         if save_identifier:
             eu.save_transaction(save_identifier, tx_hex, partly=True)
     else:
@@ -600,10 +604,12 @@ def check_swap(txhex: str,
             fail = True
             ei.print_red("Transferred token is not the expected one. Expected token: {}, transferred token: {}.".format(deckid, deck.id))
 
-    # lock check: tokens need to be locked until at least 100 blocks (default) in the future
-    blockheight = provider.getblockcount()
-    if not check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
-        fail = True
+        # lock check: tokens need to be locked until at least 100 blocks (default) in the future
+        blockheight = provider.getblockcount()
+        if not check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
+            fail = True
+    else:
+        print("No deck (token) ID or label provided, so no lock check will be performed.")
 
     if return_state is True:
         return fail
