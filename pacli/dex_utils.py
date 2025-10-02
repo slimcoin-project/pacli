@@ -178,8 +178,11 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
         if not lockcheck_passed:
             ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, lock the tokens with the following command:")
             ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), coinseller_address))
-        if save_identifier:
-            eu.save_transaction(save_identifier, tx_hex, partly=True)
+        if save_identifier is not None:
+            if type(save_identifier) in (str, int):
+                eu.save_transaction(save_identifier, tx_hex, partly=True)
+            else:
+                print("\nNOTE: The label to save the transaction has to be a string or an integer. Transaction was not saved, you can save it manually with the 'transaction set' command.")
     else:
         return unsigned_tx.hexlify()
 
