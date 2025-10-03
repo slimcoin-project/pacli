@@ -35,8 +35,8 @@ class Swap:
         Transfers are only permitted to the Lock Address. This is the condition to avoid scams in the swap DEX.
         The lock is a token transaction, where the default receiver is the sender (the current main address).
         If the -n option is used, the tokens will be sent to a new address (NEW_ORIGIN) and locked after that process. This is only recommended with your own addresses, and the NEW_ORIGIN address becomes the one where you have to initiate a swap from.
-        NOTE: The token buyer, by default, will reject swaps where the tokens are not locked for at least 100 blocks after they run the command to finalize the swap.
-        For this reason, it is advised to chose a much higher locktime, e.g. 1000 blocks (the default).
+        NOTE: The token buyer, by default, will reject swaps where the tokens are not locked for at least 100 blocks, counted from the moment they run the command to finalize the swap. 'swap create' will also reject locks under 100 blocks, so make sure you have time to run this command.
+        For these reasons, it is recommended to choose a much higher locktime, e.g. 1000 blocks (the default).
 
         Usage modes:
 
@@ -80,25 +80,33 @@ class Swap:
                  amount_cards: str,
                  amount_coins: str,
                  buyer_change_address: str=None,
+                 change_address: str=None,
                  label: str=None,
+                 with_lock: int=None,
                  quiet: bool=False,
                  sign: bool=True,
                  debug: bool=False):
-        """Creates a new exchange transaction, signs it partially and outputs it in hex format to be submitted to the exchange partner.
+        """Creates a new swap transaction, signs it partially and outputs it in hex format to be submitted to the exchange partner.
 
         Usage:
 
             pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT
 
-        PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual). PARTNER_ADDRESS can be an address or a label of a stored address.
+        Creates a swap only. PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual). PARTNER_ADDRESS can be an address or a label of a stored address.
+
+            pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT -w [LOCKTIME]
+
+        Creates the swap and adds lock transaction, which will by default lock the tokens 1000 blocks to the PARTNER_ADDRESS and use common default values. If you need more parameters for the lock process, use the 'swap lock' command and then the 'swap create' command without the '-w' flag.
+
         NOTE: To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
-        NOTE 2: tokens need to be locked until at least 100 blocks (default) in the future for the token buyer accepting the swap by default. It is advisable to lock them for significantly more blocks than that.
 
         Args:
 
           sign: Sign the transaction.
           buyer_change_address: Specify a change address of the token buyer (default: sender address). Can be the address itself or a label of a stored address.
           label: Specify a label to save the transaction hex string with.
+          with_lock: Lock the required tokens to the PARTNER_ADDRESS. A locktime (in blocks, minimum: 100) can be added, default is 1000.
+          change_address: Change address for the locking transaction (owned by the token seller, only in combination with -w).
           quiet: Suppress output.
           debug: Show additional debug information.
         """
@@ -106,9 +114,11 @@ class Swap:
         partner_address = ei.run_command(ec.process_address, partner_address, debug=debug)
         buyer_change_address = ei.run_command(ec.process_address, buyer_change_address, debug=debug) if buyer_change_address is not None else None
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
+        if with_lock is not None:
+             locktime = with_lock if type(with_lock) == int else 1000
+             ei.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=True, txhex=quiet, debug=debug)
         return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, coinseller_change_address=buyer_change_address, save_identifier=label, debug=debug)
 
-    # @classmethod
     def finalize(self,
                  ftxstr: str,
                  id_deck: str=None,

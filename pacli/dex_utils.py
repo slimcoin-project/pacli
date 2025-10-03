@@ -44,7 +44,7 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
     else:
         locktime = lock + current_blockheight
     if (locktime - current_blockheight) < 100 and not force:
-        raise ei.PacliInputDataError("Aborted. Locktime is too low (< 100 blocks in the future). By default, a token buyer will not accept that lock. Use --force to override this check, e.g. if there is some trust between buyer and seller.")
+        raise ei.PacliInputDataError("Aborted. Locktime is too low (< 100 blocks in the future). By default, a token buyer will not accept that lock. If using the 'swap lock' command to lock the tokens, you can use --force to override this check, e.g. if there is some trust between buyer and seller.")
 
     if not quiet:
         print("Locking tokens until block {} (current blockheight: {})".format(locktime, current_blockheight))
@@ -178,6 +178,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
         if not lockcheck_passed:
             ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, lock the tokens with the following command:")
             ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), coinseller_address))
+            print("NOTE: The lock check can also fail when the locking transaction is still unconfirmed. If you are sure that you have locked the tokens already, check the confirmation status of the transaction before locking the tokens again.")
         if save_identifier is not None:
             if type(save_identifier) in (str, int):
                 eu.save_transaction(save_identifier, tx_hex, partly=True)
