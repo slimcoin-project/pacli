@@ -1460,7 +1460,7 @@ class ExtCard:
 
         Shows balances of all owners of a token (addresses with cards of this deck) TOKEN (ID, global name or local label).
         Similar to the vanilla 'card balances' command.
-        If compatibility mode is active, this is the standard mode and -o is not required.
+        If compatibility mode is active, this is the standard mode and -o is not required. NOTE: The standard mode (without -j or -t) will not work in compatibility mode.
         Note: This command shows a balance of zero if an address has received tokens in the past but then all were moved. If addresses were never used with a token, they won't be shown.
 
         Args:
@@ -1493,7 +1493,7 @@ class ExtCard:
         if json and not quiet:
                 print("Retrieving token states to show balances ...")
 
-        if owners is True or Settings.compatibility_mode == "True":
+        if owners is True or (Settings.compatibility_mode == "True" and not (json or tokendeck)):
 
             deck_str = param1
             if deck_str is None:
