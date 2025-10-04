@@ -149,7 +149,7 @@ class ExtConfig:
             label = "compatibility_mode"
             if not quiet:
                 print("Setting compatibility mode to {}.".format(value))
-                print("Compatibility mode affects the output of some original commands,")
+                print("Compatibility mode affects the output of some original PeerAssets commands,")
                 print("but doesn't affect the inner workings nor the extended commands.")
         else:
 

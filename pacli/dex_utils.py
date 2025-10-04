@@ -26,7 +26,22 @@ from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
 
-def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.address, lockaddr: str=None, change: str=None, addrtype: str=None, absolute: bool=False, confirm: bool=False, sign: bool=True, send: bool=True, txhex: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+def card_lock(deckid: str,
+              amount: str,
+              lock: int,
+              receiver: str=Settings.key.address,
+              lockaddr: str=None,
+              change: str=None,
+              addrtype: str=None,
+              absolute: bool=False,
+              confirm: bool=False,
+              sign: bool=True,
+              send: bool=True,
+              txhex: bool=False,
+              return_txid: bool=False,
+              force: bool=False,
+              quiet: bool=False,
+              debug: bool=False):
 
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
@@ -95,14 +110,29 @@ def card_lock(deckid: str, amount: str, lock: int, receiver: str=Settings.key.ad
                              change_address=change_address,
                              )
 
-    return ei.output_tx(eu.finalize_tx(issue, verify=False, sign=sign, send=send, ignore_checkpoint=force, confirm=confirm), txhex=txhex)
+    txdict = eu.finalize_tx(issue, verify=False, sign=sign, send=send, ignore_checkpoint=force, confirm=confirm)
+    txdata = ei.output_tx(txdict, txhex=txhex or return_txid) # return_txid also needs the "neutral" hex data given by txhex=True
+    if return_txid:
+        txjson = provider.decoderawtransaction(txdata)
+        return txjson["txid"]
+    else:
+        return txdata
 
 # main function to be changed:
 # - coinseller_address (formerly partner_address) is now the card receiver.
 # - change of coinseller input must go to coinseller address.
 
-def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_input: str, card_amount: Decimal, coin_amount: Decimal, coinseller_change_address: str=None, save_identifier: str=None, sign: bool=False, debug: bool=False):
-    # TODO: this should also get a quiet option, with the TXHEX stored in the extended config file.
+def build_coin2card_exchange(deckid: str,
+                             coinseller_address: str,
+                             coinseller_input: str,
+                             card_amount: Decimal,
+                             coin_amount: Decimal,
+                             coinseller_change_address: str=None,
+                             save_identifier: str=None,
+                             lock_tx: str=None,
+                             sign: bool=False,
+                             debug: bool=False):
+
     # the card seller builds the transaction
     my_key = Settings.key
     my_address = my_key.address
@@ -156,13 +186,13 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
     if token_balance < card_amount:
         raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
     print("Token balance of the sender:", token_balance)
-    print("Checking locks ...")
-    lockcheck_passed = check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
-    if not lockcheck_passed:
-        print("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string.")
+    if lock_tx is None:
+        print("Checking locks ...")
+        lockcheck_passed = check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
+        if not lockcheck_passed:
+            print("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string.")
     else:
         print("Lock check passed: Enough tokens are on the sender's address and properly locked.")
-
 
     if sign:
         # sighash has be ALL, otherwise the counterparty could modify it, and anyonecanpay must be False.
@@ -175,7 +205,7 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
         print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).\n")
         tx_hex = unsigned_tx.hexlify()
         print(tx_hex) # prettyprint makes it more difficult to copy it
-        if not lockcheck_passed:
+        if lock_tx is None and not lockcheck_passed:
             ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, lock the tokens with the following command:")
             ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), coinseller_address))
             print("NOTE: The lock check can also fail when the locking transaction is still unconfirmed. If you are sure that you have locked the tokens already, check the confirmation status of the transaction before locking the tokens again.")
@@ -185,7 +215,16 @@ def build_coin2card_exchange(deckid: str, coinseller_address: str, coinseller_in
             else:
                 print("\nNOTE: The label to save the transaction has to be a string or an integer. Transaction was not saved, you can save it manually with the 'transaction set' command.")
     else:
-        return unsigned_tx.hexlify()
+        print(unsigned_tx.hexlify())
+
+    if lock_tx is not None:
+        print("\nChecking confirmation status of lock transaction ...")
+        #lockcheck_passed = check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
+        txjson = provider.getrawtransaction(lock_tx, 1)
+        if "confirmations" not in txjson:
+            ei.print_red("Lock transaction is still unconfirmed. Wait for the transaction to confirm before transmitting the TX hex string to the token buyer.")
+            ei.print_red("To see if the transaction was confirmed, use 'pacli transaction show {} -s' and check the output for the 'blockheight' value.".format(lock_tx))
+
 
 
 def build_input(input_txid: str, input_vout: int):
@@ -440,9 +479,9 @@ def get_locked_amount(locks: dict, card_sender: str) -> int:
     locked_amounts = [l["amount"] for l in locks_on_address]
     return sum(locked_amounts)
 
-def check_lock(deck: object, card_sender: str, card_receiver: str, amount: int, blockheight: int, limit: int=None, quiet: bool=False, debug: bool=False):
+def check_lock(deck: object, card_sender: str, card_receiver: str, amount: Decimal, blockheight: int, limit: int=None, quiet: bool=False, debug: bool=False):
     # Checks if the lock is correct.
-    # NOTE: amount is in token minimum units.
+    # NOTE: amount is in tokens and thus in Decimal format, not minimum units.
     deckid = deck.id
     decimals = deck.number_of_decimals
     locks = get_locks(deckid, blockheight)
@@ -499,6 +538,7 @@ def check_swap(txhex: str,
                token_amount: str=None,
                return_state: bool=False,
                presign_check: bool=False,
+               ignore_lock: bool=False,
                debug: bool=False):
     """bundles most checks for swaps"""
     fail, notmine = False, False
@@ -569,13 +609,12 @@ def check_swap(txhex: str,
     pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
     if amount is not None:
         intended_amount = Decimal(str(amount))
-        if intended_amount < paid_amount:
-            ei.print_red("The token buyer didn't receive all the change or will pay more than expected.")
-            ei.print_red("Missing amount: {}.".format(paid_amount - intended_amount))
-            fail = True
-        elif intended_amount > paid_amount:
-            ei.print_red("The token buyer will receive more coins as change than expected, lowering the payment. Revise your settings for the expected tokens or communicate with the seller if they wanted to concede you a discount, in this case enter this command again with --force (you will not lose coins, but your counterparty may).")
-            ei.print_red("Difference: {}.".format(intended_amount - paid_amount))
+        if intended_amount != paid_amount:
+            if intended_amount < paid_amount:
+                ei.print_red("WARNING: Token buyer pays {} coins more than expected.".format(paid_amount - intended_amount))
+            elif intended_amount > paid_amount:
+                ei.print_red("WARNING: Token seller receives {} coins less than expected.".format(intended_amount - paid_amount))
+            ei.print_red("The expected coin payment value doesn't match with what the token buyer will be debited if they proceed with this command. They are expecting to pay {}, but they'll be debited {}. If you are not satisfied with these terms please negotiate it with your counterparty and request a new swap transaction hex string.".format(intended_amount, paid_amount))
             fail = True
 
     for adr in [a for a in (token_receiver, change_receiver) if a is not None]:
@@ -592,9 +631,10 @@ def check_swap(txhex: str,
     card_transfer = eu.decode_card(op_return_output)
     card_amount = card_transfer["amount"][0]
     decimals = card_transfer["number_of_decimals"]
+    token_amount = Decimal(str(token_amount))
     formatted_card_amount = Decimal(str(exponent_to_amount(card_amount, decimals)))
     if token_amount is not None:
-        if formatted_card_amount != Decimal(str(token_amount)):
+        if formatted_card_amount != token_amount:
             fail = True
             ei.print_red("The number of tokens transferred is {}, while the expected token amount is {}.".format(formatted_card_amount, token_amount))
         else:
@@ -609,9 +649,13 @@ def check_swap(txhex: str,
             ei.print_red("Transferred token is not the expected one. Expected token: {}, transferred token: {}.".format(deckid, deck.id))
 
         # lock check: tokens need to be locked until at least 100 blocks (default) in the future
-        blockheight = provider.getblockcount()
-        if not check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
-            fail = True
+        if not ignore_lock:
+            if not token_amount:
+                print("Lock check needs the token amount. No lock check will be performed.")
+            else:
+                blockheight = provider.getblockcount()
+                if not check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
+                    fail = True
     else:
         print("No deck (token) ID or label provided, so no lock check will be performed.")
 

@@ -341,7 +341,6 @@ def finalize_tx(rawtx: dict,
         dict_key = 'raw hex'
         tx_hex = rawtx.hexlify()
 
-
     if save:
         try:
             assert True in (sign, send) # even if an unsigned tx gets a txid, it doesn't make sense to save it
