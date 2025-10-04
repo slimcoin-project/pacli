@@ -224,6 +224,8 @@ def build_coin2card_exchange(deckid: str,
         if "confirmations" not in txjson:
             ei.print_red("Lock transaction is still unconfirmed. Wait for the transaction to confirm before transmitting the TX hex string to the token buyer.")
             ei.print_red("To see if the transaction was confirmed, use 'pacli transaction show {} -s' and check the output for the 'blockheight' value.".format(lock_tx))
+        else:
+            print("Lock transaction correctly confirmed. The hex string can be transferred to the token buyer.")
 
 
 
@@ -631,7 +633,7 @@ def check_swap(txhex: str,
     card_transfer = eu.decode_card(op_return_output)
     card_amount = card_transfer["amount"][0]
     decimals = card_transfer["number_of_decimals"]
-    token_amount = Decimal(str(token_amount))
+    token_amount = Decimal(str(token_amount)) if token_amount is not None else None
     formatted_card_amount = Decimal(str(exponent_to_amount(card_amount, decimals)))
     if token_amount is not None:
         if formatted_card_amount != token_amount:
