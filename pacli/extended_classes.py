@@ -660,7 +660,7 @@ class ExtAddress:
                 add_p2th_account = False
             else: # standard mode: all named + addresses with balance
                 include_only, include = None, None
-                named_and_nonempty, wallet_only = True, True
+                named_and_nonempty, wallet_only = True, not named # wallet_only will resolve to False if named is chosen, otherwise True
                 include_all = False if include_all in (None, False) else True
                 excluded_addresses = p2th_dict.keys()
                 excluded_accounts = p2th_dict.values()
@@ -1429,6 +1429,7 @@ class ExtCard:
                 category: str=None,
                 owners: bool=False,
                 tokendeck: str=None,
+                named: bool=False,
                 json: bool=False,
                 wallet: bool=False,
                 keyring: bool=False,
@@ -1438,22 +1439,22 @@ class ExtCard:
 
         Usage modes:
 
-            pacli card balances [ADDRESS|-w] -t DECK
-            pacli token balances [ADDRESS|-w] -t DECK
+            pacli card balances [ADDRESS|-w|-n] -t DECK
+            pacli token balances [ADDRESS|-w|-n] -t DECK
 
-        Shows balances of a single token DECK (ID, global name or local label) on all addresses (-w flag) or only the specified address.
-        If ADDRESS is not given and -w is not selected, the current main address is used.
+        Shows balances of a single token DECK (ID, global name or local label) on wallet addresses (-w), named addresses (-n) or only the specified address.
+        If ADDRESS is not given and -w nor -n is not selected, the current main address is used.
 
-            pacli card balances [ADDRESS|-w]
-            pacli token balances [ADDRESS|-w]
+            pacli card balances [ADDRESS|-w|-n]
+            pacli token balances [ADDRESS|-w|-n]
 
         Shows balances of the standard PoB and dPoD tokens.
 
-            pacli card balances [ADDRESS|-w] -j
-            pacli token balances [ADDRESS|-w] -j
+            pacli card balances [ADDRESS|-w|-n] -j
+            pacli token balances [ADDRESS|-w|-n] -j
 
-        Shows balances of all tokens in JSON format, either on the specified address or on the whole wallet (with -w flag).
-        If ADDRESS is not given and -w is not selected, the current main address is used.
+        Shows balances of all tokens in JSON format, either on the specified address or on wallet addresses (-w) or named addresses (-n).
+        If ADDRESS is not given and -w nor -n is selected, the current main address is used.
 
             pacli card balances TOKEN -o
             pacli token balances TOKEN -o
@@ -1470,6 +1471,7 @@ class ExtCard:
           json: See above. Shows balances of all tokens in JSON format. Not in combination with -o nor -t.
           owners: Show balances of all holders of cards of a token. Cannot be combined with other options except -q.
           keyring: In combination with -j or -t (not -w), use an address stored in the keyring.
+          named: Show balances on addresses which are named with labels. Does also show addresses outside of the wallet if -w is not chosen.
           quiet: Suppresses informative messages.
           debug: Display debug info.
           param1: Token (deck) or address. To be used as a positional argument (flag keyword not necessary). See Usage modes.
@@ -1486,6 +1488,7 @@ class ExtCard:
                 tokendeck: str=None,
                 json: bool=False,
                 wallet: bool=False,
+                named: bool=False,
                 keyring: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
@@ -1522,16 +1525,25 @@ class ExtCard:
         else:
             # TODO seems like label names are not given in this mode if a an address is given.
 
-            if (wallet, param1) == (False, None):
+            if ((wallet or named), param1) == (False, None):
                 param1 = Settings.key.address
 
-            address = ec.process_address(param1) if wallet is False else None
+            address = ec.process_address(param1) if (wallet or named) is False else None
             try:
                 deck_type = c.get_deck_type(category.lower()) if category is not None else None
             except AttributeError:
                 raise ei.PacliInputDataError("No category specified.")
 
-            return tc.all_balances(address=address, wallet=wallet, keyring=keyring, only_tokens=True, advanced=json, deck_type=deck_type, quiet=quiet, debug=debug)
+            # replaced wallet with wallet or named, to trigger "multi address" mode with -n.
+            return tc.all_balances(address=address,
+                                   wallet=wallet or named,
+                                   named=named, keyring=keyring,
+                                   only_tokens=True,
+                                   advanced=json,
+                                   wallet_only=wallet,
+                                   deck_type=deck_type,
+                                   quiet=quiet,
+                                   debug=debug)
 
 
     def transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):

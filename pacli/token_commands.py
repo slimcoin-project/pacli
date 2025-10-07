@@ -157,16 +157,15 @@ def all_balances(address: str=Settings.key.address,
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 
-def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=False, keyring: bool=False, no_labels: bool=False, quiet: bool=False):
+def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=False, named: bool=False, keyring: bool=False, no_labels: bool=False, quiet: bool=False):
     """Shows the balance of a single token (deck) on the current main address or another address.
-    --wallet flag allows to show all balances of addresses
-    which are part of the wallet."""
+    --wallet flag allows to show all balances of addresses which are part of the wallet."""
 
     deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
-    if wallet:
-        addresses = ec.get_labels_and_addresses(keyring=keyring, empty=True)
+    if wallet or named:
+        addresses = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=True)
         balances = eu.get_wallet_token_balances(deck, include_named=True)
 
         if quiet:
