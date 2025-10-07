@@ -154,7 +154,10 @@ def build_coin2card_exchange(deckid: str,
     coinseller_input_txid, coinseller_input_vout = coinseller_input_values[0], int(coinseller_input_values[1])
     # coinseller's input becomes second input, as first must be card sender.
     coinseller_input = build_input(coinseller_input_txid, coinseller_input_vout)
-    amount_str = str(provider.getrawtransaction(coinseller_input_txid, 1)["vout"][coinseller_input_vout]["value"])
+    try:
+        amount_str = str(provider.getrawtransaction(coinseller_input_txid, 1)["vout"][coinseller_input_vout]["value"])
+    except (KeyError, IndexError):
+        raise ei.PacliDataError("Incorrect input provided by the token buyer, either the transaction doesn't exist or it has less outputs than expected.")
     coinseller_input_amount = Decimal(amount_str)
     if coinseller_input_amount < coin_amount:
         raise ei.PacliInputDataError("The input provided by the token buyer has a lower balance than the requested payment (available amount: {}, requested payment {})".format(coinseller_input_amount, coin_amount))
