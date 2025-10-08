@@ -119,15 +119,15 @@ def card_lock(deckid: str,
         return txdata
 
 # main function to be changed:
-# - coinseller_address (formerly partner_address) is now the card receiver.
-# - change of coinseller input must go to coinseller address.
+# - tokenbuyer_address (formerly partner_address) is now the card receiver.
+# - change of tokenbuyer input must go to tokenbuyer address.
 
 def build_coin2card_exchange(deckid: str,
-                             coinseller_address: str,
-                             coinseller_input: str,
+                             tokenbuyer_address: str,
+                             tokenbuyer_input: str,
                              card_amount: Decimal,
                              coin_amount: Decimal,
-                             coinseller_change_address: str=None,
+                             tokenbuyer_change_address: str=None,
                              save_identifier: str=None,
                              lock_tx: str=None,
                              sign: bool=False,
@@ -140,44 +140,53 @@ def build_coin2card_exchange(deckid: str,
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     card = pa.CardTransfer(deck=deck,
                            sender=my_address,
-                           receiver=[coinseller_address],
+                           receiver=[tokenbuyer_address],
                            amount=[amount_to_exponent(card_amount, deck.number_of_decimals)])
 
-    # coinseller can submit another change address if he wants, otherwise cardseller sends it to the coinseller addr.
-    if coinseller_change_address is None:
-        coinseller_change_address = coinseller_address
+    # tokenbuyer can submit another change address if he wants, otherwise cardseller sends it to the tokenbuyer addr.
+    if tokenbuyer_change_address is None:
+        tokenbuyer_change_address = tokenbuyer_address
 
     print("Token seller:", card.sender, "Token buyer:", card.receiver[0])
-    print("Change of the coins sold will be sent to address", coinseller_change_address)
+    print("Change of the coins sold will be sent to address", tokenbuyer_change_address)
 
-    coinseller_input_values = coinseller_input.split(":")
-    coinseller_input_txid, coinseller_input_vout = coinseller_input_values[0], int(coinseller_input_values[1])
-    # coinseller's input becomes second input, as first must be card sender.
-    coinseller_input = build_input(coinseller_input_txid, coinseller_input_vout)
+    tokenbuyer_input_values = tokenbuyer_input.split(":")
+    tokenbuyer_input_txid, tokenbuyer_input_vout = tokenbuyer_input_values[0], int(tokenbuyer_input_values[1])
+    # tokenbuyer's input becomes second input, as first must be card sender.
+    tokenbuyer_input = build_input(tokenbuyer_input_txid, tokenbuyer_input_vout)
+    min_amount = eu.min_amount(Settings.network, "output_value")
+    min_tx_fee = eu.min_amount(Settings.network, "tx_fee")
+    min_opreturn = eu.min_amount(Settings.network, "op_return_value")
+    all_fees = min_amount * 2 + min_opreturn + min_tx_fee
     try:
-        amount_str = str(provider.getrawtransaction(coinseller_input_txid, 1)["vout"][coinseller_input_vout]["value"])
+        amount_str = str(provider.getrawtransaction(tokenbuyer_input_txid, 1)["vout"][tokenbuyer_input_vout]["value"])
     except (KeyError, IndexError):
         raise ei.PacliDataError("Incorrect input provided by the token buyer, either the transaction doesn't exist or it has less outputs than expected.")
-    coinseller_input_amount = Decimal(amount_str)
-    if coinseller_input_amount < coin_amount:
-        raise ei.PacliInputDataError("The input provided by the token buyer has a lower balance than the requested payment (available amount: {}, requested payment {})".format(coinseller_input_amount, coin_amount))
+    tokenbuyer_input_amount = Decimal(amount_str)
+    if tokenbuyer_input_amount < coin_amount + all_fees: # NOTE: token buyer pays fees!
+        raise ei.PacliInputDataError("The input provided by the token buyer has a lower balance than the requested payment plus fees (available amount: {}, requested payment {}, fees: {})".format(tokenbuyer_input_amount, coin_amount, all_fees))
     # first input comes from the card seller (i.e. the user who signs here)
     # We let pacli chose it automatically, based on the minimum amount. It should never give more than one, but it wouldn't matter if it's two or more.
+
+
     try:
-        utxo = select_utxos(minvalue=Decimal("0.01"), address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
+        own_utxo = select_utxos(minvalue=all_fees, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
     except IndexError:
         raise ei.PacliDataError("Not enough funds. Send enough coins to this address ({}) to pay the transaction fee.\nNOTE: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).".format(my_address))
-    utxo_value = Decimal(str(utxo["amount"]))
-    own_input = MutableTxIn(txid=utxo['txid'], txout=utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
-    inputs = {"utxos" : [own_input, coinseller_input], "total": coinseller_input_amount + utxo_value}
+    own_utxo_value = Decimal(str(own_utxo["amount"]))
+    own_input = MutableTxIn(txid=own_utxo['txid'], txout=own_utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
+    inputs = {"utxos" : [own_input, tokenbuyer_input], "total": tokenbuyer_input_amount + own_utxo_value}
     utxos = inputs["utxos"]
 
     unsigned_tx = create_card_exchange(inputs=inputs,
                                  card=card,
-                                 coinseller_change_address=coinseller_change_address,
+                                 tokenbuyer_change_address=tokenbuyer_change_address,
                                  coin_value=coin_amount,
-                                 first_input_value=utxo_value,
+                                 first_input_value=own_utxo_value,
                                  cardseller_change_address=my_change_address,
+                                 min_output_value=min_amount,
+                                 min_opreturn_value=min_opreturn,
+                                 min_tx_fee=min_tx_fee,
                                  debug=debug
                                  )
 
@@ -191,7 +200,7 @@ def build_coin2card_exchange(deckid: str,
     print("Token balance of the sender:", token_balance)
     if lock_tx is None:
         print("Checking locks ...")
-        lockcheck_passed = check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
+        lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
         if not lockcheck_passed:
             print("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string.")
     else:
@@ -210,7 +219,7 @@ def build_coin2card_exchange(deckid: str,
         print(tx_hex) # prettyprint makes it more difficult to copy it
         if lock_tx is None and not lockcheck_passed:
             ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, lock the tokens with the following command:")
-            ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), coinseller_address))
+            ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), tokenbuyer_address))
             print("NOTE: The lock check can also fail when the locking transaction is still unconfirmed. If you are sure that you have locked the tokens already, check the confirmation status of the transaction before locking the tokens again.")
         if save_identifier is not None:
             if type(save_identifier) in (str, int):
@@ -222,7 +231,7 @@ def build_coin2card_exchange(deckid: str,
 
     if lock_tx is not None:
         print("\nChecking confirmation status of lock transaction ...")
-        #lockcheck_passed = check_lock(deck, my_address, coinseller_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
+        #lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
         txjson = provider.getrawtransaction(lock_tx, 1)
         if "confirmations" not in txjson:
             ei.print_red("Lock transaction is still unconfirmed. Wait for the transaction to confirm before transmitting the TX hex string to the token buyer.")
@@ -297,7 +306,17 @@ def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: K
     return { "txout" : prev_txout, "solver" : solver }
 
 
-def create_card_exchange(card: CardTransfer, inputs: dict, coinseller_change_address: str, cardseller_change_address: str, coin_value: Decimal, first_input_value: Decimal, locktime: int=0, debug: bool=False) -> Transaction:
+def create_card_exchange(card: CardTransfer,
+                         inputs: dict,
+                         tokenbuyer_change_address: str,
+                         cardseller_change_address: str,
+                         coin_value: Decimal,
+                         first_input_value: Decimal,
+                         min_output_value: Decimal,
+                         min_opreturn_value: Decimal,
+                         min_tx_fee: Decimal,
+                         locktime: int=0,
+                         debug: bool=False) -> Transaction:
     # extended version of card_transfer which allows to add another output to the other party,
     # and allows signing only a part of the inputs.
 
@@ -313,13 +332,13 @@ def create_card_exchange(card: CardTransfer, inputs: dict, coinseller_change_add
     pa_params = param_query(provider.network)
 
     ### LEGACY SUPPORT for blockchains where no 0-value output is permitted ###
-    from pypeerassets.legacy import is_legacy_blockchain
+    #from pypeerassets.legacy import is_legacy_blockchain
 
-    if is_legacy_blockchain(network_params.shortname, "nulldata"):
-        # could perhaps be replaced with get_dust_threshold?
-        min_value = network_params.min_tx_fee
-    else:
-        min_value = Decimal(0)
+    #if is_legacy_blockchain(network_params.shortname, "nulldata"):
+    #    # could perhaps be replaced with get_dust_threshold?
+    #    min_value = network_params.min_tx_fee
+    #else:
+    #    min_value = Decimal(0)
 
     if card.deck_p2th is None:
         raise Exception("card.deck_p2th required for tx_output")
@@ -328,14 +347,14 @@ def create_card_exchange(card: CardTransfer, inputs: dict, coinseller_change_add
     # This would make the transaction "less transparent", but make the transaction footprint smaller.
     outs = [
         tx_output(network=provider.network,
-                  value=pa_params.P2TH_fee,
+                  value=min_output_value, # pa_params.P2TH_fee,
                   n=0, script=p2pkh_script(address=card.deck_p2th,
                                            network=provider.network)),  # deck p2th
         tx_output(network=provider.network,
-                  value=min_value, n=1,
+                  value=min_opreturn_value, n=1,
                   script=nulldata_script(card.metainfo_to_protobuf)),  # op_return
 
-        tx_output(network=provider.network, value=min_value, n=2, # card transfer to coin sender/card receiver
+        tx_output(network=provider.network, value=min_output_value, n=2, # card transfer to coin sender/card receiver
                   script=p2pkh_script(address=card.receiver[0],
                                       network=provider.network)),
 
@@ -348,19 +367,18 @@ def create_card_exchange(card: CardTransfer, inputs: dict, coinseller_change_add
                                       network=provider.network))
     ]
 
-
-    # TODO: this is probably not blockchain agnostic, as P2TH outputs can't be nonzero even in non-legacy blockchains.
-    total_min_values = 2 * min_value # includes P2TH output + zero outputs to receivers
-
     #  first round of txn making is done by presuming minimal fee
-    change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee - first_input_value - coin_value - total_min_values)
+    # change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee - first_input_value - coin_value - total_min_values)
+    change_sum = Decimal(inputs['total'] - first_input_value - coin_value - 2 * min_output_value - min_opreturn_value - min_tx_fee)
+    if debug:
+        print("Change sum:", change_sum, "Total inputs:", inputs["total"], "First input:", first_input_value, "Coin value:", coin_value)
 
     if change_sum > 0:
 
         outs.append(
             tx_output(network=provider.network,
                       value=change_sum, n=len(outs)+1,
-                      script=p2pkh_script(address=coinseller_change_address,
+                      script=p2pkh_script(address=tokenbuyer_change_address,
                                           network=provider.network))
             )
 
@@ -547,6 +565,10 @@ def check_swap(txhex: str,
                debug: bool=False):
     """bundles most checks for swaps"""
     fail, notmine = False, False
+    min_amount = eu.min_amount(Settings.network, "output_value")
+    min_tx_fee = eu.min_amount(Settings.network, "tx_fee")
+    min_opreturn = eu.min_amount(Settings.network, "op_return_value")
+    all_min_fees = min_amount * 2 + min_opreturn + min_tx_fee
     try:
         txjson = provider.decoderawtransaction(txhex)
         txstruct = bxu.get_tx_structure(tx=txjson, ignore_blockhash=True)
@@ -610,16 +632,23 @@ def check_swap(txhex: str,
             ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
             fail = True
     pprint("Fees paid: {}".format(all_fees))
-    paid_amount = amount_provided - change_returned - all_fees
+    netparams = net_query(Settings.network)
+    min_tx_fee = netparams.min_tx_fee
+    if tx_fee < min_tx_fee:
+        ei.print_red("Transaction fee is too low. The transaction will probably never confirm. The token seller has to repeat the swap creation with a fee of at least {} coins.".format(min_tx_fee))
+        fail = True
+    payment_with_fees = amount_provided - change_returned
+    paid_amount = payment_with_fees - all_fees
     pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
+    pprint("Fees paid by the token buyer: {}. Total paid: {}".format(all_fees, payment_with_fees))
     if amount is not None:
         intended_amount = Decimal(str(amount))
         if intended_amount != paid_amount:
             if intended_amount < paid_amount:
-                ei.print_red("WARNING: Token buyer pays {} coins more than expected.".format(paid_amount - intended_amount))
+                ei.print_red("WARNING: Token buyer would pay {} coins more than expected in this swap.".format(paid_amount - intended_amount))
             elif intended_amount > paid_amount:
-                ei.print_red("WARNING: Token seller receives {} coins less than expected.".format(intended_amount - paid_amount))
-            ei.print_red("The expected coin payment value doesn't match with what the token buyer will be debited if they proceed with this command. They are expecting to pay {}, but they'll be debited {}. If you are not satisfied with these terms please negotiate it with your counterparty and request a new swap transaction hex string.".format(intended_amount, paid_amount))
+                ei.print_red("WARNING: Token seller would receive {} coins less than expected in this swap.".format(intended_amount - paid_amount))
+            ei.print_red("The expected coin payment value doesn't match with the amount the token buyer will be debited if they proceed with this command. They are expecting to pay {}, but they'll be debited {} plus the fees of {}. If you are not satisfied with these terms please negotiate it with your counterparty and request a new swap transaction hex string.".format(intended_amount, paid_amount, all_fees))
             fail = True
 
     for adr in [a for a in (token_receiver, change_receiver) if a is not None]:

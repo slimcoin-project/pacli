@@ -118,7 +118,7 @@ class Swap:
              lock_tx = ei.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug)
         else:
              lock_tx = None
-        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, coinseller_change_address=buyer_change_address, save_identifier=label, lock_tx=lock_tx, debug=debug)
+        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, tokenbuyer_change_address=buyer_change_address, save_identifier=label, lock_tx=lock_tx, debug=debug)
 
     def finalize(self,
                  ftxstr: str,
@@ -182,10 +182,8 @@ class Swap:
             print("You have 20 seconds to abort the exchange with a keyboard interruption (e.g. CTRL-C or CTRL-D depending on the operating system) or closing the terminal window.")
             time.sleep(20)
         else:
-            if id_deck is None:
-                raise ei.PacliInputDataError("No deck provided. Deck check is mandatory.")
-            if expected_tokens is None:
-                raise ei.PacliInputDataError("Number of expected token units not provided. Mandatory for a safe swap.")
+            if None in (id_deck, expected_tokens, payment):
+                raise ei.PacliInputDataError("Not all required parameters provided. For a safe swap, you have to provide the deck, the expected tokens to be transferred, and the expected payment (in coins).")
             fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=expected_tokens, amount=payment, presign_check=True, require_amounts=True, debug=debug)
             if fail is True:
                 raise ei.PacliDataError("Swap check failed. It is either not possible to continue or highly recommended to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and the change of the coins you paid) on addresses you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")

@@ -328,8 +328,9 @@ def finalize_tx(rawtx: dict,
 
     elif send:
         # rawtx variable contains an already signed tx (DEX use case)
+        txid = sendtx(rawtx)
         if not quiet:
-            pprint({'txid': sendtx(rawtx)})
+            pprint({'txid': txid })
         else:
             sendtx(rawtx)
         tx_hex = rawtx.hexlify()
@@ -935,3 +936,19 @@ def read_all_tx_opreturns(txid: str=None, tx: str=None):
         except:
             pass
     return opreturns
+
+def min_amount(network_name: str, amount_type: str) -> Decimal:
+    netparams = net_query(network_name)
+    if amount_type == "tx_fee":
+        return netparams.min_tx_fee
+    min_value = dmu.sats_to_coins(legacy_mintx(Settings.network), network_name=Settings.network)
+    if not min_value:
+        min_value = net_query(Settings.network).from_unit
+    if amount_type == "op_return_value":
+        if is_legacy_blockchain(network_name, "nulldata"):
+            return min_value
+        else:
+            return 0
+
+    elif amount_type == "output_value":
+        return min_value
