@@ -937,13 +937,13 @@ def read_all_tx_opreturns(txid: str=None, tx: str=None):
             pass
     return opreturns
 
-def min_amount(network_name: str, amount_type: str) -> Decimal:
+def min_amount(amount_type: str, network_name: str=Settings.network) -> Decimal:
     netparams = net_query(network_name)
     if amount_type == "tx_fee":
         return netparams.min_tx_fee
-    min_value = dmu.sats_to_coins(legacy_mintx(Settings.network), network_name=Settings.network)
+    min_value = dmu.sats_to_coins(legacy_mintx(network_name), network_name=network_name)
     if not min_value:
-        min_value = net_query(Settings.network).from_unit
+        min_value = net_query(network_name).from_unit
     if amount_type == "op_return_value":
         if is_legacy_blockchain(network_name, "nulldata"):
             return min_value

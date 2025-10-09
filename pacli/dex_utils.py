@@ -154,9 +154,9 @@ def build_coin2card_exchange(deckid: str,
     tokenbuyer_input_txid, tokenbuyer_input_vout = tokenbuyer_input_values[0], int(tokenbuyer_input_values[1])
     # tokenbuyer's input becomes second input, as first must be card sender.
     tokenbuyer_input = build_input(tokenbuyer_input_txid, tokenbuyer_input_vout)
-    min_amount = eu.min_amount(Settings.network, "output_value")
-    min_tx_fee = eu.min_amount(Settings.network, "tx_fee")
-    min_opreturn = eu.min_amount(Settings.network, "op_return_value")
+    min_amount = eu.min_amount("output_value")
+    min_tx_fee = eu.min_amount("tx_fee")
+    min_opreturn = eu.min_amount("op_return_value")
     all_fees = min_amount * 2 + min_opreturn + min_tx_fee
     try:
         amount_str = str(provider.getrawtransaction(tokenbuyer_input_txid, 1)["vout"][tokenbuyer_input_vout]["value"])
@@ -398,6 +398,7 @@ def select_utxos(minvalue: Decimal,
                  utxo_type: str=None,
                  show_address: bool=False,
                  ignore_coinbase: bool=True,
+                 fees: bool=False,
                  quiet: bool=False,
                  debug: bool=False):
 
@@ -406,6 +407,11 @@ def select_utxos(minvalue: Decimal,
 
     utxos = provider.listunspent(address=address, minconf=minconf, maxconf=maxconf)
     selected_utxos = []
+    if fees is True:
+        swap_fees = calc_swap_fees()
+        minvalue += swap_fees
+        if not quiet:
+            print("Added swap fees of {} coins to the amount. Minimum amount for UTXOs to be displayed: {} coins.".format(swap_fees, minvalue))
 
     for utxo in utxos:
         if minvalue is not None and utxo["amount"] < minvalue:
@@ -700,3 +706,10 @@ def check_swap(txhex: str,
             ei.print_red("SWAP CHECK FAILED. If you are the token buyer and see this or any red warning, you cannot perform the swap or it is recommended to abandon it.")
         else:
             print("SWAP CHECK PASSED. If there is a warning, read it carefully to avoid any losses.")
+
+def calc_swap_fees(network: str=Settings.network):
+    min_amount = eu.min_amount("output_value", network)
+    min_tx_fee = eu.min_amount("tx_fee", network)
+    min_opreturn = eu.min_amount("op_return_value", network)
+    all_fees = min_amount * 2 + min_opreturn + min_tx_fee
+    return all_fees
