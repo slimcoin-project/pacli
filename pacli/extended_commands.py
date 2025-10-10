@@ -77,6 +77,9 @@ def get_labels_and_addresses(prefix: str=Settings.network,
     if include_only:
         result = [item for item in result if item["address"] in include_only]
 
+    if wallet_only:
+        result = [i for i in result if eu.is_mine(i["address"])]
+
     if mark_duplicates:
        addresses = []
        result2 = []
@@ -91,9 +94,9 @@ def get_labels_and_addresses(prefix: str=Settings.network,
     if not named:
         # labeled_addresses = [i["address"] for i in result]
         labeled_addresses = {i["address"] : i for i in result}
-        if wallet_only:
-            # result = [] # resets the result list, so it will only be filled with named addresses which are part of the wallet
-            result = [i for i in result if eu.is_mine(i["address"])]
+        #if wallet_only:
+        #    # result = [] # resets the result list, so it will only be filled with named addresses which are part of the wallet
+        #    result = [i for i in result if eu.is_mine(i["address"])]
         if include_only:
             wallet_addresses = set(include_only)
         elif access_wallet is not None:
