@@ -571,9 +571,9 @@ def check_swap(txhex: str,
                debug: bool=False):
     """bundles most checks for swaps"""
     fail, notmine = False, False
-    min_amount = eu.min_amount(Settings.network, "output_value")
-    min_tx_fee = eu.min_amount(Settings.network, "tx_fee")
-    min_opreturn = eu.min_amount(Settings.network, "op_return_value")
+    min_amount = eu.min_amount("output_value")
+    min_tx_fee = eu.min_amount("tx_fee")
+    min_opreturn = eu.min_amount("op_return_value")
     all_min_fees = min_amount * 2 + min_opreturn + min_tx_fee
     try:
         txjson = provider.decoderawtransaction(txhex)
@@ -638,8 +638,8 @@ def check_swap(txhex: str,
             ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
             fail = True
     pprint("Fees paid: {}".format(all_fees))
-    netparams = net_query(Settings.network)
-    min_tx_fee = netparams.min_tx_fee
+    # netparams = net_query(Settings.network)
+    # min_tx_fee = netparams.min_tx_fee
     if tx_fee < min_tx_fee:
         ei.print_red("Transaction fee is too low. The transaction will probably never confirm. The token seller has to repeat the swap creation with a fee of at least {} coins.".format(min_tx_fee))
         fail = True
