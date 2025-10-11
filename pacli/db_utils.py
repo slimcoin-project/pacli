@@ -16,10 +16,15 @@ import hashlib
 # PyWallet 1.2.1 (Public Domain)
 # http://github.com/joric/pywallet
 
-try:
-    import berkeleydb
-except ImportError:
-    raise ei.PacliDataError("Berkeley databases not supported. Install berkeleydb Python package for this command to run.")
+
+# TODO change this, this will be triggered by every command.
+
+BERKELEYDB_MISSING = "Berkeley databases not supported. Install berkeleydb Python package for this command to run."
+
+#try:
+#    import berkeleydb
+#except ImportError:
+#    raise ei.PacliDataError(BERKELEYDB_MISSING)
 
 def determine_db_dir(): # from pywallet
 
@@ -37,12 +42,22 @@ def determine_db_dir(): # from pywallet
 
 def get_wallet_database(path: str):
 
+    try:
+        import berkeleydb
+    except ImportError:
+        raise ei.PacliDataError(BERKELEYDB_MISSING)
+
     db = berkeleydb.db
     d = db.DB()
     d.open(path, 'main', db.DB_BTREE, db.DB_THREAD | db.DB_RDONLY)
     return d
 
 def yield_transactions(database: object, ignore_corrupted: bool=True, debug: bool=False):
+
+    try:
+        import berkeleydb
+    except ImportError:
+        raise ei.PacliDataError(BERKELEYDB_MISSING)
 
     for k in database.keys():
         try:
@@ -151,6 +166,12 @@ def get_addresses(datadir: str=None, keyring: bool=False, ignore_corrupted: bool
 
 
 def get_database(datadir: str=None, debug: bool=False):
+
+    try:
+        import berkeleydb
+    except ImportError:
+        raise ei.PacliDataError(BERKELEYDB_MISSING)
+
     if datadir is None:
         datadir = determine_db_dir()
         locmsg = "standard"

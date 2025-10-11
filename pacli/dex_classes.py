@@ -219,7 +219,7 @@ class Swap:
 
         Usage:
 
-            pacli swap select_coins AMOUNT [ADDRESS|-w]
+            pacli swap select_coins AMOUNT [ADDRESS|-w] [-f]
 
         If ADDRESS is not given, the current main address is used.
         Using the -w flag instead of an address searches UTXOs in the whole wallet.
@@ -236,7 +236,7 @@ class Swap:
         """
 
         addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
-        return ei.run_command(dxu.select_utxos, minvalue=amount, address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
+        return ei.run_command(dxu.select_utxos, minvalue=Decimal(str(amount)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
 
     # @classmethod
     def check(self,
