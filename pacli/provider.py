@@ -1,6 +1,7 @@
 from pypeerassets.provider import RpcNode, SlmRpcNode, Cryptoid, Explorer
 from pypeerassets import pautils
 from pacli.config import Settings
+import sys
 
 # MODIFIED: Added Slimcoin support (SlmRpcNode)
 
@@ -11,12 +12,16 @@ def set_up(provider):
     # this handles indexing of transaction
 
     if Settings.provider in ("rpcnode", "slm_rpcnode"):
-        if Settings.production:
-            if not provider.listtransactions("PAPROD"):
-                pautils.load_p2th_privkey_into_local_node(provider)
-        if not Settings.production:
-            if not provider.listtransactions("PATEST"):
-                pautils.load_p2th_privkey_into_local_node(provider, prod=False)
+        try:
+            if Settings.production:
+                if not provider.listtransactions("PAPROD"):
+                    pautils.load_p2th_privkey_into_local_node(provider)
+            if not Settings.production:
+                if not provider.listtransactions("PATEST"):
+                    pautils.load_p2th_privkey_into_local_node(provider, prod=False)
+        except:
+            print("No connection to client. Your cryptocurrency client is probably not running. Start the client or wait until it starts.")
+            sys.exit()
 
 
 def configured_provider(Settings):
