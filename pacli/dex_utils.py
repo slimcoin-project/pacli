@@ -651,10 +651,10 @@ def check_swap(txhex: str,
         intended_amount = Decimal(str(amount))
         if intended_amount != paid_amount:
             if intended_amount < paid_amount:
-                ei.print_red("WARNING: Token buyer would pay {} coins more than expected in this swap.".format(paid_amount - intended_amount))
+                ei.print_red("WARNING: The token buyer would pay {} coins more than expected in this swap.".format(paid_amount - intended_amount))
             elif intended_amount > paid_amount:
-                ei.print_red("WARNING: Token seller would receive {} coins less than expected in this swap.".format(intended_amount - paid_amount))
-            ei.print_red("The expected coin payment value doesn't match with the amount the token buyer will be debited if they proceed with this command. They are expecting to pay {}, but they'll be debited {} plus the fees of {}. If you are not satisfied with these terms please negotiate it with your counterparty and request a new swap transaction hex string.".format(intended_amount, paid_amount, all_fees))
+                ei.print_red("WARNING: The token seller would receive {} coins less than expected in this swap.".format(intended_amount - paid_amount))
+            ei.print_red("The token buyer is expecting to pay {} coins for the tokens but by finalizing the swap with this hex string they'll have to pay {} coins.  {} coins. Please negotiate or create another hex string or change the expected payment value.".format(intended_amount, paid_amount, all_fees))
             fail = True
 
     for adr in [a for a in (token_receiver, change_receiver) if a is not None]:

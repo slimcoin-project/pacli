@@ -142,6 +142,7 @@ class Swap:
         EXPECTED_TOKENS is the expected amount of tokens to acquire, PAYMENT the coins expected to be paid.
         Check first if everything is correct with a dry run, then add --send to broadcast transaction.
         Note: Before launching this command, be sure to change the Pacli main address to the address providing the coins to be able to sign the transaction. This is often, but not necessarily the same address where you'll receive the tokens, depending on which UTXO you provided to the token seller.
+        Note 2: If the transaction doesn't broadcast correctly or doesn't confirm, it is possible that one of its inputs was already spent. Use 'pacli transaction show TXHEX -u' with the whole hex string to see if this is the case, and if yes, contact your counterparty to repeat the swap process.
 
         Args:
 
