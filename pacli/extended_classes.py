@@ -1707,6 +1707,8 @@ class ExtTransaction:
              decode: bool=False,
              opreturn: bool=False,
              id: bool=False,
+             utxo_check: bool=False,
+             access_wallet: str=None,
              quiet: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
@@ -1737,6 +1739,14 @@ class ExtTransaction:
 
             Shows a claim transaction for token TOKEN corresponding to a burn, gateway or donation transaction TXID.
 
+        pacli transaction show TXHEX -u
+        pacli transaction show TXID:VOUT -u
+
+            Perform a check if UTXOs were already spent or not.
+            Input can be the hex string of a transaction (TXHEX), then all inputs of this transaction will be checked.
+            Alternatively, the UTXO can be entered directly in the format TXID:VOUT.
+            NOTE: Works only with UTXOs that were sent to addresses in the current wallet.
+
         Args:
 
            structure: Show senders and receivers (not supported in the mode with LABELs).
@@ -1745,10 +1755,12 @@ class ExtTransaction:
            quiet: Suppress output, printout in script-friendly way.
            decode: Show transaction in JSON format (default: hex format).
            opreturn: Show the OP_RETURN byte string(s) in the transaction.
+           utxo_check: Show if UTXOs are spent or not (see Usage modes).
+           access_wallet: Access wallet file directly. Provide location after -a if the wallet file is not in standard datadir.
            id: Show transaction ID.
 
         """
-        return ei.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, opreturn=opreturn, decode=decode, txid=id)
+        return ei.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, opreturn=opreturn, utxo_check=utxo_check, access_wallet=access_wallet, decode=decode, txid=id)
 
     def __show(self,
                idstr: str,
@@ -1758,6 +1770,8 @@ class ExtTransaction:
                opreturn: bool=False,
                decode: bool=False,
                txid: bool=False,
+               utxo_check: bool=False,
+               access_wallet: str=None,
                quiet: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
 
@@ -1775,6 +1789,21 @@ class ExtTransaction:
                 return txes
             else:
                 pprint(txes)
+
+        elif utxo_check is True:
+
+             if ":" in idstr:
+                txid, vout = idstr.split(":")
+                utxodata = [(txid, vout)]
+             else:
+                try:
+                    tx = provider.decoderawtransaction(idstr)
+                    utxodata = []
+                    for inp in tx["vin"]:
+                        utxodata.append((inp["txid"], inp["vout"]))
+                except KeyError:
+                    raise ei.PacliInputDataError("Transaction data corrupted.")
+             return ei.run_command(ec.utxo_check, utxodata, access_wallet=access_wallet, quiet=quiet)
 
         elif structure is True or opreturn is True:
 

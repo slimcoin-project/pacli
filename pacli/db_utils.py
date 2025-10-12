@@ -9,22 +9,12 @@ import os
 import os.path
 import hashlib
 
-# TODO: check if unencrypted wallets lead to the "key" instead of "ckey" key in the database dict!
-
 # Copyright notice:
 # contains code from:
 # PyWallet 1.2.1 (Public Domain)
 # http://github.com/joric/pywallet
 
-
-# TODO change this, this will be triggered by every command.
-
 BERKELEYDB_MISSING = "Berkeley databases not supported. Install berkeleydb Python package for this command to run."
-
-#try:
-#    import berkeleydb
-#except ImportError:
-#    raise ei.PacliDataError(BERKELEYDB_MISSING)
 
 def determine_db_dir(): # from pywallet
 
@@ -81,8 +71,8 @@ def yield_transactions(database: object, ignore_corrupted: bool=True, debug: boo
                     print("Bad value of tx wallet data: key {} value {}".format(k, tx))
                 continue
 
-            #if debug:
-            #    print("Processing tx:", txid)
+            if debug:
+                print("Processing tx:", txid)
             yield [txid, tx_json]
 
 # address tools from pywallet

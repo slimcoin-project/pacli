@@ -2,7 +2,6 @@ import datetime
 import pypeerassets as pa
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
-import pacli.extended_commands as ec
 import pacli.blocklocator as loc
 from pacli.provider import provider
 from pacli.config import Settings
@@ -242,7 +241,7 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, a
         else:
             return None
     try:
-        senders = ec.find_tx_senders(tx)
+        senders = find_tx_senders(tx)
     except KeyError:
         raise ei.PacliInputDataError("Transaction does not exist or is corrupted.")
 
@@ -259,16 +258,17 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, a
             value = output["value"]
         except KeyError:
             value = 0
-        try:
-            receivers = output["scriptPubKey"]["addresses"]
-        except KeyError:
-            receivers = []
+        receivers = get_utxo_addresses(output)
+        #try:
+        #    receivers = output["scriptPubKey"]["addresses"]
+        #except KeyError:
+        #    receivers = []
         outputs.append({"receivers" : receivers, "value" : value})
 
     if not senders:
         senders = [{"sender" : ["COINBASE"]}]
 
-    #if tracked_address: # TODO: Should be a separate function. This also complicates the use_db option.
+    #if tracked_address: # TODO: Should be a separate function. This also complicates the use_db option. # TODO where was that one outsourced?
     #    outputs_to_tracked, oindices = [], []
     #    for oindex, o in enumerate(outputs):
     #        if (o.get("receivers") is not None and tracked_address in o["receivers"]):
@@ -357,4 +357,55 @@ def display_caching_warnings(address_list: list, locator: loc.BlockLocator, igno
     if startblock_list:
         for a in startblock_list:
             print("Note: Address {} was or will be cached from the block height {} on.".format(a, locator.addresses[a].startheight))
+
+
+def find_tx_senders(tx: dict) -> list:
+    """Finds all known senders of a transaction."""
+    # find_tx_sender from pypeerassets only finds the first sender.
+    # this variant returns a list of all input senders.
+
+    senders = []
+    for vin in tx["vin"]:
+        try:
+            sending_tx = provider.getrawtransaction(vin["txid"], 1)
+            vout = vin["vout"]
+            sender = sending_tx["vout"][vout]["scriptPubKey"]["addresses"]
+            value = sending_tx["vout"][vout]["value"]
+            senders.append({"sender" : sender, "value" : value})
+        except KeyError: # coinbase transactions
+            continue
+    return senders
+
+
+def get_utxo_from_data(utxo: object, tx: dict=None, debug: bool=False):
+
+    if type(utxo) == str:
+        utxo_data = utxo.split(":")
+    elif type(utxo) in (list, tuple):
+        utxo_data = utxo
+    try:
+        if tx is None:
+            tx = provider.getrawtransaction(utxo_data[0], 1)
+        output = tx["vout"][utxo_data[1]]
+    except (KeyError, IndexError):
+        raise ei.PacliDataError("Unknown address or non-existent output.")
+    return output
+
+def get_utxo_addresses(output: dict):
+    try:
+        receivers = output["scriptPubKey"]["addresses"]
+    except KeyError:
+        receivers = []
+    return receivers
+
+def utxo_in_tx(utxo: tuple, tx: dict):
+    txid, vout = utxo[:]
+    for inp in tx["vin"]:
+        try:
+            assert inp["vout"] == vout
+            assert inp["txid"] == txid
+            return True
+        except (AssertionError, KeyError):
+            continue
+    return False
 

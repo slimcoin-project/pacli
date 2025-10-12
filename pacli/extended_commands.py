@@ -1,3 +1,4 @@
+from prettyprinter import cpprint as pprint
 import pypeerassets as pa
 import pacli.keystore as k
 import pacli.keystore_extended as ke
@@ -5,7 +6,7 @@ import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.config_extended as ce
 import pacli.extended_constants as c
-from pacli.blockexp_utils import get_tx_structure
+import pacli.blockexp_utils as bu
 from pypeerassets.pautils import exponent_to_amount
 from pacli.config import Settings
 from pacli.provider import provider
@@ -167,7 +168,8 @@ def get_address_transactions(addr_string: str=None,
         address = None
 
     all_txes = True if (not sent) and (not received) else False
-    p2th_dict = eu.get_p2th_dict()
+    if not include_p2th:
+        p2th_dict = eu.get_p2th_dict()
     if wallet:
         wallet_addresses = eu.get_wallet_address_set(empty=True)
     if sort and txstruct:
@@ -250,7 +252,7 @@ def get_address_transactions(addr_string: str=None,
         tx = provider.getrawtransaction(txid, 1)
         txdict = None
         if txstruct:
-            formatted_tx = get_tx_structure(tx=tx, human_readable=False, add_txid=True)
+            formatted_tx = bu.get_tx_structure(tx=tx, human_readable=False, add_txid=True)
         elif advanced:
             formatted_tx = tx
         try:
@@ -272,7 +274,7 @@ def get_address_transactions(addr_string: str=None,
                 print("Checking if wallet or address has sent transaction {} ...".format(tx["txid"]), end="")
 
             try:
-                senders = find_tx_senders(tx)
+                senders = bu.find_tx_senders(tx)
             except KeyError: # coinbase txes should not be canceled here as they should give []
                 if debug:
                     print("Transaction aborted.")
@@ -683,26 +685,6 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
                 print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
             continue
 
-def find_tx_senders(tx: dict) -> list:
-    """Finds all known senders of a transaction."""
-    # find_tx_sender from pypeerassets only finds the first sender.
-    # this variant returns a list of all input senders.
-    # TODO: evaluate to move this to one of the "utils" modules.
-
-    senders = []
-    for vin in tx["vin"]:
-        try:
-            sending_tx = provider.getrawtransaction(vin["txid"], 1)
-            vout = vin["vout"]
-            sender = sending_tx["vout"][vout]["scriptPubKey"]["addresses"]
-            value = sending_tx["vout"][vout]["value"]
-            senders.append({"sender" : sender, "value" : value})
-        except KeyError: # coinbase transactions
-            continue
-    return senders
-
-
-
 def search_change_addresses(known_addresses: list, wallet_txes: list=None, balances: bool=False, debug: bool=False) -> list:
     """Searches all wallet transactions for unknown change addresses."""
     # note: needs advanced mode for wallet txes (complete getrawtransaction tx dict)
@@ -748,6 +730,49 @@ def retrieve_balance(address: str, debug: bool=False) -> str:
     if balance != "0":
         balance = balance.rstrip("0")
     return balance
+
+def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug: bool=False):
+
+    if access_wallet is not None:
+        import pacli.db_utils as dbu
+        datadir = access_wallet if type(access_wallet) == str else None
+
+    for utxo in utxodata:
+        spenttx = 0
+        txid, vout = utxo[:]
+        utxostr = "{}:{}".format(txid, vout)
+        output = bu.get_utxo_from_data(utxo)
+        addresses = bu.get_utxo_addresses(output)
+
+        for address in addresses:
+            if not quiet:
+                print("Checking address {}, which received UTXO {} ...".format(address, utxostr))
+                if not eu.is_mine(address):
+                    ei.print_red("Warning: Address is not part of the current wallet. Results are likely to be incomplete.")
+
+            if access_wallet is not None:
+                txes = dbu.get_all_transactions(address=address, datadir=datadir, advanced=True, debug=debug)
+            else:
+                txes = get_address_transactions(addr_string=address, advanced=True, include_p2th=True, debug=debug)
+            if not txes:
+                continue
+            elif not quiet:
+                print("Searching utxo in", len(txes), "transactions ...")
+            for tx in txes:
+                if not quiet:
+                    print("Searching TX:", tx.get("txid"))
+                if bu.utxo_in_tx(utxo, tx):
+                    if not quiet:
+                        pprint("Transaction {} spends UTXO: {}".format(tx["txid"], utxostr))
+                    else:
+                        print(tx["txid"])
+                    spenttx += 1
+                    break
+        if spenttx == 0:
+            print("UTXO {} not found. Probably unspent.".format(utxostr))
+    return
+
+
 
 
 
