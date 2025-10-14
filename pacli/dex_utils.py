@@ -259,7 +259,7 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=Fal
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params, quiet=quiet)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
-    return ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, quiet=quiet, debug=debug), txhex=txhex)
+    spenttx = ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, quiet=quiet, debug=debug), txhex=txhex)
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False, quiet: bool=False, debug: bool=False):
 
@@ -654,7 +654,7 @@ def check_swap(txhex: str,
                 ei.print_red("WARNING: The token buyer would pay {} coins more than expected in this swap.".format(paid_amount - intended_amount))
             elif intended_amount > paid_amount:
                 ei.print_red("WARNING: The token seller would receive {} coins less than expected in this swap.".format(intended_amount - paid_amount))
-            ei.print_red("The token buyer is expecting to pay {} coins for the tokens but by finalizing the swap with this hex string they'll have to pay {} coins.  {} coins. Please negotiate or create another hex string or change the expected payment value.".format(intended_amount, paid_amount, all_fees))
+            ei.print_red("The token buyer is expecting to pay {} coins for the tokens but by finalizing the swap with this hex string they'll have to pay {} coins (excluding fees of {} coins). Please negotiate or create another hex string or change the expected payment value.".format(intended_amount, paid_amount, all_fees))
             fail = True
 
     for adr in [a for a in (token_receiver, change_receiver) if a is not None]:

@@ -380,7 +380,11 @@ def find_tx_senders(tx: dict) -> list:
 def get_utxo_from_data(utxo: object, tx: dict=None, debug: bool=False):
 
     if type(utxo) == str:
-        utxo_data = utxo.split(":")
+        try:
+            utxo_data_raw = utxo.split(":")
+            utxo_data = (utxo_data_raw[0], int(utxo_data_raw[1]))
+        except Exception as e:
+            raise ei.PacliInputDataError("Wrong format of the entered UTXO. Please provide it in the format TXID:OUTPUT.", e)
     elif type(utxo) in (list, tuple):
         utxo_data = utxo
     try:

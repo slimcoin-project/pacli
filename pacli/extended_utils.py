@@ -317,10 +317,10 @@ def finalize_tx(rawtx: dict,
                 tx = dmu.sign_mixed_transaction(provider, rawtx, Settings.key, input_types)
 
         if send:
+            txid = sendtx(tx)
             if not quiet:
-                pprint({'txid': sendtx(tx)})
-            else:
-                sendtx(tx)
+                pprint({'txid': txid})
+
             if confirm:
                 ei.confirm_tx(tx, quiet=quiet)
 
@@ -352,8 +352,19 @@ def finalize_tx(rawtx: dict,
             save_transaction(txid, tx_hex)
 
     if send and not quiet:
+        if not check_tx_acceptance(txid=txid, tx_hex=tx_hex):
+
+            ei.print_red("Error: Transaction was not accepted by the client.")
+            print("The reason may be that you tried to create a transaction where an input was already spent by another transaction.")
+            print("You can try to find out if this is the case with an UTXO check with the following command:\n")
+            print("   pacli transaction show {} -u".format(tx_hex))
+            print("\nIt will check if the UTXOs used in this transaction were already spent. It accepts also the -a flag to find transactions carried out from change addresses.")
+            print("The UTXO check will only work if the address it received is in your wallet.\n")
+
+
         print("Note: Balances called with 'address balance' and 'address list' commands may not update even after the first confirmation.")
         print("In this case, restart your {} client.".format(Settings.network.upper()))
+
     return { dict_key : tx_hex }
 
 
@@ -952,3 +963,20 @@ def min_amount(amount_type: str, network_name: str=Settings.network) -> Decimal:
 
     elif amount_type == "output_value":
         return min_value
+
+def check_tx_acceptance(txid: str, tx_hex: str):
+    # checks if a tx was accepted by the client
+    try:
+        mempooltxes = provider.getmemorypool()["transactions"]
+        if tx_hex in mempooltxes:
+            return True
+    except AttributeError:
+        mempooltxes = None # coin doesn't support getmemorypool command
+
+    txtest = provider.getrawtransaction(txid, 1)
+    if "information" in txtest:
+        return False
+    if mempooltxes is not None and "confirmations" not in txtest:
+        return False
+    else:
+        return True

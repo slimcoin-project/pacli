@@ -151,7 +151,7 @@ class Swap:
           expected_tokens: Token units expected to get transferred in the swap.
           payment: The coins expected to be paid for the tokens.
           wait_for_confirmation: Waits for the transaction to confirm.
-          force: Creates the transaction even if the checks fail. WARNING: Use with caution, do not use if the token seller insists on it as it can lead to coin/token loss!
+          force: Creates the transaction even if the checks fail. Only recommended for expert users. May create invalid transactions. WARNING: Use with caution, do not use if the token seller insists on it as it can lead to coin/token loss!
           txhex: Shows only the hex string of the transaction.
           quiet: Suppresses some printouts (with the exception of the --force warning).
           debug: Show additional debug information.

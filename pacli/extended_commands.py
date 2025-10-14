@@ -741,7 +741,7 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
         spenttx = 0
         txid, vout = utxo[:]
         utxostr = "{}:{}".format(txid, vout)
-        output = bu.get_utxo_from_data(utxo)
+        output = bu.get_utxo_from_data(utxo, debug=debug)
         addresses = bu.get_utxo_addresses(output)
 
         for address in addresses:

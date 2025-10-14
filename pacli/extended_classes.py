@@ -1740,10 +1740,11 @@ class ExtTransaction:
             Shows a claim transaction for token TOKEN corresponding to a burn, gateway or donation transaction TXID.
 
         pacli transaction show TXHEX -u
+        pacli transaction show TXID -u
         pacli transaction show TXID:VOUT -u
 
             Perform a check if UTXOs were already spent or not.
-            Input can be the hex string of a transaction (TXHEX), then all inputs of this transaction will be checked.
+            If the user provides TXID or hex string of a transaction (TXHEX), all inputs of this transaction will be checked.
             Alternatively, the UTXO can be entered directly in the format TXID:VOUT.
             NOTE: Works only with UTXOs that were sent to addresses in the current wallet.
 
@@ -1794,10 +1795,16 @@ class ExtTransaction:
 
              if ":" in idstr:
                 txid, vout = idstr.split(":")
-                utxodata = [(txid, vout)]
+                try:
+                    utxodata = [(txid, int(vout))]
+                except ValueError:
+                    raise ei.PacliDataError("UTXO format incorrect. Please provide it in the format TXID:OUTPUT, with OUTPUT being an integer number.")
              else:
                 try:
-                    tx = provider.decoderawtransaction(idstr)
+                    if eu.is_possible_txid(idstr):
+                        tx = provider.getrawtransaction(idstr, 1)
+                    else:
+                        tx = provider.decoderawtransaction(idstr)
                     utxodata = []
                     for inp in tx["vin"]:
                         utxodata.append((inp["txid"], inp["vout"]))
