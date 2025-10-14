@@ -1747,6 +1747,7 @@ class ExtTransaction:
             If the user provides TXID or hex string of a transaction (TXHEX), all inputs of this transaction will be checked.
             Alternatively, the UTXO can be entered directly in the format TXID:VOUT.
             NOTE: Works only with UTXOs that were sent to addresses in the current wallet.
+            When checking swap transactions, this means that both exchange partners should run this command to get information about their own UTXOs.
 
         Args:
 
@@ -1809,7 +1810,7 @@ class ExtTransaction:
                     for inp in tx["vin"]:
                         utxodata.append((inp["txid"], inp["vout"]))
                 except KeyError:
-                    raise ei.PacliInputDataError("Transaction data corrupted.")
+                    raise ei.PacliInputDataError("Transaction is not stored in the wallet or the data is corrupted.")
              return ei.run_command(ec.utxo_check, utxodata, access_wallet=access_wallet, quiet=quiet)
 
         elif structure is True or opreturn is True:

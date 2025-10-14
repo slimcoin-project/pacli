@@ -259,10 +259,6 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, a
         except KeyError:
             value = 0
         receivers = get_utxo_addresses(output)
-        #try:
-        #    receivers = output["scriptPubKey"]["addresses"]
-        #except KeyError:
-        #    receivers = []
         outputs.append({"receivers" : receivers, "value" : value})
 
     if not senders:
