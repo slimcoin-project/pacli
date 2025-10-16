@@ -1444,6 +1444,7 @@ class ExtCard:
 
         Shows balances of a single token DECK (ID, global name or local label) on wallet addresses (-w), named addresses (-n) or only the specified address.
         If ADDRESS is not given and -w nor -n is not selected, the current main address is used.
+        NOTE: This standard mode (without -j or -t) will not work in compatibility mode.
 
             pacli card balances [ADDRESS|-w|-n]
             pacli token balances [ADDRESS|-w|-n]
@@ -1461,7 +1462,7 @@ class ExtCard:
 
         Shows balances of all owners of a token (addresses with cards of this deck) TOKEN (ID, global name or local label).
         Similar to the vanilla 'card balances' command.
-        If compatibility mode is active, this is the standard mode and -o is not required. NOTE: The standard mode (without -j or -t) will not work in compatibility mode.
+        If compatibility mode is active, this is the standard mode and -o is not required; the "normal" standard mode will not work in this mode.
         Note: This command shows a balance of zero if an address has received tokens in the past but then all were moved. If addresses were never used with a token, they won't be shown.
 
         Args:

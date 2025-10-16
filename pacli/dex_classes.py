@@ -1,6 +1,5 @@
 import time
 import pacli.dex_utils as dxu
-import pacli.blockexp_utils as bxu
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pypeerassets as pa

@@ -20,7 +20,7 @@ import json
 from decimal import Decimal
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
-import pacli.blockexp_utils as bxu
+import pacli.blockexp_utils as bu
 from pypeerassets.pa_constants import param_query
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
@@ -134,6 +134,7 @@ def build_coin2card_exchange(deckid: str,
                              debug: bool=False):
 
     # the card seller builds the transaction
+    fail = 0
     my_key = Settings.key
     my_address = my_key.address
     my_change_address = Settings.change
@@ -147,8 +148,8 @@ def build_coin2card_exchange(deckid: str,
     if tokenbuyer_change_address is None:
         tokenbuyer_change_address = tokenbuyer_address
 
-    print("Token seller:", card.sender, "Token buyer:", card.receiver[0])
-    print("Change of the coins sold will be sent to address", tokenbuyer_change_address)
+    print("Token seller:", card.sender, "Token receiver:", card.receiver[0])
+
 
     tokenbuyer_input_values = tokenbuyer_input.split(":")
     tokenbuyer_input_txid, tokenbuyer_input_vout = tokenbuyer_input_values[0], int(tokenbuyer_input_values[1])
@@ -158,8 +159,22 @@ def build_coin2card_exchange(deckid: str,
     min_tx_fee = eu.min_amount("tx_fee")
     min_opreturn = eu.min_amount("op_return_value")
     all_fees = min_amount * 2 + min_opreturn + min_tx_fee
+    tokenbuyer_input_tx = provider.getrawtransaction(tokenbuyer_input_txid, 1)
+    # added ismine check for the utxo. Cannot normally be used for scams.
+    tokenbuyer_utxo = bu.get_utxo_from_data((tokenbuyer_input_txid, int(tokenbuyer_input_vout)), tx=tokenbuyer_input_tx)
+    tokenbuyer_utxo_addresses = bu.get_utxo_addresses(tokenbuyer_utxo)
+    for taddr in tokenbuyer_utxo_addresses:
+        if eu.is_mine(taddr):
+            ei.print_red("The swap uses funds from the token seller's address {} to pay for the tokens.".format(taddr))
+            ei.print_red("This cannot normally be used for scams, as the token buyer won't be able to sign the transaction fully. It is probably a mistake (or a test swap).")
+            ei.print_red("Nevertheless, don't proceed if in doubt. Re-check the partner input of the swap carefully.")
+            break
+
+    print("Token buyer's input address(es): {} (can be different from the token receiver's address)".format(tokenbuyer_utxo_addresses))
+    print("Change of the coins sold will be sent to address", tokenbuyer_change_address)
+
     try:
-        amount_str = str(provider.getrawtransaction(tokenbuyer_input_txid, 1)["vout"][tokenbuyer_input_vout]["value"])
+        amount_str = str(tokenbuyer_utxo["value"])
     except (KeyError, IndexError):
         raise ei.PacliDataError("Incorrect input provided by the token buyer, either the transaction doesn't exist or it has less outputs than expected.")
     tokenbuyer_input_amount = Decimal(amount_str)
@@ -167,7 +182,6 @@ def build_coin2card_exchange(deckid: str,
         raise ei.PacliInputDataError("The input provided by the token buyer has a lower balance than the requested payment plus fees (available amount: {}, requested payment {}, fees: {})".format(tokenbuyer_input_amount, coin_amount, all_fees))
     # first input comes from the card seller (i.e. the user who signs here)
     # We let pacli chose it automatically, based on the minimum amount. It should never give more than one, but it wouldn't matter if it's two or more.
-
 
     try:
         own_utxo = select_utxos(minvalue=all_fees, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
@@ -200,7 +214,7 @@ def build_coin2card_exchange(deckid: str,
     print("Token balance of the sender:", token_balance)
     if lock_tx is None:
         print("Checking locks ...")
-        lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, debug=debug)
+        lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, quiet=True, debug=debug)
         if not lockcheck_passed:
             print("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string.")
     else:
@@ -238,6 +252,8 @@ def build_coin2card_exchange(deckid: str,
             ei.print_red("To see if the transaction was confirmed, use 'pacli transaction show {} -s' and check the output for the 'blockheight' value.".format(lock_tx))
         else:
             print("Lock transaction correctly confirmed. The hex string can be transferred to the token buyer.")
+
+
 
 
 
@@ -577,7 +593,7 @@ def check_swap(txhex: str,
     all_min_fees = min_amount * 2 + min_opreturn + min_tx_fee
     try:
         txjson = provider.decoderawtransaction(txhex)
-        txstruct = bxu.get_tx_structure(tx=txjson, ignore_blockhash=True)
+        txstruct = bu.get_tx_structure(tx=txjson, ignore_blockhash=True)
     except:
         raise ei.PacliInputDataError("No valid transaction hex string or label provided.")
 
