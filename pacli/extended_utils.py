@@ -442,7 +442,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     if balance_check:
         if not quiet:
             print("Checking sender balance ...")
-        balance = Decimal(str(get_address_token_balance(deck, Settings.key.address)))
+        balance = get_address_token_balance(deck, Settings.key.address)
         if balance < sum(amount):
             raise ei.PacliInputDataError("Not enough balance of this token.")
 
@@ -564,9 +564,10 @@ def get_address_token_balance(deck: object, address: str) -> Decimal:
 
     for i in state.balances:
         if i == address:
-            return exponent_to_amount(state.balances[i], deck.number_of_decimals)
+            balance = exponent_to_amount(state.balances[i], deck.number_of_decimals)
+            return Decimal(str(balance))
     else:
-        return 0
+        return Decimal(0)
 
 def get_wallet_token_balances(deck: object, addresses: list=None, address_dicts: list=None, identifier: str=None, include_named: bool=False, no_labels: bool=False, suppress_addresses: bool=False, debug: bool=False) -> dict:
     """Gets token balances of a single deck, of all wallet addresses, as a Decimal value."""
