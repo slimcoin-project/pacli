@@ -92,10 +92,11 @@ class Swap:
             pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT
 
         Creates a swap only. PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual). PARTNER_ADDRESS can be an address or a label of a stored address.
+        PARTNER_INPUT must be in the format TXID:OUTPUT, or be a valid label for a stored UTXO.
 
             pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT -w [LOCKTIME]
 
-        Creates the swap and adds lock transaction, which will by default lock the tokens 1000 blocks to the PARTNER_ADDRESS and use common default values. If you need more parameters for the lock process, use the 'swap lock' command and then the 'swap create' command without the '-w' flag.
+        Creates the swap and adds a lock transaction, which will by default lock the tokens 1000 blocks to the PARTNER_ADDRESS and use common default values. If you need more parameters for the lock process, use the 'swap lock' command and then the 'swap create' command without the '-w' flag.
 
         NOTE: To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
 
@@ -206,12 +207,12 @@ class Swap:
 
         blockheight = provider.getblockcount() if blockheight is None else blockheight
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
-        locks, deck = dxu.get_locks(deckid, blockheight, return_deck=True, debug=debug)
+        locks, deck = ei.run_command(dxu.get_locks, deckid, blockheight, return_deck=True, debug=debug)
 
         if quiet is True:
             return locks
         else:
-            return dxu.prettyprint_locks(locks, blockheight, decimals=deck.number_of_decimals)
+            return ei.run_command(dxu.prettyprint_locks, locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
     def select_coins(self, amount, address=Settings.key.address, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):

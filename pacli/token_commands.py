@@ -183,7 +183,7 @@ def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=Fa
         balance = eu.get_address_token_balance(deck, address)
 
         if quiet:
-            print({address : balance})
+            print({address : float(balance)})
         else:
-            pprint({address : balance})
+            pprint({address : float(balance)})
 

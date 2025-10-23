@@ -21,6 +21,7 @@ from decimal import Decimal
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.blockexp_utils as bu
+import pacli.config_extended as ce
 from pypeerassets.pa_constants import param_query
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
@@ -150,9 +151,14 @@ def build_coin2card_exchange(deckid: str,
 
     print("Token seller:", card.sender, "Token receiver:", card.receiver[0])
 
+    try:
+        if not ":" in tokenbuyer_input: # this treats tokenbuyer_input as a label for a stored utxo
+            tokenbuyer_input = ce.show("utxo", tokenbuyer_input)
+        tokenbuyer_input_values = tokenbuyer_input.split(":")
+        tokenbuyer_input_txid, tokenbuyer_input_vout = tokenbuyer_input_values[0], int(tokenbuyer_input_values[1])
+    except:
+        raise ei.PacliInputDataError("Partner input (UTXO provided by the token seller) provided in a wrong format. Use TXID:OUTPUT or a label for a stored UTXO.")
 
-    tokenbuyer_input_values = tokenbuyer_input.split(":")
-    tokenbuyer_input_txid, tokenbuyer_input_vout = tokenbuyer_input_values[0], int(tokenbuyer_input_values[1])
     # tokenbuyer's input becomes second input, as first must be card sender.
     tokenbuyer_input = build_input(tokenbuyer_input_txid, tokenbuyer_input_vout)
     min_amount = eu.min_amount("output_value")
@@ -211,12 +217,12 @@ def build_coin2card_exchange(deckid: str,
     token_balance = eu.get_address_token_balance(deck, my_address)
     if token_balance < card_amount:
         raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
-    print("Token balance of the sender:", token_balance)
+    print("Token balance of the sender:", str(token_balance))
     if lock_tx is None:
         print("Checking locks ...")
         lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, quiet=True, debug=debug)
         if not lockcheck_passed:
-            print("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string.")
+            ei.print_red("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string. If the tokens were locked, it's possible the lock transaction is still unconfirmed, or the locktime is too short.")
     else:
         print("Lock check passed: Enough tokens are on the sender's address and properly locked.")
 
@@ -232,7 +238,7 @@ def build_coin2card_exchange(deckid: str,
         tx_hex = unsigned_tx.hexlify()
         print(tx_hex) # prettyprint makes it more difficult to copy it
         if lock_tx is None and not lockcheck_passed:
-            ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, lock the tokens with the following command:")
+            ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, if the tokens weren't locked or the lock blockheight is too close, lock them with the following command:")
             ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), tokenbuyer_address))
             print("NOTE: The lock check can also fail when the locking transaction is still unconfirmed. If you are sure that you have locked the tokens already, check the confirmation status of the transaction before locking the tokens again.")
         if save_identifier is not None:
