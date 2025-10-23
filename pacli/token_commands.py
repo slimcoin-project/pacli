@@ -146,8 +146,11 @@ def all_balances(address: str=Settings.key.address,
     if quiet:
         print(addresses)
     elif (advanced is True) or (not wallet):
-        for item in addresses:
-            ei.print_address_balances(item)
+        if len(addresses) == 0:
+            print("No token balances found.")
+        else:
+            for item in addresses:
+                ei.print_address_balances(item)
     elif no_tokens:
         if add_p2th_account == True:
             for item in addresses:
