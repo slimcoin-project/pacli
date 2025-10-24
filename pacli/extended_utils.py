@@ -972,14 +972,19 @@ def min_amount(amount_type: str, network_name: str=Settings.network) -> Decimal:
     elif amount_type == "output_value":
         return min_value
 
-def check_tx_acceptance(txid: str, tx_hex: str):
+def check_tx_acceptance(txid: str, tx_hex: str, quiet: bool=False):
     # checks if a tx was accepted by the client
     try:
-        mempooltxes = provider.getmemorypool()["transactions"]
+        mempool = provider.getmemorypool()
+        mempooltxes = mempool["transactions"]
         if tx_hex in mempooltxes:
             return True
     except AttributeError:
         mempooltxes = None # coin doesn't support getmemorypool command
+    except KeyError:
+        if mempool.get("code") == -9 and not quiet:
+            ei.print_red("Warning: Client is not connected. Check your internet connection or connect manually to a node. Broadcasting the transaction will probably take longer than expected. Use the 'sendrawtransaction' command with the complete transaction hex string to broadcast it manually.")
+        mempooltxes = None # can happen if client is not connected
 
     txtest = provider.getrawtransaction(txid, 1)
     if "information" in txtest:

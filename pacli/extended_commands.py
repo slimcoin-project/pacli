@@ -764,11 +764,11 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
             elif not quiet:
                 print("Searching utxo in", len(txes), "transactions ...")
             for tx in txes:
-                if not quiet:
+                if debug:
                     print("Searching TX:", tx.get("txid"))
                 if bu.utxo_in_tx(utxo, tx):
                     if not quiet:
-                        pprint("Transaction {} spends UTXO: {}".format(tx["txid"], utxostr))
+                        ei.print_red("Transaction {} spends UTXO: {}".format(tx["txid"], utxostr))
                     else:
                         print(tx["txid"])
                     spenttx += 1
