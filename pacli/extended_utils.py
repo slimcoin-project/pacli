@@ -268,6 +268,13 @@ def finalize_tx(rawtx: dict,
     """Final steps of a transaction creation. Checks, verifies, signs and sends the transaction, and waits for confirmation if the 'confirm' option is used."""
     # Important function called by all AT, DT and Dex transactions and groups several checks and the last steps (signing) together.
 
+
+    if sign or send:
+        main_address = key.address if key is not None else Settings.key.address
+        if not quiet and not is_mine(main_address):
+            print("Warning: The address you attempt to sign the transaction with is not part of your current wallet.")
+            print("This can lead to problems when signing some kinds of transactions and can make them invalid.")
+
     if verify:
         if Settings.network in ("ppc", "tppc"):
 
@@ -981,3 +988,4 @@ def check_tx_acceptance(txid: str, tx_hex: str):
         return False
     else:
         return True
+

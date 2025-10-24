@@ -48,6 +48,7 @@ def card_lock(deckid: str,
     # returns a dict to be passed to self.card_transfer as kwargs
     change_address = Settings.change if change is None else change
     card_sender = Settings.key.address
+
     if not eu.is_mine(receiver) and not force:
         raise ei.PacliDataError("The receiver address {} is not part of your wallet. If you really want to transfer the coins to another wallet or person while locking, use the --force option.".format(receiver))
 

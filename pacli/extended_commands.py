@@ -525,13 +525,18 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
     elif address is None:
         raise ei.PacliDataError("No address nor label provided.")
 
-    wif_key = provider.dumpprivkey(address)
+    if not eu.is_mine(address):
+        raise ei.PacliDataError("Address does not exist or is not stored in your wallet.")
+
+    wif_key = provider.dumpprivkey(address) # TODO: keyring not supported here it seems!
+    if type(wif_key) == dict and wif_key.get("code") == -13:
+        raise ei.PacliDataError("Your {} client's wallet is locked. You need to unlock it before you change the main address.\nChanging the main address wasn't possible, however if you were running this command to create a fresh address with a new label the address was created and associated with the label of your choice.".format(Settings.network.upper()))
 
     try:
         key = pa.Kutil(network=Settings.network, from_wif=wif_key).privkey
     except ValueError as e:
         if "Invalid wif length" in str(e):
-            raise ei.PacliDataError("Address does not exist or your {} client's wallet is locked. Changing the main address wasn't possible, however if you were running this command to create a fresh address with a new label the address was created and associated with the label of your choice. If your wallet is locked with a passphrase, you need to unlock it before you change the main address.".format(Settings.network.upper()))
+            raise ei.PacliDataError("WIF key corrupted.")
         else:
             raise ei.PacliDataError("Invalid or non-wallet address (or incorrect command usage).")
         return
