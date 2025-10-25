@@ -34,7 +34,7 @@ class PoDToken():
                    periods_sdp: int=None,
                    token_sdp: str=None,
                    number_of_decimals=2,
-                   change: str=Settings.change,
+                   change: str=None,
                    wait_for_confirmation: bool=False,
                    ignore_warnings: bool=False,
                    verify: bool=False,
@@ -102,7 +102,7 @@ class PoDToken():
               proposal: str,
               receivers: list=None,
               amounts: list=None,
-              change: str=Settings.change,
+              change: str=None,
               locktime: int=0,
               state: str=None,
               examine_address:str=None,
@@ -165,7 +165,7 @@ class PoDToken():
 
         asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=state, proposer=proposer, force=force, debug=debug, quiet=quiet)
 
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change_address=change_address, verify=verify, locktime=locktime, force=force, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
+        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change=change_address, verify=verify, locktime=locktime, force=force, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
         return ei.output_tx(tx, txhex=txhex)
 
 
@@ -806,7 +806,7 @@ class Proposal:
 
     # Tracked Transactions in Proposal class
 
-    def create(self, identifier: str, req_amount: str=None, periods: int=None, intro: str="", change: str=Settings.change, tx_fee: str="0.01", modify: bool=False, force: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False) -> None:
+    def create(self, identifier: str, req_amount: str=None, periods: int=None, intro: str="", change: str=None, tx_fee: str="0.01", modify: bool=False, force: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False) -> None:
         """Creates a new proposal.
 
         Usage modes:
@@ -858,7 +858,7 @@ class Proposal:
         return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
 
-    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=Settings.change, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, wait_for_confirmation: bool=False, match_round: bool=False, quiet: bool=False, level_security: int=1, debug: bool=False) -> None:
+    def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=None, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, wait_for_confirmation: bool=False, match_round: bool=False, quiet: bool=False, level_security: int=1, debug: bool=False) -> None:
         """Vote (with "yes" or "no") for a proposal.
 
         Usage:
@@ -891,7 +891,7 @@ class Donation:
     # Tracked Transactions in Donation class
     # TODO: It would be best to find another word for "reserve", as we have already "round_number" with -r. Perhaps something like "next_round_reserve? (but -n is --new_inputs)
 
-    def signal(self, proposal: str, amount: str, destination: str, change: str=Settings.change, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, match_round: bool=True, debug: bool=False, quiet: bool=False, level_security: int=1, force: bool=False) -> None:
+    def signal(self, proposal: str, amount: str, destination: str, change: str=None, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, match_round: bool=True, debug: bool=False, quiet: bool=False, level_security: int=1, force: bool=False) -> None:
         """Creates a compliant signalling transaction for a proposal. The destination address becomes the donor address of the Donation State. It can be added as an address or as a label.
 
         Usage:
@@ -919,7 +919,7 @@ class Donation:
         return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
 
 
-    def lock(self, proposal: str, amount: str=None, destination: str=Settings.key.address, change: str=Settings.change, reserve: str=None, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, match_round: bool=False, new_inputs: bool=False, timelock: int=None, reserveamount: str=None, force: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
+    def lock(self, proposal: str, amount: str=None, destination: str=Settings.key.address, change: str=None, reserve: str=None, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, match_round: bool=False, new_inputs: bool=False, timelock: int=None, reserveamount: str=None, force: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
         """Creates a Locking Transaction to lock funds for a donation, by default to the origin address.
 
         Usage:
@@ -957,7 +957,7 @@ class Donation:
         return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
 
 
-    def release(self, proposal: str, amount: str=None, change: str=Settings.change, reserve: str=None, reserveamount: str=None, tx_fee: str="0.01", round_number: int=None, match_round: bool=False, new_inputs: bool=False, force: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
+    def release(self, proposal: str, amount: str=None, change: str=None, reserve: str=None, reserveamount: str=None, tx_fee: str="0.01", round_number: int=None, match_round: bool=False, new_inputs: bool=False, force: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
         """Releases a donation and transfers the coins to the Proposer. This command can be used both in the release phase and in the donation rounds of the second distribution phase.
 
         Usage:

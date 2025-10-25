@@ -22,7 +22,7 @@ class Swap:
             lock: int=1000,
             blockheight: bool=False,
             addrtype: str="p2pkh",
-            change: str=Settings.change,
+            change: str=None,
             new_origin: str=None,
             force: bool=False,
             wait_for_confirmation: bool=False,

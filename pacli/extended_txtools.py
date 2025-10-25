@@ -1,4 +1,8 @@
-# transaction utilities
+# base level transaction utilities without dependencies on other pacli tools (except provider and config)
+
+from pacli.config import Settings
+from pacli.provider import provider
+import pacli.config_extended as ce
 
 def check_receiver(tx: dict, receiver: str):
     receivers = []
@@ -77,5 +81,27 @@ def extract_txids_from_utxodict(txdicts: list, exclude_cats: list=[], required_a
 
         processed_txids.append(txdict["txid"])
         yield txdict["txid"]
+
+def set_change_address(change: str=None, debug: bool=False) -> None:
+
+    if change is not None:
+        Settings.change = change
+    try:
+        assert ce.show("change_policy", "change_policy") == "newaddress"
+        check_paclichange_account(debug=debug)
+        change_address = provider.getnewaddress("paclichange")
+        if debug:
+            print("New change address generated:", change_address)
+        Settings.change = change_address
+
+    except (AttributeError, AssertionError):
+        pass # legacy setting
+
+
+def check_paclichange_account(debug: bool=False) -> None:
+    if "paclichange" not in provider.listaccounts():
+        new_address = provider.getnewaddress()
+        provider.setaccount(new_address, "paclichange")
+
 
 

@@ -60,10 +60,11 @@ def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward:
         raise ei.PacliInputDataError("Invalid address.")
     return data
 
-def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=Settings.change, force: bool=False,
+def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=None, force: bool=False,
                         confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, debug: bool=False) -> None:
     """Alternative function for deck spawns. Allows p2pk inputs."""
 
+    change_address = Settings.change if change_address is None else change_address
     network = Settings.network
     production = Settings.production
     version = Settings.deck_version
@@ -436,7 +437,7 @@ def get_input_types(rawtx):
 # CardTransfer tools
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
-                 asset_specific_data: str=None, locktime: int=0, verify: bool=False, change_address: str=Settings.change,
+                 asset_specific_data: str=None, locktime: int=0, verify: bool=False, change: str=None,
                  sign: bool=False, send: bool=False, balance_check: bool=False, force: bool=False, quiet: bool=False, confirm: bool=False, debug: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
 
@@ -444,6 +445,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     amount_list = [amount_to_exponent(i, deck.number_of_decimals) for i in amount]
+    change_address = Settings.change if change is None else change
 
     # balance check
     if balance_check:

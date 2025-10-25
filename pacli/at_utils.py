@@ -23,6 +23,7 @@ from pacli.config import Settings
 def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decimal=None, change_address: str=None, debug: bool=False):
     """Creates a simple coin transaction from a pre-selected address."""
 
+    change_address = ec.process_address(change_address) if change_address is not None else Settings.change
     try:
         dtx = TransactionDraft(fee_coins=tx_fee, provider=provider, debug=debug)
         dtx.add_p2pkh_output(dest_address, coins=amount)

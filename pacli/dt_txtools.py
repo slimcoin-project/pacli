@@ -52,7 +52,7 @@ def create_trackedtransaction(tx_type,
 
     ke.check_main_address_lock()
     # step 1 (new): address/label synchronization
-    change_address = ec.process_address(change)
+    change_address = ec.process_address(change) if change is not None else Settings.change
     reserve_address = ec.process_address(reserve)
     dest_address = ec.process_address(destination)
 

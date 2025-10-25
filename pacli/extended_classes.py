@@ -42,6 +42,7 @@ class ExtConfig:
             quiet: bool=False,
             flush_category: bool=False,
             extended: str=None,
+            set_change_policy: bool=False,
             compatibility_mode: bool=False) -> None:
         """Changes configuration settings of the basic or extended configuration file.
 
@@ -85,6 +86,12 @@ class ExtConfig:
                Flush (delete) the contents of an entire category. Requires --now, otherwise it will perform a dry run.
                Useful when switching to a new wallet file, to renew the 'address' category.
 
+           pacli config set OPTION -s
+
+               Set extended change policy. Options:
+               - newaddress: Creates a new address for each change operation.
+               - legacy: Uses PeerAssets policy: either a static change address ("default") or the current main address (see "change" setting).
+
            Notes:
 
                The basic configuration settings 'network', 'provider' 'rpcuser', 'rpcpassword' and 'rpcport'
@@ -108,10 +115,11 @@ class ExtConfig:
              quiet: Suppress output, printout in script-friendly way.
              value: To be used as a positional argument (flag keyword is not mandatory), see 'Usage modes' above.
              compatibility_mode: Enable or disable compatibility mode. See Usage modes.
+             set_change_policy: Enable and set advanced change policy. Options: "newaddress" and "legacy".
 
 """
 
-        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, flush_category=flush_category, compatibility_mode=compatibility_mode)
+        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, flush_category=flush_category, compatibility_mode=compatibility_mode, change_policy=set_change_policy)
 
     def __set(self,
               label: str,
@@ -123,7 +131,8 @@ class ExtConfig:
               now: bool=False,
               quiet: bool=False,
               flush_category: bool=False,
-              compatibility_mode: bool=False) -> None:
+              compatibility_mode: bool=False,
+              change_policy: str=None) -> None:
 
         if flush_category is True:
             category = label
@@ -131,7 +140,20 @@ class ExtConfig:
                 print("WARNING: This deletes the whole content of category '{}' in the extended configuration file.".format(category))
             return ce.flush(category, quiet=quiet, now=now)
 
-        if category is not None:
+        if category is not None or change_policy is True:
+            if change_policy is True:
+                change_policy_options = ("newaddress", "legacy")
+                if ce.show("change_policy", "change_policy", quiet=True) is not None:
+                    replace = True
+                if label in change_policy_options:
+                    value = label
+                    category = "change_policy"
+                    label = "change_policy"
+                    if not quiet:
+                        print("Setting change policy to:", value)
+                        quiet = True # prevents "duplicate" output
+                else:
+                    raise ei.PacliInputDataError("Change policy can only be set to the following values: {}".format(change_policy_options))
             if type(category) != str:
                 # if -e is given without cat, it gets replaced by a bool value (True).
                 raise ei.PacliInputDataError("You have to provide a category if modifying the extended config file.")
@@ -151,7 +173,9 @@ class ExtConfig:
                 print("Setting compatibility mode to {}.".format(value))
                 print("Compatibility mode affects the output of some original PeerAssets commands,")
                 print("but doesn't affect the inner workings nor the extended commands.")
+
         else:
+
 
             if value is None:
                 raise ei.PacliInputDataError("No value provided.")
@@ -1547,7 +1571,7 @@ class ExtCard:
                                    debug=debug)
 
 
-    def transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def transfer(self, idstr: str, receiver: str, amount: str, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1581,7 +1605,7 @@ class ExtCard:
         return ei.run_command(self.__transfer, **kwargs)
 
 
-    def __transfer(self, idstr: str, receiver: str, amount: str, change: str=Settings.change, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def __transfer(self, idstr: str, receiver: str, amount: str, change: str=None, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
 
         ke.check_main_address_lock()
         sign, send = eu.manage_send(sign, send)
@@ -1608,7 +1632,7 @@ class ExtCard:
         return eu.advanced_card_transfer(deck,
                                  amount=amount,
                                  receiver=receiver_addresses,
-                                 change_address=change_address,
+                                 change=change_address,
                                  locktime=0,
                                  asset_specific_data=None,
                                  sign=sign,

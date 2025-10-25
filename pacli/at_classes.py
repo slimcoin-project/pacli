@@ -18,7 +18,7 @@ from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATTokenBase():
 
-    def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, force: bool=False, debug: bool=False, optimize: bool=False) -> str:
+    def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=None, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, force: bool=False, debug: bool=False, optimize: bool=False) -> str:
 
         ke.check_main_address_lock()
         amount = Decimal(str(amount))
@@ -84,7 +84,7 @@ class ATTokenBase():
 
 
     def claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
-              payto: str=None, payamount: str=None, change: str=Settings.change,
+              payto: str=None, payamount: str=None, change: str=None,
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
         '''Claims the token reward for a burn transaction (PoB tokens) or a transaction to a tracked address (AT tokens) referenced by a transaction ID.
@@ -129,7 +129,7 @@ class ATTokenBase():
 
 
     def __claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
-              payto: str=None, payamount: str=None, change: str=Settings.change,
+              payto: str=None, payamount: str=None, change: str=None,
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
 
@@ -163,7 +163,7 @@ class ATTokenBase():
         return eu.advanced_card_transfer(deck,
                                  amount=amount,
                                  receiver=receiver,
-                                 change_address=change_address,
+                                 change=change_address,
                                  asset_specific_data=asset_specific_data,
                                  sign=sign,
                                  send=send,
@@ -175,7 +175,7 @@ class ATTokenBase():
 
     # @classmethod
     def spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
-              end_block: int=None, xtradata: str=None, change: str=Settings.change, verify: bool=False, ignore_warnings: bool=False,
+              end_block: int=None, xtradata: str=None, change: str=None, verify: bool=False, ignore_warnings: bool=False,
               wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
         """Spawns a new AT deck.
 
@@ -204,7 +204,7 @@ class ATTokenBase():
         ei.run_command(self.__spawn, **kwargs)
 
     def __spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
-              end_block: int=None, xtradata: str=None, change: str=Settings.change, verify: bool=False, ignore_warnings: bool=False,
+              end_block: int=None, xtradata: str=None, change: str=None, verify: bool=False, ignore_warnings: bool=False,
               wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
 
         ke.check_main_address_lock()
@@ -248,7 +248,7 @@ class ATToken(ATTokenBase):
 
     """Commands to deal with AT (address-tracking) tokens, which can be used for crowdfunding, trustless ICOs and similar purposes."""
 
-    def send_coins(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=Settings.change, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, force: bool=False, optimize: bool=False) -> str:
+    def send_coins(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=None, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, debug: bool=False, force: bool=False, optimize: bool=False) -> str:
         '''Creates a simple transaction from an address (default: current main address) to another one.
         The purpose of this command is to be able to use the address labels from Pacli,
         above all to make fast transactions to a tracked address of an AT token.
@@ -287,7 +287,7 @@ class PoBToken(ATTokenBase):
     """Commands to deal with PoB (proof-of-burn) tokens, which reward burn transactions."""
 
     def spawn(self, token_name, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
-              end_block: int=None, change: str=Settings.change, verify: bool=False, sign: bool=True,
+              end_block: int=None, change: str=None, verify: bool=False, sign: bool=True,
               wait_for_confirmation: bool=False, send: bool=True, debug: bool=False):
 
         """Spawn a new PoB token, uses automatically the burn address of the network.
@@ -315,7 +315,7 @@ class PoBToken(ATTokenBase):
         return super().spawn(token_name, tracked_address, multiplier, number_of_decimals, change=change, from_block=from_block, end_block=end_block, wait_for_confirmation=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
 
-    def burn_coins(self, amount: str, idstr: str=None, tx_fee: Decimal=None, change: str=Settings.change, wait_for_confirmation: bool=False, optimize: bool=False, force: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
+    def burn_coins(self, amount: str, idstr: str=None, tx_fee: Decimal=None, change: str=None, wait_for_confirmation: bool=False, optimize: bool=False, force: bool=False, sign: bool=True, send: bool=True, verify: bool=False, quiet: bool=False, debug: bool=False) -> str:
         """Burn coins with a controlled transaction from the current main address.
 
         Usage modes:

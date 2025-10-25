@@ -7,12 +7,12 @@ from pacli.config import conf_dir, Settings
 # An alternative for the future could be to use sqlite3 eventually.
 
 EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
-CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo"]
+CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo", "change_policy"]
 CAT_INIT = {c : {} for c in CATEGORIES}
 ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
 
 # Common error messages
-ERR_NOCAT = "Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'."
+ERR_NOCAT = "Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'. If a pacli update added a new category, run 'pacli config update_extended_categories'."
 
 # modes:
 # "replace" : value gets replaced, key stays the same

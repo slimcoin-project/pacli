@@ -5,6 +5,7 @@ from pypeerassets.exceptions import InsufficientFunds
 import pacli.tui as tui
 from pacli.provider import provider
 from pacli.config import Settings
+import pacli.extended_txtools as et
 
 def output_tx(txdict: dict, txhex: bool=False) -> object:
 
@@ -21,20 +22,16 @@ def print_red(text: str) -> None:
     print("\033[91m{}\033[00m".format(text))
 
 def run_command(c, *args, **kwargs) -> object:
-    # Unified exception handling for PacliInputDataError and other exceptions.
-
-    #try:
-    #    warnings.filterwarnings("ignore")
-    #except UnboundLocalError:
-    #    import warnings
-    #    warnings.filterwarnings("ignore") # NOT working
+    # Unified handling for exceptions, change etc..
 
     debug = ("debug" in kwargs.keys() and kwargs["debug"]) or ("show_debug_info" in kwargs.keys() and kwargs["show_debug_info"])
 
     try:
-        #from pacli.keystore_extended import UNUSABLE_KEY
-        #if Settings.key.privkey == UNUSABLE_KEY and ("EXCEPTED_COMMAND" not in kwargs.keys()):
-        #    raise PacliMainAddressLocked("Pacli wallet locked. Commands accessing private keys can't be used.\nUse 'pacli address set LABEL' or 'pacli address set -a ADDRESS' to change to an existing address, 'pacli address set LABEL -f' to a completely new address.\nSee available addresses with 'pacli address list'")
+        if "change" in kwargs.keys():
+            et.set_change_address(kwargs["change"], debug=debug)
+            if debug:
+                print("Setting change address to:", Settings.change)
+
         result = c(*args, **kwargs)
         return result
 
