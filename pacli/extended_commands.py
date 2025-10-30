@@ -776,8 +776,3 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
         if spenttx == 0:
             print("UTXO {} not found. Probably unspent.".format(utxostr))
     return
-
-
-
-
-

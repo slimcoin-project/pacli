@@ -91,6 +91,7 @@ class ExtConfig:
                Set extended change policy. Options:
                - newaddress: Creates a new address for each change operation.
                - legacy: Uses PeerAssets policy: either a static change address ("default") or the current main address (see "change" setting).
+               NOTE: Occasionally in heavily used wallets the "newaddress" mode may deliver an address which was already used. This applies above all if the wallet is encrypted. In this case it is advised to run the keypoolrefill command.
 
            Notes:
 

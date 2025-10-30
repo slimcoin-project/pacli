@@ -985,7 +985,8 @@ def check_tx_acceptance(txid: str, tx_hex: str, quiet: bool=False):
         mempooltxes = None # coin doesn't support getmemorypool command
     except KeyError:
         if mempool.get("code") == -9 and not quiet:
-            ei.print_red("Warning: Client is not connected. Check your internet connection or connect manually to a node. Broadcasting the transaction will probably take longer than expected. Use the 'sendrawtransaction' command with the complete transaction hex string to broadcast it manually.")
+            ei.print_red("Warning: Client is not connected. Check your internet connection or connect manually to a node. Broadcasting the transaction will probably take longer than expected.")
+            ei.print_red("Use the 'sendrawtransaction' command with the complete transaction hex string (get it with the 'getrawtransaction' command of your cryptocurrency client if you only have the TXID) to broadcast it manually.")
         mempooltxes = None # can happen if client is not connected
 
     txtest = provider.getrawtransaction(txid, 1)

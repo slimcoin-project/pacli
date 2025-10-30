@@ -86,6 +86,7 @@ def set_change_address(change: str=None, debug: bool=False) -> None:
 
     if change is not None:
         Settings.change = change
+        return
     try:
         assert ce.show("change_policy", "change_policy") == "newaddress"
         check_paclichange_account(debug=debug)
