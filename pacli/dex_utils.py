@@ -447,9 +447,10 @@ def select_utxos(minvalue: Decimal,
             print("Added swap fees of {} coins to the amount. Minimum amount for UTXOs to be displayed: {} coins.".format(swap_fees, minvalue))
 
     for utxo in utxos:
-        if minvalue is not None and utxo["amount"] < minvalue:
+        utxo_amount = Decimal(str(utxo["amount"])) # str is necessary
+        if minvalue is not None and utxo_amount < minvalue:
             continue
-        if maxvalue is not None and utxo["amount"] > maxvalue:
+        if maxvalue is not None and utxo_amount > maxvalue:
             continue
         if utxo_type is not None or show_address is True:
             utxo_tx = provider.getrawtransaction(utxo["txid"], 1)
@@ -681,7 +682,8 @@ def check_swap(txhex: str,
     paid_amount = payment_with_fees - all_fees
     pprint("Coins paid for the tokens (not including fees): {}".format(paid_amount))
     pprint("Coins returned to token receiver (required by PeerAssets): {}".format(tokenreceiver_value))
-    pprint("Fees paid by the token buyer: {}. Total paid: {}".format(all_fees, payment_with_fees))
+    pprint("Fees paid by the token buyer: {}.".format(all_fees))
+    pprint("Total paid: {} minus {} coins".format(payment_with_fees, tokenreceiver_value))
     if amount is not None:
         intended_amount = Decimal(str(amount))
         if intended_amount != paid_amount:
@@ -742,9 +744,12 @@ def check_swap(txhex: str,
         else:
             print("SWAP CHECK PASSED. If there is a warning, read it carefully to avoid any losses.")
 
-def calc_swap_fees(network: str=Settings.network):
+def calc_swap_fees(network: str=Settings.network, legacyfix: bool=False):
+    # legacyfix option added to be able to use this for regular card transfers who use the flawed vanilla algorithm (who needs 1 output more)
     min_amount = eu.min_amount("output_value", network)
     min_tx_fee = eu.min_amount("tx_fee", network)
     min_opreturn = eu.min_amount("op_return_value", network)
     all_fees = min_amount * 2 + min_opreturn + min_tx_fee
+    if legacyfix is True:
+        all_fees += min_amount
     return all_fees
