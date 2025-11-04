@@ -82,6 +82,7 @@ class Swap:
                  change_address: str=None,
                  label: str=None,
                  with_lock: int=None,
+                 forcelock: bool=False,
                  quiet: bool=False,
                  sign: bool=True,
                  debug: bool=False):
@@ -98,7 +99,9 @@ class Swap:
 
         Creates the swap and adds a lock transaction, which will by default lock the tokens 1000 blocks to the PARTNER_ADDRESS and use common default values. If you need more parameters for the lock process, use the 'swap lock' command and then the 'swap create' command without the '-w' flag.
 
-        NOTE: To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
+        NOTES:
+        - To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
+        - If you provide a custom change address with -c, it will be used both for the locking transaction and the swap transaction. Privacy loss of this behavior is negligible as both transactions will be "linked together" anyway (due to the origin addresses being also the same), but to generate new change addresses for each transaction you can change the default change address policy with 'pacli config set newaddress -s' and use the command without the -c parameter.
 
         Args:
 
@@ -106,19 +109,21 @@ class Swap:
           buyer_change_address: Specify a change address of the token buyer (default: sender address). Can be the address itself or a label of a stored address.
           label: Specify a label to save the transaction hex string with.
           with_lock: Lock the required tokens to the PARTNER_ADDRESS. A locktime (in blocks, minimum: 100) can be added, default is 1000.
-          change_address: Change address for the locking transaction (owned by the token seller, only in combination with -w).
+          change_address: Change address for the remaining coins. If -w is used, it will also be used for the locking transaction (see Usage section how to prevent that).
+          forcelock: Run the lock transaction even if an error is shown (only in combination with -w).
           quiet: Suppress output.
           debug: Show additional debug information.
         """
         partner_address = ei.run_command(ec.process_address, partner_address, debug=debug)
         buyer_change_address = ei.run_command(ec.process_address, buyer_change_address, debug=debug) if buyer_change_address is not None else None
+        change_address = ei.run_command(ec.process_address, change_address, debug=debug)
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
         if with_lock is not None:
              locktime = with_lock if type(with_lock) == int else 1000
-             lock_tx = ei.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug)
+             lock_tx = ei.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug, force=forcelock)
         else:
              lock_tx = None
-        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, tokenbuyer_change_address=buyer_change_address, save_identifier=label, lock_tx=lock_tx, debug=debug)
+        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, save_identifier=label, lock_tx=lock_tx, debug=debug)
 
     def finalize(self,
                  ftxstr: str,

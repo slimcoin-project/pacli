@@ -46,6 +46,13 @@ def card_lock(deckid: str,
 
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
+    if change and not eu.is_mine(change):
+        ei.print_red("Custom change address {} is not part of your wallet.".format(change))
+        if not force:
+            raise ei.PacliDataError("Transaction aborted. If you want to lock the coins with this change address anyway, use -f option.")
+        else:
+            ei.print_red("-f option used. The change will be transferred to your selected change address.")
+
     change_address = Settings.change if change is None else change
     card_sender = Settings.key.address
 
@@ -129,6 +136,7 @@ def build_coin2card_exchange(deckid: str,
                              tokenbuyer_input: str,
                              card_amount: Decimal,
                              coin_amount: Decimal,
+                             change: str=None,
                              tokenbuyer_change_address: str=None,
                              save_identifier: str=None,
                              lock_tx: str=None,
@@ -139,7 +147,9 @@ def build_coin2card_exchange(deckid: str,
     fail = 0
     my_key = Settings.key
     my_address = my_key.address
-    my_change_address = Settings.change
+    if change is not None and not eu.is_mine(change):
+        ei.print_red("WARNING: Custom change address {} is not part of your current wallet. If you are in doubt, don't submit the hex string to your exchange partner and repeat the command with another change address.".format(change))
+    my_change_address = Settings.change if change is None else change
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     card = pa.CardTransfer(deck=deck,
                            sender=my_address,
@@ -669,8 +679,8 @@ def check_swap(txhex: str,
         fail = True
     payment_with_fees = amount_provided - change_returned
     paid_amount = payment_with_fees - all_fees
-    pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
-    pprint("Amount returned to the token receiver (part of PeerAssets protocol): {}".format(tokenreceiver_value))
+    pprint("Coins paid for the tokens (not including fees): {}".format(paid_amount))
+    pprint("Coins returned to token receiver (required by PeerAssets): {}".format(tokenreceiver_value))
     pprint("Fees paid by the token buyer: {}. Total paid: {}".format(all_fees, payment_with_fees))
     if amount is not None:
         intended_amount = Decimal(str(amount))
