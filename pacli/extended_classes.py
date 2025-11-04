@@ -1169,6 +1169,8 @@ class ExtDeck:
              info: bool=False,
              rawinfo: bool=False,
              show_p2th: bool=False,
+             xtradata: bool=False,
+             checksha256: str=None,
              quiet: bool=False,
              debug: bool=False):
         """Shows or searches a deck stored with a label.
@@ -1187,6 +1189,17 @@ class ExtDeck:
 
         Displays information about a token (deck). STRING can be a local or global label or an Deck ID.
         With -i, the basic data is displayed in a non-technical manner. -r displays all attributes of the deck object.
+        If there is an extradata field present, it will be shown in the Python bytes format (which can be difficult to read, depending on the data).
+
+            pacli deck show STRING -x
+            pacli token show STRING -x
+
+        If there is an extradata string, show the extradata string in hex format. STRING can be a local or global label or an Deck ID.
+
+            pacli deck show STRING -x -c DATA
+            pacli token show STRING -x -c DATA
+
+        Checks if the extradata field corresponds correctly to the SHA256 hash of DATA.
 
         Args:
 
@@ -1195,8 +1208,10 @@ class ExtDeck:
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -r).
           show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
+          xtradata: Show extradata string in hex format.
+          checksha256: Check sha256 hash of the extradata field.
         """
-        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, quiet=quiet, debug=debug)
+        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, checksha256=checksha256, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
@@ -1204,6 +1219,8 @@ class ExtDeck:
              info: bool=False,
              rawinfo: bool=False,
              show_p2th: bool=False,
+             xtradata: bool=False,
+             checksha256: str=None,
              quiet: bool=False,
              debug: bool=False):
 
@@ -1211,10 +1228,20 @@ class ExtDeck:
         # deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
         deck = eu.search_for_stored_tx_label("deck", deckstr, return_deck=True, quiet=True)
 
-        if info is True or rawinfo is True:
-            deckinfo = eu.get_deckinfo(deck, show_p2th)
 
-            if param is not None:
+        if True in (info, rawinfo, xtradata):
+            deckinfo = eu.get_deckinfo(deck, show_p2th)
+            if xtradata is True:
+                extradata = deckinfo.get("extradata")
+                if extradata is None:
+                    print("Token {} with global name {} has no extradata field.".format(deck.id, deck.name))
+                else:
+                    if not checksha256: # hash is not shown in the quiet check.
+                        print(extradata.hex())
+                    else:
+                        return eu.check_extradata_hash(extradata, checksha256, quiet=quiet, debug=debug)
+
+            elif param is not None:
                 print(deckinfo.get(param))
             elif info is True:
                 ei.print_deckinfo(deckinfo, burn_address=au.burn_address(), quiet=quiet)

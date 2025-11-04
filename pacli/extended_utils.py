@@ -1,4 +1,4 @@
-import time, re, sys
+import time, re, sys, hashlib
 from decimal import Decimal
 import pypeerassets as pa
 from typing import Optional, Union
@@ -997,4 +997,31 @@ def check_tx_acceptance(txid: str, tx_hex: str, quiet: bool=False):
         return False
     else:
         return True
+
+def check_extradata_hash(stored_hash: bytes, origstring: str, quiet: bool=False, debug: bool=False) -> None:
+
+    if not quiet:
+        print("Original string:")
+        print(origstring)
+        print("Stored hash (hex):")
+        print(stored_hash.hex())
+    s256hash = hashlib.sha256()
+    s256hash.update(str(origstring).encode())
+    correct_hash = s256hash.digest()
+    correct_hash_hex = s256hash.hexdigest()
+    if debug:
+        print("Hashing data:", origstring)
+        print("SHA256 hash:", correct_hash, "Hex:", correct_hash_hex)
+
+    if stored_hash == correct_hash:
+        if not quiet:
+            print("Hash is correct.")
+        else:
+            return 0
+    else:
+        if not quiet:
+            ei.print_red("Hash incorrect. Correct hash: {}".format(correct_hash_hex))
+        else:
+            return 1
+
 
