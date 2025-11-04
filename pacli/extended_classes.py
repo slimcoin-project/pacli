@@ -1625,7 +1625,7 @@ class ExtCard:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         receiver_addresses = [ec.process_address(r) for r in receiver]
         change_address = ec.process_address(change)
-        balance_check = False if nocheck is True else True
+        # balance_check = False if nocheck is True else True
 
         if not quiet:
             print("Sending tokens to the following receivers:", receiver)
@@ -1638,7 +1638,7 @@ class ExtCard:
                                  asset_specific_data=None,
                                  sign=sign,
                                  send=send,
-                                 balance_check=balance_check,
+                                 balance_check=not nocheck,
                                  force=force,
                                  verify=verify,
                                  debug=debug

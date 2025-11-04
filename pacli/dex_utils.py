@@ -614,6 +614,7 @@ def check_swap(txhex: str,
         amount_provided = Decimal(str(txstruct["inputs"][1]["value"]))
         p2th_address = txstruct["outputs"][0]["receivers"][0]
         token_receiver = txstruct["outputs"][2]["receivers"][0] # was 3
+        tokenreceiver_value = txstruct["outputs"][2]["value"]
 
         all_inputs = sum([Decimal(str(i["value"])) for i in txstruct["inputs"]])
         all_outputs = sum([Decimal(str(o["value"])) for o in txstruct["outputs"]])
@@ -669,6 +670,7 @@ def check_swap(txhex: str,
     payment_with_fees = amount_provided - change_returned
     paid_amount = payment_with_fees - all_fees
     pprint("Amount paid for the tokens (not including fees): {}".format(paid_amount))
+    pprint("Amount returned to the token receiver (part of PeerAssets protocol): {}".format(tokenreceiver_value))
     pprint("Fees paid by the token buyer: {}. Total paid: {}".format(all_fees, payment_with_fees))
     if amount is not None:
         intended_amount = Decimal(str(amount))

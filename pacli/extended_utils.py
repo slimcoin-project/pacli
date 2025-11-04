@@ -468,15 +468,16 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
         raise ei.PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
     try:
+        inputs = provider.select_inputs(Settings.key.address, 0.04)
         issue_tx = pa.card_transfer(provider=provider,
-                                 inputs=provider.select_inputs(Settings.key.address, 0.02),
+                                 inputs=inputs,
                                  card=card,
                                  change_address=change_address,
                                  locktime=locktime
                                  )
 
     except InsufficientFunds:
-        raise ei.PacliInputDataError("Insufficient funds.")
+        raise ei.PacliInputDataError("Insufficient funds. Minimum balance is 0.05 coins.")
 
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
