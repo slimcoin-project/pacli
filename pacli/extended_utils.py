@@ -438,6 +438,7 @@ def get_input_types(rawtx):
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change: str=None,
+                 card_locktime: str=None, card_lockhash: str=None, card_lockhash_type: str=None,
                  sign: bool=False, send: bool=False, balance_check: bool=False, force: bool=False, quiet: bool=False, confirm: bool=False, debug: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
 
@@ -460,7 +461,10 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
                                receiver=receiver,
                                amount=amount_list,
                                version=deck.version,
-                               asset_specific_data=asset_specific_data
+                               asset_specific_data=asset_specific_data,
+                               locktime=card_locktime,
+                               lockhash=card_lockhash,
+                               lockhash_type=card_lockhash_type
                                )
 
     else:
@@ -468,7 +472,8 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
         raise ei.PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
     try:
-        inputs = provider.select_inputs(Settings.key.address, 0.04)
+        allfees = calc_cardtransfer_fees(legacyfix=True)
+        inputs = provider.select_inputs(Settings.key.address, allfees)
         issue_tx = pa.card_transfer(provider=provider,
                                  inputs=inputs,
                                  card=card,
@@ -477,7 +482,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
                                  )
 
     except InsufficientFunds:
-        raise ei.PacliInputDataError("Insufficient funds. Minimum balance is 0.05 coins.")
+        raise ei.PacliInputDataError("Insufficient funds. Minimum balance is {} coins.".format(allfees))
 
     return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
@@ -1024,4 +1029,12 @@ def check_extradata_hash(stored_hash: bytes, origstring: str, quiet: bool=False,
         else:
             return 1
 
-
+def calc_cardtransfer_fees(network: str=Settings.network, legacyfix: bool=False):
+    # legacyfix option added to be able to use this for regular card transfers who use the flawed vanilla algorithm (who needs 1 output more)
+    min_output = min_amount("output_value", network)
+    min_tx_fee = min_amount("tx_fee", network)
+    min_opreturn = min_amount("op_return_value", network)
+    all_fees = min_output * 2 + min_opreturn + min_tx_fee # p2th, PA transfer fee, op_return, tx_fee
+    if legacyfix is True:
+        all_fees += min_output
+    return all_fees

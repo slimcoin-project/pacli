@@ -102,24 +102,20 @@ def card_lock(deckid: str,
             available_tokens = exponent_to_amount(available_token_units, deck.number_of_decimals)
             raise ei.PacliDataError("Not enough tokens: Total balance: {}, Locked: {}, required: {}. Locked tokens can't be used for new locks.".format(balance_tokens, locked_tokens, amount))
 
-    if isinstance(deck, pa.Deck):
-        card = pa.CardTransfer(deck=deck,
-                               sender=card_sender,
-                               receiver=[receiver],
-                               amount=[unit_amount],
-                               version=deck.version,
-                               locktime=locktime,
-                               lockhash=lockhash,
-                               lockhash_type=lockhash_type
-                               )
+    txdict = eu.advanced_card_transfer(deck,
+                                      receiver=[receiver],
+                                      amount=[unit_amount],
+                                      locktime=0,
+                                      card_locktime=locktime,
+                                      card_lockhash=lockhash,
+                                      card_lockhash_type=lockhash_type,
+                                      change=change_address,
+                                      balance_check=False,
+                                      sign=sign,
+                                      send=send,
+                                      force=force,
+                                      debug=debug)
 
-    issue = pa.card_transfer(provider=provider,
-                             inputs=provider.select_inputs(Settings.key.address, 0.03),
-                             card=card,
-                             change_address=change_address,
-                             )
-
-    txdict = eu.finalize_tx(issue, verify=False, sign=sign, send=send, ignore_checkpoint=force, confirm=confirm)
     txdata = ei.output_tx(txdict, txhex=txhex or return_txid) # return_txid also needs the "neutral" hex data given by txhex=True
     if return_txid:
         txjson = provider.decoderawtransaction(txdata)
@@ -441,7 +437,7 @@ def select_utxos(minvalue: Decimal,
     utxos = provider.listunspent(address=address, minconf=minconf, maxconf=maxconf)
     selected_utxos = []
     if fees is True:
-        swap_fees = calc_swap_fees()
+        swap_fees = eu.calc_cardtransfer_fees()
         minvalue += swap_fees
         if not quiet:
             print("Added swap fees of {} coins to the amount. Minimum amount for UTXOs to be displayed: {} coins.".format(swap_fees, minvalue))
@@ -744,12 +740,4 @@ def check_swap(txhex: str,
         else:
             print("SWAP CHECK PASSED. If there is a warning, read it carefully to avoid any losses.")
 
-def calc_swap_fees(network: str=Settings.network, legacyfix: bool=False):
-    # legacyfix option added to be able to use this for regular card transfers who use the flawed vanilla algorithm (who needs 1 output more)
-    min_amount = eu.min_amount("output_value", network)
-    min_tx_fee = eu.min_amount("tx_fee", network)
-    min_opreturn = eu.min_amount("op_return_value", network)
-    all_fees = min_amount * 2 + min_opreturn + min_tx_fee
-    if legacyfix is True:
-        all_fees += min_amount
-    return all_fees
+
