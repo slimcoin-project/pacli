@@ -105,7 +105,7 @@ def card_lock(deckid: str,
 
     txdict = eu.advanced_card_transfer(deck,
                                       receiver=[receiver],
-                                      amount=[amount_dec], # [unit_amount],
+                                      amount=[amount_dec],
                                       locktime=0,
                                       card_locktime=locktime,
                                       card_lockhash=lockhash,
@@ -180,7 +180,7 @@ def build_coin2card_exchange(deckid: str,
     for taddr in tokenbuyer_utxo_addresses:
         if eu.is_mine(taddr):
             ei.print_red("The swap uses funds from the token seller's address {} to pay for the tokens.".format(taddr))
-            ei.print_red("This cannot normally be used for scams, as the token buyer won't be able to sign the transaction fully. It is probably a mistake (or a test swap).")
+            ei.print_red("This cannot normally be used for scams, as the token buyer won't be able to sign the transaction fully. It is probably a mistake (or a private test/privacy-related swap).")
             ei.print_red("Nevertheless, don't proceed if in doubt. Re-check the partner input of the swap carefully.")
             break
 
@@ -198,9 +198,9 @@ def build_coin2card_exchange(deckid: str,
     # We let pacli chose it automatically, based on the minimum amount. It should never give more than one, but it wouldn't matter if it's two or more.
 
     try:
-        own_utxo = select_utxos(minvalue=all_fees, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
+        own_utxo = select_utxos(minvalue=min_amount, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
     except IndexError:
-        raise ei.PacliDataError("Not enough funds. Send enough coins to this address ({}) to pay the transaction fee.\nNOTE: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).".format(my_address))
+        raise ei.PacliDataError("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).\nNOTE: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).".format(min_amount, Settings.network.upper(), my_address))
     own_utxo_value = Decimal(str(own_utxo["amount"]))
     own_input = MutableTxIn(txid=own_utxo['txid'], txout=own_utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
     inputs = {"utxos" : [own_input, tokenbuyer_input], "total": tokenbuyer_input_amount + own_utxo_value}

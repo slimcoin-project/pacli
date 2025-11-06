@@ -91,17 +91,17 @@ class ATTokenBase():
 
         Usage options:
 
-        pacli [pobtoken|attoken] claim DECK TXID
+            pacli [pobtoken|attoken] claim DECK TXID
 
         Claim the tokens and store them on the current main address, which has to be the sender of the rewarded transaction.
         TXID is the transaction ID to reference the rewarded transaction (e.g. burn transaction, donation or ICO payment).
 
-        pacli [pobtoken|attoken] claim DECK TXID --payto=ADDRESS [--payamount=AMOUNT]
+            pacli [pobtoken|attoken] claim DECK TXID --payto=ADDRESS [--payamount=AMOUNT]
 
         Claim the tokens and make a payment with the issued tokens in the same transaction to one specific address.
         If --payamount is not provided, the whole amount will be sent to the address specified after --payto.
 
-        pacli [pobtoken|attoken] claim DECK TXID -r "[ADDR1, ADDR2, ...]" -a "[AM1, AM2, ...]"
+            pacli [pobtoken|attoken] claim DECK TXID -r "[ADDR1, ADDR2, ...]" -a "[AM1, AM2, ...]"
 
         Claim the tokens and make a payment with the issued tokens to multiple receivers.
         The lists must be put between brackets and quotes.
@@ -255,11 +255,11 @@ class ATToken(ATTokenBase):
 
         Usage modes:
 
-           pacli attoken create_tx TOKEN AMOUNT
+           pacli attoken send_coins TOKEN AMOUNT
 
         Send coins to the gateway (e.g. donation, investment) address of token (deck) TOKEN.
 
-           pacli attoken create_tx ADDRESS AMOUNT
+           pacli attoken send_coins ADDRESS AMOUNT
 
         Send coins to the gateway address ADDRESS.
         This should be considered an advanced mode. It will not check compatibility of deadlines.

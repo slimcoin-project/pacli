@@ -441,6 +441,8 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
                  card_locktime: str=None, card_lockhash: str=None, card_lockhash_type: str=None,
                  sign: bool=False, send: bool=False, balance_check: bool=False, force: bool=False, quiet: bool=False, confirm: bool=False, debug: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
+    # TODO: recheck where the vanilla function sends the change
+    # TODO: recheck if balance check checks for locked tokens, in this case, it can be used also by dex_utils.card_lock() (normally this should be done in DeckState).
 
     if not deck:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
