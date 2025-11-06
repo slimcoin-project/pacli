@@ -990,15 +990,16 @@ def check_tx_acceptance(txid: str, tx_hex: str, quiet: bool=False):
     except AttributeError:
         mempooltxes = None # coin doesn't support getmemorypool command
     except KeyError:
-        if mempool.get("code") == -9 and not quiet:
-            ei.print_red("Warning: Client is not connected. Check your internet connection or connect manually to a node. Broadcasting the transaction will probably take longer than expected.")
-            ei.print_red("Use the 'sendrawtransaction' command with the complete transaction hex string (get it with the 'getrawtransaction' command of your cryptocurrency client if you only have the TXID) to broadcast it manually.")
-        mempooltxes = None # can happen if client is not connected
+        if mempool.get("code") == -9:
+            if not quiet:
+                ei.print_red("Warning: Client is not connected. Check your internet connection or connect manually to a node. Broadcasting the transaction will probably take longer than expected.")
+                ei.print_red("Use the 'sendrawtransaction' command with the complete transaction hex string (get it with the 'getrawtransaction' command of your cryptocurrency client if you only have the TXID) to broadcast it manually.")
+        mempooltxes = None # means there was no access to the mempool. Thus if the tx was not found, it should be confirmed or rejected.
 
     txtest = provider.getrawtransaction(txid, 1)
     if "information" in txtest:
         return False
-    if mempooltxes is not None and "confirmations" not in txtest:
+    if (mempooltxes is not None) and (tx_hex not in mempooltxes) and ("confirmations" not in txtest):
         return False
     else:
         return True

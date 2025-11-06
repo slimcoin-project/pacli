@@ -84,7 +84,8 @@ def card_lock(deckid: str,
            raise NotImplementedError
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-    unit_amount = amount_to_exponent(Decimal(amount), deck.number_of_decimals)
+    amount_dec = Decimal(str(amount))
+    unit_amount = amount_to_exponent(amount_dec, deck.number_of_decimals)
 
     if not force: # balance check, can be overridden with --force
         if not quiet:
@@ -104,7 +105,7 @@ def card_lock(deckid: str,
 
     txdict = eu.advanced_card_transfer(deck,
                                       receiver=[receiver],
-                                      amount=[unit_amount],
+                                      amount=[amount_dec], # [unit_amount],
                                       locktime=0,
                                       card_locktime=locktime,
                                       card_lockhash=lockhash,
