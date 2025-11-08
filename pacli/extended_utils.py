@@ -117,7 +117,7 @@ def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, qui
         print("Output of validation tool:\n", check_addr)
 
     if not quiet:
-        print("Deck correctly initialized.")
+        print("Deck correctly initialized. It is recommended to restart the {} client with -rescan to avoid issues.".format(Settings.network.upper()))
 
     if not no_label:
         store_deck_label(deck, label=label, quiet=quiet, alt=False, debug=debug)

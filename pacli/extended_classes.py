@@ -1262,7 +1262,7 @@ class ExtDeck:
 
         This is mandatory to be able to use a token with pacli.
         By default, the global deck name is stored as a local label in the extended configuration file.
-        IMPORTANT: After initializating a token which was already used, the client must be restarted with -rescan option to avoid issues.
+        IMPORTANT: After initializating a token, the client may still not be aware of this change. It should be restarted with the -rescan option to avoid issues.
 
         Usage modes:
 
