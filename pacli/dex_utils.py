@@ -269,10 +269,7 @@ def build_coin2card_exchange(deckid: str,
             ei.print_red("To see if the transaction was confirmed, use 'pacli transaction show {} -s' and check the output for the 'blockheight' value.".format(lock_tx))
         else:
             print("Lock transaction correctly confirmed. The hex string can be transferred to the token buyer.")
-
-
-
-
+    print("NOTE: Be aware that if you move the funds used in the swap transaction before the swap is finalized and broadcast, it will not confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
 
 def build_input(input_txid: str, input_vout: int):
 
@@ -483,7 +480,7 @@ def select_utxos(minvalue: Decimal,
             print("If you recently sent coins to this address and they are still not credited, restart the client with the -rescan option.")
             return
         print(len(selected_utxos), "matching utxos found.")
-        print("Use this format (TXID:OUTPUT) to initiate a new exchange.")
+
         for utxo in selected_utxos:
             pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
             print("Amount: {} coins".format(utxo.get("amount")))
@@ -492,6 +489,9 @@ def select_utxos(minvalue: Decimal,
                     print("Address:", utxo["address"][0])
                 else:
                     print("Addresses (e.g. multisig):", utxo["address"])
+
+        print("Use this format (TXID:OUTPUT) to initiate a new swap.")
+        print("NOTE: Be aware that if you move the funds of the selected UTXO before you finalize the swap, the swap will not go through, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
 
 # locks
 
