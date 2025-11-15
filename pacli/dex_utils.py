@@ -131,7 +131,7 @@ def card_lock(deckid: str,
 def build_coin2card_exchange(deckid: str,
                              tokenbuyer_address: str,
                              tokenbuyer_input: str,
-                             card_amount: Decimal,
+                             card_amount_raw: Decimal,
                              coin_amount: Decimal,
                              change: str=None,
                              tokenbuyer_change_address: str=None,
@@ -148,10 +148,15 @@ def build_coin2card_exchange(deckid: str,
         ei.print_red("WARNING: Custom change address {} is not part of your current wallet. If you are in doubt, don't submit the hex string to your exchange partner and repeat the command with another change address.".format(change))
     my_change_address = Settings.change if change is None else change
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    card_units = amount_to_exponent(card_amount_raw, deck.number_of_decimals)
     card = pa.CardTransfer(deck=deck,
                            sender=my_address,
                            receiver=[tokenbuyer_address],
-                           amount=[amount_to_exponent(card_amount, deck.number_of_decimals)])
+                           amount=[card_units])
+
+    card_amount =  Decimal(str(exponent_to_amount(card_units, deck.number_of_decimals)))
+    if card_amount != card_amount_raw:
+        ei.print_red("WARNING: The token amount you entered ({}) has more decimal places than the token supports ({}). Rounded to {}.".format(card_amount_raw, deck.number_of_decimals, card_amount))
 
     # tokenbuyer can submit another change address if he wants, otherwise cardseller sends it to the tokenbuyer addr.
     if tokenbuyer_change_address is None:
@@ -269,7 +274,7 @@ def build_coin2card_exchange(deckid: str,
             ei.print_red("To see if the transaction was confirmed, use 'pacli transaction show {} -s' and check the output for the 'blockheight' value.".format(lock_tx))
         else:
             print("Lock transaction correctly confirmed. The hex string can be transferred to the token buyer.")
-    print("NOTE: Be aware that if you move the funds used in the swap transaction before the swap is finalized and broadcast, it will not confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
+    print("NOTE: Be aware that if you move the funds used in the swap transaction before the swap is finalized and broadcast, the swap will never confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
 
 def build_input(input_txid: str, input_vout: int):
 
@@ -491,7 +496,7 @@ def select_utxos(minvalue: Decimal,
                     print("Addresses (e.g. multisig):", utxo["address"])
 
         print("Use this format (TXID:OUTPUT) to initiate a new swap.")
-        print("NOTE: Be aware that if you move the funds of the selected UTXO before you finalize the swap, the swap will not go through, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
+        print("NOTE: Be aware that if you move the funds of the selected UTXO before you finalize the swap, the swap will never confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
 
 # locks
 
@@ -709,11 +714,18 @@ def check_swap(txhex: str,
     card_amount = card_transfer["amount"][0]
     decimals = card_transfer["number_of_decimals"]
     token_amount = Decimal(str(token_amount)) if token_amount is not None else None
+    token_units = amount_to_exponent(token_amount, decimals)
     formatted_card_amount = Decimal(str(exponent_to_amount(card_amount, decimals)))
     if token_amount is not None:
         if formatted_card_amount != token_amount:
+            expected_decimals = -token_amount.as_tuple().exponent
             fail = True
-            ei.print_red("The number of tokens transferred is {}, while the expected token amount is {}.".format(formatted_card_amount, token_amount))
+            if expected_decimals == decimals or token_units != card_amount:
+                ei.print_red("The number of tokens transferred is {}, while the expected token amount is {}.".format(formatted_card_amount, token_amount))
+            else:
+                ei.print_red("WARNING: The token only supports {} decimals, while your expected token amount has {} decimals. Amount must be rounded to {}.".format(decimals, expected_decimals, formatted_card_amount))
+                ei.print_red("Please repeat the command with the correct amount.")
+
         else:
             print("Token transfer check passed: tokens transferred: {}, expected: {}.".format(formatted_card_amount, token_amount))
 
@@ -726,13 +738,14 @@ def check_swap(txhex: str,
             ei.print_red("Transferred token is not the expected one. Expected token: {}, transferred token: {}.".format(deckid, deck.id))
 
         # lock check: tokens need to be locked until at least 100 blocks (default) in the future
+        # we use the real card amount in the swap tx here, because the consistency with the real swap was already tested
         if not ignore_lock:
-            if not token_amount:
-                print("Lock check needs the token amount. No lock check will be performed.")
-            else:
-                blockheight = provider.getblockcount()
-                if not check_lock(deck, token_seller, token_receiver, token_amount, blockheight, limit=100, debug=debug):
-                    fail = True
+            #if not token_amount:
+            #    print("Lock check needs the token amount. No lock check will be performed.")
+            #else:
+            blockheight = provider.getblockcount()
+            if not check_lock(deck, token_seller, token_receiver, formatted_card_amount, blockheight, limit=100, debug=debug):
+                fail = True
     else:
         print("No deck (token) ID or label provided, so no lock check will be performed.")
 

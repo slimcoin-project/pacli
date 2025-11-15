@@ -230,7 +230,8 @@ def print_deckinfo(deckinfo: dict, burn_address: str, quiet: bool=False) -> None
     info_output = {"ID" : deckinfo["id"],
                   "Global name" : deckinfo.get("name"),
                   "Creation Time (UTC)" : str(creation_time),
-                  "Issuer" : deckinfo["issuer"] }
+                  "Issuer" : deckinfo["issuer"],
+                  "Number of decimals" : deckinfo["number_of_decimals"]}
     if "at_type" in deckinfo:
         if deckinfo["at_type"] == 1:
             deck_type = "dPoD token"
