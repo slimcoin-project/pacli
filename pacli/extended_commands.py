@@ -160,6 +160,15 @@ def get_address_transactions(addr_string: str=None,
                              debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
 
+    # preprocessing step added
+    txes = {}
+    if sent or (received and not sent):
+        cats = ["send"] if sent is True else ["receive"]
+    else:
+        cats = ["send", "receive"]
+    if include_coinbase is True:
+        cats += ["generate", "immature"]
+
     if not wallet and not raw:
         address = process_address(addr_string, keyring=keyring, try_alternative=False)
         if not address:
@@ -210,14 +219,7 @@ def get_address_transactions(addr_string: str=None,
     if debug:
         print("Sorting finished.\nPreprocessing transaction list ...")
 
-    # preprocessing step added
-    txes = {}
-    if sent or (received and not sent):
-        cats = ["send"] if sent is True else ["receive", "generate", "immature"]
-    elif include_coinbase is True:
-        cats = ["send", "receive", "generate", "immature"]
-    else:
-        cats = ["send", "receive"]
+    print("cats", cats) ##############
 
     oldtxid = None
     for txid, category in unique_txes:
