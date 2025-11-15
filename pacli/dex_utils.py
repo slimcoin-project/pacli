@@ -200,7 +200,10 @@ def build_coin2card_exchange(deckid: str,
     try:
         own_utxo = select_utxos(minvalue=min_amount, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
     except IndexError:
-        raise ei.PacliDataError("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).\nNOTE: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).".format(min_amount, Settings.network.upper(), my_address))
+        ei.print_red("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).".format(min_amount, Settings.network.upper(), my_address))
+        ei.print_red("NOTE 1: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).")
+        ei.print_red("NOTE 2: If you recently locked tokens or sent coins to your current main address and this error appears, you may have already enough coins on this address but have to restart your client with -rescan for it to become aware of the coins. After the restart, repeat the 'swap create' command without the -w option.")
+        raise ei.PacliDataError("Swap creation aborted.")
     own_utxo_value = Decimal(str(own_utxo["amount"]))
     own_input = MutableTxIn(txid=own_utxo['txid'], txout=own_utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
     inputs = {"utxos" : [own_input, tokenbuyer_input], "total": tokenbuyer_input_amount + own_utxo_value}

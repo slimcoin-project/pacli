@@ -189,6 +189,7 @@ def get_all_transactions(address: str=None,
                          datadir: str=None,
                          advanced: bool=False,
                          wholetx: bool=True,
+                         unconfirmed: bool=True,
                          sort: bool=False,
                          include_coinbase: bool=True,
                          debug: bool=False):
@@ -222,6 +223,8 @@ def get_all_transactions(address: str=None,
                 if "blockhash" in complete_tx:
                     blockheight = provider.getblock(complete_tx["blockhash"])["height"]
                     struct.update({"blockheight" : blockheight})
+                elif unconfirmed is False:
+                    continue
                 result = struct
             else:
                 result = complete_tx

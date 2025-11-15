@@ -367,7 +367,8 @@ def finalize_tx(rawtx: dict,
             print("You can try to find out if this is the case with an UTXO check with the following command:\n")
             print("   pacli transaction show {} -u".format(tx_hex))
             print("\nIt will check if the UTXOs used in this transaction were already spent. It accepts also the -a flag to find transactions carried out from change addresses.")
-            print("The UTXO check will only work if the address it received is in your wallet.\n")
+            print("The UTXO check will only work if the address it received is in your wallet.")
+            print("This may also be a false negative and the transaction was actually accepted. This can happen if two transactions are broadcast in very fast sequence. It is recommended to wait at least 5 seconds between transaction-related pacli commands.\n")
 
 
         print("Note: Balances called with 'address balance' and 'address list' commands may not update even after the first confirmation.")

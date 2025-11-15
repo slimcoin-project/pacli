@@ -102,6 +102,7 @@ class Swap:
         NOTES:
         - To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
         - If you provide a custom change address with -c, it will be used both for the locking transaction and the swap transaction. Privacy loss of this behavior is negligible as both transactions will be "linked together" anyway (due to the origin addresses being also the same), but to generate new change addresses for each transaction you can change the default change address policy with 'pacli config set newaddress -s' and use the command without the -c parameter.
+        - The -w option requires additional coins on the origin address to be used for fees (0.05 in Slimcoin, 0.01 or 0.02 [depending on change policy] of them will return to the origin address).
 
         Args:
 

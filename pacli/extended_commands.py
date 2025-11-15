@@ -756,9 +756,9 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
                     ei.print_red("Warning: Address is not part of the current wallet. Results are likely to be incomplete.")
 
             if access_wallet is not None:
-                txes = dbu.get_all_transactions(address=address, datadir=datadir, advanced=True, debug=debug)
+                txes = dbu.get_all_transactions(address=address, datadir=datadir, advanced=True, unconfirmed=False, debug=debug)
             else:
-                txes = get_address_transactions(addr_string=address, advanced=True, include_p2th=True, debug=debug)
+                txes = get_address_transactions(addr_string=address, advanced=True, include_p2th=True, unconfirmed=False, debug=debug)
             if not txes:
                 continue
             elif not quiet:
