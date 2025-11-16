@@ -162,7 +162,7 @@ def get_address_transactions(addr_string: str=None,
 
     # preprocessing step added
     txes = {}
-    if sent or (received and not sent):
+    if (sent and not received) or (received and not sent):
         cats = ["send"] if sent is True else ["receive"]
     else:
         cats = ["send", "receive"]
