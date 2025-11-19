@@ -219,8 +219,6 @@ def get_address_transactions(addr_string: str=None,
     if debug:
         print("Sorting finished.\nPreprocessing transaction list ...")
 
-    print("cats", cats) ##############
-
     oldtxid = None
     for txid, category in unique_txes:
         # deletes txes which aren't in the required categories
