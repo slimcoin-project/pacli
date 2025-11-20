@@ -14,6 +14,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import sign_transaction, sendtx
 from pacli.extended_utils import finalize_tx
+from pacli.extended_interface import run_command
 
 
 class Coin:
@@ -26,22 +27,29 @@ class Coin:
 
         Usage:
 
+            pacli coin sendto ADDRESS AMOUNT
             pacli coin sendto [ADDRESS1, ADDRESS2 ...] [AMOUNT1, AMOUNT2 ...]
 
-        Brackets are mandatory even if there is only one address and amount.
+        Brackets are mandatory if there is more than one address or amount.
         Number of addresses and amounts must match.
 
         Args:
 
             locktime: Specify a lock time.'''
 
+        # make simple entering of int and str values without list possible
+        if type(amount) in (str, int, float):
+            amount = [amount]
+        if type(address) == str:
+            address = [address]
+
         if not len(address) == len(amount):
             raise RecieverAmountMismatch
 
         network_params = net_query(Settings.network)
 
-        amount_sum = sum(amount)
-        inputs = provider.select_inputs(Settings.key.address, amount_sum)
+        amount_sum = sum([Decimal(str(a)) for a in amount])
+        inputs = run_command(provider.select_inputs, Settings.key.address, amount_sum)
 
         outs = []
 
@@ -69,10 +77,7 @@ class Coin:
                                            locktime=Locktime(locktime)
                                            )
 
-        #signedtx = sign_transaction(provider, unsigned_tx, Settings.key)
-        finalize_tx(unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
-
-        # return sendtx(signedtx)
+        run_command(finalize_tx, unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
 
     def opreturn(self, string: hex, locktime: int=0) -> str:
         '''Send OP_RETURN transaction from the current main address.
