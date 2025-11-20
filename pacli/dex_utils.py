@@ -707,6 +707,7 @@ def check_swap(txhex: str,
     if notmine is True:
         ei.print_red("Ownership check failed: At least one of the addresses which should be under the token buyer's control in this swap (token receiver and change receiver) isn't part of your current wallet.")
         print("This may be intentional if you provided an address of another wallet, or are using this command running the client with a different wallet than the swap's wallet, but can also be a manipulation by the token buyer.")
+        print("Ignore this warning if you are not the token buyer.")
     else:
         print("Ownership check passed: Both the token receiver and the change address for the provided coins are part of your currently used wallet.")
 
@@ -714,9 +715,10 @@ def check_swap(txhex: str,
     card_amount = card_transfer["amount"][0]
     decimals = card_transfer["number_of_decimals"]
     token_amount = Decimal(str(token_amount)) if token_amount is not None else None
-    token_units = amount_to_exponent(token_amount, decimals)
+
     formatted_card_amount = Decimal(str(exponent_to_amount(card_amount, decimals)))
     if token_amount is not None:
+        token_units = amount_to_exponent(token_amount, decimals)
         if formatted_card_amount != token_amount:
             expected_decimals = -token_amount.as_tuple().exponent
             fail = True
