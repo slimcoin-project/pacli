@@ -14,7 +14,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import sign_transaction, sendtx
 from pacli.extended_utils import finalize_tx
-from pacli.extended_interface import run_command
+from pacli.extended_interface import run_command, PacliDataError
 
 
 class Coin:
@@ -28,9 +28,9 @@ class Coin:
         Usage:
 
             pacli coin sendto ADDRESS AMOUNT
-            pacli coin sendto [ADDRESS1, ADDRESS2 ...] [AMOUNT1, AMOUNT2 ...]
+            pacli coin sendto "[ADDRESS1, ADDRESS2 ...]" "[AMOUNT1, AMOUNT2 ...]"
 
-        Brackets are mandatory if there is more than one address or amount.
+        Brackets and quotation marks are mandatory if there is more than one address or amount.
         Number of addresses and amounts must match.
 
         Args:
@@ -79,18 +79,24 @@ class Coin:
 
         run_command(finalize_tx, unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
 
-    def opreturn(self, string: hex, locktime: int=0) -> str:
+    def opreturn(self, string: hex, locktime: int=0, ascii: bool=False) -> str:
         '''Send OP_RETURN transaction from the current main address.
 
         Usage:
 
-            pacli coin opreturn STRING
+            pacli coin opreturn HEX_STRING
+            pacli coin opreturn ASCII_STRING -a
 
-        The STRING must be a valid number of hexadecimal bytes.
+        The string must be a valid number of hexadecimal bytes or a valid Python ASCII string if the -a mode is used.
 
         Args:
 
+            ascii: Enter the string as an ASCII string instead of a hex representation.
             locktime: Specify a lock time.'''
+
+        return run_command(self.__opreturn, string, locktime, ascii=ascii, debug=True)
+
+    def __opreturn(self, string: hex, locktime: int=0, ascii: bool=False, debug: bool=False) -> str:
 
         network_params = net_query(Settings.network)
 
@@ -102,9 +108,17 @@ class Coin:
 
         inputs = provider.select_inputs(Settings.key.address, total_fees)
 
+        try:
+            if ascii is True:
+                op_return_script = nulldata_script(string.encode("ascii"))
+            else:
+                op_return_script = nulldata_script(bytes.fromhex(str(string)))
+        except ValueError:
+            raise PacliDataError("String contains invalid characters.")
+
         outs = [tx_output(network=provider.network,
                           value=Decimal(op_return_fee), n=1,
-                          script=nulldata_script(bytes.fromhex(str(string)))
+                          script=op_return_script
                           )
                 ]
 
@@ -124,7 +138,4 @@ class Coin:
                                            locktime=Locktime(locktime)
                                            )
 
-        #signedtx = sign_transaction(provider, unsigned_tx, Settings.key)
-
-        #return sendtx(signedtx)
         finalize_tx(unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
