@@ -37,6 +37,11 @@ class Coin:
 
             locktime: Specify a lock time.'''
 
+        return run_command(self.__sendto, address, amount, locktime=locktime)
+
+    def __sendto(self, address: Union[str], amount: Union[float],
+               locktime: int=0) -> str:
+
         # make simple entering of int and str values without list possible
         if type(amount) in (str, int, float):
             amount = [amount]
@@ -49,7 +54,7 @@ class Coin:
         network_params = net_query(Settings.network)
 
         amount_sum = sum([Decimal(str(a)) for a in amount])
-        inputs = run_command(provider.select_inputs, Settings.key.address, amount_sum)
+        inputs = provider.select_inputs(Settings.key.address, amount_sum + network_params.min_tx_fee)
 
         outs = []
 
@@ -64,12 +69,13 @@ class Coin:
         #  first round of txn making is done by presuming minimal fee
         change_sum = Decimal(inputs['total'] - amount_sum - network_params.min_tx_fee)
 
-        outs.append(
-            tx_output(network=provider.network,
-                      value=change_sum, n=len(outs)+1,
-                      script=p2pkh_script(address=Settings.key.address,
-                                          network=provider.network))
-            )
+        if change_sum > 0:
+            outs.append(
+                tx_output(network=provider.network,
+                          value=change_sum, n=len(outs)+1,
+                          script=p2pkh_script(address=Settings.key.address,
+                                              network=provider.network))
+                )
 
         unsigned_tx = make_raw_transaction(network=provider.network,
                                            inputs=inputs['utxos'],
@@ -77,7 +83,7 @@ class Coin:
                                            locktime=Locktime(locktime)
                                            )
 
-        run_command(finalize_tx, unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
+        finalize_tx(unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
 
     def opreturn(self, string: hex, locktime: int=0, ascii: bool=False) -> str:
         '''Send OP_RETURN transaction from the current main address.
@@ -125,12 +131,14 @@ class Coin:
         #  first round of txn making is done by presuming minimal fee
         change_sum = Decimal(inputs['total'] - total_fees)
 
-        outs.append(
-            tx_output(network=provider.network,
-                      value=change_sum, n=len(outs)+1,
-                      script=p2pkh_script(address=Settings.key.address,
-                                          network=provider.network))
-                    )
+        if change_sum > 0:
+
+            outs.append(
+                tx_output(network=provider.network,
+                          value=change_sum, n=len(outs)+1,
+                          script=p2pkh_script(address=Settings.key.address,
+                                              network=provider.network))
+                        )
 
         unsigned_tx = make_raw_transaction(network=provider.network,
                                            inputs=inputs['utxos'],
