@@ -13,7 +13,7 @@ from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import sign_transaction, sendtx
-from pacli.extended_utils import finalize_tx
+from pacli.extended_utils import finalize_tx, min_amount
 from pacli.extended_interface import run_command, PacliDataError
 
 
@@ -69,7 +69,9 @@ class Coin:
         #  first round of txn making is done by presuming minimal fee
         change_sum = Decimal(inputs['total'] - amount_sum - network_params.min_tx_fee)
 
-        if change_sum > 0:
+        min_change_sum = min_amount("output_value")
+
+        if change_sum >= min_change_sum:
             outs.append(
                 tx_output(network=provider.network,
                           value=change_sum, n=len(outs)+1,
@@ -106,10 +108,10 @@ class Coin:
 
         network_params = net_query(Settings.network)
 
-        if is_legacy_blockchain(Settings.network, "nulldata"):
-            op_return_fee = legacy_mintx(Settings.network) * Decimal(str(network_params.from_unit))
-        else:
-            op_return_fee = 0
+        op_return_fee = min_amount("op_return_value")
+        min_change_sum = min_amount("output_value")
+
+
         total_fees = op_return_fee + network_params.min_tx_fee
 
         inputs = provider.select_inputs(Settings.key.address, total_fees)
@@ -131,7 +133,7 @@ class Coin:
         #  first round of txn making is done by presuming minimal fee
         change_sum = Decimal(inputs['total'] - total_fees)
 
-        if change_sum > 0:
+        if change_sum >= min_change_sum:
 
             outs.append(
                 tx_output(network=provider.network,
