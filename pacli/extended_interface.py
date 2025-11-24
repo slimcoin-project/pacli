@@ -21,6 +21,12 @@ def output_tx(txdict: dict, txhex: bool=False) -> object:
 def print_red(text: str) -> None:
     print("\033[91m{}\033[00m".format(text))
 
+def print_orange(text: str) -> None:
+    print("\033[38;2;255;125;0m{}\033[00m".format(text))
+
+def print_green(text: str) -> None:
+    print("\033[92m{}\033[00m".format(text))
+
 def run_command(c, *args, **kwargs) -> object:
     # Unified handling for exceptions, change etc..
 

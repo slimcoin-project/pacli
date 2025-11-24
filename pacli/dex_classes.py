@@ -90,12 +90,12 @@ class Swap:
 
         Usage:
 
-            pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT
+            pacli swap create TOKEN PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT
 
         Creates a swap only. PARTNER_ADDRESS and PARTNER_INPUT come from your exchange partner (see manual). PARTNER_ADDRESS can be an address or a label of a stored address.
         PARTNER_INPUT must be in the format TXID:OUTPUT, or be a valid label for a stored UTXO.
 
-            pacli swap create DECK PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT -w [LOCKTIME]
+            pacli swap create TOKEN PARTNER_ADDRESS PARTNER_INPUT TOKEN_AMOUNT COIN_AMOUNT -w [LOCKTIME]
 
         Creates the swap and adds a lock transaction, which will by default lock the tokens 1000 blocks to the PARTNER_ADDRESS and use common default values. If you need more parameters for the lock process, use the 'swap lock' command and then the 'swap create' command without the '-w' flag.
 
@@ -190,7 +190,7 @@ class Swap:
             time.sleep(20)
         else:
             if None in (id_deck, expected_tokens, payment):
-                raise ei.PacliInputDataError("Not all required parameters provided. For a safe swap, you have to provide the deck, the expected tokens to be transferred, and the expected payment (in coins).")
+                raise ei.PacliInputDataError("Not all required parameters provided. For a safe swap, you have to provide the name or Deck ID of the token, the expected tokens to be transferred, and the expected payment (in coins).")
             fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=expected_tokens, amount=payment, presign_check=True, require_amounts=True, debug=debug)
             if fail is True:
                 raise ei.PacliDataError("Swap check failed. It is either not possible to continue or highly recommended to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and the change of the coins you paid) on addresses you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")
@@ -198,11 +198,11 @@ class Swap:
 
     @classmethod
     def list_locks(self, idstr: str, blockheight: int=None, quiet: bool=False, debug: bool=False):
-        """Shows all current locks of a deck.
+        """Shows all current locks of a token (deck).
 
         Usage:
 
-            pacli swap list_locks DECK
+            pacli swap list_locks TOKEN
 
         Args:
 
