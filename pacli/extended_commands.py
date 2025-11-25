@@ -10,6 +10,7 @@ import pacli.blockexp_utils as bu
 from pypeerassets.pautils import exponent_to_amount
 from pacli.config import Settings
 from pacli.provider import provider
+import time
 
 # main functions
 
@@ -168,6 +169,8 @@ def get_address_transactions(addr_string: str=None,
         cats = ["send", "receive"]
     if include_coinbase is True:
         cats += ["generate", "immature"]
+    if debug:
+        print("Categories of txes to query:", cats)
 
     if not wallet and not raw:
         address = process_address(addr_string, keyring=keyring, try_alternative=False)
@@ -178,6 +181,8 @@ def get_address_transactions(addr_string: str=None,
 
     all_txes = True if (not sent) and (not received) else False
     if not include_p2th:
+        if debug:
+            print("Getting P2TH addresses to be excluded ...")
         p2th_dict = eu.get_p2th_dict()
     if wallet:
         wallet_addresses = eu.get_wallet_address_set(empty=True)
@@ -251,10 +256,6 @@ def get_address_transactions(addr_string: str=None,
 
         tx = provider.getrawtransaction(txid, 1)
         txdict = None
-        if txstruct:
-            formatted_tx = bu.get_tx_structure(tx=tx, human_readable=False, add_txid=True)
-        elif advanced:
-            formatted_tx = tx
         try:
             confs = tx["confirmations"]
         except KeyError:
@@ -288,8 +289,10 @@ def get_address_transactions(addr_string: str=None,
                     value_sent += sender_dict["value"]
 
                     if txdict is None:
-                        if advanced or txstruct:
-                            txdict = formatted_tx
+                        if txstruct:
+                            txdict = bu.get_tx_structure(tx=tx, human_readable=False, add_txid=True)
+                        elif advanced:
+                            txdict = tx
                         else:
                             txdict = {"txid" : tx["txid"], "type": ["send"], "value_sent" : value_sent, "confirmations": confs}
                         if advanced:
@@ -325,6 +328,7 @@ def get_address_transactions(addr_string: str=None,
                 if not out_addresses: # None or []
                     continue
 
+                # P2TH addresses don't have to be added to out_addresses
                 if (wallet and (include_p2th or not set(out_addresses).isdisjoint(wallet_addresses))) or (address in out_addresses):
 
                     value_received += output["value"]
@@ -338,8 +342,10 @@ def get_address_transactions(addr_string: str=None,
                         txdict["type"] += categories
                         txdict.update({"value_received" : value_received})
                 else:
-                    if advanced or txstruct:
-                        txdict = formatted_tx
+                    if txstruct:
+                        txdict = bu.get_tx_structure(tx=tx, human_readable=False, add_txid=True)
+                    elif advanced:
+                        txdict = tx
                     else:
                         txdict = {"txid" : tx["txid"], "type" : categories, "value_received": value_received, "confirmations": confs}
 

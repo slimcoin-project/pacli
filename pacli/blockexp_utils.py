@@ -246,7 +246,7 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, a
         raise ei.PacliInputDataError("Transaction does not exist or is corrupted.")
 
     outputs = []
-    if "blockhash" in tx:
+    if "blockhash" in tx and not ignore_blockhash:
         height = provider.getblock(tx["blockhash"])["height"]
     elif human_readable:
         height = "unconfirmed"
