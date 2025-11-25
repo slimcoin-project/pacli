@@ -87,22 +87,31 @@ def set_change_address(change: str=None, debug: bool=False) -> None:
     if change is not None:
         Settings.change = change
         return
-    try:
-        assert ce.show("change_policy", "change_policy") == "newaddress"
-        check_paclichange_account(debug=debug)
-        change_address = provider.getnewaddress("paclichange")
-        if debug:
-            print("New change address generated:", change_address)
-        Settings.change = change_address
 
-    except (AttributeError, AssertionError):
-        pass # legacy setting
+    change_address = generate_new_change_address(debug=debug)
+    Settings.change = change_address
 
 
 def check_paclichange_account(debug: bool=False) -> None:
     if "paclichange" not in provider.listaccounts():
         new_address = provider.getnewaddress()
         provider.setaccount(new_address, "paclichange")
+
+def generate_new_change_address(debug: bool=False, alt_address: str=None) -> str:
+
+    try:
+        assert ce.show("change_policy", "change_policy") == "newaddress"
+        check_paclichange_account(debug=debug)
+        change_address = provider.getnewaddress("paclichange")
+        if debug:
+            print("New change address generated:", change_address)
+        return change_address
+    except (AttributeError, AssertionError):
+        # legacy setting
+        if alt_address:
+            return alt_address
+        else:
+            return Settings.key.address
 
 
 

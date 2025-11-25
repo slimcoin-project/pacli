@@ -20,6 +20,7 @@ import json
 from decimal import Decimal
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
+import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
 import pacli.config_extended as ce
 from pypeerassets.pa_constants import param_query
@@ -137,6 +138,7 @@ def build_coin2card_exchange(deckid: str,
                              tokenbuyer_change_address: str=None,
                              save_identifier: str=None,
                              lock_tx: str=None,
+                             new_payment_address: bool=True,
                              sign: bool=False,
                              debug: bool=False):
 
@@ -214,12 +216,16 @@ def build_coin2card_exchange(deckid: str,
     inputs = {"utxos" : [own_input, tokenbuyer_input], "total": tokenbuyer_input_amount + own_utxo_value}
     utxos = inputs["utxos"]
 
+    # if "newaddress" change policy is selected and new_payment_address is True (default), generate a new address for the payment.
+    payment_address = et.generate_new_change_address(debug=debug, alt_address=my_address) if new_payment_address else my_address
+
     unsigned_tx = create_card_exchange(inputs=inputs,
                                  card=card,
                                  tokenbuyer_change_address=tokenbuyer_change_address,
                                  coin_value=coin_amount,
                                  first_input_value=own_utxo_value,
                                  cardseller_change_address=my_change_address,
+                                 cardseller_payment_address=payment_address,
                                  min_output_value=min_amount,
                                  min_opreturn_value=min_opreturn,
                                  min_tx_fee=min_tx_fee,
@@ -227,7 +233,6 @@ def build_coin2card_exchange(deckid: str,
                                  )
 
     network_params = net_query(provider.network)
-    # print(network_params)
     # lock check: tokens need to be locked until at least 100 blocks (default) in the future
     print("Checking token balance ...")
     token_balance = eu.get_address_token_balance(deck, my_address)
@@ -345,6 +350,7 @@ def create_card_exchange(card: CardTransfer,
                          inputs: dict,
                          tokenbuyer_change_address: str,
                          cardseller_change_address: str,
+                         cardseller_payment_address: str,
                          coin_value: Decimal,
                          first_input_value: Decimal,
                          min_output_value: Decimal,
@@ -366,15 +372,6 @@ def create_card_exchange(card: CardTransfer,
     network_params = net_query(provider.network)
     pa_params = param_query(provider.network)
 
-    ### LEGACY SUPPORT for blockchains where no 0-value output is permitted ###
-    #from pypeerassets.legacy import is_legacy_blockchain
-
-    #if is_legacy_blockchain(network_params.shortname, "nulldata"):
-    #    # could perhaps be replaced with get_dust_threshold?
-    #    min_value = network_params.min_tx_fee
-    #else:
-    #    min_value = Decimal(0)
-
     if card.deck_p2th is None:
         raise Exception("card.deck_p2th required for tx_output")
 
@@ -394,7 +391,7 @@ def create_card_exchange(card: CardTransfer,
                                       network=provider.network)),
 
         tx_output(network=provider.network, value=coin_value, n=3, # coin transfer to coin receiver/card sender
-                  script=p2pkh_script(address=card.sender,
+                  script=p2pkh_script(address=cardseller_payment_address,
                                       network=provider.network)),
 
         tx_output(network=provider.network, value=first_input_value, n=4, # change coins back to card sender
