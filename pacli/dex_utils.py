@@ -148,7 +148,7 @@ def build_coin2card_exchange(deckid: str,
     my_address = my_key.address
     if change is not None and not eu.is_mine(change):
         ei.print_red("WARNING: Custom change address {} is not part of your current wallet. If you are in doubt, don't submit the hex string to your exchange partner and repeat the command with another change address.".format(change))
-    my_change_address = Settings.change if change is None else change
+
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     card_units = amount_to_exponent(card_amount_raw, deck.number_of_decimals)
     card = pa.CardTransfer(deck=deck,
@@ -216,8 +216,11 @@ def build_coin2card_exchange(deckid: str,
     inputs = {"utxos" : [own_input, tokenbuyer_input], "total": tokenbuyer_input_amount + own_utxo_value}
     utxos = inputs["utxos"]
 
-    # if "newaddress" change policy is selected and new_payment_address is True (default), generate a new address for the payment.
-    payment_address = et.generate_new_change_address(debug=debug, alt_address=my_address) if new_payment_address else my_address
+    # payment address is, by default, the Settings.change address,
+    # i.e. it depends on the change policy if it is a new address ("newaddress" mode) or the current main address ("legacy" mode)
+    my_change_address = Settings.change if change is None else change
+    # payment_address = et.generate_new_change_address(debug=debug, alt_address=my_address) if new_payment_address else my_address
+    payment_address = Settings.change if new_payment_address is True else my_address
 
     unsigned_tx = create_card_exchange(inputs=inputs,
                                  card=card,
