@@ -1502,6 +1502,7 @@ class ExtCard:
             pacli token balances [ADDRESS|-w|-n]
 
         Shows balances of the standard PoB and dPoD tokens.
+        If ADDRESS is not given and -w nor -n is not selected, the current main address is used.
 
             pacli card balances [ADDRESS|-w|-n] -j
             pacli token balances [ADDRESS|-w|-n] -j
@@ -1956,9 +1957,9 @@ class ExtTransaction:
             Lists transactions stored with a label in the extended config file
             (e.g. for DEX purposes).
 
-        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -b [-u] [-w]
+        pacli transaction list DECK -b [-o [ORIGIN_ADDRESS]] [-u] [-w]
         pacli transaction list -b [-o [ORIGIN_ADDRESS]] [-w]
-        pacli transaction list DECK [-o [ORIGIN_ADDRESS]] -g [-u] [-w]
+        pacli transaction list DECK -g [-o [ORIGIN_ADDRESS]] [-u] [-w]
 
             Lists burn transactions or gateway TXes (e.g. donation/ICO) for AT/PoB tokens.
             If -o is given, only show those sent from a specific ORIGIN_ADDRESS in the wallet.

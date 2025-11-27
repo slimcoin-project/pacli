@@ -115,7 +115,10 @@ def show_txes_by_block(sending_addresses: list=[],
             if not quiet and (not use_locator or (bh not in loc_blockheights)):
                 rh = bh - min_height # relative height: current height minus minimum height
                 if (bh == min_height) or (use_locator and (len(loc_blockheights) > 0 and bh == (max(loc_blockheights) + 1))):
-                    print("Processing uncached blocks starting from block {} ...".format(bh))
+                    if use_locator:
+                        print("Processing uncached blocks starting from block {} ...".format(bh))
+                    else:
+                        print("Processing blocks starting from block {} ...".format(bh))
 
                 elif (bh == max_height) or (int(rh % percent) == 0): # each time a full percentage is recorded
                     percentage = round(rh / percent)

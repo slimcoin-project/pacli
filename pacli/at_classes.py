@@ -115,10 +115,10 @@ class ATTokenBase():
           send: Send the transaction (True by default).
           wait_for_confirmation: Wait and display a message until the transaction is confirmed.
           verify: Verify transaction with Cointoolkit (Peercoin only).
-          payto: Pay to a single address (see above).
+          payto: Pay to a single address (see above). Can be an address or a local label.
           payamount: Pay a single amount (see above).
           amounts: List of amounts (see above) to be paid to multiple receivers.
-          receivers: List of receivers (see above).
+          receivers: List of receivers (see above). Can be addresses or local labels.
           quiet: Suppress output and print it out in a script-friendly way.
           debug: Show additional debug information.
           force: Create the transaction even if the reward does not match the transaction or the reorg check fails (be careful!).'''
@@ -327,10 +327,11 @@ class PoBToken(ATTokenBase):
             pacli pobtoken burn_coins AMOUNT -i TOKEN
 
         Burns coins checking for compatibility (e.g. deadlines) with token (deck) TOKEN.
+        TOKEN can be a Deck ID or a token's local label or global name.
 
         Args:
 
-          idstr: ID of the token (deck) you want to check compatibility with.
+          idstr: ID or label of the token (deck) you want to check compatibility with.
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           sign: Sign the transaction (True by default).

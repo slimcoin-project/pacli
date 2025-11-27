@@ -522,7 +522,7 @@ def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, de
             ei.print_red("NOTE: At least one address was never cached. Check addresses individually for details.")
             ei.print_red("If you cache this token, the caching process could start from the genesis block, the first accepted block for gateway transactions (AT tokens) or the deck spawn block (other tokens).")
         else:
-            print("This address was never cached. No entry in blocklocator.json.")
+            print("This address or token (deck) was never cached. No entry in blocklocator.json.")
             return
 
     commonly = "commonly " if token_mode else ""

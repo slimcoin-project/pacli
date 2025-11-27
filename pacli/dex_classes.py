@@ -221,21 +221,22 @@ class Swap:
             return ei.run_command(dxu.prettyprint_locks, locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
-    def select_coins(self, amount, address=Settings.key.address, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
+    def select_coins(self, amount: int=0, address: str=Settings.key.address, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
         """Prints out all suitable utxos for an exchange transaction.
 
         Usage:
 
-            pacli swap select_coins AMOUNT [ADDRESS|-w] [-f]
+            pacli swap select_coins [AMOUNT] [ADDRESS|-w] [-f]
 
         If ADDRESS is not given, the current main address is used.
+        AMOUNT default value is 0, i.e. all matching UTXOs will be shown.
         Using the -w flag instead of an address searches UTXOs in the whole wallet.
         Use the -f flag to calculate all swap fees and search for UTXOs with an amount of coins including these.
         NOTE: due to an upstream bug, coinbase UTXOs can't be used for swaps. They will be ignored by this command.
 
         Args:
 
-          address: Alternative address to show suitable UTXOs. To be used as a positional argument (flag name not necessary).
+          address: Alternative address to show suitable UTXOs instead of the main address. To be used as a positional argument (flag name not necessary).
           fees: Calculate all necessary fees and add them to the amount.
           utxo_type: Specify a different UTXO type (default: pubkeyhash)
           wallet: Search UTXOs in all addresses of the wallet.

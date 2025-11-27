@@ -239,7 +239,7 @@ class PoDToken():
 
         Show potential balance of the next epoch after the current or selected block, taking into account token transfers.
         If BlOCKHEIGHT is given, then the state is calculated for the epoch start following the given block height.
-        If no block height is given, the potential state taking into account the transactions of voting and dPoD tokens at the current block is calculated. This state however can change until the end of the epoch.
+        If no block height is given, the potential state for the next epoch is calculated, taking into account the transactions of voting and dPoD tokens until the current block. This state however can change until the end of the epoch.
 
             pacli podtoken electorate PROPOSAL -p [PHASE]
 

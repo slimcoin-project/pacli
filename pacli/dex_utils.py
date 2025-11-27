@@ -102,7 +102,7 @@ def card_lock(deckid: str,
             balance_tokens = exponent_to_amount(balance, deck.number_of_decimals)
             locked_tokens = exponent_to_amount(locked_units, deck.number_of_decimals)
             available_tokens = exponent_to_amount(available_token_units, deck.number_of_decimals)
-            raise ei.PacliDataError("Not enough tokens: Total balance: {}, Locked: {}, required: {}. Locked tokens can't be used for new locks.".format(balance_tokens, locked_tokens, amount))
+            raise ei.PacliDataError("Not enough tokens on main address. Total balance: {}, Locked: {}, required: {}. Locked tokens can't be used for new locks.".format(balance_tokens, locked_tokens, amount))
 
     txdict = eu.advanced_card_transfer(deck,
                                       receiver=[receiver],
