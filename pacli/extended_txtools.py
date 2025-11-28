@@ -3,6 +3,7 @@
 from pacli.config import Settings
 from pacli.provider import provider
 import pacli.config_extended as ce
+import pacli.keystore_extended as ke
 
 def check_receiver(tx: dict, receiver: str):
     receivers = []
@@ -12,9 +13,6 @@ def check_receiver(tx: dict, receiver: str):
         except (KeyError, IndexError):
             continue # case OP_RETURN etc.
 
-    #except (KeyError, AttributeError, AssertionError):
-    #    return False
-    #return True
     return receiver in receivers
 
 def check_address_in_txstruct(tx: dict, address: str=None, sender: str=None, firstsender: str=None, receiver: str=None, debug: bool=False) -> bool:
@@ -111,7 +109,7 @@ def generate_new_change_address(debug: bool=False, alt_address: str=None) -> str
         if alt_address:
             return alt_address
         else:
-            return Settings.key.address
+            return ke.get_main_address()
 
 
 

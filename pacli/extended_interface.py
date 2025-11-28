@@ -46,7 +46,7 @@ def run_command(c, *args, **kwargs) -> object:
         sys.exit()
 
     except PacliMainAddressLocked:
-        print("Pacli wallet locked. Commands accessing private keys can't be used.")
+        print("Pacli wallet locked. Commands accessing the main address or its keys can't be used.")
         print("Use 'pacli address set LABEL' or 'pacli address set -a ADDRESS' to change to an existing address, 'pacli address set LABEL -f' to a completely new address.")
         print("See available addresses with 'pacli address list'")
 

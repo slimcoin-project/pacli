@@ -5,6 +5,7 @@ import pacli.extended_utils as eu
 import pypeerassets as pa
 import pacli.extended_commands as ec
 import pacli.config_extended as ce
+import pacli.keystore_extended as ke
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
 from pacli.provider import provider
@@ -64,12 +65,8 @@ class Swap:
         deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
         change_address = ei.run_command(ec.process_address, change, debug=debug)
         lock_address = ei.run_command(ec.process_address, lockaddr, debug=debug)
-        if new_origin is None:
-            new_origin_address = Settings.key.address
-        else:
-            new_origin_address = ei.run_command(ec.process_address, new_origin)
 
-        return ei.run_command(dxu.card_lock, deckid=deckid, amount=str(amount), lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=new_origin_address, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
+        return ei.run_command(dxu.card_lock, deckid=deckid, amount=str(amount), lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=new_origin, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
     def create(self,
@@ -221,7 +218,7 @@ class Swap:
             return ei.run_command(dxu.prettyprint_locks, locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
-    def select_coins(self, amount: int=0, address: str=Settings.key.address, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
+    def select_coins(self, amount: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
         """Prints out all suitable utxos for an exchange transaction.
 
         Usage:
@@ -246,7 +243,6 @@ class Swap:
         addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
         return ei.run_command(dxu.select_utxos, minvalue=Decimal(str(amount)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
 
-    # @classmethod
     def check(self,
               _txstring: str,
               token: str=None,

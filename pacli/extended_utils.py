@@ -16,6 +16,7 @@ from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
+import pacli.keystore_extended as ke
 from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import (sendtx, cointoolkit_verify)
@@ -65,6 +66,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     """Alternative function for deck spawns. Allows p2pk inputs."""
 
     change_address = Settings.change if change_address is None else change_address
+    main_address = ke.get_main_address()
     network = Settings.network
     production = Settings.production
     version = Settings.deck_version
@@ -83,7 +85,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     all_fees = net_query(Settings.network).min_tx_fee + p2th_fee + op_return_fee
 
     spawn_tx = pa.deck_spawn(provider=provider,
-                          inputs=provider.select_inputs(Settings.key.address, all_fees),
+                          inputs=provider.select_inputs(main_address, all_fees),
                           deck=new_deck,
                           change_address=change_address,
                           locktime=locktime
@@ -271,7 +273,7 @@ def finalize_tx(rawtx: dict,
 
 
     if sign or send:
-        main_address = key.address if key is not None else Settings.key.address
+        main_address = key.address if key is not None else ke.get_main_address()
         if not quiet and not is_mine(main_address):
             print("Warning: The address you attempt to sign the transaction with is not part of your current wallet.")
             print("This can lead to problems when signing some kinds of transactions and can make them invalid.")
@@ -450,12 +452,13 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
     amount_list = [amount_to_exponent(i, deck.number_of_decimals) for i in amount]
     change_address = Settings.change if change is None else change
+    main_address = ke.get_main_address()
 
     # balance check
     if balance_check:
         if not quiet:
             print("Checking sender balance ...")
-        balance = get_address_token_balance(deck, Settings.key.address)
+        balance = get_address_token_balance(deck, main_address)
         if balance < sum(amount):
             raise ei.PacliInputDataError("Not enough balance of this token.")
 
@@ -476,7 +479,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
     try:
         allfees = calc_cardtransfer_fees(legacyfix=True)
-        inputs = provider.select_inputs(Settings.key.address, allfees)
+        inputs = provider.select_inputs(main_address, allfees)
         issue_tx = pa.card_transfer(provider=provider,
                                  inputs=inputs,
                                  card=card,

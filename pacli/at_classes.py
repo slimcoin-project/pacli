@@ -20,7 +20,6 @@ class ATTokenBase():
 
     def _create_tx(self, address_or_deck: str, amount: str, tx_fee: Decimal=None, change: str=None, sign: bool=True, send: bool=True, wait_for_confirmation: bool=False, verify: bool=False, quiet: bool=False, force: bool=False, debug: bool=False, optimize: bool=False) -> str:
 
-        ke.check_main_address_lock()
         amount = Decimal(str(amount))
         if (amount == 0) or (amount < 0):
             raise ei.PacliInputDataError("Invalid amount, amount must be above zero.")
@@ -133,7 +132,7 @@ class ATTokenBase():
               wait_for_confirmation: bool=False, quiet: bool=False, force: bool=False,
               verify: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> str:
 
-        ke.check_main_address_lock()
+        main_address = ke.get_main_address()
         if payto is not None:
             payto = ec.process_address(payto)
             dec_payamount = Decimal(str(payamount)) if payamount is not None else None
@@ -158,7 +157,7 @@ class ATTokenBase():
 
         change_address = ec.process_address(change)
 
-        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, Settings.key.address, amounts=amounts, receivers=receiver_list, payto=payto, payamount=dec_payamount, debug=debug, force=force)
+        asset_specific_data, amount, receiver = au.create_at_issuance_data(deck, txid, main_address, amounts=amounts, receivers=receiver_list, payto=payto, payamount=dec_payamount, debug=debug, force=force)
 
         return eu.advanced_card_transfer(deck,
                                  amount=amount,
@@ -207,7 +206,6 @@ class ATTokenBase():
               end_block: int=None, xtradata: str=None, change: str=None, verify: bool=False, ignore_warnings: bool=False,
               wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
 
-        ke.check_main_address_lock()
         tracked_address = ei.run_command(ec.process_address, address, debug=debug)
         change_address = ei.run_command(ec.process_address, change, debug=debug)
         if xtradata is not None:

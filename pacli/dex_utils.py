@@ -19,10 +19,12 @@ import pypeerassets.hash_encoding as henc
 import json
 from decimal import Decimal
 import pacli.extended_utils as eu
+import pacli.extended_commands as ec
 import pacli.extended_interface as ei
 import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
 import pacli.config_extended as ce
+import pacli.keystore_extended as ke
 from pypeerassets.pa_constants import param_query
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
@@ -31,7 +33,7 @@ from pypeerassets.transactions import Transaction, MutableTransaction, MutableTx
 def card_lock(deckid: str,
               amount: str,
               lock: int,
-              receiver: str=Settings.key.address,
+              receiver: str=None,
               lockaddr: str=None,
               change: str=None,
               addrtype: str=None,
@@ -45,6 +47,8 @@ def card_lock(deckid: str,
               quiet: bool=False,
               debug: bool=False):
 
+    card_sender = ke.get_main_address()
+    receiver = card_sender if receiver is None else ec.process_address(receiver)
     # NOTE: cards are always locked at the receiver's address of the CardLock, like in CLTV.
     # returns a dict to be passed to self.card_transfer as kwargs
     if change and not eu.is_mine(change):
@@ -55,7 +59,7 @@ def card_lock(deckid: str,
             ei.print_red("-f option used. The change will be transferred to your selected change address.")
 
     change_address = Settings.change if change is None else change
-    card_sender = Settings.key.address
+
 
     if not eu.is_mine(receiver) and not force:
         raise ei.PacliDataError("The receiver address {} is not part of your wallet. If you really want to transfer the coins to another wallet or person while locking, use the --force option.".format(receiver))
@@ -658,10 +662,10 @@ def check_swap(txhex: str,
     pprint("Token buyer's address: {}".format(token_buyer))
     pprint("Token receiver's address: {}".format(token_receiver))
     # presign check: check if you are currently able to sign the token buyer input
-    if presign_check and (token_buyer != Settings.key.address):
+    if presign_check and (token_buyer != ke.get_main_address()):
         ei.print_red("The token buyer address is not your current Pacli main address, so you will not be able to sign the transaction.")
         ei.print_red("Switch to the correct address with 'pacli address set -a {}' and repeat the command.".format(token_buyer))
-        print("Current Pacli main address:", Settings.key.address)
+        print("Current Pacli main address:", ke.get_main_address())
         fail = True
     if token_receiver != token_buyer:
         print("NOTE: The address providing the coins for the swap isn't identic to the address which will receive the tokens.")
@@ -672,11 +676,13 @@ def check_swap(txhex: str,
         ei.print_red("The token receiver address you provided in this check isn't the address receiving the tokens in the swap transaction.")
         fail = True
     if change_receiver is not None:
-        pprint("Change receiver's address: {}".format(change_receiver))
+        pprint("Change address for payment (normally controlled by token buyer): {}".format(change_receiver))
         pprint("Change returned: {}".format(change_returned))
         if buyer_change_address is not None and (change_receiver != buyer_change_address):
             ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
             fail = True
+        else:
+            print("Change address is correct.")
     pprint("Fees paid: {}".format(all_fees))
     # netparams = net_query(Settings.network)
     # min_tx_fee = netparams.min_tx_fee

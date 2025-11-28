@@ -528,7 +528,7 @@ class ExtAddress:
             """Shows the label of the current main address, or of another address."""
             # TODO: evaluate if the output should really include label AND address, like in the old command.
             if addr_id is None:
-                addr_id = Settings.key.address
+                addr_id = ke.get_main_address()
             return ei.run_command(ec.show_label, addr_id, keyring=keyring)
 
         elif addr_id is not None:
@@ -793,7 +793,6 @@ class ExtAddress:
                   quiet: bool=False,
                   debug: bool=False):
 
-        ke.check_main_address_lock()
         if label_or_address is not None:
             address = ec.process_address(label_or_address, keyring=keyring)
 
@@ -803,7 +802,7 @@ class ExtAddress:
         elif wallet is True:
             address = None
         else:
-            address = Settings.key.address
+            address = ke.get_main_address()
 
         try:
             balance = provider.getbalance(address)
@@ -1433,6 +1432,14 @@ class ExtCard:
 
     def __listext(self, deckid: str, address: str=None, quiet: bool=False, valid: bool=False, blockheights: bool=False, show_invalid: bool=False, only_invalid: bool=False, debug: bool=False):
 
+
+
+        if address:
+            if type(address) == bool:
+                address = ke.get_main_address()
+            else:
+                address = ec.process_address(address)
+
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
         try:
@@ -1459,12 +1466,7 @@ class ExtCard:
         else:
             result = cards
 
-
         if address:
-            if type(address) == bool:
-                address = Settings.key.address
-            else:
-                address = ec.process_address(address)
             result = [c for c in result if (address in c.sender) or (address in c.receiver)]
 
         try:
@@ -1571,18 +1573,20 @@ class ExtCard:
         elif tokendeck is not None: # single token mode
             addr_str = param1
             deck_str = tokendeck
-            if addr_str is None:
-                addr_str = Settings.key.address
-            address = ec.process_address(addr_str) if addr_str is not None else Settings.key.address
+            if not wallet and not named:
+                address = ec.process_address(addr_str) if addr_str is not None else ke.get_main_address()
+            else:
+                address = None
             deckid = eu.search_for_stored_tx_label("deck", deck_str, quiet=quiet)
             return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, quiet=quiet)
         else:
             # TODO seems like label names are not given in this mode if a an address is given.
 
-            if ((wallet or named), param1) == (False, None):
-                param1 = Settings.key.address
-
-            address = ec.process_address(param1) if (wallet or named) is False else None
+            if not wallet and not named: # ((wallet or named), param1) == (False, None):
+                param1 = ke.get_main_address() if param1 is None else ec.process_address(param1)
+            else:
+                address = None
+            # address = ec.process_address(param1) if (wallet or named) is False else None
             try:
                 deck_type = c.get_deck_type(category.lower()) if category is not None else None
             except AttributeError:
@@ -2078,7 +2082,7 @@ class ExtTransaction:
         txstruct = False
 
         if (burntxes or gatewaytxes or claimtxes) and (origin == True):
-            origin = Settings.key.address
+            origin = ke.get_main_address()
 
         # TODO: -c should show senders if -o is not given.
 
@@ -2125,7 +2129,8 @@ class ExtTransaction:
                 address, wallet = None, True
             else:
                 # returns all transactions from or to that address in the wallet.
-                address = Settings.key.address if address_or_deck is None else address_or_deck
+                address = ke.get_main_address() if address_or_deck is None else address_or_deck
+
             if use_db is True:
                 txstruct = False if json else True
                 txes = dbu.get_all_transactions(address=address, sort=True, advanced=json, datadir=datadir, include_coinbase=view_coinbase, wholetx=wholetx, debug=debug)

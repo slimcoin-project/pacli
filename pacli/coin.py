@@ -15,6 +15,7 @@ from pacli.config import Settings
 from pacli.utils import sign_transaction, sendtx
 from pacli.extended_utils import finalize_tx, min_amount
 from pacli.extended_interface import run_command, PacliDataError
+from pacli.keystore_extended import get_main_address
 
 
 class Coin:
@@ -54,7 +55,8 @@ class Coin:
         network_params = net_query(Settings.network)
 
         amount_sum = sum([Decimal(str(a)) for a in amount])
-        inputs = provider.select_inputs(Settings.key.address, amount_sum + network_params.min_tx_fee)
+        main_address = get_main_address()
+        inputs = provider.select_inputs(main_address, amount_sum + network_params.min_tx_fee)
 
         outs = []
 
@@ -75,7 +77,7 @@ class Coin:
             outs.append(
                 tx_output(network=provider.network,
                           value=change_sum, n=len(outs)+1,
-                          script=p2pkh_script(address=Settings.key.address,
+                          script=p2pkh_script(address=main_address,
                                               network=provider.network))
                 )
 
@@ -114,7 +116,8 @@ class Coin:
 
         total_fees = op_return_fee + network_params.min_tx_fee
 
-        inputs = provider.select_inputs(Settings.key.address, total_fees)
+        main_address = get_main_address()
+        inputs = provider.select_inputs(main_address, total_fees)
 
         try:
             if ascii is True:
@@ -138,7 +141,7 @@ class Coin:
             outs.append(
                 tx_output(network=provider.network,
                           value=change_sum, n=len(outs)+1,
-                          script=p2pkh_script(address=Settings.key.address,
+                          script=p2pkh_script(address=main_address,
                                               network=provider.network))
                         )
 

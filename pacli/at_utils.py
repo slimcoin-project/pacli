@@ -17,6 +17,7 @@ import pacli.extended_constants as extc
 import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
 import pacli.db_utils as dbu
+import pacli.keystore_extended as ke
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -24,10 +25,11 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
     """Creates a simple coin transaction from a pre-selected address."""
 
     change_address = ec.process_address(change_address) if change_address is not None else Settings.change
+    main_address = ke.get_main_address()
     try:
         dtx = TransactionDraft(fee_coins=tx_fee, provider=provider, debug=debug)
         dtx.add_p2pkh_output(dest_address, coins=amount)
-        dtx.add_necessary_inputs(Settings.key.address)
+        dtx.add_necessary_inputs(main_address)
         dtx.add_change_output(change_address)
         if debug:
             print("Transaction:", dtx.__dict__)
@@ -296,13 +298,13 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
                    receivers = [payto]
                elif payamount < claimable_amount:
                    amounts = [payamount, claimable_amount - payamount]
-                   receivers = [payto, Settings.key.address]
+                   receivers = [payto, ke.get_main_address()]
                else:
                    raise ei.PacliInputDataError("Claimed amount {} higher than available amount {}.".format(payamount, claimable_amount))
 
             # if there is no receiver, spends to himself.
             else:
-               receivers = [Settings.key.address]
+               receivers = [ke.get_main_address()]
 
         if not amounts:
             amounts = [claimable_amount]

@@ -10,6 +10,7 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.config_extended as ce
+import pacli.keystore_extended as ke
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 def get_default_tokens():
@@ -18,7 +19,7 @@ def get_default_tokens():
     return decks
 
 
-def all_balances(address: str=Settings.key.address,
+def all_balances(address: str=None,
                  exclude: list=[],
                  excluded_accounts: list=[],
                  include: list=[],
@@ -48,6 +49,7 @@ def all_balances(address: str=Settings.key.address,
     # NOTE: added named_and_nonempty parameter: includes always all named addresses, and also those which have either coins or tokens on it.
     # TODO: currently -w mode shows too few balances, even addresses with token balances are omitted.
 
+    # address = ke.get_main_address() if address is None else address
     if no_tokens:
         decks = []
     elif advanced is not True:
@@ -160,10 +162,11 @@ def all_balances(address: str=Settings.key.address,
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 
-def single_balance(deck: str, address: str=Settings.key.address, wallet: bool=False, named: bool=False, keyring: bool=False, no_labels: bool=False, quiet: bool=False):
+def single_balance(deck: str, address: str=None, wallet: bool=False, named: bool=False, keyring: bool=False, no_labels: bool=False, quiet: bool=False):
     """Shows the balance of a single token (deck) on the current main address or another address.
     --wallet flag allows to show all balances of addresses which are part of the wallet."""
 
+    # address = ke.get_main_address() if address is None else address
     deckid = eu.search_for_stored_tx_label("deck", deck, quiet=quiet) if deck else None
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 

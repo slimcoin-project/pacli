@@ -9,9 +9,7 @@ from pypeerassets.networks import networks as supported_networks
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.keystore as k
-import pacli.config_extended as ce
 import pacli.extended_interface as ei
-import pacli.extended_utils as eu
 
 ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
 UNUSABLE_KEY = "0000000000000000000000000000000000000000000000000000000000000001"
@@ -307,3 +305,7 @@ def label_to_kutil(full_label: str) -> pa.Kutil:
 def check_main_address_lock():
     if Settings.key.privkey == UNUSABLE_KEY:
         raise ei.PacliMainAddressLocked()
+
+def get_main_address():
+    check_main_address_lock()
+    return Settings.key.address
