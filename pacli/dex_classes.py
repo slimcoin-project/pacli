@@ -81,6 +81,7 @@ class Swap:
                  with_lock: int=None,
                  forcelock: bool=False,
                  quiet: bool=False,
+                 no_checks: bool=False,
                  sign: bool=True,
                  debug: bool=False):
         """Creates a new swap transaction, signs it partially and outputs it in hex format to be submitted to the exchange partner.
@@ -109,6 +110,7 @@ class Swap:
           with_lock: Lock the required tokens to the PARTNER_ADDRESS. A locktime (in blocks, minimum: 100) can be added, default is 1000.
           change_address: Change address for the remaining coins. If -w is used, it will also be used for the locking transaction (see Usage section how to prevent that).
           forcelock: Run the lock transaction even if an error is shown (only in combination with -w).
+          no_checks: Skip the token balance and lock checks (faster). WARNING: This may result in an invalid swap!
           quiet: Suppress output.
           debug: Show additional debug information.
         """
@@ -121,7 +123,7 @@ class Swap:
              lock_tx = ei.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug, force=forcelock)
         else:
              lock_tx = None
-        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, save_identifier=label, lock_tx=lock_tx, debug=debug)
+        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, without_checks=no_checks, save_identifier=label, lock_tx=lock_tx, debug=debug)
 
     def finalize(self,
                  ftxstr: str,
@@ -223,10 +225,11 @@ class Swap:
 
         Usage:
 
-            pacli swap select_coins [AMOUNT] [ADDRESS|-w] [-f]
+            pacli swap select_coins [AMOUNT] [-w] [-f]
+            pacli swap select_coins AMOUNT ADDRESS [-f]
 
         If ADDRESS is not given, the current main address is used.
-        AMOUNT default value is 0, i.e. all matching UTXOs will be shown.
+        AMOUNT default value is 0, i.e. if no amount is given all matching UTXOs will be shown. If ADDRESS is given, an amount has to be given too.
         Using the -w flag instead of an address searches UTXOs in the whole wallet.
         Use the -f flag to calculate all swap fees and search for UTXOs with an amount of coins including these.
         NOTE: due to an upstream bug, coinbase UTXOs can't be used for swaps. They will be ignored by this command.
@@ -240,7 +243,13 @@ class Swap:
           debug: Show additional debug information.
         """
 
-        addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
+        # addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
+        if wallet is True:
+            addr = None
+        elif address is None:
+            addr = ke.get_main_address()
+        else:
+            addr = ei.run_command(ec.process_address, address, debug=debug)
         return ei.run_command(dxu.select_utxos, minvalue=Decimal(str(amount)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
 
     def check(self,

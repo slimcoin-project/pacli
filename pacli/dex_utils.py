@@ -143,6 +143,7 @@ def build_coin2card_exchange(deckid: str,
                              save_identifier: str=None,
                              lock_tx: str=None,
                              new_payment_address: bool=True,
+                             without_checks: bool=False,
                              sign: bool=False,
                              debug: bool=False):
 
@@ -241,18 +242,22 @@ def build_coin2card_exchange(deckid: str,
 
     network_params = net_query(provider.network)
     # lock check: tokens need to be locked until at least 100 blocks (default) in the future
-    print("Checking token balance ...")
-    token_balance = eu.get_address_token_balance(deck, my_address)
-    if token_balance < card_amount:
-        raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
-    print("Token balance of the sender:", str(token_balance))
-    if lock_tx is None:
-        print("Checking locks ...")
-        lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, quiet=True, debug=debug)
-        if not lockcheck_passed:
-            ei.print_red("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string. If the tokens were locked, it's possible the lock transaction is still unconfirmed, or the locktime is too short.")
+    if without_checks:
+        ei.print_orange("Warning: No checks selected. Token balance and locks will not be verified. Swap may become invalid.")
     else:
-        print("Lock check passed: Enough tokens are on the sender's address and properly locked.")
+        print("Checking token balance ...")
+        token_balance = eu.get_address_token_balance(deck, my_address)
+        if token_balance < card_amount:
+             raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
+        print("Token balance of the sender:", str(token_balance))
+    if lock_tx is None:
+        if not without_checks:
+            print("Checking locks ...")
+            lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, quiet=True, debug=debug)
+            if not lockcheck_passed:
+                ei.print_red("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string. If the tokens were locked, it's possible the lock transaction is still unconfirmed, or the locktime is too short.")
+        else:
+            print("Lock check passed: Enough tokens are on the sender's address and properly locked.")
 
     if sign:
         # sighash has be ALL, otherwise the counterparty could modify it, and anyonecanpay must be False.
@@ -265,7 +270,7 @@ def build_coin2card_exchange(deckid: str,
         print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).\n")
         tx_hex = unsigned_tx.hexlify()
         print(tx_hex) # prettyprint makes it more difficult to copy it
-        if lock_tx is None and not lockcheck_passed:
+        if lock_tx is None and (without_checks or not lockcheck_passed):
             ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, if the tokens weren't locked or the lock blockheight is too close, lock them with the following command:")
             ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), tokenbuyer_address))
             print("NOTE: The lock check can also fail when the locking transaction is still unconfirmed. If you are sure that you have locked the tokens already, check the confirmation status of the transaction before locking the tokens again.")
