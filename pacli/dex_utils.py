@@ -583,10 +583,10 @@ def check_lock(deck: object, card_sender: str, card_receiver: str, amount: Decim
         return False
     # check 2: card_receiver is the lock address and locktime blockheights are far enough in the future
 
-    matching_locks, lock_amount, lock_heights = [], 0, []
+    matching_locks, lock_amount, lock_heights = [], Decimal(0), []
     for lock in sender_locks:
         lock_address = get_lock_address(lock)
-        formatted_single_lock = exponent_to_amount(lock_amount, decimals)
+        formatted_single_lock = exponent_to_amount(Decimal(str(lock["amount"])), decimals)
         if debug:
             print("Checking lock: {} tokens to address {}.".format(formatted_single_lock, lock_address))
         if lock_address == card_receiver:
@@ -603,7 +603,7 @@ def check_lock(deck: object, card_sender: str, card_receiver: str, amount: Decim
             ei.print_red("Lock check failed: No tokens locked to token receiver, or all locks are below the locktime limit.")
         return False
     # check 3: amount is correct
-    formatted_lock_amount = exponent_to_amount(Decimal(lock_amount), decimals)
+    formatted_lock_amount = exponent_to_amount(lock_amount, decimals)
     if amount > formatted_lock_amount:
         if not quiet:
             ei.print_red("Lock check failed: Locked tokens {}, but swap requires {} tokens.".format(formatted_lock_amount, amount))
