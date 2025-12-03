@@ -577,7 +577,7 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
 
 # General token tools
 
-def get_address_token_balance(deck: object, address: str) -> Decimal:
+def get_address_token_balance(deck: object, address: str, return_statedict: bool=False) -> Decimal:
     """Gets token balance of a single deck of an address, as a Decimal value."""
 
     cards = pa.find_all_valid_cards(provider, deck)
@@ -586,9 +586,14 @@ def get_address_token_balance(deck: object, address: str) -> Decimal:
     for i in state.balances:
         if i == address:
             balance = exponent_to_amount(state.balances[i], deck.number_of_decimals)
-            return Decimal(str(balance))
+            result = Decimal(str(balance))
+            break
     else:
-        return Decimal(0)
+        result = Decimal(0)
+    if return_statedict is True:
+        return {"state" : state, "balance" : result}
+    else:
+        return result
 
 def get_wallet_token_balances(deck: object, addresses: list=None, address_dicts: list=None, identifier: str=None, include_named: bool=False, no_labels: bool=False, suppress_addresses: bool=False, debug: bool=False) -> dict:
     """Gets token balances of a single deck, of all wallet addresses, as a Decimal value."""

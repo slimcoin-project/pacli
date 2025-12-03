@@ -244,16 +244,20 @@ def build_coin2card_exchange(deckid: str,
     # lock check: tokens need to be locked until at least 100 blocks (default) in the future
     if without_checks:
         ei.print_orange("Warning: No checks selected. Token balance and locks will not be verified. Swap may become invalid.")
+    elif lock_tx is not None:
+        print("Balance and lock check skipped as tokens were already locked.")
     else:
         print("Checking token balance ...")
-        token_balance = eu.get_address_token_balance(deck, my_address)
+        statedict = eu.get_address_token_balance(deck, my_address, return_statedict=True)
+        token_balance, state = statedict["balance"], statedict["state"]
+
         if token_balance < card_amount:
              raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
         print("Token balance of the sender:", str(token_balance))
     if lock_tx is None:
         if not without_checks:
             print("Checking locks ...")
-            lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, quiet=True, debug=debug)
+            lockcheck_passed = check_lock(deck, my_address, tokenbuyer_address, card_amount, blockheight=provider.getblockcount(), limit=100, locks=state.locks, quiet=True, debug=debug)
             if not lockcheck_passed:
                 ei.print_red("WARNING: Lock check failed, tokens were not properly locked before the swap creation (minimum: 100 blocks in the future). The buyer will probably reject the swap. You can still lock the coins after creating the hex string. If the tokens were locked, it's possible the lock transaction is still unconfirmed, or the locktime is too short.")
         else:
@@ -556,12 +560,13 @@ def get_locked_amount(locks: dict, card_sender: str) -> int:
     locked_amounts = [l["amount"] for l in locks_on_address]
     return sum(locked_amounts)
 
-def check_lock(deck: object, card_sender: str, card_receiver: str, amount: Decimal, blockheight: int, limit: int=None, quiet: bool=False, debug: bool=False):
+def check_lock(deck: object, card_sender: str, card_receiver: str, amount: Decimal, blockheight: int, limit: int=None, locks: list=None, quiet: bool=False, debug: bool=False):
     # Checks if the lock is correct.
     # NOTE: amount is in tokens and thus in Decimal format, not minimum units.
     deckid = deck.id
     decimals = deck.number_of_decimals
-    locks = get_locks(deckid, blockheight)
+    if not locks:
+        locks = get_locks(deckid, blockheight)
     locktime_limit = blockheight + 100 if limit is None else blockheight + limit
     if debug:
          print("Expected values: sender", card_sender, "receiver", card_receiver, "amount", amount, "deckid", deckid, "block height limit" , locktime_limit)
