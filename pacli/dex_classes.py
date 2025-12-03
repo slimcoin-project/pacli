@@ -244,13 +244,19 @@ class Swap:
         """
 
         # addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
+        kwargs = locals()
+        del kwargs["self"]
+        return ei.run_command(self.__select_coins, **kwargs)
+
+
+    def __select_coins(amount: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
         if wallet is True:
             addr = None
         elif address is None:
             addr = ke.get_main_address()
         else:
-            addr = ei.run_command(ec.process_address, address, debug=debug)
-        return ei.run_command(dxu.select_utxos, minvalue=Decimal(str(amount)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
+            addr = ec.process_address(address, debug=debug)
+        return dxu.select_utxos(minvalue=Decimal(str(amount)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
 
     def check(self,
               _txstring: str,
