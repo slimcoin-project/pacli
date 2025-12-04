@@ -271,7 +271,7 @@ def build_coin2card_exchange(deckid: str,
             result = solve_single_input(index=i, prev_txid=utxos[i].txid, prev_txout_index=utxos[i].txout, key=Settings.key, network_params=network_params, debug=debug)
             unsigned_tx.spend_single(index=i, txout=result["txout"], solver=result["solver"])
 
-        print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen).\n")
+        print("The following hex string contains the transaction which you signed with your keys only. Transmit it to your exchange partner via any messaging channel (there's no risk of your tokens or coins to be stolen, but a secure channel is preferrable for more privacy).\n")
         tx_hex = unsigned_tx.hexlify()
         print(tx_hex) # prettyprint makes it more difficult to copy it
         if lock_tx is None and (without_checks or not lockcheck_passed):
@@ -621,6 +621,7 @@ def check_swap(txhex: str,
                return_state: bool=False,
                presign_check: bool=False,
                ignore_lock: bool=False,
+               utxo_check: bool=False,
                debug: bool=False):
     """bundles most checks for swaps"""
     fail, notmine = False, False
@@ -692,7 +693,7 @@ def check_swap(txhex: str,
             ei.print_red("The change receiver address you provided in this check isn't the address receiving the change coins in the swap transaction.")
             fail = True
         else:
-            print("Change address is correct.")
+            print("Change check passed: change address is correct.")
     pprint("Fees paid: {}".format(all_fees))
     # netparams = net_query(Settings.network)
     # min_tx_fee = netparams.min_tx_fee
@@ -726,6 +727,18 @@ def check_swap(txhex: str,
         print("Ignore this warning if you are not the token buyer.")
     else:
         print("Ownership check passed: Both the token receiver and the change address for the provided coins are part of your currently used wallet.")
+
+
+    if utxo_check:
+        spending_utxo = txjson["vin"][1]
+        if et.check_if_spent(spending_utxo["txid"], spending_utxo["vout"], address=token_buyer):
+            fail = True
+            ei.print_red("The UTXO provided by you (the token buyer) has already been spent. Swap transaction will never confirm.")
+            ei.print_red("Repeat the swap creation transmitting another UTXO to the token seller.")
+        else:
+            print("UTXO check passed. Token buyer's utxos are unspent.")
+
+    # card transfer checks: those take more time and thus are performed last.
 
     card_transfer = eu.decode_card(op_return_output)
     card_amount = card_transfer["amount"][0]
@@ -773,6 +786,6 @@ def check_swap(txhex: str,
         if fail is True:
             ei.print_red("SWAP CHECK FAILED. If you are the token buyer and see this or any red warning, you cannot perform the swap or it is recommended to abandon it.")
         else:
-            print("SWAP CHECK PASSED. If there is a warning, read it carefully to avoid any losses.")
+            print("Swap check passed. If there is a warning, read it carefully to avoid any losses.")
 
 

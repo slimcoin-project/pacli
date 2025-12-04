@@ -1050,3 +1050,4 @@ def calc_cardtransfer_fees(network: str=Settings.network, legacyfix: bool=False)
     if legacyfix is True:
         all_fees += min_output
     return all_fees
+

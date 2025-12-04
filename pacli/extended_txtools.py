@@ -111,5 +111,12 @@ def generate_new_change_address(debug: bool=False, alt_address: str=None) -> str
         else:
             return ke.get_main_address()
 
-
+def check_if_spent(txid: str, vout: int, address: str=None, minconf: int=1):
+    # this only shows if an utxo on an OWN address has been spent
+    all_utxos = provider.listunspent(address=address, minconf=minconf)
+    utxo_list = [(u["txid"], u["vout"]) for u in all_utxos]
+    if (txid, vout) in utxo_list:
+         return False
+    else:
+         return True
 

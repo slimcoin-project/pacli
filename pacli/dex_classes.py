@@ -190,7 +190,7 @@ class Swap:
         else:
             if None in (id_deck, expected_tokens, payment):
                 raise ei.PacliInputDataError("Not all required parameters provided. For a safe swap, you have to provide the name or Deck ID of the token, the expected tokens to be transferred, and the expected payment (in coins).")
-            fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=expected_tokens, amount=payment, presign_check=True, require_amounts=True, debug=debug)
+            fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=expected_tokens, amount=payment, presign_check=True, require_amounts=True, utxo_check=True, debug=debug)
             if fail is True:
                 raise ei.PacliDataError("Swap check failed. It is either not possible to continue or highly recommended to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and the change of the coins you paid) on addresses you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")
         return ei.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
@@ -307,6 +307,7 @@ class Swap:
                 token_amount: str=None,
                 return_state: bool=False,
                 presign_check: bool=False,
+                utxo_check: bool=False,
                 require_amounts: bool=False,
                 debug: bool=False):
 
@@ -325,4 +326,5 @@ class Swap:
                token_amount=token_amount,
                return_state=return_state,
                presign_check=presign_check,
+               utxo_check=utxo_check,
                debug=debug)
