@@ -773,8 +773,12 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
                 if debug:
                     print("Searching TX:", tx.get("txid"))
                 if bu.utxo_in_tx(utxo, tx):
+                    try:
+                        blockheight = provider.getblock(tx["blockhash"])["height"]
+                    except:
+                        blockheight = 0
                     if not quiet:
-                        ei.print_red("Transaction {} spends UTXO: {}".format(tx["txid"], utxostr))
+                        ei.print_red("Transaction {} at block height {} spends UTXO: {}".format(tx["txid"], blockheight, utxostr))
                     else:
                         print(tx["txid"])
                     spenttx += 1
