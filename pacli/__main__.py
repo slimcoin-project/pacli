@@ -31,7 +31,7 @@ from pacli.config import (write_default_config,
                           default_conf,
                           write_settings)
 
-import pacli.keystore_extended as ke
+import pacli.extended_keystore as ke
 import pacli.extended_utils as eu
 import pacli.extended_commands as ec
 from pacli.extended_classes import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtTransaction

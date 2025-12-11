@@ -2,8 +2,8 @@
 
 from pacli.config import Settings
 from pacli.provider import provider
-import pacli.config_extended as ce
-import pacli.keystore_extended as ke
+import pacli.extended_config as ce
+import pacli.extended_keystore as ke
 
 def check_receiver(tx: dict, receiver: str):
     receivers = []

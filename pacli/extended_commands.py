@@ -1,11 +1,11 @@
 from prettyprinter import cpprint as pprint
 import pypeerassets as pa
 import pacli.keystore as k
-import pacli.keystore_extended as ke
+import pacli.extended_keystore as ke
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.extended_queries as eq
-import pacli.config_extended as ce
+import pacli.extended_config as ce
 import pacli.extended_constants as c
 import pacli.blockexp_utils as bu
 from pypeerassets.pautils import exponent_to_amount
@@ -26,10 +26,11 @@ def fresh_address(label: str, set_main: bool=False, backup: str=None, check_usag
         if check_usage:
             if not quiet:
                 print("Checking usage of new address {} (can take some minutes) ...".format(address))
-            addr_txes = len(eq.get_address_transactions(addr_string=address, include_coinbase=True))
+            # addr_txes = len(eq.get_address_transactions(addr_string=address, include_coinbase=True))
+            addr_txes = check_first_tx(address)
             if not quiet:
                 if addr_txes > 0 :
-                    print("Address was already used with {} transactions. Trying new address.".format(addr_txes))
+                    print("Address was already used. Trying new address.")
                 else:
                     print("Usage check PASSED, no recorded transactions.")
         else:
@@ -233,81 +234,32 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
                 print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
             continue
 
-def search_change_addresses(known_addresses: list, wallet_txes: list=None, balances: bool=False, debug: bool=False) -> list:
-    """Searches all wallet transactions for unknown change addresses."""
-    # note: needs advanced mode for wallet txes (complete getrawtransaction tx dict)
-    if not wallet_txes:
-        wallet_txes = eq.get_address_transactions(wallet=True, advanced=True, debug=debug)
-    known_addr_list = [a["address"] for a in known_addresses]
-    unknown_wallet_addresses = []
-    new_addr_list = []
-    network = Settings.network
-
-    for tx in wallet_txes:
-        if debug:
-            print("CHANGE ADDRESS SEARCH: checking tx:", tx["txid"])
-        for output in tx["vout"]:
+def check_first_tx(address: str, debug: bool=False):
+    # this command only checks the first transaction of an address, and is thus no replacement for eq.get_wallet_transactions.
+    for account in provider.listaccounts():
+        account_addresses = provider.getaddressesbyaccount(account)
+        if address in account_addresses:
+            if debug:
+                print("Account of address {}: {}".format(address, account))
+            break
+    else:
+        return []
+    start=0
+    while True:
+        txes = provider.listtransactions(account=account, many=500, since=start)
+        if len(txes) == 0:
+            break
+        for tx in txes:
             try:
-                addresses = output["scriptPubKey"]["addresses"]
+                tx_address = tx["address"]
+                print("Address in tx:", tx_address)
             except KeyError:
                 continue
-            for address in addresses:
-                if address not in known_addr_list and address not in new_addr_list:
-                    validation = provider.validateaddress(address)
-                    if validation.get("ismine") == True:
-                        address_item = {"label" : "", "address" : address, "network" : network}
-                        if balances is True:
-                            balance = eq.retrieve_balance(address, debug=debug)
-                            address_item.update({"balance" : balance})
-                        unknown_wallet_addresses.append(address_item)
-                        new_addr_list.append(address)
-                        if debug:
-                            print("Found and added unknown address:", address)
-                    elif debug:
-                        print("Ignored non-wallet address:", address)
-    return unknown_wallet_addresses
+            if address == tx_address:
+                return True
+        start += 500
+        if debug:
+            print("next 500 ...")
+    return False
 
-def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug: bool=False):
 
-    if access_wallet is not None:
-        import pacli.db_utils as dbu
-        datadir = access_wallet if type(access_wallet) == str else None
-
-    for utxo in utxodata:
-        spenttx = 0
-        txid, vout = utxo[:]
-        utxostr = "{}:{}".format(txid, vout)
-        output = bu.get_utxo_from_data(utxo, debug=debug)
-        addresses = bu.get_utxo_addresses(output)
-
-        for address in addresses:
-            if not quiet:
-                print("Checking address {}, which received UTXO {} ...".format(address, utxostr))
-                if not eu.is_mine(address):
-                    ei.print_red("Warning: Address is not part of the current wallet. Results are likely to be incomplete.")
-
-            if access_wallet is not None:
-                txes = dbu.get_all_transactions(address=address, datadir=datadir, advanced=True, unconfirmed=False, debug=debug)
-            else:
-                txes = eq.get_address_transactions(addr_string=address, advanced=True, include_p2th=True, unconfirmed=False, debug=debug)
-            if not txes:
-                continue
-            elif not quiet:
-                print("Searching utxo in", len(txes), "transactions ...")
-            for tx in txes:
-                if debug:
-                    print("Searching TX:", tx.get("txid"))
-                if bu.utxo_in_tx(utxo, tx):
-                    try:
-                        blockheight = provider.getblock(tx["blockhash"])["height"]
-                    except:
-                        blockheight = 0
-                    if not quiet:
-                        ei.print_red("Transaction {} at block height {} spends UTXO: {}".format(tx["txid"], blockheight, utxostr))
-                    else:
-                        print(tx["txid"])
-                    spenttx += 1
-                    break
-        if spenttx == 0:
-            print("UTXO {} not found. Probably unspent.".format(utxostr))
-    return

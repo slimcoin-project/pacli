@@ -3,7 +3,7 @@
 from pypeerassets.networks import net_query
 from pypeerassets.at.protobuf_utils import serialize_ttx_metadata # , parse_protobuf
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx #  legacy_import,
-from pacli.extended_interface import PacliInputDataError
+from pacli.extended_handling import PacliInputDataError
 from decimal import Decimal
 
 import pypeerassets as pa
@@ -14,7 +14,7 @@ import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.dt_utils as du
-import pacli.keystore_extended as ke
+import pacli.extended_keystore as ke
 
 
 from pacli.provider import provider

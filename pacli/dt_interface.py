@@ -7,7 +7,7 @@ from pypeerassets.at.dt_misc_utils import coins_to_sats
 from pypeerassets.protocol import Deck
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.extended_interface import PacliInputDataError
+from pacli.extended_handling import PacliInputDataError
 
 
 def printout_period(period: tuple, blockheights: list, show_blockheights: bool=False, blockheights_first: bool=False) -> str:

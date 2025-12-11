@@ -4,6 +4,12 @@
 from pacli.provider import provider
 from pacli.config import Settings
 
+import pacli.extended_config as ce
+import pacli.extended_keystore as ke
+import pacli.extended_interface as ei
+import pacli.extended_utils as eu
+import pacli.blockexp_utils as bu
+import pacli.extended_commands as ec
 
 def get_labels_and_addresses(prefix: str=Settings.network,
                              exclude: list=[],
@@ -51,7 +57,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
             if labels or full_labels:
                 result.append(label)
             else:
-                address = show_stored_address(label=label, keyring=True) # noprefix=True,
+                address = ec.show_stored_address(label=label, keyring=True) # noprefix=True,
                 if include_only and (address not in include_only):
                     continue
                 result.append({"label" : label, "address" : address, "network" : prefix})
@@ -165,7 +171,7 @@ def get_address_transactions(addr_string: str=None,
         print("Categories of txes to query:", cats)
 
     if not wallet and not raw:
-        address = process_address(addr_string, keyring=keyring, try_alternative=False)
+        address = ec.process_address(addr_string, keyring=keyring, try_alternative=False)
         if not address:
             raise ei.PacliInputDataError("You must provide either a valid address or a valid label.")
     else:
@@ -191,7 +197,6 @@ def get_address_transactions(addr_string: str=None,
 
     if include_p2th:
         wallet_txes = get_wallet_transactions(debug=debug)
-        excluded_addresses = []
 
     else: # normally exclude p2th accounts
         p2th_accounts = p2th_dict.values()
@@ -438,3 +443,83 @@ def find_transaction_by_string(searchstring: str, only_start: bool=False):
        if (only_start and txid.startswith(searchstring)) or (searchstring in txid and not only_start):
            matches.append(txid)
     return matches
+
+
+def search_change_addresses(known_addresses: list, wallet_txes: list=None, balances: bool=False, debug: bool=False) -> list:
+    """Searches all wallet transactions for unknown change addresses."""
+    # note: needs advanced mode for wallet txes (complete getrawtransaction tx dict)
+    if not wallet_txes:
+        wallet_txes = get_address_transactions(wallet=True, advanced=True, debug=debug)
+    known_addr_list = [a["address"] for a in known_addresses]
+    unknown_wallet_addresses = []
+    new_addr_list = []
+    network = Settings.network
+
+    for tx in wallet_txes:
+        if debug:
+            print("CHANGE ADDRESS SEARCH: checking tx:", tx["txid"])
+        for output in tx["vout"]:
+            try:
+                addresses = output["scriptPubKey"]["addresses"]
+            except KeyError:
+                continue
+            for address in addresses:
+                if address not in known_addr_list and address not in new_addr_list:
+                    validation = provider.validateaddress(address)
+                    if validation.get("ismine") == True:
+                        address_item = {"label" : "", "address" : address, "network" : network}
+                        if balances is True:
+                            balance = retrieve_balance(address, debug=debug)
+                            address_item.update({"balance" : balance})
+                        unknown_wallet_addresses.append(address_item)
+                        new_addr_list.append(address)
+                        if debug:
+                            print("Found and added unknown address:", address)
+                    elif debug:
+                        print("Ignored non-wallet address:", address)
+    return unknown_wallet_addresses
+
+def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug: bool=False):
+
+    if access_wallet is not None:
+        import pacli.db_utils as dbu
+        datadir = access_wallet if type(access_wallet) == str else None
+
+    for utxo in utxodata:
+        spenttx = 0
+        txid, vout = utxo[:]
+        utxostr = "{}:{}".format(txid, vout)
+        output = bu.get_utxo_from_data(utxo, debug=debug)
+        addresses = bu.get_utxo_addresses(output)
+
+        for address in addresses:
+            if not quiet:
+                print("Checking address {}, which received UTXO {} ...".format(address, utxostr))
+                if not eu.is_mine(address):
+                    ei.print_red("Warning: Address is not part of the current wallet. Results are likely to be incomplete.")
+
+            if access_wallet is not None:
+                txes = dbu.get_all_transactions(address=address, datadir=datadir, advanced=True, unconfirmed=False, debug=debug)
+            else:
+                txes = get_address_transactions(addr_string=address, advanced=True, include_p2th=True, unconfirmed=False, debug=debug)
+            if not txes:
+                continue
+            elif not quiet:
+                print("Searching utxo in", len(txes), "transactions ...")
+            for tx in txes:
+                if debug:
+                    print("Searching TX:", tx.get("txid"))
+                if bu.utxo_in_tx(utxo, tx):
+                    try:
+                        blockheight = provider.getblock(tx["blockhash"])["height"]
+                    except:
+                        blockheight = 0
+                    if not quiet:
+                        ei.print_red("Transaction {} at block height {} spends UTXO: {}".format(tx["txid"], blockheight, utxostr))
+                    else:
+                        print(tx["txid"])
+                    spenttx += 1
+                    break
+        if spenttx == 0:
+            print("UTXO {} not found. Probably unspent.".format(utxostr))
+    return

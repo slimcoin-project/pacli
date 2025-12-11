@@ -12,8 +12,8 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.at_utils as au
 import pacli.extended_commands as ec
-import pacli.config_extended as ce
-import pacli.keystore_extended as ke
+import pacli.extended_config as ce
+import pacli.extended_keystore as ke
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 
 class ATTokenBase():

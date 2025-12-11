@@ -14,8 +14,8 @@ from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import sign_transaction, sendtx
 from pacli.extended_utils import finalize_tx, min_amount
-from pacli.extended_interface import run_command, PacliDataError
-from pacli.keystore_extended import get_main_address
+from pacli.extended_handling import run_command, PacliDataError
+from pacli.extended_keystore import get_main_address
 
 
 class Coin:

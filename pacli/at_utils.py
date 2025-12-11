@@ -18,7 +18,7 @@ import pacli.extended_constants as extc
 import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
 import pacli.db_utils as dbu
-import pacli.keystore_extended as ke
+import pacli.extended_keystore as ke
 from pacli.provider import provider
 from pacli.config import Settings
 

@@ -7,7 +7,7 @@ from pypeerassets.at.protobuf_utils import parse_protobuf
 from pypeerassets.at.dt_misc_utils import get_proposal_state, find_proposal, get_parser_state, sats_to_coins, coins_to_sats
 from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn
-from pacli.extended_interface import PacliInputDataError
+from pacli.extended_handling import PacliInputDataError
 from pypeerassets.exceptions import InvalidNulldataOutput
 
 from decimal import Decimal

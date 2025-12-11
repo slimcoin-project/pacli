@@ -1,6 +1,6 @@
 # checkpoint functions
 import time
-import pacli.config_extended as ce
+import pacli.extended_config as ce
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.blockexp_utils as bu

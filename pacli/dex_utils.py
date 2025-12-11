@@ -23,8 +23,8 @@ import pacli.extended_commands as ec
 import pacli.extended_interface as ei
 import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
-import pacli.config_extended as ce
-import pacli.keystore_extended as ke
+import pacli.extended_config as ce
+import pacli.extended_keystore as ke
 import pacli.extended_token_queries as etq
 from pypeerassets.pa_constants import param_query
 from pypeerassets.networks import net_query

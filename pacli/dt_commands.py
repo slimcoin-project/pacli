@@ -7,7 +7,7 @@ import pacli.dt_utils as du
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.dt_interface as di
-import pacli.config_extended as ce
+import pacli.extended_config as ce
 import pacli.extended_constants as eco
 import pacli.extended_queries as eq
 
@@ -20,7 +20,7 @@ from pypeerassets.exceptions import P2THImportFailed
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.extended_interface import PacliInputDataError
+from pacli.extended_handling import PacliInputDataError
 
 # Address
 

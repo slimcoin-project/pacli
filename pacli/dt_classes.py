@@ -13,9 +13,9 @@ import pacli.dt_utils as du
 import pacli.extended_utils as eu
 import pacli.dt_interface as di
 import pacli.dt_commands as dc
-import pacli.keystore_extended as ke
+import pacli.extended_keystore as ke
 import pacli.extended_commands as ec
-import pacli.config_extended as ce
+import pacli.extended_config as ce
 import pacli.extended_interface as ei
 import pacli.dt_txtools as dtx
 from pacli.extended_constants import DEFAULT_POD_DECK

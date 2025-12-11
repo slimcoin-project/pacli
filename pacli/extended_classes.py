@@ -8,11 +8,11 @@ import pypeerassets.at.constants as c
 from pypeerassets.pautils import exponent_to_amount
 
 import pacli.extended_constants as pc
-import pacli.keystore_extended as ke
+import pacli.extended_keystore as ke
 import pacli.extended_utils as eu
 import pacli.at_utils as au
 import pacli.extended_commands as ec
-import pacli.config_extended as ce
+import pacli.extended_config as ce
 import pacli.extended_interface as ei
 import pacli.extended_queries as eq
 import pacli.extended_token_queries as etq

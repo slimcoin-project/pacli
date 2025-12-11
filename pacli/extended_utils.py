@@ -14,9 +14,9 @@ from pypeerassets.exceptions import InsufficientFunds
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
-import pacli.config_extended as ce
+import pacli.extended_config as ce
 import pacli.extended_interface as ei
-import pacli.keystore_extended as ke
+import pacli.extended_keystore as ke
 from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import (sendtx, cointoolkit_verify)

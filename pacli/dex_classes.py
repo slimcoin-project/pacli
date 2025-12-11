@@ -4,8 +4,8 @@ import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pypeerassets as pa
 import pacli.extended_commands as ec
-import pacli.config_extended as ce
-import pacli.keystore_extended as ke
+import pacli.extended_config as ce
+import pacli.extended_keystore as ke
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
 from pacli.provider import provider
