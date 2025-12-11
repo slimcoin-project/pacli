@@ -1839,9 +1839,9 @@ class ExtTransaction:
 
         if claim:
             if type(claim) == str:
-                txes = ec.show_claims(deck_str=idstr, quiet=quiet, claim_tx=claim)
+                txes = etq.show_claims(deck_str=idstr, quiet=quiet, claim_tx=claim)
             elif type(claim) == bool and txref is not None:
-                txes = ec.show_claims(deck_str=idstr, quiet=quiet, donation_txid=txref)
+                txes = etq.show_claims(deck_str=idstr, quiet=quiet, donation_txid=txref)
             else:
                 raise ei.PacliInputDataError("You have to provide a claim transaction or the corresponding burn/gateway/donation transaction.")
 
@@ -2117,7 +2117,7 @@ class ExtTransaction:
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet) if address_or_deck else None
             txes = au.show_wallet_dtxes(sender=origin, deckid=deckid, unclaimed=unclaimed, wallet=wallet, keyring=keyring, advanced=json, tracked_address=address, access_wallet=access_wallet, quiet=quiet, debug=debug)
         elif claimtxes is True:
-            txes = ec.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=json, quiet=quiet, debug=debug)
+            txes = etq.show_claims(deck_str=address_or_deck, address=origin, wallet=wallet, full=json, quiet=quiet, debug=debug)
         elif named is True:
             # Shows all stored transactions and their labels.
             ignore_confpar = True

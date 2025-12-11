@@ -86,6 +86,27 @@ def add_address_identifier(item: dict, no_labels: bool=False, suppress_addresses
         addr_id = item["label"]
     item.update({"addr_identifier" : addr_id})
 
+def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, return_present: bool=False, no_labels: bool=False, suppress_addresses: bool=False) -> None:
+
+    # TODO consider making addresses a dict, so we can remove items fast.
+    for address, balance in token_balances.items():
+        if balance == 0:
+            continue
+        for item in addresses:
+            if "addr_identifier" not in item:
+                add_address_identifier(item, no_labels, suppress_addresses)
+
+            if address == item["address"]:
+                if "tokens" not in item:
+                    item.update({"tokens" : {token_identifier: balance}})
+                else:
+                    item["tokens"].update({token_identifier: balance})
+                break
+
+    if return_present:
+        addresses_with_token = [item for item in addresses if ("tokens" in item and token_identifier in item["tokens"])]
+        return addresses_with_token
+
 def print_address_balances(address_item: dict) -> None:
     output_dict = {}
     #print("\nAddress: {}\n".format(address_item["addr_identifier"]))
