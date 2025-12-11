@@ -190,7 +190,7 @@ def get_address_transactions(addr_string: str=None,
             include_p2th = True
 
     if include_p2th:
-        wallet_txes = eu.get_wallet_transactions(debug=debug)
+        wallet_txes = get_wallet_transactions(debug=debug)
         excluded_addresses = []
 
     else: # normally exclude p2th accounts
@@ -202,7 +202,7 @@ def get_address_transactions(addr_string: str=None,
             print("Excluding P2TH accounts", p2th_accounts)
             if wallet:
                 print("Wallet addresses", wallet_addresses)
-        wallet_txes = eu.get_wallet_transactions(debug=debug, exclude=p2th_accounts)
+        wallet_txes = get_wallet_transactions(debug=debug, exclude=p2th_accounts)
 
     if raw: # TODO: mainly debugging mode, maybe later remove again, or return the set (see below).
         return wallet_txes
@@ -427,3 +427,14 @@ def get_wallet_address_set(empty: bool=False, include_named: bool=False, use_acc
         addresses += named_addresses
 
     return set(addresses)
+
+
+def find_transaction_by_string(searchstring: str, only_start: bool=False):
+    """Returns transactions where the TXID matches a string."""
+
+    wallet_txids = set([tx.txid for tx in get_wallet_transactions()])
+    matches = []
+    for txid in wallet_txids:
+       if (only_start and txid.startswith(searchstring)) or (searchstring in txid and not only_start):
+           matches.append(txid)
+    return matches

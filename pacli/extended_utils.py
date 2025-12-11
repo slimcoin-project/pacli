@@ -245,16 +245,6 @@ def search_global_deck_name(identifier: str, prioritize: bool=False, return_deck
 
 # Transaction retrieval tools
 
-def find_transaction_by_string(searchstring: str, only_start: bool=False):
-    """Returns transactions where the TXID matches a string."""
-
-    wallet_txids = set([tx.txid for tx in get_wallet_transactions()])
-    matches = []
-    for txid in wallet_txids:
-       if (only_start and txid.startswith(searchstring)) or (searchstring in txid and not only_start):
-           matches.append(txid)
-    return matches
-
 def get_input_types(rawtx):
     """Gets the types of ScriptPubKey inputs of a transaction.
        Not ideal in terms of resource consumption/elegancy, but otherwise we would have to change PeerAssets core code,

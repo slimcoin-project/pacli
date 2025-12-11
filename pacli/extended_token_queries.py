@@ -81,9 +81,9 @@ def all_balances(address: str=None,
             print("excluded accounts:", excluded_accounts)
             print("include:", include)
             print("include_only", include_only)
-        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, wallet_only=wallet_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = eq.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, wallet_only=wallet_only, no_labels=no_labels, balances=balances, debug=debug)
     else:
-        addresses = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
+        addresses = eq.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
 
     # NOTE: default view needs no deck labels
     # NOTE2: Quiet mode doesn't show labels.
@@ -172,7 +172,7 @@ def single_balance(deck: str, address: str=None, wallet: bool=False, named: bool
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if wallet or named:
-        addresses = ec.get_labels_and_addresses(keyring=keyring, named=named, empty=True)
+        addresses = eq.get_labels_and_addresses(keyring=keyring, named=named, empty=True)
         balances = get_wallet_token_balances(deck, include_named=True)
 
         if quiet:
@@ -294,8 +294,6 @@ def show_claims(deck_str: str,
 
     if wallet:
         p2th_dict = eu.get_p2th_dict()
-        # addresses = get_labels_and_addresses(empty=True, exclude=p2th_dict.keys(), excluded_accounts=p2th_dict.values(), debug=debug)
-        # wallet_senders = set([a["address"] for a in addresses])
         # NOTE: changed method to restrict result to wallet addresses, now ismine and P2TH exclusion is used.
         raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, excluded_senders=p2th_dict.keys(), debug=debug)
     else:

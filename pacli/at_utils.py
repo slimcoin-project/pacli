@@ -13,6 +13,7 @@ from pypeerassets.exceptions import UnsupportedNetwork
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
+import pacli.extended_queries as eq
 import pacli.extended_constants as extc
 import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
@@ -78,7 +79,7 @@ def show_wallet_dtxes(deckid: str=None,
             excluded_accounts, excluded_addresses = [], []
         if debug:
             print("Retrieving labels and wallet addresses (except change) ...")
-        addresses = ec.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses, excluded_accounts=excluded_accounts, access_wallet=access_wallet)
+        addresses = eq.get_labels_and_addresses(empty=True, keyring=keyring, exclude=excluded_addresses, excluded_accounts=excluded_accounts, access_wallet=access_wallet)
         if wallet:
             allowed_addresses = set([a["address"] for a in addresses])
             if debug:
@@ -135,7 +136,7 @@ def show_wallet_dtxes(deckid: str=None,
     else:
         if debug:
             print("Retrieving wallet transactions ...")
-        raw_txes = eu.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
+        raw_txes = eq.get_wallet_transactions(exclude=excluded_accounts, debug=debug)
 
     if debug and not use_db:
         print(len(raw_txes), "transactions found.")
@@ -178,7 +179,7 @@ def show_wallet_dtxes(deckid: str=None,
 
         #if not sender:
         #    if not no_labels:
-        #        addresses = ec.get_labels_and_addresses(keyring=keyring, empty=True)
+        #        addresses = eq.get_labels_and_addresses(keyring=keyring, empty=True)
         #if wallet and include_change_addresses:
         #    if debug:
         #        print("Retrieving missing transactions for change addresses ...")

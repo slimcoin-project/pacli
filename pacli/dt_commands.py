@@ -9,6 +9,7 @@ import pacli.extended_interface as ei
 import pacli.dt_interface as di
 import pacli.config_extended as ce
 import pacli.extended_constants as eco
+import pacli.extended_queries as eq
 
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data, serialize_deck_extended_data
@@ -61,7 +62,7 @@ def show_donations_by_address(deckid: str, address: str=None, wallet: bool=False
     # shows all valid donation transactions from a specific address, for all proposals.
 
     if wallet is True:
-        addresses = eu.get_wallet_address_set(empty=True, include_named=True)
+        addresses = eq.get_wallet_address_set(empty=True, include_named=True)
     elif address is not None:
         addresses = [address]
     else:

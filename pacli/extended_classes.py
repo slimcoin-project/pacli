@@ -14,6 +14,7 @@ import pacli.at_utils as au
 import pacli.extended_commands as ec
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
+import pacli.extended_queries as eq
 import pacli.extended_token_queries as etq
 import pacli.dt_commands as dc
 import pacli.blockexp as bx
@@ -635,7 +636,7 @@ class ExtAddress:
 
         if True in (labels, full_labels): # labels/full_labels options
 
-            result = ec.get_labels_and_addresses(access_wallet=access_wallet, prefix=blockchain, keyring=keyring, named=True, empty=True, labels=labels, full_labels=full_labels, debug=debug)
+            result = eq.get_labels_and_addresses(access_wallet=access_wallet, prefix=blockchain, keyring=keyring, named=True, empty=True, labels=labels, full_labels=full_labels, debug=debug)
             if quiet is True:
                 return result
             else:
@@ -806,7 +807,7 @@ class ExtAddress:
 
         try:
             balance = provider.getbalance(address)
-            if (balance == 0) and eu.is_mine(address, debug=debug) is False: # (address not in eu.get_wallet_address_set(empty=True)):
+            if (balance == 0) and eu.is_mine(address, debug=debug) is False:
                 raise ei.PacliInputDataError("This address is not in your wallet. Command works only for wallet addresses.")
         except TypeError:
             raise ei.PacliInputDataError("Address does not exist.")
@@ -829,11 +830,11 @@ class ExtAddress:
                     if debug:
                         print("Loading transactions from json file ...")
                 except FileNotFoundError:
-                    rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
+                    rpc_txes = eq.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
                     bx.store_rpc_txes(rpc_txes, json)
                     return
             elif not skip_rpc:
-                rpc_txes = ec.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
+                rpc_txes = eq.get_address_transactions(addr_string=address, advanced=True, include_coinbase=True, include_p2th=True, sort=True, reverse_sort=True, unconfirmed=False, debug=False)
             else:
                 rpc_txes = None
 
@@ -2137,7 +2138,7 @@ class ExtTransaction:
 
             else:
                 txstruct = False if (json or sent or received) else True
-                txes = ec.get_address_transactions(addr_string=address, wallet=wallet, sent=sent, received=received, raw=zraw, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, txstruct=txstruct, debug=debug)
+                txes = eq.get_address_transactions(addr_string=address, wallet=wallet, sent=sent, received=received, raw=zraw, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, txstruct=txstruct, debug=debug)
 
         if (xplore or burntxes or gatewaytxes or txstruct) and (not json):
             confpar = "blockheight"

@@ -4,6 +4,7 @@ import pacli.keystore as k
 import pacli.keystore_extended as ke
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
+import pacli.extended_queries as eq
 import pacli.config_extended as ce
 import pacli.extended_constants as c
 import pacli.blockexp_utils as bu
@@ -25,7 +26,7 @@ def fresh_address(label: str, set_main: bool=False, backup: str=None, check_usag
         if check_usage:
             if not quiet:
                 print("Checking usage of new address {} (can take some minutes) ...".format(address))
-            addr_txes = len(get_address_transactions(addr_string=address, include_coinbase=True))
+            addr_txes = len(eq.get_address_transactions(addr_string=address, include_coinbase=True))
             if not quiet:
                 if addr_txes > 0 :
                     print("Address was already used with {} transactions. Trying new address.".format(addr_txes))
@@ -236,7 +237,7 @@ def search_change_addresses(known_addresses: list, wallet_txes: list=None, balan
     """Searches all wallet transactions for unknown change addresses."""
     # note: needs advanced mode for wallet txes (complete getrawtransaction tx dict)
     if not wallet_txes:
-        wallet_txes = get_address_transactions(wallet=True, advanced=True, debug=debug)
+        wallet_txes = eq.get_address_transactions(wallet=True, advanced=True, debug=debug)
     known_addr_list = [a["address"] for a in known_addresses]
     unknown_wallet_addresses = []
     new_addr_list = []
@@ -256,7 +257,7 @@ def search_change_addresses(known_addresses: list, wallet_txes: list=None, balan
                     if validation.get("ismine") == True:
                         address_item = {"label" : "", "address" : address, "network" : network}
                         if balances is True:
-                            balance = retrieve_balance(address, debug=debug)
+                            balance = eq.retrieve_balance(address, debug=debug)
                             address_item.update({"balance" : balance})
                         unknown_wallet_addresses.append(address_item)
                         new_addr_list.append(address)
@@ -288,7 +289,7 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
             if access_wallet is not None:
                 txes = dbu.get_all_transactions(address=address, datadir=datadir, advanced=True, unconfirmed=False, debug=debug)
             else:
-                txes = get_address_transactions(addr_string=address, advanced=True, include_p2th=True, unconfirmed=False, debug=debug)
+                txes = eq.get_address_transactions(addr_string=address, advanced=True, include_p2th=True, unconfirmed=False, debug=debug)
             if not txes:
                 continue
             elif not quiet:

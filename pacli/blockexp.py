@@ -8,6 +8,7 @@ import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
+import pacli.extended_queries as eq
 import pacli.at_utils as au
 import pacli.blockexp_utils as bu
 from pacli.provider import provider
@@ -121,7 +122,7 @@ def show_txes(receiving_address: str=None,
     if wallet_mode is not None:
         # TODO: re-check if P2TH addresses should not be excluded here.
         sending_addresses, receiving_addresses = [], []
-        wallet_addresses = list(eu.get_wallet_address_set())
+        wallet_addresses = list(eq.get_wallet_address_set())
         if wallet_mode in ("sent", "all"):
             sending_addresses = wallet_addresses
         if wallet_mode in ("received", "all"):

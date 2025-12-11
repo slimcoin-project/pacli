@@ -20,6 +20,7 @@ import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_constants as eco
+import pacli.extended_queries as eq
 
 from pacli.provider import provider
 from pacli.config import Settings
@@ -248,7 +249,7 @@ def find_donation_state_by_string(searchstring: str, only_start: bool=False):
     """Returns a list of donation states including a certain string in its txid."""
 
     try:
-        txids = eu.find_transaction_by_string(searchstring, only_start=only_start)
+        txids = eq.find_transaction_by_string(searchstring, only_start=only_start)
         return [dmu.get_dstate_from_origin_tx(txid, provider) for txid in txids]
     except Exception:
         raise PacliInputDataError("No matching donation state found.")
