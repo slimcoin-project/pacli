@@ -14,7 +14,7 @@ import pacli.at_utils as au
 import pacli.extended_commands as ec
 import pacli.config_extended as ce
 import pacli.extended_interface as ei
-import pacli.token_commands as tc
+import pacli.extended_token_queries as etq
 import pacli.dt_commands as dc
 import pacli.blockexp as bx
 import pacli.blockexp_utils as bu
@@ -695,7 +695,7 @@ class ExtAddress:
             # TODO: try to improve/unify the location of the deck search.
             deck_list = all_decks if (json and all_decks is not None) else None
 
-            return tc.all_balances(wallet=True,
+            return etq.all_balances(wallet=True,
                                   keyring=keyring,
                                   exclude=excluded_addresses,
                                   excluded_accounts=excluded_accounts,
@@ -1578,7 +1578,7 @@ class ExtCard:
             else:
                 address = None
             deckid = eu.search_for_stored_tx_label("deck", deck_str, quiet=quiet)
-            return tc.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, quiet=quiet)
+            return etq.single_balance(deck=deckid, address=address, wallet=wallet, keyring=keyring, quiet=quiet)
         else:
             # TODO seems like label names are not given in this mode if a an address is given.
 
@@ -1593,7 +1593,7 @@ class ExtCard:
                 raise ei.PacliInputDataError("No category specified.")
 
             # replaced wallet with wallet or named, to trigger "multi address" mode with -n.
-            return tc.all_balances(address=address,
+            return etq.all_balances(address=address,
                                    wallet=wallet or named,
                                    named=named, keyring=keyring,
                                    only_tokens=True,

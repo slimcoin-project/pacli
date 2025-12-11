@@ -1,22 +1,8 @@
 import itertools, sys, datetime
 from time import sleep
 from prettyprinter import cpprint as pprint
-from pypeerassets.exceptions import InsufficientFunds
 import pacli.tui as tui
-from pacli.provider import provider
 from pacli.config import Settings
-import pacli.extended_txtools as et
-
-def output_tx(txdict: dict, txhex: bool=False) -> object:
-
-    if txhex:
-        try:
-            return txdict["hex"]
-        except KeyError:
-            return txdict["raw hex"]
-    else:
-        return txdict
-
 
 def print_red(text: str) -> None:
     print("\033[91m{}\033[00m".format(text))
@@ -26,73 +12,6 @@ def print_orange(text: str) -> None:
 
 def print_green(text: str) -> None:
     print("\033[92m{}\033[00m".format(text))
-
-def run_command(c, *args, **kwargs) -> object:
-    # Unified handling for exceptions, change etc..
-
-    debug = ("debug" in kwargs.keys() and kwargs["debug"]) or ("show_debug_info" in kwargs.keys() and kwargs["show_debug_info"])
-
-    try:
-        if "change" in kwargs.keys():
-            et.set_change_address(kwargs["change"], debug=debug)
-            if debug:
-                print("Setting change address to:", Settings.change)
-
-        result = c(*args, **kwargs)
-        return result
-
-    except KeyboardInterrupt:
-        print("Aborted.")
-        sys.exit()
-
-    except PacliMainAddressLocked:
-        print("Pacli wallet locked. Commands accessing the main address or its keys can't be used.")
-        print("Use 'pacli address set LABEL' or 'pacli address set -a ADDRESS' to change to an existing address, 'pacli address set LABEL -f' to a completely new address.")
-        print("See available addresses with 'pacli address list'")
-
-    except (PacliDataError, ValueExistsError, InsufficientFunds) as e:
-
-        print_red("\nError: {}".format(e.args[0]))
-        if debug:
-            raise
-        sys.exit()
-
-    except PacliMainAddressLocked as e:
-
-        #print_red("\nError: {}".format(e.args[0]))
-        print(e.args[0])
-        if debug:
-            raise
-        sys.exit()
-
-    except (TypeError, KeyError, PacliGeneralError) as e:
-
-        # a TypeError complaining is often raised if a deck wasn't initialized:
-        # TypeError: argument of type 'NoneType' is not iterable
-        err_str = """\n        General error raised by PeerAssets. Check if your input is correct."""
-
-        err_str2 = """
-
-        If you gave a deck as an argument, a possible reason for this error is that you need to initialize the deck.
-
-        To initialize the default decks, use:
-
-        pacli deck init
-
-        To initialize a single deck, use:
-
-        pacli deck init DECKID
-        """
-
-        if "txid" in e.args or ("deck" in kwargs or "deckid" in kwargs):
-            err_str += err_str2
-
-        print_red(err_str)
-        if debug:
-            raise
-
-        sys.exit()
-
 
 def spinner(duration: int) -> None:
     '''Prints a "spinner" for a defined duration in seconds.'''
@@ -127,34 +46,6 @@ def spinner(duration: int) -> None:
         sys.stdout.write('\b\b\b\b\b\b\b\b\b\b\b') # erase the last written chars
         sleep(0.1)
 
-
-def confirm_tx(orig_tx: dict, quiet: bool=False) -> None:
-
-    if not quiet:
-        print("Transaction created and broadcasted. Confirmation can take several minutes.")
-        print("Waiting for first confirmation (abort waiting safely with KeyboardInterrupt, e.g. CTRL-C, command will continue) ...", end='')
-        print("(Note: Transactions should have several dozens of confirmations to be considered final.)")
-    confirmations = 0
-    while confirmations == 0:
-        try:
-            try:
-                tx = provider.getrawtransaction(orig_tx.txid, 1)
-            except KeyError:
-                raise PacliInputDataError("An unsigned transaction cannot be confirmed. Use --sign and --send to sign and broadcast the transaction.")
-
-            try:
-                confirmations = tx["confirmations"]
-                if not quiet:
-                    print("\nTransaction confirmed.")
-                break
-            except KeyError:
-                if not quiet:
-                    spinner(10)
-        except KeyboardInterrupt:
-            print("\nConfirmation check aborted. Check confirmation manually.")
-            return
-
-
 def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settings.network, suppress_addresses: bool=False):
     # TODO deprecated, still used in:
     # balancedict contains: { address : balance, ... }, labeldict: { full_label : address }
@@ -181,28 +72,6 @@ def format_balances(balancedict: dict, labeldict: dict, network_name: str=Settin
         else:
             balances.update({address : balance})
     return balances
-
-
-def add_token_balances(addresses: list, token_identifier: str, token_balances: dict, network_name: str=Settings.network, return_present: bool=False, no_labels: bool=False, suppress_addresses: bool=False) -> None:
-
-    # TODO consider making addresses a dict, so we can remove items fast.
-    for address, balance in token_balances.items():
-        if balance == 0:
-            continue
-        for item in addresses:
-            if "addr_identifier" not in item:
-                add_address_identifier(item, no_labels, suppress_addresses)
-
-            if address == item["address"]:
-                if "tokens" not in item:
-                    item.update({"tokens" : {token_identifier: balance}})
-                else:
-                    item["tokens"].update({token_identifier: balance})
-                break
-
-    if return_present:
-        addresses_with_token = [item for item in addresses if ("tokens" in item and token_identifier in item["tokens"])]
-        return addresses_with_token
 
 def add_address_identifier(item: dict, no_labels: bool=False, suppress_addresses: bool=False) -> None:
     # adds an address identifier for the CLI output
@@ -417,25 +286,3 @@ def add_deck_data(decks: list, deck_label_dict: dict, only_named: bool=False, in
             continue
     return deck_list
 
-# Exceptions
-
-class PacliDataError(Exception):
-    # general data error
-    pass
-
-class PacliInputDataError(PacliDataError):
-    # exception thrown when there is some conflict between the commands the user enters and the blockchain data.
-    # e.g. transaction outside of donation rounds, claim before the donation is confirmed, non-existing deck, etc.
-    pass
-
-class ValueExistsError(Exception):
-    # exception thrown when a key already exists in the extended config file and protected mode is used.
-    pass
-
-class PacliGeneralError(Exception):
-    # exception to throw the "General Error" error.
-    pass
-
-class PacliMainAddressLocked(Exception):
-    # exception if address is set to unusable key.
-    pass

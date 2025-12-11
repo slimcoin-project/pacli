@@ -25,6 +25,7 @@ import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
 import pacli.config_extended as ce
 import pacli.keystore_extended as ke
+import pacli.extended_token_queries as etq
 from pypeerassets.pa_constants import param_query
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
@@ -248,7 +249,7 @@ def build_coin2card_exchange(deckid: str,
         print("Balance and lock check skipped as tokens were already locked.")
     else:
         print("Checking token balance ...")
-        statedict = eu.get_address_token_balance(deck, my_address, return_statedict=True)
+        statedict = etq.get_address_token_balance(deck, my_address, return_statedict=True)
         token_balance, state = statedict["balance"], statedict["state"]
 
         if token_balance < card_amount:
