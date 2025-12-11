@@ -10,6 +10,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 import pacli.keystore as k
 import pacli.extended_interface as ei
+import pacli.extended_handling as eh
 
 ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
 UNUSABLE_KEY = "0000000000000000000000000000000000000000000000000000000000000001"
@@ -19,7 +20,7 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
        this feature allows to import keys and generate new addresses'''
 
     if ((label is not None) and (not ALLOWED_CHARACTERS.match(label))) or ((backup_id is not None) and (not ALLOWED_CHARACTERS.match(backup_id))):
-        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
+        raise eh.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
 
     try:
         # to prevent malfunction if "--wif" is forgot or format is wrong, this checks if the key is a hex number
@@ -71,7 +72,7 @@ def set_new_key(new_key: str=None, new_address: str=None, backup_id: str=None, l
                 key = get_key(old_label)
                 delete_key(old_label)
             except ImportError:
-                raise ei.PacliInputDataError("Option --modify not available, secretstorage missing (probably not supported by your operating system)")
+                raise eh.PacliInputDataError("Option --modify not available, secretstorage missing (probably not supported by your operating system)")
             except (KeyError, TypeError):
                 if not quiet:
                     print("Note: This address/key wasn't stored in the keyring before. No keyring entry was deleted.")
@@ -101,7 +102,7 @@ def delete_key(full_label: str) -> None:
 def set_key(full_label: str, key: str) -> None:
     '''set new key, simple way'''
     if not ALLOWED_CHARACTERS.match(full_label):
-        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
+        raise eh.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).")
     keyring.set_password("pacli", full_label, key)
 
 def get_labels_from_keyring(prefix: str=Settings.network):
@@ -175,7 +176,7 @@ def show_keyring_label(address: str, set_main: bool=False) -> dict:
         if address == show_stored_key(label, Settings.network, legacy=legacy):
             break
     else:
-        raise ei.PacliInputDataError("No label was stored for address {}.".format(address))
+        raise eh.PacliInputDataError("No label was stored for address {}.".format(address))
 
     return label
 
@@ -246,7 +247,7 @@ def show_all_keys(debug: bool=False, legacy: bool=False):
     try:
         labels = get_labels_from_keyring(net_prefix)
     except ImportError:
-        raise ei.PacliInputDataError("This feature is not available if you don't use 'secretstore'.")
+        raise eh.PacliInputDataError("This feature is not available if you don't use 'secretstore'.")
 
     prefix = "key_" + net_prefix + "_"
     print("Address".ljust(35), "Balance".ljust(15), "Label".ljust(15))
@@ -304,7 +305,7 @@ def label_to_kutil(full_label: str) -> pa.Kutil:
 
 def check_main_address_lock():
     if Settings.key.privkey == UNUSABLE_KEY:
-        raise ei.PacliMainAddressLocked()
+        raise eh.PacliMainAddressLocked()
 
 def get_main_address():
     check_main_address_lock()

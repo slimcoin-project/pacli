@@ -17,6 +17,7 @@ import pacli.extended_keystore as ke
 import pacli.extended_commands as ec
 import pacli.extended_config as ce
 import pacli.extended_interface as ei
+import pacli.extended_handling as eh
 import pacli.dt_txtools as dtx
 from pacli.extended_constants import DEFAULT_POD_DECK
 
@@ -65,10 +66,10 @@ class PoDToken():
           debug: Show additional debug information."""
 
         ke.check_main_address_lock()
-        asset_specific_data = ei.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, token_sdp, debug=debug)
+        asset_specific_data = eh.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, token_sdp, debug=debug)
         change_address = ec.process_address(change, debug=debug)
 
-        return ei.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
+        return eh.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data, force=ignore_warnings,
                              confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
@@ -87,7 +88,7 @@ class PoDToken():
           debug: Shows debug information.
 
         """
-        deckid = du.default_deck() if idstr is None else ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
+        deckid = du.default_deck() if idstr is None else eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
         if debug is not None:
             debug_standard = True if debug == True else False
             debug_donations = True if "donations" in debug else False
@@ -95,7 +96,7 @@ class PoDToken():
         else:
             debug_standard, debug_donations, debug_voting = None, None, None
 
-        ei.run_command(dc.dt_state, deckid, debug=debug_standard, debug_donations=debug_donations, debug_voting=debug_voting)
+        eh.run_command(dc.dt_state, deckid, debug=debug_standard, debug_donations=debug_donations, debug_voting=debug_voting)
 
 
     def claim(self,
@@ -150,7 +151,7 @@ class PoDToken():
         # TODO add payto/payamount like in attoken/pobtoken claim
 
         ke.check_main_address_lock()
-        change_address = ei.run_command(ec.process_address, change)
+        change_address = eh.run_command(ec.process_address, change)
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
 
         if examine_address is None:
@@ -163,10 +164,10 @@ class PoDToken():
         if txhex is True:
             quiet = True
 
-        asset_specific_data, receiver, payment, deckid = ei.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=state, proposer=proposer, force=force, debug=debug, quiet=quiet)
+        asset_specific_data, receiver, payment, deckid = eh.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=state, proposer=proposer, force=force, debug=debug, quiet=quiet)
 
-        tx = ei.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change=change_address, verify=verify, locktime=locktime, force=force, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
-        return ei.output_tx(tx, txhex=txhex)
+        tx = eh.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change=change_address, verify=verify, locktime=locktime, force=force, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
+        return eh.output_tx(tx, txhex=txhex)
 
 
     def votes(self,
@@ -198,12 +199,12 @@ class PoDToken():
 
         """
 
-        deckid = du.default_deck() if idstr is None else ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
+        deckid = du.default_deck() if idstr is None else eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
         if address is None:
             address = Settings.key.address
         else:
             address = ec.process_address(address)
-        return ei.run_command(dc.show_votes_by_address, deckid, address, debug=debug)
+        return eh.run_command(dc.show_votes_by_address, deckid, address, debug=debug)
 
 
     def electorate(self,
@@ -258,7 +259,7 @@ class PoDToken():
           next_state: See Usage modes (not in combination with -p, -s or -e).
           debug: Show additional debug information."""
 
-        return ei.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=state_at_block, next=next_state, miniid=miniid, epoch=epoch, listvoters=listvoters, quiet=quiet, debug=debug)
+        return eh.run_command(self.__electorate, idstr=idstr, phase=phase, blockheight=state_at_block, next=next_state, miniid=miniid, epoch=epoch, listvoters=listvoters, quiet=quiet, debug=debug)
 
     def __electorate(self,
                idstr: str=None,
@@ -374,9 +375,9 @@ class PoDToken():
             # ex check_all_tx
 
             proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-            return ei.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
+            return eh.run_command(du.get_all_trackedtxes, proposal_id, include_badtx=include_badtx, light=light)
 
-        tx = ei.run_command(du.get_trackedtx, txid=txid, txhex=fulltx)
+        tx = eh.run_command(du.get_trackedtx, txid=txid, txhex=fulltx)
         pprint("Type: " + str(type(tx)))
         pprint(tx.__dict__)
 
@@ -491,7 +492,7 @@ class Proposal:
 
         """
 
-        pp_data = ei.run_command(self._get, label_or_id, require_states=(state or find), miniid=miniid, label_priority=(not find), advanced=advanced, debug=debug)
+        pp_data = eh.run_command(self._get, label_or_id, require_states=(state or find), miniid=miniid, label_priority=(not find), advanced=advanced, debug=debug)
 
         if info is True:
             return self.__info(pp_data["id"], advanced=advanced)
@@ -600,7 +601,7 @@ class Proposal:
         if named:
             return ce.list("proposal", quiet=quiet)
         else:
-            return ei.run_command(dc.list_current_proposals, deck=id_or_label, block=blockheight, searchstring=find, only_active=only_active, all_states=all_proposals, simple=simple, debug=debug)
+            return eh.run_command(dc.list_current_proposals, deck=id_or_label, block=blockheight, searchstring=find, only_active=only_active, all_states=all_proposals, simple=simple, debug=debug)
 
 
     def approval(self, proposal: str, voters: bool=False, quiet: bool=False, debug: bool=False) -> None:
@@ -617,12 +618,12 @@ class Proposal:
             voters: Show voters and their transactions and weights.
             quiet: Suppress additional information (script-friendly)"""
 
-        proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet, debug=debug)
+        proposal_id = eh.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet, debug=debug)
 
         if voters is True:
-            return ei.run_command(self.__all_votes, proposal_id, quiet=quiet, debug=debug)
+            return eh.run_command(self.__all_votes, proposal_id, quiet=quiet, debug=debug)
         else:
-            return ei.run_command(self.__votestate, proposal_id, quiet=quiet, debug=debug)
+            return eh.run_command(self.__votestate, proposal_id, quiet=quiet, debug=debug)
 
 
     def __votestate(self, proposal_id: str, quiet: bool=False, debug: bool=False) -> None:
@@ -731,7 +732,7 @@ class Proposal:
            blockheight: Show period at a block height (see Usage modes).
         """
 
-        pp_data = ei.run_command(self._get, label_or_id, require_states=False, miniid=miniid, label_priority=True, debug=debug)
+        pp_data = eh.run_command(self._get, label_or_id, require_states=False, miniid=miniid, label_priority=True, debug=debug)
         proposal_id = pp_data["id"]
 
         if start is True:
@@ -742,11 +743,11 @@ class Proposal:
             mode = None
 
         if all_periods is True:
-            return ei.run_command(self.__all_periods, proposal_id, debug=debug)
+            return eh.run_command(self.__all_periods, proposal_id, debug=debug)
         elif period is not None:
-            return ei.run_command(self.__get_period, proposal_id, period, mode=mode, debug=debug)
+            return eh.run_command(self.__get_period, proposal_id, period, mode=mode, debug=debug)
         else:
-            return ei.run_command(self.__current_period, proposal_id, blockheight=blockheight, show_blockheights=True, mode=mode, debug=debug)
+            return eh.run_command(self.__current_period, proposal_id, blockheight=blockheight, show_blockheights=True, mode=mode, debug=debug)
 
     # TODO: the period methods could be simplified, much code redundance.
     def __current_period(self, proposal: str, blockheight: int=None, show_blockheights: bool=True, mode: str=None, quiet: bool=False, debug: bool=False) -> None:
@@ -774,8 +775,8 @@ class Proposal:
         """Shows all periods of the proposal lifecycle."""
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-        deck = ei.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
-        periods = ei.run_command(du.get_all_periods, proposal_id, deck)
+        deck = eh.run_command(du.deck_from_ttx_txid, proposal_id, "proposal", provider, debug=debug)
+        periods = eh.run_command(du.get_all_periods, proposal_id, deck)
         for period, blockheights in periods.items():
             print(di.printout_period(period, blockheights, blockheights_first=True))
 
@@ -793,7 +794,7 @@ class Proposal:
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         proposal_tx = dmu.find_proposal(proposal_id, provider)
-        periods = ei.run_command(du.get_all_periods, proposal_id, proposal_tx.deck)
+        periods = eh.run_command(du.get_all_periods, proposal_id, proposal_tx.deck)
         period_heights = periods[(pletter, pnumber)]
 
         if mode == "start":
@@ -855,7 +856,7 @@ class Proposal:
             kwargs.update({"deck" : identifier})
         kwargs.update({"description" : intro, "txhex" : quiet})
         del kwargs["self"], kwargs["identifier"], kwargs["intro"], kwargs["quiet"], kwargs["modify"]
-        return ei.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
+        return eh.run_command(dtx.create_trackedtransaction, "proposal", **kwargs)
 
 
     def vote(self, proposal: str, vote: str, tx_fee: str="0.01", change: str=None, verify: bool=False, sign: bool=False, send: bool=False, force: bool=False, wait_for_confirmation: bool=False, match_round: bool=False, quiet: bool=False, level_security: int=1, debug: bool=False) -> None:
@@ -882,7 +883,7 @@ class Proposal:
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round})
         del kwargs["self"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
-        return ei.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
+        return eh.run_command(dtx.create_trackedtransaction, "voting", **kwargs)
 
 class Donation:
 
@@ -916,7 +917,7 @@ class Donation:
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
         del kwargs["self"], kwargs["round_number"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
-        return ei.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
+        return eh.run_command(dtx.create_trackedtransaction, "signalling", **kwargs)
 
 
     def lock(self, proposal: str, amount: str=None, destination: str=Settings.key.address, change: str=None, reserve: str=None, tx_fee: str="0.01", wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, round_number: int=None, match_round: bool=False, new_inputs: bool=False, timelock: int=None, reserveamount: str=None, force: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
@@ -954,7 +955,7 @@ class Donation:
         kwargs = locals()
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
         del kwargs["self"], kwargs["round_number"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
-        return ei.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
+        return eh.run_command(dtx.create_trackedtransaction, "locking", **kwargs)
 
 
     def release(self, proposal: str, amount: str=None, change: str=None, reserve: str=None, reserveamount: str=None, tx_fee: str="0.01", round_number: int=None, match_round: bool=False, new_inputs: bool=False, force: bool=False, wait_for_confirmation: bool=False, sign: bool=False, send: bool=False, verify: bool=False, debug: bool=False, quiet: bool=False, level_security: int=1) -> None:
@@ -988,7 +989,7 @@ class Donation:
         kwargs.update({"txhex" : quiet, "security" : level_security, "wait" : match_round, "check_round" : round_number})
         del kwargs["self"], kwargs["round_number"], kwargs["match_round"], kwargs["level_security"], kwargs["quiet"]
 
-        return ei.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
+        return eh.run_command(dtx.create_trackedtransaction, "donation", **kwargs)
 
     def proceed(self, proposal: str=None, donation: str=None, amount: str=None, label: str=None, send: bool=False):
         """EXPERIMENTAL method allowing to select the next step of a donation state with all standard values,
@@ -1081,7 +1082,7 @@ class Donation:
         Please refer to the help docstring of the transaction type you want to create.
         """
 
-        return ei.run_command(dtx.create_trackedtransaction, tx_type, **kwargs)
+        return eh.run_command(dtx.create_trackedtransaction, tx_type, **kwargs)
 
     # Other commands
 
@@ -1108,8 +1109,8 @@ class Donation:
 
         if wallet is True:
 
-            all_dstates = ei.run_command(dmu.get_donation_states, provider, proposal_id, debug=debug)
-            labels = ei.run_command(ec.get_all_labels, Settings.network, keyring=keyring)
+            all_dstates = eh.run_command(dmu.get_donation_states, provider, proposal_id, debug=debug)
+            labels = eh.run_command(ec.get_all_labels, Settings.network, keyring=keyring)
             my_addresses = [ec.show_stored_address(label, network_name=Settings.network, noprefix=True, keyring=keyring) for label in labels]
             my_dstates = [d for d in all_dstates if d.donor_address in my_addresses]
 
@@ -1197,12 +1198,12 @@ class Donation:
 
         if proposal is not None:
              if my:
-                 return ei.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, keyring=keyring, mode=mode, debug=debug)
+                 return eh.run_command(self.__my_donation_states, proposal, address=examine_address, wallet=wallet, all_matches=origin_matches, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, keyring=keyring, mode=mode, debug=debug)
              else:
-                 return ei.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, mode=mode, debug=debug)
+                 return eh.run_command(self.__all_donation_states, proposal, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, mode=mode, debug=debug)
         elif token is not None:
-             deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token)
-             return ei.run_command(dc.show_donations_by_address, deckid, examine_address, wallet=wallet, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, mode=mode, debug=debug)
+             deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", token)
+             return eh.run_command(dc.show_donations_by_address, deckid, examine_address, wallet=wallet, incomplete=incomplete, unclaimed=unclaimed, all_states=all_states, mode=mode, debug=debug)
         else:
              ei.print_red("Invalid option, you have to provide a proposal or a token (deck).")
 
@@ -1214,7 +1215,7 @@ class Donation:
         pstate = dmu.get_proposal_state(provider, proposal_id, debug=debug)
 
         if current is True:
-            dist_round = ei.run_command(du.get_dist_round, proposal_id, pstate.deck)
+            dist_round = eh.run_command(du.get_dist_round, proposal_id, pstate.deck)
             if dist_round is None:
                 raise ei.PacliInputDataError("Current block height isn't inside a distribution round. Please provide one, or don't use --current.")
                 return
@@ -1274,16 +1275,16 @@ class Donation:
           """
         # TODO: here a --wallet option would make sense.
 
-        proposal_id = ei.run_command(eu.search_for_stored_tx_label,"proposal", proposal, quiet=quiet)
+        proposal_id = eh.run_command(eu.search_for_stored_tx_label,"proposal", proposal, quiet=quiet)
         if (not my) and (not address):
-            return ei.run_command(self.__available_slot_amount, proposal_id, dist_round=round_number, current=current, quiet=quiet, debug=debug)
+            return eh.run_command(self.__available_slot_amount, proposal_id, dist_round=round_number, current=current, quiet=quiet, debug=debug)
 
         if not address:
             address = Settings.key.address
         else:
             address = ec.process_address(address)
 
-        result = ei.run_command(du.get_slot, proposal_id, donor_address=address, dist_round=round_number, quiet=quiet)
+        result = eh.run_command(du.get_slot, proposal_id, donor_address=address, dist_round=round_number, quiet=quiet)
 
         if (dist_round is None) and (not quiet):
             print("Showing first slot where this address participated.")
@@ -1320,7 +1321,7 @@ class Donation:
         # TODO: could probably be reworked with the ProposalState methods.
         # TODO: show_stored_key can be replaced with ce.process_address. We would then however have to detect if a label was used or not (for the "..with label.." part)
 
-        proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal)
+        proposal_id = eh.run_command(eu.search_for_stored_tx_label, "proposal", proposal)
         if label is not None:
             address = ke.show_stored_key(label, Settings.network)
             address_label = "{} with label {}".format(address, label)
@@ -1373,7 +1374,7 @@ class Donation:
           address: Donor address. To be used as a positional argument (flag name not mandatory). See Usage.
           quiet: Suppress output."""
 
-        proposal_id = ei.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet)
+        proposal_id = eh.run_command(eu.search_for_stored_tx_label, "proposal", proposal, quiet=quiet)
         if du.donor_address_used(address, proposal_id):
             result = "Already used in this proposal, use another address." if not quiet else False
         else:

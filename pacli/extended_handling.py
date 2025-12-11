@@ -1,6 +1,12 @@
 # Tools for unified exception and change handling
+import sys
+from pypeerassets.exceptions import InsufficientFunds
 import pacli.extended_txtools as et
+import pacli.extended_interface as ei
 from pacli.provider import provider
+from pacli.config import Settings
+
+
 
 def output_tx(txdict: dict, txhex: bool=False) -> object:
 
@@ -37,14 +43,14 @@ def run_command(c, *args, **kwargs) -> object:
 
     except (PacliDataError, ValueExistsError, InsufficientFunds) as e:
 
-        print_red("\nError: {}".format(e.args[0]))
+        ei.print_red("\nError: {}".format(e.args[0]))
         if debug:
             raise
         sys.exit()
 
     except PacliMainAddressLocked as e:
 
-        #print_red("\nError: {}".format(e.args[0]))
+        #ei.print_red("\nError: {}".format(e.args[0]))
         print(e.args[0])
         if debug:
             raise
@@ -72,7 +78,7 @@ def run_command(c, *args, **kwargs) -> object:
         if "txid" in e.args or ("deck" in kwargs or "deckid" in kwargs):
             err_str += err_str2
 
-        print_red(err_str)
+        ei.print_red(err_str)
         if debug:
             raise
 
@@ -99,7 +105,7 @@ def confirm_tx(orig_tx: dict, quiet: bool=False) -> None:
                 break
             except KeyError:
                 if not quiet:
-                    spinner(10)
+                    ei.spinner(10)
         except KeyboardInterrupt:
             print("\nConfirmation check aborted. Check confirmation manually.")
             return

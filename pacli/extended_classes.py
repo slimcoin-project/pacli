@@ -653,7 +653,7 @@ class ExtAddress:
                 if debug:
                     print("Retrieving initialization status ...")
                 if only_initialized_p2th: # or wallet: # TODO probably unnecessary if we do not use the include parameter (but also not exclude).
-                    decks = eu.get_initialized_decks(all_decks, debug=debug)
+                    decks = etq.get_initialized_decks(all_decks, debug=debug)
                 else:
                     decks = all_decks
             else:
@@ -1104,7 +1104,7 @@ class ExtDeck:
 
             #if not quiet:
             #    print("Searching for decks related to this address ...")
-            decks_related = eu.find_decks_by_address(related, debug=debug)
+            decks_related = etq.find_decks_by_address(related, debug=debug)
             decks = [d["deck"] for d in decks_related]
             table_title = "Tokens associated with address {}".format(related)
 
@@ -1156,7 +1156,7 @@ class ExtDeck:
                 print(deck_label_dict)
                 return
 
-            initialized_decks = eu.get_initialized_decks(decks, debug=debug) if show_initialized else []
+            initialized_decks = etq.get_initialized_decks(decks, debug=debug) if show_initialized else []
             deck_list = ei.add_deck_data(decks, deck_label_dict, only_named=named, initialized_decks=initialized_decks, debug=debug)
             if debug:
                 print(len(deck_list), "decks found.")
@@ -1388,7 +1388,7 @@ class ExtDeck:
 
         elif all_decks is True:
             decks = list(pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production))
-            decks = eu.get_initialized_decks(decks)
+            decks = etq.get_initialized_decks(decks)
 
         elif deckid is not None:
              decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]

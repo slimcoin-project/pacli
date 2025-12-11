@@ -6,13 +6,14 @@ from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
 from pypeerassets.pautils import exponent_to_amount
+from pypeerassets.at.constants import ID_AT, ID_DT
+from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
 import pacli.extended_constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
-import pacli.extended_commands as ec
 import pacli.extended_config as ce
 import pacli.extended_queries as eq
-from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
+
 
 def get_default_tokens():
     decks = [pa.find_deck(provider, c.DEFAULT_POB_DECK[Settings.network], Settings.deck_version, Settings.production),
@@ -68,7 +69,7 @@ def all_balances(address: str=None,
         decks = pa.find_all_valid_decks(provider, Settings.deck_version,
                                         Settings.production)
     if advanced is True and not no_tokens:
-        decks = eu.get_initialized_decks(decks, debug=debug)
+        decks = get_initialized_decks(decks, debug=debug)
 
     if debug:
         print("Retrieving addresses and/or labels ...")
@@ -187,7 +188,7 @@ def single_balance(deck: str, address: str=None, wallet: bool=False, named: bool
                 #            pprint({ a["addr_identifier"] : a["tokens"][deck.id] })
             return
     else:
-        balance = eu.get_address_token_balance(deck, address)
+        balance = get_address_token_balance(deck, address)
 
         if quiet:
             print({address : float(balance)})
@@ -295,9 +296,9 @@ def show_claims(deck_str: str,
     if wallet:
         p2th_dict = eu.get_p2th_dict()
         # NOTE: changed method to restrict result to wallet addresses, now ismine and P2TH exclusion is used.
-        raw_claims = eu.get_valid_cardissues(deck, only_wallet=True, excluded_senders=p2th_dict.keys(), debug=debug)
+        raw_claims = get_valid_cardissues(deck, only_wallet=True, excluded_senders=p2th_dict.keys(), debug=debug)
     else:
-        raw_claims = eu.get_valid_cardissues(deck, sender=address, debug=debug)
+        raw_claims = get_valid_cardissues(deck, sender=address, debug=debug)
 
     if claim_tx is None:
         claim_txids = set([c.txid for c in raw_claims])
@@ -343,3 +344,104 @@ def show_claims(deck_str: str,
         print("No claim transactions found.")
 
     return result
+
+
+def get_initialized_decks(decks: list, debug: bool=False) -> list:
+    # from the given list, checks which ones are initialized
+    # decks have to be given completely, not as deck ids.
+    accounts = provider.listaccounts()
+    if debug:
+        print("Accounts:", sorted(list(accounts.keys())))
+    initialized_decks = []
+    for deck in decks:
+        if not deck.id in accounts.keys():
+            if debug:
+                print("Deck not initialized:", deck.id)
+            continue
+        elif "at_type" in deck.__dict__ and deck.at_type == ID_DT:
+            derived_accounts = eu.get_dt_p2th_accounts(deck)
+            if set(derived_accounts.values()).isdisjoint(accounts):
+                if debug:
+                    print("Deck not completely initialized", deck.id)
+                continue
+        if debug:
+            print("Adding initialized deck", deck.id)
+        initialized_decks.append(deck)
+    return initialized_decks
+
+
+def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False, allowed_senders: list=None, excluded_senders: list=None, debug: bool=False) -> list:
+    """Gets all valid CardIssues of a deck."""
+    # NOTE: wallet restriction "outsourced". only_wallet = True works only with allowed_senders now.
+
+    wallet_senders = allowed_senders if (allowed_senders is not None and only_wallet) else []
+
+    try:
+
+        cards = pa.find_all_valid_cards(provider, deck)
+        ds = pa.protocol.DeckState(cards)
+    except KeyError:
+        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli deck init DECK'")
+
+    claim_cards = []
+    for card in ds.valid_cards:
+        if card.type == "CardIssue":
+            if (((sender is not None) and (card.sender == sender))
+            or (only_wallet and (card.sender in wallet_senders))
+            or (only_wallet and eu.is_mine(card.sender, debug=debug) and not card.sender in excluded_senders)
+            or ((sender is None) and not only_wallet)):
+                claim_cards.append(card)
+                if debug:
+                    print("Card added:", card.txid, "Sender:", card.sender)
+            elif debug:
+                print("Card rejected:", card.txid, "Sender:", card.sender)
+
+    return claim_cards
+
+
+def find_decks_by_address(address: str, addrtype: str=None, debug: bool=False) -> object:
+    all_decks = pa.find_all_valid_decks(provider, Settings.deck_version, Settings.production)
+    matching_decks = []
+    for deck in all_decks:
+        deck_addresses = get_deck_related_addresses(deck, advanced=True, debug=debug)
+        if debug:
+            print("Deck:", deck.id, "Addresses:", deck_addresses)
+
+        for key, value in deck_addresses.items():
+            if addrtype is not None and key != addrtype:
+                continue
+            if value == address:
+                matching_decks.append({"deck" : deck, "type" : key})
+
+    return matching_decks
+
+def get_deck_related_addresses(deck, advanced: bool=False, debug: bool=False):
+    """Gets all addresses relevant for a deck: main P2TH, DT P2TH and AT address."""
+
+    if advanced:
+        addresses = {"p2th_main": deck.p2th_address}
+    else:
+        addresses = [deck.p2th_address]
+
+    if "at_type" in deck.__dict__:
+        if deck.at_type == ID_DT:
+            dt_p2th_addresses = eu.get_dt_p2th_addresses(deck)
+            if advanced:
+                addresses.update(dt_p2th_addresses)
+            else:
+                dt_p2th = list(dt_p2th_addresses.values())
+                addresses += dt_p2th
+
+        elif deck.at_type == ID_AT:
+
+            if advanced:
+                addresses.update({"gateway" : deck.at_address})
+            else:
+                # AT addresses can have duplicates, others not
+                if deck.at_address not in addresses:
+                    addresses.append(deck.at_address)
+                if debug:
+                    print("AT address appended:", deck.at_address)
+
+    return addresses
+

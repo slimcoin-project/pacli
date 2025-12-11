@@ -79,7 +79,7 @@ class ATTokenBase():
 
         rawtx = au.create_simple_transaction(amount=dec_amount, dest_address=address, tx_fee=tx_fee, change_address=change_address, debug=debug)
 
-        return eu.finalize_tx(rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, ignore_checkpoint=force, debug=debug)
+        return et.finalize_tx(rawtx, verify, sign, send, confirm=wait_for_confirmation, quiet=quiet, ignore_checkpoint=force, debug=debug)
 
 
     def claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,

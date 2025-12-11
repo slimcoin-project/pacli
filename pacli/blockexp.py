@@ -9,6 +9,7 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.extended_queries as eq
+import pacli extended_token_queries as etq
 import pacli.at_utils as au
 import pacli.blockexp_utils as bu
 from pacli.provider import provider
@@ -184,7 +185,7 @@ def store_deck_blockheights(decks: list, chain: bool=False, quiet: bool=False, d
     for deck in decks:
         new_deck = False
         deck_tx = provider.getrawtransaction(deck.id, 1)
-        deck_addresses = eu.get_deck_related_addresses(deck, debug=debug) # TODO: consider advanced mode to simplify the P2TH selection
+        deck_addresses = etq.get_deck_related_addresses(deck, debug=debug) # TODO: consider advanced mode to simplify the P2TH selection
         addresses += deck_addresses
         try:
             spawn_blockheight = provider.getblock(deck_tx["blockhash"])["height"]
@@ -489,7 +490,7 @@ def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, de
     if type(value) == str:
         deckid = eu.search_for_stored_tx_label("deck", value, quiet=True)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        addresses = eu.get_deck_related_addresses(deck, debug=debug)
+        addresses = etq.get_deck_related_addresses(deck, debug=debug)
         checktype = "token"
         if debug:
             print("Addresses to check: {}".format(addresses))

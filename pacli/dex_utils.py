@@ -24,6 +24,7 @@ import pacli.extended_interface as ei
 import pacli.extended_txtools as et
 import pacli.blockexp_utils as bu
 import pacli.extended_config as ce
+import pacli.extended_handling as eh
 import pacli.extended_keystore as ke
 import pacli.extended_token_queries as etq
 from pypeerassets.pa_constants import param_query
@@ -55,7 +56,7 @@ def card_lock(deckid: str,
     if change and not eu.is_mine(change):
         ei.print_red("Custom change address {} is not part of your wallet.".format(change))
         if not force:
-            raise ei.PacliDataError("Transaction aborted. If you want to lock the coins with this change address anyway, use -f option.")
+            raise eh.PacliDataError("Transaction aborted. If you want to lock the coins with this change address anyway, use -f option.")
         else:
             ei.print_red("-f option used. The change will be transferred to your selected change address.")
 
@@ -63,18 +64,18 @@ def card_lock(deckid: str,
 
 
     if not eu.is_mine(receiver) and not force:
-        raise ei.PacliDataError("The receiver address {} is not part of your wallet. If you really want to transfer the coins to another wallet or person while locking, use the --force option.".format(receiver))
+        raise eh.PacliDataError("The receiver address {} is not part of your wallet. If you really want to transfer the coins to another wallet or person while locking, use the --force option.".format(receiver))
 
     quiet = True if True in (quiet, txhex) else False
     current_blockheight = provider.getblockcount()
     if absolute is True:
         locktime = lock
         if lock < current_blockheight:
-             raise ei.PacliInputDataError("Aborted. Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
+             raise eh.PacliInputDataError("Aborted. Your chosen locktime {} is in the past. Current blockheight: {}".format(lock, current_blockheight))
     else:
         locktime = lock + current_blockheight
     if (locktime - current_blockheight) < 100 and not force:
-        raise ei.PacliInputDataError("Aborted. Locktime is too low (< 100 blocks in the future). By default, a token buyer will not accept that lock. If using the 'swap lock' command to lock the tokens, you can use --force to override this check, e.g. if there is some trust between buyer and seller.")
+        raise eh.PacliInputDataError("Aborted. Locktime is too low (< 100 blocks in the future). By default, a token buyer will not accept that lock. If using the 'swap lock' command to lock the tokens, you can use --force to override this check, e.g. if there is some trust between buyer and seller.")
 
     if not quiet:
         print("Locking tokens until block {} (current blockheight: {})".format(locktime, current_blockheight))
@@ -107,7 +108,7 @@ def card_lock(deckid: str,
             balance_tokens = exponent_to_amount(balance, deck.number_of_decimals)
             locked_tokens = exponent_to_amount(locked_units, deck.number_of_decimals)
             available_tokens = exponent_to_amount(available_token_units, deck.number_of_decimals)
-            raise ei.PacliDataError("Not enough tokens on main address. Total balance: {}, Locked: {}, required: {}. Locked tokens can't be used for new locks.".format(balance_tokens, locked_tokens, amount))
+            raise eh.PacliDataError("Not enough tokens on main address. Total balance: {}, Locked: {}, required: {}. Locked tokens can't be used for new locks.".format(balance_tokens, locked_tokens, amount))
 
     txdict = eu.advanced_card_transfer(deck,
                                       receiver=[receiver],
@@ -123,7 +124,7 @@ def card_lock(deckid: str,
                                       force=force,
                                       debug=debug)
 
-    txdata = ei.output_tx(txdict, txhex=txhex or return_txid) # return_txid also needs the "neutral" hex data given by txhex=True
+    txdata = eh.output_tx(txdict, txhex=txhex or return_txid) # return_txid also needs the "neutral" hex data given by txhex=True
     if return_txid:
         txjson = provider.decoderawtransaction(txdata)
         return txjson["txid"]
@@ -178,7 +179,7 @@ def build_coin2card_exchange(deckid: str,
         tokenbuyer_input_values = tokenbuyer_input.split(":")
         tokenbuyer_input_txid, tokenbuyer_input_vout = tokenbuyer_input_values[0], int(tokenbuyer_input_values[1])
     except:
-        raise ei.PacliInputDataError("Partner input (UTXO provided by the token seller) provided in a wrong format. Use TXID:OUTPUT or a label for a stored UTXO.")
+        raise eh.PacliInputDataError("Partner input (UTXO provided by the token seller) provided in a wrong format. Use TXID:OUTPUT or a label for a stored UTXO.")
 
     # tokenbuyer's input becomes second input, as first must be card sender.
     tokenbuyer_input = build_input(tokenbuyer_input_txid, tokenbuyer_input_vout)
@@ -203,10 +204,10 @@ def build_coin2card_exchange(deckid: str,
     try:
         amount_str = str(tokenbuyer_utxo["value"])
     except (KeyError, IndexError):
-        raise ei.PacliDataError("Incorrect input provided by the token buyer, either the transaction doesn't exist or it has less outputs than expected.")
+        raise eh.PacliDataError("Incorrect input provided by the token buyer, either the transaction doesn't exist or it has less outputs than expected.")
     tokenbuyer_input_amount = Decimal(amount_str)
     if tokenbuyer_input_amount < coin_amount + all_fees: # NOTE: token buyer pays fees!
-        raise ei.PacliInputDataError("The input provided by the token buyer has a lower balance than the requested payment plus fees (available amount: {}, requested payment {}, fees: {})".format(tokenbuyer_input_amount, coin_amount, all_fees))
+        raise eh.PacliInputDataError("The input provided by the token buyer has a lower balance than the requested payment plus fees (available amount: {}, requested payment {}, fees: {})".format(tokenbuyer_input_amount, coin_amount, all_fees))
     # first input comes from the card seller (i.e. the user who signs here)
     # We let pacli chose it automatically, based on the minimum amount. It should never give more than one, but it wouldn't matter if it's two or more.
 
@@ -216,7 +217,7 @@ def build_coin2card_exchange(deckid: str,
         ei.print_red("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).".format(min_amount, Settings.network.upper(), my_address))
         ei.print_red("NOTE 1: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).")
         ei.print_red("NOTE 2: If you recently locked tokens or sent coins to your current main address and this error appears, you may have already enough coins on this address but have to restart your client with -rescan for it to become aware of the coins. After the restart, repeat the 'swap create' command without the -w option.")
-        raise ei.PacliDataError("Swap creation aborted.")
+        raise eh.PacliDataError("Swap creation aborted.")
     own_utxo_value = Decimal(str(own_utxo["amount"]))
     own_input = MutableTxIn(txid=own_utxo['txid'], txout=own_utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
     inputs = {"utxos" : [own_input, tokenbuyer_input], "total": tokenbuyer_input_amount + own_utxo_value}
@@ -253,7 +254,7 @@ def build_coin2card_exchange(deckid: str,
         token_balance, state = statedict["balance"], statedict["state"]
 
         if token_balance < card_amount:
-             raise ei.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
+             raise eh.PacliDataError("Not enough token balance (balance: {}, required: {}).".format(token_balance, card_amount))
         print("Token balance of the sender:", str(token_balance))
     if lock_tx is None:
         if not without_checks:
@@ -316,7 +317,7 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=Fal
     result = solve_single_input(index=my_input_index, prev_txid=my_input.txid, prev_txout_index=my_input.txout, key=Settings.key, network_params=network_params, quiet=quiet)
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
-    spenttx = ei.output_tx(eu.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, quiet=quiet, debug=debug), txhex=txhex)
+    spenttx = eh.output_tx(et.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, quiet=quiet, debug=debug), txhex=txhex)
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False, quiet: bool=False, debug: bool=False):
 
@@ -347,9 +348,9 @@ def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: K
     try:
         assert "coinbase" not in prev_tx_json["vin"][0]
     except AssertionError:
-        raise ei.PacliDataError("UTXOs coming from coinbase transactions are not supported due to a bug in the btcpy library. Please select another input.")
+        raise eh.PacliDataError("UTXOs coming from coinbase transactions are not supported due to a bug in the btcpy library. Please select another input.")
     except KeyError:
-        raise ei.PacliDataError("Broken transaction:", prev_txid)
+        raise eh.PacliDataError("Broken transaction:", prev_txid)
 
     prev_tx = Transaction.from_json(prev_tx_json, network=network_params)
     prev_txout = prev_tx.outs[prev_txout_index]
@@ -634,7 +635,7 @@ def check_swap(txhex: str,
         txjson = provider.decoderawtransaction(txhex)
         txstruct = bu.get_tx_structure(tx=txjson, ignore_blockhash=True)
     except:
-        raise ei.PacliInputDataError("No valid transaction hex string or label provided.")
+        raise eh.PacliInputDataError("No valid transaction hex string or label provided.")
 
     print("Checking swap ...")
     pprint("Senders and receivers of the swap transaction:")
@@ -660,7 +661,7 @@ def check_swap(txhex: str,
 
         op_return_output = txjson["vout"][1]
     except (KeyError, IndexError):
-        raise ei.PacliDataError("Incorrect transaction structure. Don't proceed with the transaction.")
+        raise eh.PacliDataError("Incorrect transaction structure. Don't proceed with the transaction.")
 
     try:
         change_receiver = txstruct["outputs"][5]["receivers"][0]
@@ -763,7 +764,7 @@ def check_swap(txhex: str,
 
     if deckid:
         print("Deck ID and lock check (may take some time) ....")
-        matching_decks = eu.find_decks_by_address(p2th_address, addrtype="p2th_main", debug=False)
+        matching_decks = etq.find_decks_by_address(p2th_address, addrtype="p2th_main", debug=False)
         deck = matching_decks[0]["deck"]
         if deck.id != deckid:
             fail = True

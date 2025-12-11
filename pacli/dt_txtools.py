@@ -13,6 +13,8 @@ import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
+import pacli.extended_handling as eh
+import pacli.extended_txtools as et
 import pacli.dt_utils as du
 import pacli.extended_keystore as ke
 
@@ -141,7 +143,7 @@ def create_trackedtransaction(tx_type,
 
     rawtx = create_unsigned_trackedtx(params, basic_tx_data, force=force, quiet=quiet, debug=debug)
 
-    return ei.output_tx(eu.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, quiet=txhex, ignore_checkpoint=force, confirm=wait_for_confirmation), txhex=txhex)
+    return eh.output_tx(et.finalize_tx(rawtx, verify, sign, send, redeem_script=rscript, debug=debug, quiet=txhex, ignore_checkpoint=force, confirm=wait_for_confirmation), txhex=txhex)
 
 
 def create_params(tx_type: str, **kwargs) -> dict:

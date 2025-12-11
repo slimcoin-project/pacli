@@ -16,6 +16,7 @@ import pacli.extended_commands as ec
 import pacli.extended_queries as eq
 import pacli.extended_constants as extc
 import pacli.extended_txtools as et
+import pacli.extended_token_queries as etq
 import pacli.blockexp_utils as bu
 import pacli.db_utils as dbu
 import pacli.extended_keystore as ke
@@ -351,7 +352,7 @@ def at_deckinfo(deckid):
 
 def get_claimed_txes(deck: object, sender: str, only_wallet: bool=False) -> set:
     # returns TXIDs of already claimed txes.
-    return set([c.donation_txid for c in eu.get_valid_cardissues(deck, sender, only_wallet=only_wallet)])
+    return set([c.donation_txid for c in etq.get_valid_cardissues(deck, sender, only_wallet=only_wallet)])
 
 def burn_address():
     if not provider.network.endswith("slm"):

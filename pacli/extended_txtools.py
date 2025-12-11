@@ -198,7 +198,7 @@ def finalize_tx(rawtx: dict,
                 pprint({'txid': txid})
 
             if confirm:
-                ei.confirm_tx(tx, quiet=quiet)
+                eh.confirm_tx(tx, quiet=quiet)
 
         tx_hex = tx.hexlify()
 
@@ -212,7 +212,7 @@ def finalize_tx(rawtx: dict,
         tx_hex = rawtx.hexlify()
 
         if confirm:
-            ei.confirm_tx(rawtx, quiet=quiet)
+            eh.confirm_tx(rawtx, quiet=quiet)
 
     else:
         dict_key = 'raw hex'
