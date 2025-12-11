@@ -8,6 +8,7 @@ import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.extended_queries as eq
 import pacli.extended_token_queries as etq
+import pacli.extended_handling as eh
 import pacli.at_utils as au
 import pacli.blockexp_utils as bu
 from pacli.provider import provider
@@ -81,7 +82,7 @@ def show_txes(receiving_address: str=None,
             endblock = min(int(end), last_block)
 
         if (startdate is not None and startdate > last_block_date) or (enddate is not None and enddate > last_block_date):
-            raise ei.PacliInputDataError("Start or end date is in the future.")
+            raise eh.PacliInputDataError("Start or end date is in the future.")
 
         if endblock < startblock:
             if endblock + 1 == startblock: # this can happen if there are no blocks during at least one day
@@ -89,10 +90,10 @@ def show_txes(receiving_address: str=None,
                     print("No blocks were found in the selected timeframe.")
                 return []
             else:
-                raise ei.PacliInputDataError("End block or date must be after the start block or date.")
+                raise eh.PacliInputDataError("End block or date must be after the start block or date.")
 
     except (IndexError, ValueError):
-        raise ei.PacliInputDataError("At least one of the dates you entered is invalid.")
+        raise eh.PacliInputDataError("At least one of the dates you entered is invalid.")
 
     if deckid:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
@@ -113,10 +114,10 @@ def show_txes(receiving_address: str=None,
                 endblock = deck.endblock if endblock is None else min(deck.endblock, endblock)
 
             if startblock > endblock:
-                raise ei.PacliInputDataError("Selected blockheights are outside the token's blockheight range for valid burn/gateway transactions.")
+                raise eh.PacliInputDataError("Selected blockheights are outside the token's blockheight range for valid burn/gateway transactions.")
 
         except AttributeError:
-            raise ei.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
+            raise eh.PacliInputDataError("Deck ID {} does not reference an AT deck.".format(deckid))
 
     if wallet_mode is not None:
         # TODO: re-check if P2TH addresses should not be excluded here.
@@ -312,7 +313,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
     elif last_cached_block > 0:
         if force is True:
             if start_block < last_cached_block:
-                raise ei.PacliInputDataError("Starting caching before the last stored block is not supported, as this might lead to inconsistencies.")
+                raise eh.PacliInputDataError("Starting caching before the last stored block is not supported, as this might lead to inconsistencies.")
             elif start_block > (last_cached_block + 1):
                 if not quiet:
                     print("Forcing to cache block heights as required. The last commonly stored block was {}, continuing from block {} on.".format(last_cached_block, start_block))
@@ -322,7 +323,7 @@ def store_address_blockheights(addresses: list, start_block: int=0, blocks: int=
             #    print("There was a previous caching process. Continuing it from last cached block {} on.".format(last_cached_block))
             #    print("To cache other block heights, use -f / --force or erase the affected addresses from the block locator file with 'address cache -e'.")
             #start_block = last_cached_block
-            raise ei.PacliInputDataError("The start block height you selected is different than the last cached block. Discontinuous caching is only supported with --force. Use with caution!")
+            raise eh.PacliInputDataError("The start block height you selected is different than the last cached block. Discontinuous caching is only supported with --force. Use with caution!")
 
     elif start_block > 0: # last_cached_block is 0, caching start block > 0
         if not quiet:
@@ -503,7 +504,7 @@ def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, de
         addresses = value
         checktype = "address list"
     else:
-        raise ei.PacliInputDataError("Incorrect format for value.")
+        raise eh.PacliInputDataError("Incorrect format for value.")
 
     last_blockheights = [laddr[a].lastblockheight for a in addresses if a in laddr]
     min_lastblockheight = min(last_blockheights) if len(last_blockheights) > 0 else 0

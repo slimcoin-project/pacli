@@ -5,12 +5,12 @@ from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.extended_utils as eu
-import pacli.extended_interface as ei
 import pacli.at_utils as au
 import pacli.extended_commands as ec
 import pacli.extended_keystore as ke
-import pacli.extended_txtoools as et
+import pacli.extended_txtools as et
 import pacli.extended_token_txtools as ett
+import pacli.extended_handling as eh
 
 class ATTokenBase():
 
@@ -18,7 +18,7 @@ class ATTokenBase():
 
         amount = Decimal(str(amount))
         if (amount == 0) or (amount < 0):
-            raise ei.PacliInputDataError("Invalid amount, amount must be above zero.")
+            raise eh.PacliInputDataError("Invalid amount, amount must be above zero.")
 
         if not eu.is_possible_address(address_or_deck):
             deckid = eu.search_for_stored_tx_label("deck", address_or_deck, quiet=quiet)
@@ -26,15 +26,15 @@ class ATTokenBase():
             try:
                 address = deck.at_address
             except AttributeError:
-                raise ei.PacliInputDataError("Wrong type of deck.")
+                raise eh.PacliInputDataError("Wrong type of deck.")
             if not quiet:
                 print("Sending transaction of {} coins to burn or AT gateway address: {}".format(str(amount), address))
 
             currentblock = provider.getblockcount()
             if deck.endblock is not None and currentblock >= deck.endblock:
-                raise ei.PacliInputDataError("Token distribution has ended. Final deadline for burn or gateway transactions of this token was block {}.".format(deck.endblock))
+                raise eh.PacliInputDataError("Token distribution has ended. Final deadline for burn or gateway transactions of this token was block {}.".format(deck.endblock))
             elif deck.startblock is not None and currentblock < (deck.startblock - 1):
-                raise ei.PacliInputDataError("Token distribution has not started yet. Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
+                raise eh.PacliInputDataError("Token distribution has not started yet. Start deadline for burn or gateway transactions of this token is block {}.".format(deck.startblock))
 
             min_token_amount = Decimal(str(10 ** -deck.number_of_decimals))
 
@@ -65,7 +65,7 @@ class ATTokenBase():
             if (not force) and (not quiet) and (address_or_deck != au.burn_address()):
                 print("WARNING: If you send the coins directly to a gateway address, then possible incompatibilities (e.g. deadlines) will not be checked.")
                 print("Consider using the token ID or label/name as first argument instead.")
-                raise ei.PacliInputDataError("Rejected transaction creation. If you want to create the transaction anyway, use the --force option.")
+                raise eh.PacliInputDataError("Rejected transaction creation. If you want to create the transaction anyway, use the --force option.")
 
             address = ec.process_address(address_or_deck)
 
@@ -120,7 +120,7 @@ class ATTokenBase():
 
         kwargs = locals()
         del kwargs["self"]
-        ei.run_command(self.__claim, **kwargs)
+        eh.run_command(self.__claim, **kwargs)
 
 
     def __claim(self, idstr: str, txid: str, receivers: list=None, amounts: list=None,
@@ -133,7 +133,7 @@ class ATTokenBase():
             payto = ec.process_address(payto)
             dec_payamount = Decimal(str(payamount)) if payamount is not None else None
         elif payamount is not None:
-            raise ei.PacliInputDataError("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
+            raise eh.PacliInputDataError("Use --payamount together with --payto to designate a receiver of the payment.\nNo transaction was created.")
         else:
             dec_payamount = None
 
@@ -143,7 +143,7 @@ class ATTokenBase():
                 try:
                     receiver_list.append(ec.process_address(receiver))
                 except:
-                    raise ei.PacliInputDataError("Receiver invalid: {}".format(receiver))
+                    raise eh.PacliInputDataError("Receiver invalid: {}".format(receiver))
         else:
             receiver_list = None
 
@@ -196,14 +196,14 @@ class ATTokenBase():
 
         kwargs = locals()
         del kwargs["self"]
-        ei.run_command(self.__spawn, **kwargs)
+        eh.run_command(self.__spawn, **kwargs)
 
     def __spawn(self, token_name: str, address: str, multiplier: int=1, number_of_decimals: int=2, from_block: int=None,
               end_block: int=None, xtradata: str=None, change: str=None, verify: bool=False, ignore_warnings: bool=False,
               wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
 
-        tracked_address = ei.run_command(ec.process_address, address, debug=debug)
-        change_address = ei.run_command(ec.process_address, change, debug=debug)
+        tracked_address = eh.run_command(ec.process_address, address, debug=debug)
+        change_address = eh.run_command(ec.process_address, change, debug=debug)
         if xtradata is not None:
             if sha256:
                 s256hash = hashlib.sha256()
@@ -217,9 +217,9 @@ class ATTokenBase():
         else:
             xd_bytes = None
 
-        asset_specific_data = ei.run_command(ett.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block, extradata=xd_bytes, debug=debug)
+        asset_specific_data = eh.run_command(ett.create_deckspawn_data, c.ID_AT, at_address=tracked_address, multiplier=multiplier, startblock=from_block, endblock=end_block, extradata=xd_bytes, debug=debug)
 
-        return ei.run_command(ett.advanced_deck_spawn, name=token_name, number_of_decimals=number_of_decimals,
+        return eh.run_command(ett.advanced_deck_spawn, name=token_name, number_of_decimals=number_of_decimals,
                issue_mode=0x01, change_address=change_address, asset_specific_data=asset_specific_data,
                confirm=wait_for_confirmation, force=ignore_warnings, verify=verify, sign=sign, send=send, debug=debug)
 
@@ -235,8 +235,8 @@ class ATTokenBase():
             quiet: Only check transaction with minimal output, suppress printouts.
             debug: Show additional debug information."""
 
-        deck = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, return_deck=True, debug=debug)
-        return ei.run_command(eu.get_claim_tx, txid, deck, quiet=quiet, debug=debug)
+        deck = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, return_deck=True, debug=debug)
+        return eh.run_command(eu.get_claim_tx, txid, deck, quiet=quiet, debug=debug)
 
 class ATToken(ATTokenBase):
 
@@ -273,7 +273,7 @@ class ATToken(ATTokenBase):
           optimize: If used with a TOKEN, optimize amount sent to the gateway address if this leads to a better reward/investment ratio.
           force: Create the transaction in all cases with the chosen parameters, even if the amount is not optimal or no compatibility check (e.g. deadlines) can be performed.'''
 
-        return ei.run_command(super()._create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, force=force, optimize=optimize)
+        return eh.run_command(super()._create_tx, address_or_deck=address_or_deck, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, quiet=quiet, debug=debug, force=force, optimize=optimize)
 
 
 class PoBToken(ATTokenBase):
@@ -339,6 +339,6 @@ class PoBToken(ATTokenBase):
 
 
         if idstr is None:
-            return ei.run_command(super()._create_tx, address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, force=force, quiet=quiet, debug=debug)
+            return eh.run_command(super()._create_tx, address_or_deck=au.burn_address(), amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, force=force, quiet=quiet, debug=debug)
         else:
-            return ei.run_command(super()._create_tx, address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, force=force, optimize=optimize, quiet=quiet, debug=debug)
+            return eh.run_command(super()._create_tx, address_or_deck=idstr, amount=amount, tx_fee=tx_fee, change=change, sign=sign, send=send, wait_for_confirmation=wait_for_confirmation, verify=verify, force=force, optimize=optimize, quiet=quiet, debug=debug)

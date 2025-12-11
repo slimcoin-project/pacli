@@ -1,5 +1,5 @@
 import datetime
-import pacli.extended_interface as ei
+import pacli.extended_handling as eh
 import pacli.blocklocator as loc
 from pacli.provider import provider
 
@@ -132,7 +132,7 @@ def show_txes_by_block(sending_addresses: list=[],
                 if not quiet:
                     print("You have reached the tip of the blockchain.")
                 if lastblockheight is None:
-                    raise ei.PacliInputDataError("Start block is after the current block height.\nIf you didn't specify a start block, this probably means there are no new blocks to cache.")
+                    raise eh.PacliInputDataError("Start block is after the current block height.\nIf you didn't specify a start block, this probably means there are no new blocks to cache.")
                 else:
                     break
 
@@ -190,7 +190,7 @@ def show_txes_by_block(sending_addresses: list=[],
 
         except KeyboardInterrupt:
             if use_locator and bh in loc_blockheights:
-                raise ei.PacliInputDataError("Interrupted while initializing blockheights. No block processing was done, so nothing is shown nor stored.")
+                raise eh.PacliInputDataError("Interrupted while initializing blockheights. No block processing was done, so nothing is shown nor stored.")
             else:
                 break
 
@@ -243,7 +243,7 @@ def get_tx_structure(txid: str=None, tx: dict=None, human_readable: bool=True, a
     try:
         senders = find_tx_senders(tx)
     except KeyError:
-        raise ei.PacliInputDataError("Transaction does not exist or is corrupted.")
+        raise eh.PacliInputDataError("Transaction does not exist or is corrupted.")
 
     outputs = []
     if "blockhash" in tx and not ignore_blockhash:
@@ -380,7 +380,7 @@ def get_utxo_from_data(utxo: object, tx: dict=None, debug: bool=False):
             utxo_data_raw = utxo.split(":")
             utxo_data = (utxo_data_raw[0], int(utxo_data_raw[1]))
         except Exception as e:
-            raise ei.PacliInputDataError("Wrong format of the entered UTXO. Please provide it in the format TXID:OUTPUT.", e)
+            raise eh.PacliInputDataError("Wrong format of the entered UTXO. Please provide it in the format TXID:OUTPUT.", e)
     elif type(utxo) in (list, tuple):
         utxo_data = utxo
     try:
@@ -388,7 +388,7 @@ def get_utxo_from_data(utxo: object, tx: dict=None, debug: bool=False):
             tx = provider.getrawtransaction(utxo_data[0], 1)
         output = tx["vout"][utxo_data[1]]
     except (KeyError, IndexError):
-        raise ei.PacliDataError("Unknown address or non-existent output.")
+        raise eh.PacliDataError("Unknown address or non-existent output.")
     return output
 
 def get_utxo_addresses(output: dict):

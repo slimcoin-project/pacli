@@ -10,6 +10,7 @@ import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.blockexp_utils as bu
 import pacli.extended_commands as ec
+import pacli.extended_handling as eh
 
 def get_labels_and_addresses(prefix: str=Settings.network,
                              exclude: list=[],
@@ -49,7 +50,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         try:
             keyring_labels = ke.get_labels_from_keyring(prefix)
         except ImportError:
-            raise ei.PacliInputDataError("This and some other keyring features are not supported without 'secretstorage'.")
+            raise eh.PacliInputDataError("This and some other keyring features are not supported without 'secretstorage'.")
 
         for label in keyring_labels:
             label = label[4:] # wipes key_ out.
@@ -173,7 +174,7 @@ def get_address_transactions(addr_string: str=None,
     if not wallet and not raw:
         address = ec.process_address(addr_string, keyring=keyring, try_alternative=False)
         if not address:
-            raise ei.PacliInputDataError("You must provide either a valid address or a valid label.")
+            raise eh.PacliInputDataError("You must provide either a valid address or a valid label.")
     else:
         address = None
 

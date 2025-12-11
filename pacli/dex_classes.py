@@ -1,6 +1,6 @@
 import time
 import pacli.dex_utils as dxu
-import pacli.extended_interface as ei
+import pacli.extended_handling as eh
 import pacli.extended_utils as eu
 import pacli.extended_commands as ec
 import pacli.extended_config as ce
@@ -58,11 +58,11 @@ class Swap:
           debug: Show additional debug information.
          """
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
-        change_address = ei.run_command(ec.process_address, change, debug=debug)
-        lock_address = ei.run_command(ec.process_address, lockaddr, debug=debug)
+        deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet, debug=debug)
+        change_address = eh.run_command(ec.process_address, change, debug=debug)
+        lock_address = eh.run_command(ec.process_address, lockaddr, debug=debug)
 
-        return ei.run_command(dxu.card_lock, deckid=deckid, amount=str(amount), lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=new_origin, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
+        return eh.run_command(dxu.card_lock, deckid=deckid, amount=str(amount), lock=lock, lockaddr=lock_address, addrtype=addrtype, absolute=blockheight, change=change_address, receiver=new_origin, sign=sign, send=send, force=force, confirm=wait_for_confirmation, txhex=quiet, debug=debug)
 
     @classmethod
     def create(self,
@@ -110,16 +110,16 @@ class Swap:
           quiet: Suppress output.
           debug: Show additional debug information.
         """
-        partner_address = ei.run_command(ec.process_address, partner_address, debug=debug)
-        buyer_change_address = ei.run_command(ec.process_address, buyer_change_address, debug=debug) if buyer_change_address is not None else None
-        change_address = ei.run_command(ec.process_address, change_address, debug=debug)
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
+        partner_address = eh.run_command(ec.process_address, partner_address, debug=debug)
+        buyer_change_address = eh.run_command(ec.process_address, buyer_change_address, debug=debug) if buyer_change_address is not None else None
+        change_address = eh.run_command(ec.process_address, change_address, debug=debug)
+        deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", token, quiet=quiet)
         if with_lock is not None:
              locktime = with_lock if type(with_lock) == int else 1000
-             lock_tx = ei.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug, force=forcelock)
+             lock_tx = eh.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug, force=forcelock)
         else:
              lock_tx = None
-        return ei.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, without_checks=no_checks, save_identifier=label, lock_tx=lock_tx, debug=debug)
+        return eh.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, without_checks=no_checks, save_identifier=label, lock_tx=lock_tx, debug=debug)
 
     def finalize(self,
                  ftxstr: str,
@@ -160,7 +160,7 @@ class Swap:
 
         kwargs = locals()
         del kwargs["self"]
-        return ei.run_command(self.__finalize, **kwargs)
+        return eh.run_command(self.__finalize, **kwargs)
 
     def __finalize(self,
                    ftxstr: str,
@@ -185,11 +185,11 @@ class Swap:
             time.sleep(20)
         else:
             if None in (id_deck, expected_tokens, payment):
-                raise ei.PacliInputDataError("Not all required parameters provided. For a safe swap, you have to provide the name or Deck ID of the token, the expected tokens to be transferred, and the expected payment (in coins).")
-            fail = ei.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=expected_tokens, amount=payment, presign_check=True, require_amounts=True, utxo_check=True, debug=debug)
+                raise eh.PacliInputDataError("Not all required parameters provided. For a safe swap, you have to provide the name or Deck ID of the token, the expected tokens to be transferred, and the expected payment (in coins).")
+            fail = eh.run_command(self.__check, txhexstr, return_state=True, token=id_deck, token_amount=expected_tokens, amount=payment, presign_check=True, require_amounts=True, utxo_check=True, debug=debug)
             if fail is True:
-                raise ei.PacliDataError("Swap check failed. It is either not possible to continue or highly recommended to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and the change of the coins you paid) on addresses you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")
-        return ei.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
+                raise eh.PacliDataError("Swap check failed. It is either not possible to continue or highly recommended to NOT proceed with the exchange. If you are REALLY sure everything is correct and you will receive the tokens (and the change of the coins you paid) on addresses you own, use --force. Do NOT use the --force option if you have the slightest doubt the token seller may trick you into a fraudulent swap.")
+        return eh.run_command(dxu.finalize_coin2card_exchange, txhexstr, send=send, force=force, confirm=wait_for_confirmation, quiet=quiet, txhex=txhex, debug=debug)
 
     @classmethod
     def list_locks(self, idstr: str, blockheight: int=None, quiet: bool=False, debug: bool=False):
@@ -207,13 +207,13 @@ class Swap:
         """
 
         blockheight = provider.getblockcount() if blockheight is None else blockheight
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
-        locks, deck = ei.run_command(dxu.get_locks, deckid, blockheight, return_deck=True, debug=debug)
+        deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
+        locks, deck = eh.run_command(dxu.get_locks, deckid, blockheight, return_deck=True, debug=debug)
 
         if quiet is True:
             return locks
         else:
-            return ei.run_command(dxu.prettyprint_locks, locks, blockheight, decimals=deck.number_of_decimals)
+            return eh.run_command(dxu.prettyprint_locks, locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
     def select_coins(self, amount: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
@@ -239,10 +239,10 @@ class Swap:
           debug: Show additional debug information.
         """
 
-        # addr = None if wallet is True else ei.run_command(ec.process_address, address, debug=debug)
+        # addr = None if wallet is True else eh.run_command(ec.process_address, address, debug=debug)
         kwargs = locals()
         del kwargs["self"]
-        return ei.run_command(self.__select_coins, **kwargs)
+        return eh.run_command(self.__select_coins, **kwargs)
 
 
     def __select_coins(amount: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
@@ -284,7 +284,7 @@ class Swap:
         """
         #TODO: swap check still has bug: if no change output is added, it will raise an error.
 
-        ei.run_command(self.__check, _txstring,
+        eh.run_command(self.__check, _txstring,
                        buyer_change_address=change_address,
                        token_receiver_address=buyer_address,
                        token=token,
@@ -309,7 +309,7 @@ class Swap:
 
         deckid = None if token is None else eu.search_for_stored_tx_label("deck", token, debug=debug)
         if require_amounts is True and (None in (token_amount, amount)):
-            raise ei.PacliInputDataError("Both the expected payment in coins and the expected token amount have to be provided for a safe swap check.")
+            raise eh.PacliInputDataError("Both the expected payment in coins and the expected token amount have to be provided for a safe swap check.")
         txhex = ce.show("transaction", _txstring, quiet=True)
         if txhex is None:
             txhex = _txstring

@@ -273,7 +273,7 @@ class PoDToken():
         if type(next) == int:
             blockheight = next
         if type(blockheight) == bool or type(epoch) == bool:
-           raise ei.PacliInputDataError("If using -e or -s options you have to provide an epoch (for -e) or block height (for -s).")
+           raise eh.PacliInputDataError("If using -e or -s options you have to provide an epoch (for -e) or block height (for -s).")
 
         current_block = provider.getblockcount()
 
@@ -282,7 +282,7 @@ class PoDToken():
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
             if "epoch_length" not in deck.__dict__:
-                raise ei.PacliInputDataError("Not a Proof of Donation token (deck).")
+                raise eh.PacliInputDataError("Not a Proof of Donation token (deck).")
             if epoch is None:
                 if blockheight is None:
                     blockheight = current_block
@@ -307,7 +307,7 @@ class PoDToken():
                 msg_futureblock = "Impossible to show the electorate for this voting round as the epoch begins in the future."
             else:
                 msg_futureblock = "You can't select a future epoch or block height."
-            raise ei.PacliInputDataError(msg_futureblock)
+            raise eh.PacliInputDataError(msg_futureblock)
 
         # last_epoch_start is the start of the last epoch which will be completely processed.
         last_epoch_start = max(0, (epoch - 1) * deck.epoch_length)
@@ -392,7 +392,7 @@ class Proposal:
             try:
                 proposal_id = eu.search_for_stored_tx_label("proposal", str(searchstring))
                 proposal_states = None
-            except ei.PacliInputDataError:
+            except eh.PacliInputDataError:
                 require_states = True
 
         if require_states is True or miniid is True:
@@ -406,7 +406,7 @@ class Proposal:
             try:
                 proposal_id = proposal_states[0].id
             except IndexError:
-                raise ei.PacliInputDataError("Proposal not found.")
+                raise eh.PacliInputDataError("Proposal not found.")
 
         return {"id" : proposal_id, "states" : proposal_states}
 
@@ -788,7 +788,7 @@ class Proposal:
             if period in ("C", "E"):
                 pnumber = 0
             else:
-                raise ei.PacliInputDataError("Period entered in wrong format. You have to enter a letter-number combination, e.g. b10 or d50. Only periods C and E are accepted without number.")
+                raise eh.PacliInputDataError("Period entered in wrong format. You have to enter a letter-number combination, e.g. b10 or d50. Only periods C and E are accepted without number.")
 
         proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
         proposal_tx = dmu.find_proposal(proposal_id, provider)
@@ -1215,7 +1215,7 @@ class Donation:
         if current is True:
             dist_round = eh.run_command(du.get_dist_round, proposal_id, pstate.deck)
             if dist_round is None:
-                raise ei.PacliInputDataError("Current block height isn't inside a distribution round. Please provide one, or don't use --current.")
+                raise eh.PacliInputDataError("Current block height isn't inside a distribution round. Please provide one, or don't use --current.")
                 return
 
         if dist_round is None:

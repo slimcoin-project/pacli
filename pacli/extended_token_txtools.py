@@ -8,10 +8,10 @@ from pypeerassets.pautils import amount_to_exponent
 from pypeerassets.exceptions import InsufficientFunds
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
-import pacli.extended_interface as ei
 import pacli.extended_keystore as ke
 import pacli.extended_token_queries as etq
 import pacli.extended_txtools as et
+import pacli.extended_handling as eh
 import pacli.extended_utils as eu
 from pacli.provider import provider
 from pacli.config import Settings
@@ -38,7 +38,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
             print("Checking sender balance ...")
         balance = etq.get_address_token_balance(deck, main_address)
         if balance < sum(amount):
-            raise ei.PacliInputDataError("Not enough balance of this token.")
+            raise eh.PacliInputDataError("Not enough balance of this token.")
 
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,
@@ -53,7 +53,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
     else:
 
-        raise ei.PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
+        raise eh.PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
     try:
         allfees = eu.calc_cardtransfer_fees(legacyfix=True)
@@ -66,7 +66,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
                                  )
 
     except InsufficientFunds:
-        raise ei.PacliInputDataError("Insufficient funds. Minimum balance is {} coins.".format(allfees))
+        raise eh.PacliInputDataError("Insufficient funds. Minimum balance is {} coins.".format(allfees))
 
     return et.finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
@@ -77,10 +77,10 @@ def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward:
     if multiplier is None:
         multiplier = 1
     if (endblock and startblock) and (endblock < startblock):
-        raise ei.PacliInputDataError("The end block height has to be at least as high as the start block height.")
+        raise eh.PacliInputDataError("The end block height has to be at least as high as the start block height.")
 
     if multiplier % 1 != 0:
-        raise ei.PacliInputDataError("The multiplier has to be an integer number.")
+        raise eh.PacliInputDataError("The multiplier has to be an integer number.")
 
     if identifier == ID_DT:
 
@@ -104,7 +104,7 @@ def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward:
     try:
         data = serialize_deck_extended_data(net_query(provider.network), params=params)
     except InvalidAddress:
-        raise ei.PacliInputDataError("Invalid address.")
+        raise eh.PacliInputDataError("Invalid address.")
     return data
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=None, force: bool=False,

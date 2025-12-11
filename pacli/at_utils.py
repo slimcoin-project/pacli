@@ -11,11 +11,11 @@ from pypeerassets.at.protobuf_utils import serialize_card_extended_data
 from pypeerassets.networks import net_query
 from pypeerassets.exceptions import UnsupportedNetwork
 import pacli.extended_utils as eu
-import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.extended_queries as eq
 import pacli.extended_constants as extc
 import pacli.extended_txtools as et
+import pacli.extended_handling as eh
 import pacli.extended_token_queries as etq
 import pacli.blockexp_utils as bu
 import pacli.db_utils as dbu
@@ -40,7 +40,7 @@ def create_simple_transaction(amount: Decimal, dest_address: str, tx_fee: Decima
         if debug:
             raise
         else:
-            raise ei.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
+            raise eh.PacliInputDataError("Invalid address string. Please provide a correct address or label.")
 
 
 def show_wallet_dtxes(deckid: str=None,
@@ -104,19 +104,19 @@ def show_wallet_dtxes(deckid: str=None,
                 error_message = "Gateway address mismatch."
                 if tracked_address == burn_address():
                     error_message += " Probably you are using a command for PoB tokens for an AT token. Please use the command/flag for AT tokens instead."
-                raise ei.PacliInputDataError(error_message)
+                raise eh.PacliInputDataError(error_message)
 
             assert deck.at_type == c.ID_AT
 
         except (AttributeError, AssertionError):
-            raise ei.PacliInputDataError("Deck {} is not an AT or PoB token deck.".format(deckid))
+            raise eh.PacliInputDataError("Deck {} is not an AT or PoB token deck.".format(deckid))
 
     else:
         deck = None
         if unclaimed:
-            raise ei.PacliInputDataError("You need to provide a Deck to show unclaimed transactions.")
+            raise eh.PacliInputDataError("You need to provide a Deck to show unclaimed transactions.")
         if not tracked_address:
-            raise ei.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
+            raise eh.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
     if use_db is True:
         if debug:
@@ -260,12 +260,12 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
         try:
             assert sender == find_tx_sender(provider, spending_tx)
         except AssertionError:
-            raise ei.PacliInputDataError("You cannot claim coins for another sender.")
+            raise eh.PacliInputDataError("You cannot claim coins for another sender.")
         except KeyError:
-            raise ei.PacliInputDataError("The transaction you referenced is invalid.")
+            raise eh.PacliInputDataError("The transaction you referenced is invalid.")
 
         if donation_txid in get_claimed_txes(deck, sender):
-            raise ei.PacliInputDataError("Duplicate. You already have claimed the coins from this transaction successfully.")
+            raise eh.PacliInputDataError("Duplicate. You already have claimed the coins from this transaction successfully.")
 
         spent_amount = Decimal(0)
 
@@ -280,7 +280,7 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
                 continue
 
         if len(vouts) == 0:
-            raise ei.PacliInputDataError("This transaction does not spend coins to the tracked address")
+            raise eh.PacliInputDataError("This transaction does not spend coins to the tracked address")
 
         if debug:
             print("AT Address:", deck.at_address)
@@ -301,7 +301,7 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
                    amounts = [payamount, claimable_amount - payamount]
                    receivers = [payto, ke.get_main_address()]
                else:
-                   raise ei.PacliInputDataError("Claimed amount {} higher than available amount {}.".format(payamount, claimable_amount))
+                   raise eh.PacliInputDataError("Claimed amount {} higher than available amount {}.".format(payamount, claimable_amount))
 
             # if there is no receiver, spends to himself.
             else:
@@ -320,14 +320,14 @@ def create_at_issuance_data(deck, donation_txid: str, sender: str, receivers: li
            print("Receiver(s):", receivers)
 
         if len(amounts) != len(receivers):
-            raise ei.PacliInputDataError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amounts)))
+            raise eh.PacliInputDataError("Receiver/Amount mismatch: You have {} receivers and {} amounts.".format(len(receivers), len(amounts)))
 
         if (amounts_sum != claimable_amount) and (not force): # force option overcomplicates things.
             if abs(amounts_sum - claimable_amount) < min_claimable_amount:
                 msg_decimals = " You cannot claim amounts with more than {} decimals for this token. Please round the provided amount(s).".format(deck.number_of_decimals)
             else:
                 msg_decimals = ""
-            raise ei.PacliInputDataError("The sum of the claimed tokens ({}) does not correspond to the claimable amount ({}).{}".format(amounts_sum, claimable_amount, msg_decimals))
+            raise eh.PacliInputDataError("The sum of the claimed tokens ({}) does not correspond to the claimable amount ({}).{}".format(amounts_sum, claimable_amount, msg_decimals))
 
         if debug:
             print("You are enabled to claim {} tokens.".format(claimable_amount))

@@ -123,7 +123,7 @@ class ExtConfig:
 
 """
 
-        return ei.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, flush_category=flush_category, compatibility_mode=compatibility_mode, change_policy=set_change_policy)
+        return eh.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, flush_category=flush_category, compatibility_mode=compatibility_mode, change_policy=set_change_policy)
 
     def __set(self,
               label: str,
@@ -157,10 +157,10 @@ class ExtConfig:
                         print("Setting change policy to:", value)
                         quiet = True # prevents "duplicate" output
                 else:
-                    raise ei.PacliInputDataError("Change policy can only be set to the following values: {}".format(change_policy_options))
+                    raise eh.PacliInputDataError("Change policy can only be set to the following values: {}".format(change_policy_options))
             if type(category) != str:
                 # if -e is given without cat, it gets replaced by a bool value (True).
-                raise ei.PacliInputDataError("You have to provide a category if modifying the extended config file.")
+                raise eh.PacliInputDataError("You have to provide a category if modifying the extended config file.")
             else:
                 if delete is True:
                     return ce.delete(category, label=str(label), now=now)
@@ -182,18 +182,18 @@ class ExtConfig:
 
 
             if value is None:
-                raise ei.PacliInputDataError("No value provided.")
+                raise eh.PacliInputDataError("No value provided.")
             if modify is True or delete is True:
-                raise ei.PacliInputDataError("Modifying labels or deleting them in the basic config file is not permitted.")
+                raise eh.PacliInputDataError("Modifying labels or deleting them in the basic config file is not permitted.")
             if label not in default_conf.keys():
                 if Settings.compatibility_mode == "True":
                     raise ValueError({'error': 'Invalid setting key.'}) # ValueError added # this was mainly for compatibility.
                 else:
-                    raise ei.PacliInputDataError("Invalid setting key. This label doesn't exist in the basic configuration file. See permitted labels with: 'config list'.")
+                    raise eh.PacliInputDataError("Invalid setting key. This label doesn't exist in the basic configuration file. See permitted labels with: 'config list'.")
             if replace is False:
                 if Settings.compatibility_mode == "False":
                     # compat mode works without the -r flag.
-                    raise ei.PacliInputDataError("Basic settings can only be modified with the --replace/-r flag. New labels can't be added.")
+                    raise eh.PacliInputDataError("Basic settings can only be modified with the --replace/-r flag. New labels can't be added.")
 
             if not quiet and (Settings.compatibility_mode == "False"):
                 print("Changing basic config setting: {} to value: {}.".format(label, value))
@@ -245,7 +245,7 @@ class ExtConfig:
           find: Find label for a string which is present in the value.
           debug: Show exception tracebacks and debug info."""
 
-        return ei.run_command(self.__show, value_or_label, category=extended, label=label, find=find, quiet=quiet, debug=debug)
+        return eh.run_command(self.__show, value_or_label, category=extended, label=label, find=find, quiet=quiet, debug=debug)
 
 
     def __show(self,
@@ -271,20 +271,20 @@ class ExtConfig:
                 try:
                     result = Settings.__dict__[value_or_label]
                 except KeyError:
-                    raise ei.PacliInputDataError("This setting label does not exist in the basic configuration file.")
+                    raise eh.PacliInputDataError("This setting label does not exist in the basic configuration file.")
 
 
         elif type(category) != str:
-            raise ei.PacliInputDataError("You have to provide a category if showing the extended config file.")
+            raise eh.PacliInputDataError("You have to provide a category if showing the extended config file.")
 
         else:
             if find:
-                result = ei.run_command(ce.search_value_content, category, str(value_or_label))
+                result = eh.run_command(ce.search_value_content, category, str(value_or_label))
             elif label:
                 """Shows a label for a value."""
-                result = ei.run_command(ce.search_value, category, str(value_or_label))
+                result = eh.run_command(ce.search_value, category, str(value_or_label))
             else:
-                result = ei.run_command(ce.show, category, value_or_label, quiet=quiet)
+                result = eh.run_command(ce.show, category, value_or_label, quiet=quiet)
 
         #if result is None and not quiet:
         #    print("No label was found.")
@@ -426,7 +426,7 @@ class ExtAddress:
         kwargs = locals()
         del kwargs["self"]
         kwargs.update({"SETTING_NEW_KEY" : True})
-        ei.run_command(self.__set_label, **kwargs)
+        eh.run_command(self.__set_label, **kwargs)
 
 
     def __set_label(self,
@@ -457,7 +457,7 @@ class ExtAddress:
             if import_all_keyring_addresses:
                 return ec.store_addresses_from_keyring(quiet=quiet, replace=modify)
             else:
-                raise ei.PacliInputDataError("No label provided. See -h for options.")
+                raise eh.PacliInputDataError("No label provided. See -h for options.")
 
         elif fresh is True:
             return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, check_usage=check_usage, quiet=quiet)
@@ -530,17 +530,17 @@ class ExtAddress:
             # TODO: evaluate if the output should really include label AND address, like in the old command.
             if addr_id is None:
                 addr_id = ke.get_main_address()
-            return ei.run_command(ec.show_label, addr_id, keyring=keyring)
+            return eh.run_command(ec.show_label, addr_id, keyring=keyring)
 
         elif addr_id is not None:
             """Shows a stored alternative address or key.
             --privkey, --pubkey and --wif options only work with --keyring."""
 
-            return ei.run_command(ec.show_stored_address, addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
+            return eh.run_command(ec.show_stored_address, addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
 
         else:
 
-            return ei.run_command(self.__show, pubkey=pubkey, privkey=privkey, wif=wif, debug=debug)
+            return eh.run_command(self.__show, pubkey=pubkey, privkey=privkey, wif=wif, debug=debug)
 
     def __show(self, pubkey: bool=False, privkey: bool=False, wif: bool=False, debug: bool=False):
 
@@ -612,7 +612,7 @@ class ExtAddress:
         """
         kwargs = locals()
         del kwargs["self"]
-        return ei.run_command(self.__list, **kwargs)
+        return eh.run_command(self.__list, **kwargs)
 
     def __list(self,
                keyring: bool=False,
@@ -632,7 +632,7 @@ class ExtAddress:
                debug: bool=False):
 
         if True not in (labels, full_labels) and (blockchain != Settings.network):
-            raise ei.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
+            raise eh.PacliInputDataError("Can't show balances from other blockchains. Only -l and -f can be combined with -b.")
 
         if True in (labels, full_labels): # labels/full_labels options
 
@@ -772,7 +772,7 @@ class ExtAddress:
            json: Store or load txes to/from json file FILENAME (only with -t and -i, debugging option).
         """
 
-        return ei.run_command(self.__balance,
+        return eh.run_command(self.__balance,
                               label_or_address=label_or_address,
                               keyring=keyring,
                               integrity_test=integrity_test,
@@ -798,7 +798,7 @@ class ExtAddress:
             address = ec.process_address(label_or_address, keyring=keyring)
 
             if address is None:
-                raise ei.PacliInputDataError("Label was not found.")
+                raise eh.PacliInputDataError("Label was not found.")
 
         elif wallet is True:
             address = None
@@ -808,9 +808,9 @@ class ExtAddress:
         try:
             balance = provider.getbalance(address)
             if (balance == 0) and eu.is_mine(address, debug=debug) is False:
-                raise ei.PacliInputDataError("This address is not in your wallet. Command works only for wallet addresses.")
+                raise eh.PacliInputDataError("This address is not in your wallet. Command works only for wallet addresses.")
         except TypeError:
-            raise ei.PacliInputDataError("Address does not exist.")
+            raise eh.PacliInputDataError("Address does not exist.")
 
         if (integrity_test or txbalance) and not wallet:
 
@@ -914,7 +914,7 @@ class ExtAddress:
              all_locators: Show all addresses with locators."""
 
 
-        return ei.run_command(self.__cache, _value, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, view=view, all_locators=all_locators, prune_orphans=prune_orphans, debug=debug)
+        return eh.run_command(self.__cache, _value, startblock=startblock, blocks=blocks, chain=chain, keyring=keyring, erase=erase, force=force, quiet=quiet, view=view, all_locators=all_locators, prune_orphans=prune_orphans, debug=debug)
 
 
     def __cache(self,
@@ -938,7 +938,7 @@ class ExtAddress:
         elif (all_locators is True and view is True) or (prune_orphans is True):
             addresses = None
         else:
-            raise ei.PacliInputDataError("No valid address(es) entered.")
+            raise eh.PacliInputDataError("No valid address(es) entered.")
 
         if erase is True:
             return bu.erase_locator_entries(addresses, force=force, quiet=quiet, debug=debug) # TODO: improve this allowing startblock and endblock.
@@ -992,7 +992,7 @@ class ExtDeck:
           id_deck: Deck/Token ID or old label. To be used as a positional argument (flag keyword not mandatory), see Usage modes above.
         """
 
-        return ei.run_command(self.__setcfg, label=label, id_deck=id_deck, modify=modify, delete=delete, quiet=quiet, now=now)
+        return eh.run_command(self.__setcfg, label=label, id_deck=id_deck, modify=modify, delete=delete, quiet=quiet, now=now)
 
     def __setcfg(self,
             label: str,
@@ -1008,7 +1008,7 @@ class ExtDeck:
         elif modify or eu.is_possible_txid(deckid):
             return ce.setcfg("deck", label, deckid, modify=modify, quiet=quiet)
         else:
-            raise ei.PacliInputDataError("Value is not a valid deck ID.")
+            raise eh.PacliInputDataError("Value is not a valid deck ID.")
 
 
     def list(self,
@@ -1063,7 +1063,7 @@ class ExtDeck:
           debug: Show debug information.
         """
 
-        return ei.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, related=related, without_initstate=without_initstate, findstring=findstring, standard=standard, quiet=quiet, debug=debug)
+        return eh.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, related=related, without_initstate=without_initstate, findstring=findstring, standard=standard, quiet=quiet, debug=debug)
 
     def __list(self,
              pobtoken: bool=False,
@@ -1109,7 +1109,7 @@ class ExtDeck:
             table_title = "Tokens associated with address {}".format(related)
 
         elif (pobtoken is True) or (attoken is True):
-            decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT))
+            decks = list(eh.run_command(dmu.list_decks_by_at_type, provider, c.ID_AT))
             if pobtoken is True:
                 table_title = "PoB token decks"
                 decks = [d for d in decks if d.at_address == au.burn_address()]
@@ -1118,12 +1118,12 @@ class ExtDeck:
                 decks = [d for d in decks if d.at_address != au.burn_address()]
 
         elif dpodtoken is True:
-            decks = list(ei.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT))
+            decks = list(eh.run_command(dmu.list_decks_by_at_type, provider, c.ID_DT))
             table_title = "dPoD token decks"
 
         else:
             table_title = "Decks"
-            decks = list(ei.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
+            decks = list(eh.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production))
 
         if findstring is not None:
@@ -1211,7 +1211,7 @@ class ExtDeck:
           xtradata: Show extradata string in hex format.
           checksha256: Check sha256 hash of the extradata field.
         """
-        return ei.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, checksha256=checksha256, quiet=quiet, debug=debug)
+        return eh.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, checksha256=checksha256, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
@@ -1298,7 +1298,7 @@ class ExtDeck:
         """
         kwargs = locals()
         del kwargs["self"]
-        ei.run_command(self.__init, **kwargs)
+        eh.run_command(self.__init, **kwargs)
 
     def __init(self,
                id_deck: str=None,
@@ -1377,7 +1377,7 @@ class ExtDeck:
           debug: Show additional debug information."""
 
 
-        ei.run_command(self.__cache, idstr=idstr, blocks=blocks, chain=chain, all_decks=all_decks, view=view, quiet=quiet, debug=debug)
+        eh.run_command(self.__cache, idstr=idstr, blocks=blocks, chain=chain, all_decks=all_decks, view=view, quiet=quiet, debug=debug)
 
     def __cache(self, idstr: str, blocks: int=None, chain: bool=False, all_decks: bool=False, view: bool=False, quiet: bool=False, debug: bool=False):
 
@@ -1400,7 +1400,7 @@ class ExtDeck:
         if blocks is None and not chain:
             blocks = 50000
 
-        ei.run_command(bx.store_deck_blockheights, decks, quiet=quiet, chain=chain, debug=debug, blocks=blocks)
+        eh.run_command(bx.store_deck_blockheights, decks, quiet=quiet, chain=chain, debug=debug, blocks=blocks)
 
 
 
@@ -1428,8 +1428,8 @@ class ExtCard:
           valid: If compatibility mode is turned on, this shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded.
           debug: Show debug information."""
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr else None
-        return ei.run_command(self.__listext, deckid=deckid, address=address, quiet=quiet, valid=valid, blockheights=blockheights, show_invalid=show_invalid, only_invalid=only_invalid, debug=debug)
+        deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet) if idstr else None
+        return eh.run_command(self.__listext, deckid=deckid, address=address, quiet=quiet, valid=valid, blockheights=blockheights, show_invalid=show_invalid, only_invalid=only_invalid, debug=debug)
 
     def __listext(self, deckid: str, address: str=None, quiet: bool=False, valid: bool=False, blockheights: bool=False, show_invalid: bool=False, only_invalid: bool=False, debug: bool=False):
 
@@ -1535,7 +1535,7 @@ class ExtCard:
 
         kwargs = locals()
         del kwargs["self"]
-        return ei.run_command(self.__balance, **kwargs)
+        return eh.run_command(self.__balance, **kwargs)
 
     def __balance(self,
                 param1: str=None,
@@ -1556,9 +1556,9 @@ class ExtCard:
 
             deck_str = param1
             if deck_str is None:
-                raise ei.PacliInputDataError("Owner mode requires a token (deck) ID, global name or local label.")
+                raise eh.PacliInputDataError("Owner mode requires a token (deck) ID, global name or local label.")
 
-            deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
+            deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", deck_str, quiet=quiet)
 
             deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
             cards = pa.find_all_valid_cards(provider, deck)
@@ -1590,7 +1590,7 @@ class ExtCard:
             try:
                 deck_type = c.get_deck_type(category.lower()) if category is not None else None
             except AttributeError:
-                raise ei.PacliInputDataError("No category specified.")
+                raise eh.PacliInputDataError("No category specified.")
 
             # replaced wallet with wallet or named, to trigger "multi address" mode with -n.
             return etq.all_balances(address=address,
@@ -1635,7 +1635,7 @@ class ExtCard:
 
         kwargs = locals()
         del kwargs["self"]
-        return ei.run_command(self.__transfer, **kwargs)
+        return eh.run_command(self.__transfer, **kwargs)
 
 
     def __transfer(self, idstr: str, receiver: str, amount: str, change: str=None, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
@@ -1644,16 +1644,16 @@ class ExtCard:
         sign, send = eu.manage_send(sign, send)
 
         if not set((type(receiver), type(amount))).issubset(set((list, tuple, str, int, float))):
-            raise ei.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
+            raise eh.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
 
         if type(receiver) == str:
             receiver = [receiver]
         if type(amount) in (int, float):
             amount = [Decimal(str(amount))]
         elif type(amount) not in (list, tuple):
-            raise ei.PacliInputDataError("Amount must be a number.")
+            raise eh.PacliInputDataError("Amount must be a number.")
 
-        deckid = ei.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
+        deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         receiver_addresses = [ec.process_address(r) for r in receiver]
         change_address = ec.process_address(change)
@@ -1721,7 +1721,7 @@ class ExtTransaction:
              show_debug_info: Show debug information.
 
         """
-        return ei.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, show_debug_info=show_debug_info)
+        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, show_debug_info=show_debug_info)
 
     def __set(self, label_or_tx: str,
             tx: str=None,
@@ -1750,7 +1750,7 @@ class ExtTransaction:
             try:
                 txid = provider.decoderawtransaction(value)["txid"]
             except KeyError:
-                raise ei.PacliInputDataError("Invalid value. This is neither a valid transaction hex string nor a valid TXID.")
+                raise eh.PacliInputDataError("Invalid value. This is neither a valid transaction hex string nor a valid TXID.")
 
         label = txid if tx is None else label_or_tx
 
@@ -1820,7 +1820,7 @@ class ExtTransaction:
            id: Show transaction ID.
 
         """
-        return ei.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, opreturn=opreturn, utxo_check=utxo_check, access_wallet=access_wallet, decode=decode, txid=id)
+        return eh.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, opreturn=opreturn, utxo_check=utxo_check, access_wallet=access_wallet, decode=decode, txid=id)
 
     def __show(self,
                idstr: str,
@@ -1843,7 +1843,7 @@ class ExtTransaction:
             elif type(claim) == bool and txref is not None:
                 txes = etq.show_claims(deck_str=idstr, quiet=quiet, donation_txid=txref)
             else:
-                raise ei.PacliInputDataError("You have to provide a claim transaction or the corresponding burn/gateway/donation transaction.")
+                raise eh.PacliInputDataError("You have to provide a claim transaction or the corresponding burn/gateway/donation transaction.")
 
             if quiet:
                 return txes
@@ -1857,7 +1857,7 @@ class ExtTransaction:
                 try:
                     utxodata = [(txid, int(vout))]
                 except ValueError:
-                    raise ei.PacliDataError("UTXO format incorrect. Please provide it in the format TXID:OUTPUT, with OUTPUT being an integer number.")
+                    raise eh.PacliDataError("UTXO format incorrect. Please provide it in the format TXID:OUTPUT, with OUTPUT being an integer number.")
              else:
                 try:
                     if eu.is_possible_txid(idstr):
@@ -1868,16 +1868,16 @@ class ExtTransaction:
                     for inp in tx["vin"]:
                         utxodata.append((inp["txid"], inp["vout"]))
                 except KeyError:
-                    raise ei.PacliInputDataError("Transaction is not stored in the wallet or the data is corrupted.")
-             return ei.run_command(eq.utxo_check, utxodata, access_wallet=access_wallet, quiet=quiet)
+                    raise eh.PacliInputDataError("Transaction is not stored in the wallet or the data is corrupted.")
+             return eh.run_command(eq.utxo_check, utxodata, access_wallet=access_wallet, quiet=quiet)
 
         elif structure is True or opreturn is True:
 
             if not eu.is_possible_txid(idstr):
-                raise ei.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s and --opreturn/-o modes currently don't support labels.")
+                raise eh.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s and --opreturn/-o modes currently don't support labels.")
 
             if structure is True:
-                result = ei.run_command(bu.get_tx_structure, txid=idstr)
+                result = eh.run_command(bu.get_tx_structure, txid=idstr)
             elif opreturn is True:
 
                 result = eu.read_all_tx_opreturns(idstr)
@@ -1895,7 +1895,7 @@ class ExtTransaction:
                     assert type(result) == str
                 except AssertionError:
                     if not quiet:
-                        raise ei.PacliInputDataError("Unknown transaction identifier. Label wasn't stored or transaction doesn't exist on the blockchain.")
+                        raise eh.PacliInputDataError("Unknown transaction identifier. Label wasn't stored or transaction doesn't exist on the blockchain.")
 
             try:
                 tx_decoded = provider.decoderawtransaction(result)
@@ -2036,7 +2036,7 @@ class ExtTransaction:
         """
         kwargs = locals()
         del kwargs["self"]
-        return ei.run_command(self.__list, **kwargs)
+        return eh.run_command(self.__list, **kwargs)
 
     def __list(self,
              _value1: str=None,
@@ -2189,7 +2189,7 @@ class ExtTransaction:
         elif param is not None:
             msg_additionalparams =  "Some available parameters for this mode:\n{}".format([k for k in txes[0]])
             if param is True:
-                raise ei.PacliInputDataError("No parameter was given.\n" + msg_additionalparams)
+                raise eh.PacliInputDataError("No parameter was given.\n" + msg_additionalparams)
             txidstr = "Claim transaction ID" if (claimtxes is True and quiet is False) else "txid"
             try:
                 result = {t[txidstr] : t.get(param) for t in txes}
@@ -2247,7 +2247,7 @@ class ExtTransaction:
           _value1: TXID or old label. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
           _value2: Output. To be used as a positional argument (flag keyword not mandatory). See Usage modes above."""
 
-        return ei.run_command(self.__set_utxo, label, _value1, _value2, modify, delete, now, quiet)
+        return eh.run_command(self.__set_utxo, label, _value1, _value2, modify, delete, now, quiet)
 
     def __set_utxo(self,
                  label: str,
@@ -2268,7 +2268,7 @@ class ExtTransaction:
             if modify is True:
                 utxo = txid_or_oldlabel
             elif delete is False:
-                raise ei.PacliInputDataError("You need to specify an output number.")
+                raise eh.PacliInputDataError("You need to specify an output number.")
 
         else:
             utxo = "{}:{}".format(txid_or_oldlabel, str(output))

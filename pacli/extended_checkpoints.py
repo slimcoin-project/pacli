@@ -1,9 +1,9 @@
 # checkpoint functions
 import time
 import pacli.extended_config as ce
-import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.blockexp_utils as bu
+import pacli.extended_handling as eh
 from pacli.provider import provider
 
 class Checkpoint:
@@ -60,11 +60,11 @@ class Checkpoint:
             if type(prune) != int:
                 prune = 2000 # default value
             # TODO: this command is quite slow, optimize it.
-            return ei.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, quiet=quiet, debug=debug)
+            return eh.run_command(prune_old_checkpoints, depth=prune, blockheight=blockheight, quiet=quiet, debug=debug)
         elif remove_orphans is True:
-            return ei.run_command(remove_orphan_checkpoints, quiet=quiet, debug=debug)
+            return eh.run_command(remove_orphan_checkpoints, quiet=quiet, debug=debug)
         else:
-            return ei.run_command(store_checkpoint, height=blockheight, quiet=quiet, debug=debug)
+            return eh.run_command(store_checkpoint, height=blockheight, quiet=quiet, debug=debug)
 
     def show(self, bheight: int=None) -> str:
         """Show a checkpoint (block hash), by default the most recent.
@@ -78,11 +78,11 @@ class Checkpoint:
         Args:
 
           bheight: Block height. To be used as a positional argument (flag name not mandatory). See Usage."""
-        return ei.run_command(retrieve_checkpoint, height=bheight)
+        return eh.run_command(retrieve_checkpoint, height=bheight)
 
     def list(self) -> list:
         """Show all checkpoints (block hashes)."""
-        return ei.run_command(retrieve_all_checkpoints)
+        return eh.run_command(retrieve_all_checkpoints)
 
     def reorg_check(self, prune: bool=False, quiet: bool=False, debug: bool=False) -> None:
         """Performs a chain reorganization check:
@@ -98,7 +98,7 @@ class Checkpoint:
           quiet: Script friendly output: 0 for passed and 1 for failed check.
           debug: Show additional debug information."""
 
-        result = ei.run_command(reorg_check, prune=prune, quiet=quiet, debug=debug)
+        result = eh.run_command(reorg_check, prune=prune, quiet=quiet, debug=debug)
         if quiet is True:
             print(result)
 
@@ -109,14 +109,14 @@ def store_checkpoint(height: int=None, quiet: bool=False, debug: bool=False) -> 
     if height is None:
         height = provider.getblockcount()
     elif type(height) != int:
-        raise ei.PacliInputDataError("You can only save a checkpoint block height as a integer number. Please provide a valid block height.")
+        raise eh.PacliInputDataError("You can only save a checkpoint block height as a integer number. Please provide a valid block height.")
 
     blockhash = provider.getblockhash(height)
     if not quiet:
         print("Storing hash of block as a checkpoint to control re-orgs.\n Height: {} Hash: {}".format(height, blockhash))
     try:
         ce.setcfg("checkpoint", label=height, value=blockhash, quiet=quiet)
-    except ei.ValueExistsError:
+    except eh.ValueExistsError:
         if not quiet:
             print("Checkpoint already stored (probably node block height has not changed).")
 

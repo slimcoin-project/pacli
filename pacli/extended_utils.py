@@ -12,6 +12,7 @@ from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.extended_config as ce
 import pacli.extended_interface as ei
+import pacli.extended_handling as eh
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -32,7 +33,7 @@ def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, qui
     if deckid not in provider.listaccounts():
         err = provider.importprivkey(deck.p2th_wif, deck.id, rescan)
         if type(err) == dict and err.get("code") == -13:
-            raise ei.PacliDataError("Wallet locked, initializing deck is not possible. Please unlock the wallet and repeat the command.")
+            raise eh.PacliDataError("Wallet locked, initializing deck is not possible. Please unlock the wallet and repeat the command.")
         if not quiet:
             print("Importing P2TH address from deck.")
     else:
@@ -69,7 +70,7 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
                    return
 
         if deck.name in existing_labels:
-            raise ei.PacliInputDataError(value_exists_errmsg.format(deck.id, deck.name, deck.id))
+            raise eh.PacliInputDataError(value_exists_errmsg.format(deck.id, deck.name, deck.id))
         else:
             label = deck.name
 
@@ -84,9 +85,9 @@ def store_deck_label(deck: object, label: str=None, alt: bool=False, quiet: bool
 
     try:
         ce.setcfg("deck", label, deck.id, quiet=quiet, debug=debug)
-    except ei.ValueExistsError:
+    except eh.ValueExistsError:
         print(value_exists_errmsg.format(deck.id, label, deck.id))
-    except ei.PacliDataError as e:
+    except eh.PacliDataError as e:
         print("Deck initialized but label not stored:", e)
 
 
@@ -122,7 +123,7 @@ def search_global_deck_name(identifier: str, prioritize: bool=False, return_deck
                 print("More than one matching deck found:", [d.id for d in matching_decks])
                 if not prioritize:
                     # prioritize is currently not supported, but may be useful for later.
-                    raise ei.PacliInputDataError("Deck global name ambiguity, please use the deck's id or its local label.")
+                    raise eh.PacliInputDataError("Deck global name ambiguity, please use the deck's id or its local label.")
 
                 if deck.issue_time != matching_decks[1].issue_time:
                     print("Using first issued deck with this global name with id:", deck.id)
@@ -138,7 +139,7 @@ def search_global_deck_name(identifier: str, prioritize: bool=False, return_deck
                     print("WARNING: This deck was never initialized. Most commands will not work properly, they may output no information at all.")
                     print("Initialize the deck with 'pacli deck init {}'".format(deck.id))
                     if abort_uninitialized:
-                        raise ei.PacliDataError("Cannot show requested information for uninitialized token(s).")
+                        raise eh.PacliDataError("Cannot show requested information for uninitialized token(s).")
 
         result = deck if return_deck is True else deck.id
         return result
@@ -162,7 +163,7 @@ def get_input_types(rawtx):
         return input_types
 
     except KeyError:
-        raise ei.PacliInputDataError("Transaction data not correctly given.")
+        raise eh.PacliInputDataError("Transaction data not correctly given.")
 
 # Transaction storage tools
 
@@ -180,7 +181,7 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
     """If the identifier is a label stored in the extended config file, return the associated txid."""
     # returns first the identifier if it's already in txid format.
     if identifier is None:
-        raise ei.PacliInputDataError("No label provided. Please provide a valid {}.".format(category))
+        raise eh.PacliInputDataError("No label provided. Please provide a valid {}.".format(category))
 
     identifier = str(identifier) # will not work with int values, but we want ints to be possible as identifiers
     if is_possible_txid(identifier):
@@ -206,17 +207,17 @@ def search_for_stored_tx_label(category: str, identifier: str, quiet: bool=False
             else:
                 return result
         else:
-            raise ei.PacliDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
+            raise eh.PacliDataError("The string stored for this label is not a valid transaction ID. Check if you stored it correctly.")
 
     elif category == "deck":
         result = search_global_deck_name(identifier, check_initialized=check_initialized, abort_uninitialized=abort_uninitialized, return_deck=return_deck, quiet=quiet)
         if result:
             return result
         else:
-            raise ei.PacliDataError("Deck '{}' not found or not confirmed on the blockchain.".format(identifier))
+            raise eh.PacliDataError("Deck '{}' not found or not confirmed on the blockchain.".format(identifier))
 
 
-    raise ei.PacliDataError("Label '{}' not found. Please provide a valid {}.".format(identifier, category))
+    raise eh.PacliDataError("Label '{}' not found. Please provide a valid {}.".format(identifier, category))
 
 # Misc tools
 
@@ -283,7 +284,7 @@ def is_possible_address(address: str, network_name: str=Settings.network, valida
         assert is_possible_base58_address(address, network_name)
         return True
     except AssertionError:
-        # raise ei.PacliInputDataError("No valid address string or non-existing label.")
+        # raise eh.PacliInputDataError("No valid address string or non-existing label.")
         return False
 
 def is_mine(address: str, debug: bool=False) -> bool:
@@ -350,11 +351,11 @@ def get_claim_tx(txid: str, deck: object, quiet: bool=False, debug: bool=False):
     #TODO for now only supports AT/PoB.
 
     #if not is_possible_txid(txid):
-    #    raise ei.PacliInputDataError("No valid transaction ID provided.")
+    #    raise eh.PacliInputDataError("No valid transaction ID provided.")
     # deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if "at_type" not in deck.__dict__ or deck.at_type != 2:
-        raise ei.PacliDataError("{} is not a PoB or AT token and thus not supported for this command.".format(deck.id))
+        raise eh.PacliDataError("{} is not a PoB or AT token and thus not supported for this command.".format(deck.id))
 
     rawtx = provider.getrawtransaction(txid, 1)
     if not quiet:
@@ -459,7 +460,7 @@ def decode_card(op_return_output):
         encoded = op_return_output["scriptPubKey"]["hex"]
         script = NulldataScript.unhexlify(encoded).decompile().split(' ')[1]
     except:
-        raise ei.PacliDataError("Incorrect OP_RETURN output. Re-check the transaction, it may be corrupted.")
+        raise eh.PacliDataError("Incorrect OP_RETURN output. Re-check the transaction, it may be corrupted.")
 
     return parse_card_transfer_metainfo(bytes.fromhex(script),
                                             Settings.deck_version)

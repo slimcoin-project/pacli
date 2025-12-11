@@ -1,7 +1,7 @@
 from pacli.provider import provider
 from pacli.blockexp_utils import get_tx_structure
-import pacli.extended_interface as ei
 import pacli.extended_txtools as et
+import pacli.extended_handling as eh
 from pacli.config import Settings
 from pypeerassets.networks import net_query
 import os
@@ -34,7 +34,7 @@ def get_wallet_database(path: str):
     try:
         import berkeleydb
     except ImportError:
-        raise ei.PacliDataError(BERKELEYDB_MISSING)
+        raise eh.PacliDataError(BERKELEYDB_MISSING)
 
     db = berkeleydb.db
     d = db.DB()
@@ -46,13 +46,13 @@ def yield_transactions(database: object, ignore_corrupted: bool=True, debug: boo
     try:
         import berkeleydb
     except ImportError:
-        raise ei.PacliDataError(BERKELEYDB_MISSING)
+        raise eh.PacliDataError(BERKELEYDB_MISSING)
 
     for k in database.keys():
         try:
             tx = database.get(k)
         except berkeleydb.db.DBPageNotFoundError:
-            raise ei.PacliDataError("Temporary database failure when accessing the wallet. Try to run the command again.")
+            raise eh.PacliDataError("Temporary database failure when accessing the wallet. Try to run the command again.")
         if k.startswith(b"\x02tx"):
             try:
                 raw_txdata = tx.hex()
@@ -64,7 +64,7 @@ def yield_transactions(database: object, ignore_corrupted: bool=True, debug: boo
                 if ignore_corrupted:
                     continue
                 tx_json = {}
-                raise ei.PacliDataError(e)
+                raise eh.PacliDataError(e)
             except AttributeError:
                 if debug:
                     print("Bad value of tx wallet data: key {} value {}".format(k, tx))
@@ -120,7 +120,7 @@ def get_addrtype(output_type: str="p2pkh"):
     try:
         addrtype = nwvalues.base58_raw_prefixes[output_type]
     except KeyError:
-        raise ei.PacliDataError("Unsupported output type: {}".format(output_type))
+        raise eh.PacliDataError("Unsupported output type: {}".format(output_type))
     #print(addrtype.hex())
     #return int(addrtype.hex(), 16)
     return addrtype
@@ -159,7 +159,7 @@ def get_database(datadir: str=None, debug: bool=False):
     try:
         import berkeleydb
     except ImportError:
-        raise ei.PacliDataError(BERKELEYDB_MISSING)
+        raise eh.PacliDataError(BERKELEYDB_MISSING)
 
     if datadir is None:
         datadir = determine_db_dir()
@@ -175,9 +175,9 @@ def get_database(datadir: str=None, debug: bool=False):
     try:
         d = get_wallet_database(path)
     except FileNotFoundError:
-        raise ei.PacliDataError("Wallet file not found at the {} location.".format(locmsg))
+        raise eh.PacliDataError("Wallet file not found at the {} location.".format(locmsg))
     except berkeleydb.db.DBAccessError:
-        raise ei.PacliDataError("Wallet file cannot be accessed, permission denied. Please check permissions.")
+        raise eh.PacliDataError("Wallet file cannot be accessed, permission denied. Please check permissions.")
     return d
 
 
@@ -208,7 +208,7 @@ def get_all_transactions(address: str=None,
         if (address or firstsender or sender) or advanced is False:
             try:
                 struct = get_tx_structure(tx=tx, human_readable=False, add_txid=True) # this does not call getrawtransaction, the tx is already loaded
-            except ei.PacliDataError as e:
+            except eh.PacliDataError as e:
                 if debug:
                     print("Bad tx data:", tx, e)
                 continue

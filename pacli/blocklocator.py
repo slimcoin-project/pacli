@@ -6,7 +6,7 @@
 # The lastblock parameter refers to a blockhash.
 
 import json, os
-import pacli.extended_interface as ei
+import pacli.extended_handling as eh
 from pacli.config import conf_dir
 from pacli.provider import provider
 
@@ -72,7 +72,7 @@ class BlockLocator:
         try:
             del self.addresses[address]
         except KeyError:
-            raise ei.PacliInputDataError("Address not found in the locator file.")
+            raise eh.PacliInputDataError("Address not found in the locator file.")
 
     def store(self, quiet: bool=False, debug: bool=False):
         """Stores the whole locator dict."""
@@ -146,7 +146,7 @@ class BlockLocator:
         try:
             cutoff_hash = provider.getblockhash(cutoff_height) # this seems to be necessary to get the range
         except:
-            raise ei.PacliInputDataError("Block height {} out of range.".format(cutoff_height))
+            raise eh.PacliInputDataError("Block height {} out of range.".format(cutoff_height))
         changed_addresses = 0
         for address, addr_obj in self.addresses.items():
             if debug:
@@ -254,7 +254,7 @@ class BlockLocatorAddress:
                     self.lastblockhash = None
                 else:
                     err_msg = "Last processed block {} not found in your current chain.\nProbably this means it was orphaned.\nPrune orphans with 'address cache -p'.".format(lastblockhash)
-                    raise ei.PacliInputDataError(err_msg)
+                    raise eh.PacliInputDataError(err_msg)
             self.lastblockhash = lastblockhash
         elif lastblockheight:
             self.lastblockheight = lastblockheight

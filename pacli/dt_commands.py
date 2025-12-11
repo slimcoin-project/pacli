@@ -5,9 +5,9 @@ import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 import pacli.dt_utils as du
 import pacli.extended_utils as eu
-import pacli.extended_interface as ei
 import pacli.dt_interface as di
 import pacli.extended_queries as eq
+import pacli.extended_handling as eh
 
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
@@ -18,7 +18,6 @@ from pypeerassets.exceptions import P2THImportFailed
 
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.extended_handling import PacliInputDataError
 
 # Address
 
@@ -80,7 +79,7 @@ def show_donations_by_address(deckid: str, address: str=None, wallet: bool=False
         pst = dmu.get_parser_state(provider, deck, force_continue=True, force_dstates=True)
 
     except AttributeError:
-        raise PacliInputDataError("This seems not to be a proof-of-donation deck. No donation count possible.")
+        raise eh.PacliInputDataError("This seems not to be a proof-of-donation deck. No donation count possible.")
         return
 
     pstates = pst.proposal_states
@@ -141,7 +140,7 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
             try:
                 legacy_import(provider, p2th_addr, p2th_wif, rescan, silent=quiet, accountname=accountname)
             except P2THImportFailed:
-                raise ei.PacliInputDataError("P2TH import failed for address:", p2th_addr)
+                raise eh.PacliInputDataError("P2TH import failed for address:", p2th_addr)
         else:
             dmu.import_p2th_address(provider, p2th_addr)
 
@@ -213,20 +212,20 @@ def claim_pod_tokens(proposal_id: str, donor_address: str=Settings.key.address, 
         donation_txid = reward_data.get("donation_txid")
 
     elif not deckid:
-        raise PacliInputDataError("No deckid provided, if you use --force you need to provide it.")
+        raise eh.PacliInputDataError("No deckid provided, if you use --force you need to provide it.")
 
     elif payment is not None:
         max_payment = sum(payment)
         if not quiet:
             print("WARNING: Overriding reward calculation. If you calculated your payment incorrectly, the transaction will be invalid.")
     else:
-        raise PacliInputDataError("No payment data provided.")
+        raise eh.PacliInputDataError("No payment data provided.")
 
     if payment is None:
         payment = [max_payment]
     else:
         if sum(payment) > max_payment:
-            raise PacliInputDataError("Amount of cards does not correspond to the spent coins. Use --force to override.")
+            raise eh.PacliInputDataError("Amount of cards does not correspond to the spent coins. Use --force to override.")
         rest_amount = max_payment - sum(payment)
         if rest_amount > 0:
             receiver.append(donor_address)
@@ -246,7 +245,7 @@ def list_current_proposals(deck: str, block: int=None, searchstring: str=None, o
     #    try:
     #        deckid = eu.search_for_stored_tx_label("deck", deck)
     #    except (ValueError, TypeError):
-    #        raise ei.PacliInputDataError("No deck provided.")
+    #        raise eh.PacliInputDataError("No deck provided.")
 
     statelist, advanced = ["active"], True
     if not only_active:
@@ -260,7 +259,7 @@ def list_current_proposals(deck: str, block: int=None, searchstring: str=None, o
         block = provider.getblockcount() + 1 # modified, next block is the reference, not last block
         pprint("Next block to be added to blockchain: " + str(block))
 
-    pstate_periods = ei.run_command(du.get_proposal_state_periods, deckid, block, advanced=advanced, debug=debug)
+    pstate_periods = eh.run_command(du.get_proposal_state_periods, deckid, block, advanced=advanced, debug=debug)
 
     coin = dmu.coin_value(Settings.network)
     shown_pstates = False

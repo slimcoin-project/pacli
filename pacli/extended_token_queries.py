@@ -13,6 +13,7 @@ import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_config as ce
 import pacli.extended_queries as eq
+import pacli.extended_handling as eh
 
 
 def get_default_tokens():
@@ -96,7 +97,7 @@ def all_balances(address: str=None,
             try:
                 deck_labels = c.default_token_labels(Settings.network)
             except KeyError:
-                raise ei.PacliInputDataError("Default PoB and dPoD tokens are not supported on network '{}'.".format(Settings.network))
+                raise eh.PacliInputDataError("Default PoB and dPoD tokens are not supported on network '{}'.".format(Settings.network))
 
     for deck in decks:
         if (no_labels or quiet) or (not advanced) or (deck.id not in deck_labels.values()):
@@ -259,10 +260,10 @@ def show_claims(deck_str: str,
 
     if (donation_txid and not eu.is_possible_txid(donation_txid) or
         claim_tx and not eu.is_possible_txid(claim_tx)):
-        raise ei.PacliInputDataError("Invalid transaction ID.")
+        raise eh.PacliInputDataError("Invalid transaction ID.")
 
     if deck_str is None:
-        raise ei.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
+        raise eh.PacliInputDataError("No deck given, for --claim options the token/deck is mandatory.")
 
     if quiet or basic:
         param_names = {"txid" : "txid", "amount": "amount", "sender" : "sender", "receiver" : "receiver", "blocknum" : "blockheight"}
@@ -273,7 +274,7 @@ def show_claims(deck_str: str,
     # deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
 
     if "at_type" not in deck.__dict__:
-        raise ei.PacliInputDataError("{} is not a DT/dPoD or AT/PoB token.".format(deck.id))
+        raise eh.PacliInputDataError("{} is not a DT/dPoD or AT/PoB token.".format(deck.id))
 
     if deck.at_type == 2:
         if deck.at_address == c.BURN_ADDRESS[provider.network]:
@@ -331,7 +332,7 @@ def show_claims(deck_str: str,
         try:
             result = [{ claim.txid : claim.__dict__.get(param) } for claim in claims]
         except KeyError:
-            raise ei.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
+            raise eh.PacliInputDataError("Parameter does not exist in the JSON output of this mode, or you haven't entered a parameter. You have to enter the parameter after --param/-p.")
     else:
         result = [{param_names["txid"] : claim.txid,
                    param_names["donation_txid"] : claim.donation_txid,
@@ -381,7 +382,7 @@ def get_valid_cardissues(deck: object, sender: str=None, only_wallet: bool=False
         cards = pa.find_all_valid_cards(provider, deck)
         ds = pa.protocol.DeckState(cards)
     except KeyError:
-        raise ei.PacliInputDataError("Deck not initialized. Initialize it with 'pacli deck init DECK'")
+        raise eh.PacliInputDataError("Deck not initialized. Initialize it with 'pacli deck init DECK'")
 
     claim_cards = []
     for card in ds.valid_cards:

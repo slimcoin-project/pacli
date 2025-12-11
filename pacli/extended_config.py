@@ -1,5 +1,5 @@
 import json, os, re
-import pacli.extended_interface as ei
+import pacli.extended_handling as eh
 from prettyprinter import cpprint as pprint
 from pacli.config import conf_dir, Settings
 
@@ -52,7 +52,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
     mode = [MODES[i] for i, m in enumerate([replace, modify, add, True]) if m][0]
 
     if not ALLOWED_CHARACTERS.match(str(key)):
-        raise ei.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).\nNo label was stored. Store this {} with another label using only the allowed characters.".format(category))
+        raise eh.PacliInputDataError("Label with invalid characters. Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).\nNo label was stored. Store this {} with another label using only the allowed characters.".format(category))
 
     config = get_config(configfilename)
 
@@ -77,9 +77,9 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
                 assert len(matching_items) == 1
 
             except IndexError:
-                raise ei.PacliInputDataError("Value doesn't exist in configuration. Nothing was modified.")
+                raise eh.PacliInputDataError("Value doesn't exist in configuration. Nothing was modified.")
             except AssertionError:
-                raise ei.PacliInputDataError("More than one label for this value. Nothing was modified. Try to modify the label directly instead.")
+                raise eh.PacliInputDataError("More than one label for this value. Nothing was modified. Try to modify the label directly instead.")
                 return
         value = config[category][old_key]
 
@@ -90,7 +90,7 @@ def write_item(category: str, key: str, value: str, configfilename: str=EXT_CONF
         if (key not in config[category]) or (not config[category][key]):
             config[category].update({key : value})
         else:
-            raise ei.ValueExistsError("Value already exists, you can't change it in protected mode.")
+            raise eh.ValueExistsError("Value already exists, you can't change it in protected mode.")
         if mode == "modify":
             del config[category][old_key]
 
@@ -121,7 +121,7 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE, debug
     try:
         result = config[category].get(str(key))
     except KeyError:
-        raise ei.PacliInputDataError(ERR_NOCAT)
+        raise eh.PacliInputDataError(ERR_NOCAT)
     return result
 
 
@@ -135,9 +135,9 @@ def delete_item(category: str, label: str, now: bool=False, configfilename: str=
             print("WARNING: deleting item from category {}, label: {}, complete key: {}, value: {}".format(category, label, key, config[category][key]))
         del config[category][key]
     except KeyError:
-        raise ei.PacliInputDataError("No item with this key. Nothing was deleted.")
+        raise eh.PacliInputDataError("No item with this key. Nothing was deleted.")
     except AssertionError:
-        raise ei.PacliInputDataError(ERR_NOCAT)
+        raise eh.PacliInputDataError(ERR_NOCAT)
 
     if not now:
         print("This is a dry run. Use --now to delete irrecoverabily.")
@@ -153,7 +153,7 @@ def search_value(category: str, value: str, configfilename: str=EXT_CONFIGFILE, 
         config = get_config(configfilename)
         return [ key for key in config[category] if config[category][key] == value ]
     except KeyError:
-        raise ei.PacliInputDataError(ERR_NOCAT)
+        raise eh.PacliInputDataError(ERR_NOCAT)
 
 def search_value_content(category: str, searchstring: str, configfilename: str=EXT_CONFIGFILE, debug: bool=False):
     try:
@@ -165,7 +165,7 @@ def search_value_content(category: str, searchstring: str, configfilename: str=E
         return result
         # key = [ key for key in config[category] if searchstring in config[category][key] ]
     except KeyError:
-        raise ei.PacliInputDataError(ERR_NOCAT)
+        raise eh.PacliInputDataError(ERR_NOCAT)
 
 def process_fulllabel(fulllabel):
     # uses the network_label format.
@@ -239,7 +239,7 @@ def setcfg(category: str, label: str, value: str, modify: bool=False, replace: b
     return write_item(category=category, key=label, value=value, modify=modify, replace=replace, quiet=quiet, debug=debug)
 
 def show(category: str, label: str, quiet: bool=False, debug: bool=False):
-    result = ei.run_command(read_item, category=category, key=label, debug=debug)
+    result = eh.run_command(read_item, category=category, key=label, debug=debug)
     if result is None and not quiet:
         print("No entry was found for this label.")
     else:
@@ -264,7 +264,7 @@ def delete(category: str, label: str, now: bool=False, debug: bool=False) -> Non
     """Deletes an item from the extended config file.
        Specify category and label.
        Use --now to delete really."""
-    return ei.run_command(delete_item, category, str(label), now=now, debug=debug)
+    return eh.run_command(delete_item, category, str(label), now=now, debug=debug)
 
 def flush(category: str, now: bool=False, quiet: bool=False, configfilename: str=EXT_CONFIGFILE) -> None:
     """Deletes all entries in a category."""

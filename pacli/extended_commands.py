@@ -1,9 +1,9 @@
 import pypeerassets as pa
 import pacli.keystore as k
 import pacli.extended_keystore as ke
-import pacli.extended_interface as ei
 import pacli.extended_utils as eu
 import pacli.extended_config as ce
+import pacli.extended_handling as eh
 from pacli.config import Settings
 from pacli.provider import provider
 
@@ -59,24 +59,24 @@ def set_main_key(label: str=None, address: str=None, backup: str=None, keyring: 
     if label is not None:
         address = get_address(label)
         if address is None:
-            raise ei.PacliDataError("Label does not exist.")
+            raise eh.PacliDataError("Label does not exist.")
     elif address is None:
-        raise ei.PacliDataError("No address nor label provided.")
+        raise eh.PacliDataError("No address nor label provided.")
 
     if not eu.is_mine(address):
-        raise ei.PacliDataError("Address does not exist or is not stored in your wallet.")
+        raise eh.PacliDataError("Address does not exist or is not stored in your wallet.")
 
     wif_key = provider.dumpprivkey(address) # TODO: keyring not supported here it seems!
     if type(wif_key) == dict and wif_key.get("code") == -13:
-        raise ei.PacliDataError("Your {} client's wallet is locked. You need to unlock it before you change the main address.\nChanging the main address wasn't possible, however if you were running this command to create a fresh address with a new label the address was created and associated with the label of your choice.".format(Settings.network.upper()))
+        raise eh.PacliDataError("Your {} client's wallet is locked. You need to unlock it before you change the main address.\nChanging the main address wasn't possible, however if you were running this command to create a fresh address with a new label the address was created and associated with the label of your choice.".format(Settings.network.upper()))
 
     try:
         key = pa.Kutil(network=Settings.network, from_wif=wif_key).privkey
     except ValueError as e:
         if "Invalid wif length" in str(e):
-            raise ei.PacliDataError("WIF key corrupted.")
+            raise eh.PacliDataError("WIF key corrupted.")
         else:
-            raise ei.PacliDataError("Invalid or non-wallet address (or incorrect command usage).")
+            raise eh.PacliDataError("Invalid or non-wallet address (or incorrect command usage).")
         return
 
     ke.set_key("key", key) # Note that this function isn't present in the standard pacli keystore.
@@ -117,7 +117,7 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
 
     if not eu.is_possible_address(result, network_name):
         msg_keyring = "keyring" if keyring is True else "extended configuration file"
-        raise ei.PacliInputDataError("Value {} is neither a valid address nor an existing label in the {}.".format(result, msg_keyring))
+        raise eh.PacliInputDataError("Value {} is neither a valid address nor an existing label in the {}.".format(result, msg_keyring))
     return result
 
 def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
@@ -125,7 +125,7 @@ def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
         try:
             label = ke.show_keyring_label(address)
         except ImportError:
-            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
+            raise eh.PacliInputDataError("Feature not supported without 'secretstorage'.")
 
     else:
         # extended_config address category has only one entry per value
@@ -150,7 +150,7 @@ def show_label(address: str, set_main: bool=False, keyring: bool=False) -> dict:
 def set_label(label: str, address: str, network_name: str=Settings.network, set_main: bool=False, modify: bool=False, keyring: bool=False, quiet: bool=False):
 
     if (not modify) and (not eu.is_possible_address(address, network_name)):
-        raise ei.PacliInputDataError("Value must be a valid address.")
+        raise eh.PacliInputDataError("Value must be a valid address.")
 
     if keyring:
         ke.set_new_key(label=str(label), new_address=address, modify=modify, network_name=Settings.network, quiet=quiet)
@@ -191,7 +191,7 @@ def get_all_labels(prefix: str=Settings.network, keyring: bool=False) -> list:
         try:
             return ke.get_labels_from_keyring(prefix)
         except ImportError:
-            raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
+            raise eh.PacliInputDataError("Feature not supported without 'secretstorage'.")
 
     labels = list(ce.get_config()["address"].keys())
     # TODO: investigate reason for the following lines
@@ -216,14 +216,14 @@ def store_addresses_from_keyring(network_name: str=Settings.network, replace: bo
     try:
         keyring_labels = ke.get_labels_from_keyring(network_name)
     except ImportError:
-        raise ei.PacliInputDataError("Feature not supported without 'secretstorage'.")
+        raise eh.PacliInputDataError("Feature not supported without 'secretstorage'.")
     if debug:
         print("Labels (with prefixes) retrieved from keyring:", keyring_labels)
 
     for full_label in keyring_labels:
         try:
             store_address(full_label, full=True, replace=replace, to_wallet=True)
-        except ei.ValueExistsError:
+        except eh.ValueExistsError:
             if not quiet:
                 print("Label {} already stored.".format("_".join(full_label.split("_")[2:])))
             continue
