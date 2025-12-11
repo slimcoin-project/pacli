@@ -1,25 +1,19 @@
-import time, re, sys, hashlib
+import re, hashlib
 from decimal import Decimal
 import pypeerassets as pa
-from typing import Optional, Union
 from prettyprinter import cpprint as pprint
-from btcpy.structs.address import InvalidAddress
-from pypeerassets.transactions import sign_transaction, NulldataScript
+from pypeerassets.transactions import NulldataScript
 from pypeerassets.networks import net_query
 from pypeerassets.pa_constants import param_query
-from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
-from pypeerassets.at.constants import ID_AT, ID_DT
-from pypeerassets.pautils import amount_to_exponent, exponent_to_amount, parse_card_transfer_metainfo, read_tx_opreturn
-from pypeerassets.exceptions import InsufficientFunds
+from pypeerassets.at.constants import ID_DT
+from pypeerassets.pautils import parse_card_transfer_metainfo, read_tx_opreturn
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
 import pacli.extended_config as ce
 import pacli.extended_interface as ei
-import pacli.extended_keystore as ke
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.utils import (sendtx, cointoolkit_verify)
 
 # Utils which are used by both at and dt (and perhaps normal) tokens.
 
@@ -253,7 +247,7 @@ def is_possible_txid(txid: str) -> bool:
     try:
 
         assert len(txid) == 64
-        hexident = int(txid, 16)
+        hexident = int(txid, 16) # check
         return True
 
     except (ValueError, AssertionError):
@@ -412,7 +406,6 @@ def get_claim_tx(txid: str, deck: object, quiet: bool=False, debug: bool=False):
     # Step 3: check donation transaction, address & amount
     if deck.at_type == 2:
         expected_daddr = deck.at_address
-        multiplier = deck.multiplier
 
     spent_value = 0
     for output in donationtx["vout"]:

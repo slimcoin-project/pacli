@@ -1,10 +1,7 @@
 from pypeerassets.at.dt_entities import ProposalTransaction, SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, InvalidTrackedTransactionError
-from pypeerassets.provider import Provider
-from pypeerassets.at.dt_states import ProposalState, DonationState
-from pypeerassets.at.dt_parser_state import ParserState
-from pypeerassets.networks import net_query
+from pypeerassets.at.dt_states import ProposalState
 from pypeerassets.at.protobuf_utils import parse_protobuf
-from pypeerassets.at.dt_misc_utils import get_proposal_state, find_proposal, get_parser_state, sats_to_coins, coins_to_sats
+from pypeerassets.at.dt_misc_utils import get_proposal_state, find_proposal, get_parser_state, sats_to_coins
 from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn
 from pacli.extended_handling import PacliInputDataError

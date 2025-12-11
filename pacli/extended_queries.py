@@ -401,9 +401,6 @@ def get_wallet_transactions(fburntx: bool=False, exclude: list=None, debug: bool
             if debug:
                 print("{} new transactions found in account {}.".format(len(new_txes), account))
             raw_txes += new_txes
-            #if len(new_txes) == 999:
-            #    start += 999
-            # TODO: the new variant should be more reliable, for example if there is an error with one transaction
             if len(new_txes) == 0:
                 break
             else:
@@ -448,6 +445,7 @@ def find_transaction_by_string(searchstring: str, only_start: bool=False):
 def search_change_addresses(known_addresses: list, wallet_txes: list=None, balances: bool=False, debug: bool=False) -> list:
     """Searches all wallet transactions for unknown change addresses."""
     # note: needs advanced mode for wallet txes (complete getrawtransaction tx dict)
+    # TODO: probably obsolete now due to database utils. Is unused and commented out in at_utils.py.
     if not wallet_txes:
         wallet_txes = get_address_transactions(wallet=True, advanced=True, debug=debug)
     known_addr_list = [a["address"] for a in known_addresses]

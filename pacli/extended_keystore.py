@@ -1,7 +1,6 @@
 """The extended keystore allows to manage several keys and addresses.
 This module contains basic and high-level commands."""
 
-import os
 import keyring
 import re
 import pypeerassets as pa
@@ -92,7 +91,7 @@ def get_key_prefix(network_name: str=Settings.network, legacy: bool=False, extco
 
 def get_key(full_label: str) -> str:
     if Settings.key.privkey == UNUSABLE_KEY:
-       raise PacliMainAddressLocked()
+       raise eh.PacliMainAddressLocked()
     return keyring.get_password("pacli", full_label)
 
 def delete_key(full_label: str) -> None:
@@ -220,7 +219,7 @@ def new_privkey(label: str, key: str=None, backup: str=None, wif: bool=False, le
 
     if not label:
         if new_key is None:
-            new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(load_key()))
+            new_key = pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(k.load_key()))
         Settings.key = new_key
 
     return "Address: " + pa.Kutil(network=Settings.network, privkey=bytearray.fromhex(key)).address

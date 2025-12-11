@@ -202,7 +202,7 @@ def prune_old_checkpoints(depth: int=2000, blockheight: int=None, above_block: b
         else:
             print("Pruning checkpoints up to block {} (current block: {}).".format(limit_block, current_block))
             if not blockheight:
-                print("Depth: {} ".format(depth, current_block))
+                print("Depth: {} Current block: {}".format(depth, current_block))
     while len(ce.get_config()["checkpoint"]) > minimum_checkpoints: # leave at least 5 checkpoints intact
         c = checkpoints[index]
 

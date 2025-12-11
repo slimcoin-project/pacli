@@ -8,12 +8,10 @@ from pypeerassets.transactions import (tx_output,
                                        nulldata_script,
                                        make_raw_transaction,
                                        Locktime)
-from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
-
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.utils import sign_transaction, sendtx
-from pacli.extended_utils import finalize_tx, min_amount
+from pacli.extended_utils import min_amount
+from pacli.extended_txtools import finalize_tx
 from pacli.extended_handling import run_command, PacliDataError
 from pacli.extended_keystore import get_main_address
 

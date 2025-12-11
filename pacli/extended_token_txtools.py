@@ -1,26 +1,20 @@
-import time, re, sys, hashlib
-from decimal import Decimal
 import pypeerassets as pa
-from typing import Optional, Union
-from prettyprinter import cpprint as pprint
+from typing import Optional
 from btcpy.structs.address import InvalidAddress
-from pypeerassets.transactions import sign_transaction, NulldataScript
 from pypeerassets.networks import net_query
-from pypeerassets.pa_constants import param_query
 from pypeerassets.at.protobuf_utils import serialize_deck_extended_data
 from pypeerassets.at.constants import ID_AT, ID_DT
-from pypeerassets.pautils import amount_to_exponent, exponent_to_amount, parse_card_transfer_metainfo, read_tx_opreturn
+from pypeerassets.pautils import amount_to_exponent
 from pypeerassets.exceptions import InsufficientFunds
-from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
-import pacli.extended_config as ce
 import pacli.extended_interface as ei
 import pacli.extended_keystore as ke
 import pacli.extended_token_queries as etq
+import pacli.extended_txtools as et
+import pacli.extended_utils as eu
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.utils import (sendtx, cointoolkit_verify)
 
 
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
@@ -62,7 +56,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
         raise ei.PacliInputDataError({"error": "Deck {deckid} not found.".format(deckid=deckid)})
 
     try:
-        allfees = calc_cardtransfer_fees(legacyfix=True)
+        allfees = eu.calc_cardtransfer_fees(legacyfix=True)
         inputs = provider.select_inputs(main_address, allfees)
         issue_tx = pa.card_transfer(provider=provider,
                                  inputs=inputs,
@@ -74,7 +68,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
     except InsufficientFunds:
         raise ei.PacliInputDataError("Insufficient funds. Minimum balance is {} coins.".format(allfees))
 
-    return finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
+    return et.finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
 
 def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward: int=None, min_vote: int=None, sdp_periods: int=None, sdp_deckid: str=None, at_address: str=None, multiplier: int=None, addr_type: int=2, startblock: int=None, endblock: int=None, extradata: bytes=None, debug: bool=False) -> str:
@@ -143,7 +137,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
                           locktime=locktime
                           )
 
-    return finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, ignore_checkpoint=force, send=send)
+    return et.finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, ignore_checkpoint=force, send=send)
 
 
 

@@ -2,15 +2,11 @@ import time
 import pacli.dex_utils as dxu
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
-import pypeerassets as pa
 import pacli.extended_commands as ec
 import pacli.extended_config as ce
 import pacli.extended_keystore as ke
 from decimal import Decimal
-from prettyprinter import cpprint as pprint
 from pacli.provider import provider
-from pacli.config import Settings
-
 
 class Swap:
     """Commands allowing the decentralized exchange of tokens for coins."""

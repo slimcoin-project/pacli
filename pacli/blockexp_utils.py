@@ -1,10 +1,7 @@
 import datetime
-import pypeerassets as pa
-import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.blocklocator as loc
 from pacli.provider import provider
-from pacli.config import Settings
 
 # lower level block exploring utilities are now bundled here
 

@@ -144,7 +144,7 @@ class BlockLocator:
         # and those set to None are changed to the cutoff height.
         # We thus assume that the setting to None was done by the pruning algorithm.
         try:
-            cutoff_hash = provider.getblockhash(cutoff_height)
+            cutoff_hash = provider.getblockhash(cutoff_height) # this seems to be necessary to get the range
         except:
             raise ei.PacliInputDataError("Block height {} out of range.".format(cutoff_height))
         changed_addresses = 0

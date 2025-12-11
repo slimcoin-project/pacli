@@ -4,7 +4,6 @@ import pacli.extended_interface as ei
 import pacli.extended_txtools as et
 from pacli.config import Settings
 from pypeerassets.networks import net_query
-import sys
 import os
 import os.path
 import hashlib
@@ -61,12 +60,12 @@ def yield_transactions(database: object, ignore_corrupted: bool=True, debug: boo
                 txid = tx_json["txid"]
             except ValueError as e:
                 if debug:
-                    print("Bad tx data:", txid, raw_txid)
+                    print("Bad tx data for tx:", txid)
                 if ignore_corrupted:
                     continue
                 tx_json = {}
                 raise ei.PacliDataError(e)
-            except AttributeError as e:
+            except AttributeError:
                 if debug:
                     print("Bad value of tx wallet data: key {} value {}".format(k, tx))
                 continue

@@ -12,7 +12,6 @@ import pacli.extended_commands as ec
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
-import pacli.extended_interface as ei
 import pacli.extended_handling as eh
 import pacli.extended_txtools as et
 import pacli.dt_utils as du
@@ -59,7 +58,7 @@ def create_trackedtransaction(tx_type,
     dest_address = ec.process_address(destination)
 
     # default values for params
-    use_slot = False
+    use_slot = False # TODO: check why this is unused.
     lockhash_type, public_address, rscript, proposal_tx = None, None, None, None
 
     quiet = True if txhex else False
@@ -133,8 +132,9 @@ def create_trackedtransaction(tx_type,
             rscript = basic_tx_data["input_data"].get("redeem_script")
 
     elif tx_type == "signalling" and not quiet:
-
-        di.signalling_info(amount, check_round, basic_tx_data, dest_label=dest_label, donor_address_used=donor_address_used, force=force)
+        # TODO: dest_label is not defined, thus commented out!
+        # di.signalling_info(amount, check_round, basic_tx_data, dest_label=dest_label, donor_address_used=donor_address_used, force=force)
+        di.signalling_info(amount, check_round, basic_tx_data, donor_address_used=donor_address_used, force=force)
 
 
     # maybe integrate this later into basic_tx_data
@@ -164,7 +164,8 @@ def get_donation_state_data(tx_type: str, proposal_tx: object, dist_round: int=N
     try:
         proposal_state = dmu.get_proposal_state(provider, proposal_tx=proposal_tx, debug_donations=debug)
     except KeyError:
-        raise PacliInputDataError("Proposal not found. Deck is probably not correctly initialized. Initialize it with 'pacli podtoken init_deck {}'.".format(deck.id))
+        # TODO: re-check if proposal_state contains the deck ID!
+        raise PacliInputDataError("Proposal not found. Deck is probably not correctly initialized. Initialize it with 'pacli podtoken init_deck {}'.".format(proposal_state.deck.id))
 
     # TODO: re-check if this change is consistent with the rules
     # (oldest valid donation state is always the only valid one per donor address, including abandoned ones)

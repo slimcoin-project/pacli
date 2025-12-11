@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Union
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
 
@@ -16,6 +16,8 @@ import pacli.extended_config as ce
 import pacli.extended_interface as ei
 import pacli.extended_queries as eq
 import pacli.extended_token_queries as etq
+import pacli.extended_token_txtools as ett
+import pacli.extended_handling as eh
 import pacli.dt_commands as dc
 import pacli.blockexp as bx
 import pacli.blockexp_utils as bu
@@ -442,8 +444,6 @@ class ExtAddress:
             unusable: bool=False,
             SETTING_NEW_KEY: bool=False,
             show_debug_info: bool=False):
-
-        debug = show_debug_info
 
 
         if unusable is True:
@@ -1446,8 +1446,7 @@ class ExtCard:
         try:
             cards = pa.find_all_valid_cards(provider, deck)
         except pa.exceptions.EmptyP2THDirectory as err:
-            # return err
-            raise PacliInputDataError(err)
+            raise eh.PacliDataError(err)
 
         if Settings.compatibility_mode == "True" or show_invalid == True:
             valid = False
@@ -1663,7 +1662,7 @@ class ExtCard:
         if not quiet:
             print("Sending tokens to the following receivers:", receiver)
 
-        return eu.advanced_card_transfer(deck,
+        return ett.advanced_card_transfer(deck,
                                  amount=amount,
                                  receiver=receiver_addresses,
                                  change=change_address,
@@ -1870,7 +1869,7 @@ class ExtTransaction:
                         utxodata.append((inp["txid"], inp["vout"]))
                 except KeyError:
                     raise ei.PacliInputDataError("Transaction is not stored in the wallet or the data is corrupted.")
-             return ei.run_command(ec.utxo_check, utxodata, access_wallet=access_wallet, quiet=quiet)
+             return ei.run_command(eq.utxo_check, utxodata, access_wallet=access_wallet, quiet=quiet)
 
         elif structure is True or opreturn is True:
 

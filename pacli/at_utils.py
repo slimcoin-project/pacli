@@ -118,7 +118,6 @@ def show_wallet_dtxes(deckid: str=None,
         if not tracked_address:
             raise ei.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
-    valid_txes = []
     if use_db is True:
         if debug:
             print("Retrieving transactions from wallet.dat ...")
@@ -186,7 +185,7 @@ def show_wallet_dtxes(deckid: str=None,
         #        print("Retrieving missing transactions for change addresses ...")
         #    missing_txes = [provider.getrawtransaction(txid, 1) for txid in set(missing_txids)]
         #    all_txes = valid_txes + missing_txes
-        #    change_addresses = ec.search_change_addresses(known_addresses=addresses, wallet_txes=all_txes, debug=debug)
+        #    change_addresses = eq.search_change_addresses(known_addresses=addresses, wallet_txes=all_txes, debug=debug)
         #    allowed_addresses.update(set([a["address"] for a in change_addresses]))
 
         # for txstruct in valid_txes:

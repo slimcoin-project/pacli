@@ -7,12 +7,10 @@ import pacli.dt_utils as du
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.dt_interface as di
-import pacli.extended_config as ce
-import pacli.extended_constants as eco
 import pacli.extended_queries as eq
 
 from prettyprinter import cpprint as pprint
-from pypeerassets.at.protobuf_utils import serialize_card_extended_data, serialize_deck_extended_data
+from pypeerassets.at.protobuf_utils import serialize_card_extended_data
 from pypeerassets.legacy import is_legacy_blockchain, legacy_import
 from pypeerassets.networks import net_query
 from pypeerassets.pautils import load_deck_p2th_into_local_node
@@ -142,7 +140,7 @@ def init_dt_deck(network_name: str, deckid: str, rescan: bool=True, quiet: bool=
             p2th_wif = deck.derived_p2th_wif(tx_type)
             try:
                 legacy_import(provider, p2th_addr, p2th_wif, rescan, silent=quiet, accountname=accountname)
-            except P2THImportFailed as e:
+            except P2THImportFailed:
                 raise ei.PacliInputDataError("P2TH import failed for address:", p2th_addr)
         else:
             dmu.import_p2th_address(provider, p2th_addr)

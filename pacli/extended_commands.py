@@ -1,17 +1,11 @@
-from prettyprinter import cpprint as pprint
 import pypeerassets as pa
 import pacli.keystore as k
 import pacli.extended_keystore as ke
 import pacli.extended_interface as ei
 import pacli.extended_utils as eu
-import pacli.extended_queries as eq
 import pacli.extended_config as ce
-import pacli.extended_constants as c
-import pacli.blockexp_utils as bu
-from pypeerassets.pautils import exponent_to_amount
 from pacli.config import Settings
 from pacli.provider import provider
-import time
 
 # address tools
 

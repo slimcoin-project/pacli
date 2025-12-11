@@ -2,13 +2,10 @@
 from prettyprinter import cpprint as pprint
 from pacli.config import Settings
 from pacli.provider import provider
-from pacli.tui import print_deck_list
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
-import json
 from decimal import Decimal
-from pypeerassets.at.dt_entities import SignallingTransaction, LockingTransaction, DonationTransaction, VotingTransaction, TrackedTransaction, ProposalTransaction
 import pacli.dt_utils as du
 import pacli.extended_utils as eu
 import pacli.dt_interface as di
@@ -18,6 +15,7 @@ import pacli.extended_commands as ec
 import pacli.extended_config as ce
 import pacli.extended_interface as ei
 import pacli.extended_handling as eh
+import pacli.extended_token_txtools as ett
 import pacli.dt_txtools as dtx
 from pacli.extended_constants import DEFAULT_POD_DECK
 
@@ -66,10 +64,10 @@ class PoDToken():
           debug: Show additional debug information."""
 
         ke.check_main_address_lock()
-        asset_specific_data = eh.run_command(eu.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, token_sdp, debug=debug)
+        asset_specific_data = eh.run_command(ett.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, token_sdp, debug=debug)
         change_address = ec.process_address(change, debug=debug)
 
-        return eh.run_command(eu.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
+        return eh.run_command(ett.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals, issue_mode=0x01,
                              change_address=change_address, locktime=locktime, asset_specific_data=asset_specific_data, force=ignore_warnings,
                              confirm=wait_for_confirmation, verify=verify, sign=sign, send=send, debug=debug)
 
@@ -166,7 +164,7 @@ class PoDToken():
 
         asset_specific_data, receiver, payment, deckid = eh.run_command(dc.claim_pod_tokens, proposal_id, donor_address=donor_address, payment=amounts, receiver=receivers, donation_state=state, proposer=proposer, force=force, debug=debug, quiet=quiet)
 
-        tx = eh.run_command(eu.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change=change_address, verify=verify, locktime=locktime, force=force, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
+        tx = eh.run_command(ett.advanced_card_transfer, deckid=deckid, receiver=receivers, amount=amounts, asset_specific_data=asset_specific_data, change=change_address, verify=verify, locktime=locktime, force=force, confirm=wait_for_confirmation, quiet=quiet, sign=sign, send=send)
         return eh.output_tx(tx, txhex=txhex)
 
 
@@ -1021,13 +1019,13 @@ class Donation:
         if donation is not None:
             dstate_id = eu.search_for_stored_tx_label("donation", donation)
             dstate = du.find_donation_state_by_string(dstate_id)
-            deck = deck_from_ttx_txid(dstate_id)
+            deck = du.deck_from_ttx_txid(dstate_id)
             proposal_id = dstate.proposal_id
         elif proposal is not None:
             proposal_id = eu.search_for_stored_tx_label("proposal", proposal)
-            deck = deck_from_ttx_txid(proposal_id)
+            deck = du.deck_from_ttx_txid(proposal_id)
             proposal_state = dmu.get_proposal_state(provider, proposal_id=proposal_id)
-            dstate = get_dstates_from_donor_address(Settings.key.address, proposal_state)[0]
+            dstate = dmu.get_dstates_from_donor_address(Settings.key.address, proposal_state)[0]
         else:
             print("You must provide either a proposal state or a donation state.")
             return
@@ -1286,7 +1284,7 @@ class Donation:
 
         result = eh.run_command(du.get_slot, proposal_id, donor_address=address, dist_round=round_number, quiet=quiet)
 
-        if (dist_round is None) and (not quiet):
+        if (round_number is None) and (not quiet):
             print("Showing first slot where this address participated.")
 
         if (satoshi is True) or (quiet is True):

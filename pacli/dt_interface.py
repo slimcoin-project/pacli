@@ -27,7 +27,7 @@ def printout_period(period: tuple, blockheights: list, show_blockheights: bool=F
     elif period == ("B", 0):
         return "{}Period B0: Before the distribution start of the Initial Phase (security period){}.".format(bf, bhs)
     elif period == ("B", 1):
-        return "{}Period B1: Voting Round 1.".format(bf, bhs)
+        return "{}Period B1: Voting Round 1.{}".format(bf, bhs)
     elif period[0] == "B":
         if period[1] % 10 == 0:
              return "{}Period B{}: Initial Slot Distribution, round {} Signalling Phase.{}".format(bf, period[1], period[1]//10, bhs)

@@ -2,14 +2,12 @@ import datetime
 import json ####
 from decimal import Decimal
 from typing import Union
-from prettyprinter import cpprint as pprint
 import pypeerassets as pa
-import pypeerassets.at.constants as c
 import pacli.extended_utils as eu
 import pacli.extended_interface as ei
 import pacli.extended_commands as ec
 import pacli.extended_queries as eq
-import pacli extended_token_queries as etq
+import pacli.extended_token_queries as etq
 import pacli.at_utils as au
 import pacli.blockexp_utils as bu
 from pacli.provider import provider
@@ -510,15 +508,16 @@ def show_locators(value: str=None, quiet: bool=False, token_mode: bool=False, de
     last_blockheights = [laddr[a].lastblockheight for a in addresses if a in laddr]
     min_lastblockheight = min(last_blockheights) if len(last_blockheights) > 0 else 0
 
-    if checktype in ("token", "address list"):
-        if not quiet:
-            related = "related to this token " if checktype == "token" else ""
-            addresses_printout = ", ".join(addresses)
-            # print("Addresses {}: {}".format(related, addresses_printout))
-            # TODO re-check if this warning is still necessary or can be replaced with a warning due to discontinuous caching.
-            #if len(locators) > 0 and locators[-1] > last_blockheight:
-            #    ei.print_red("WARNING: Only a part of the addresses {}were cached, or the caching was not consistent.".format(related))
-            #    ei.print_red("To get consistent results for the block exploring functions, cache this {}.".format(checktype))
+    # if checktype in ("token", "address list"):
+    #
+    #    # if not quiet:
+    #        # related = "related to this token " if checktype == "token" else ""
+    #        # addresses_printout = ", ".join(addresses)
+    #        # print("Addresses {}: {}".format(related, addresses_printout))
+    #        # TODO re-check if this warning is still necessary or can be replaced with a warning due to discontinuous caching.
+    #        #if len(locators) > 0 and locators[-1] > last_blockheight:
+    #        #    ei.print_red("WARNING: Only a part of the addresses {}were cached, or the caching was not consistent.".format(related))
+    #        #    ei.print_red("To get consistent results for the block exploring functions, cache this {}.".format(checktype))
     if min_lastblockheight == 0 and not quiet:
         if len(addresses) > 1:
             ei.print_red("NOTE: At least one address was never cached. Check addresses individually for details.")
@@ -650,7 +649,7 @@ def collect_utxos(address: str, txes: list, ignore_opreturn: bool=True, ignore_z
             print("UTXO test: txid", tx["txid"], "conf", tx["confirmations"], "utxos", len(utxos))
 
         coinstake = is_coinstake(tx)
-        cstake_value = 0
+        # cstake_value = 0 # unused
         if coinstake:
             if ignore_coinstake:
                 if debug:

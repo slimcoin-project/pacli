@@ -1,9 +1,16 @@
 # base level transaction utilities without dependencies on other pacli tools (except provider and config)
 
-from pacli.config import Settings
-from pacli.provider import provider
+from prettyprinter import cpprint as pprint
+from pypeerassets.transactions import sign_transaction
+import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
+import pacli.extended_utils as eu
 import pacli.extended_config as ce
+import pacli.extended_interface as ei
 import pacli.extended_keystore as ke
+import pacli.extended_handling as eh
+from pacli.provider import provider
+from pacli.config import Settings
+from pacli.utils import (sendtx, cointoolkit_verify)
 
 def check_receiver(tx: dict, receiver: str):
     receivers = []
@@ -140,7 +147,7 @@ def finalize_tx(rawtx: dict,
 
     if sign or send:
         main_address = key.address if key is not None else ke.get_main_address()
-        if not quiet and not is_mine(main_address):
+        if not quiet and not eu.is_mine(main_address):
             print("Warning: The address you attempt to sign the transaction with is not part of your current wallet.")
             print("This can lead to problems when signing some kinds of transactions and can make them invalid.")
 
@@ -152,7 +159,7 @@ def finalize_tx(rawtx: dict,
                  )  # link to cointoolkit - verify
 
         else:
-            raise ei.PacliInputDataError("Verifying by Cointoolkit is not possible on other chains than Peercoin.")
+            raise eh.PacliInputDataError("Verifying by Cointoolkit is not possible on other chains than Peercoin.")
 
     if (send == False) and (not quiet):
         ei.print_orange("NOTE: This is a dry run. Your transaction hasn't been broadcasted. To actually broadcast it add the -s flag at the end of the command you've just run.")
@@ -163,7 +170,7 @@ def finalize_tx(rawtx: dict,
         # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
         from pacli.extended_checkpoints import reorg_check, store_checkpoint
         if reorg_check(quiet=quiet):
-            raise ei.PacliInputDataError("Reorg check failed. If you want to create the transaction anyway, use the command's --force / --ignore_warnings options if available.")
+            raise eh.PacliInputDataError("Reorg check failed. If you want to create the transaction anyway, use the command's --force / --ignore_warnings options if available.")
 
         store_checkpoint(quiet=quiet)
 
@@ -176,8 +183,8 @@ def finalize_tx(rawtx: dict,
             # MODIF: no more the option to use a different key!
             try:
                 tx = dmu.sign_p2sh_transaction(provider, rawtx, redeem_script, Settings.key)
-            except NameError as e:
-                raise ei.PacliInputDataError("Invalid redeem script.")
+            except NameError:
+                raise eh.PacliInputDataError("Invalid redeem script.")
 
         elif (key is not None) or (label is not None): # sign with a different key
             tx = signtx_by_key(rawtx, label=label, key=key)
@@ -185,7 +192,7 @@ def finalize_tx(rawtx: dict,
             # TODO: do we really want to preserve this option? Re-check DEX
         else:
             if input_types is None:
-                input_types = get_input_types(rawtx)
+                input_types = eu.get_input_types(rawtx)
 
             if "pubkey" not in input_types:
                 tx = sign_transaction(provider, rawtx, Settings.key)
@@ -223,12 +230,12 @@ def finalize_tx(rawtx: dict,
             assert True in (sign, send) # even if an unsigned tx gets a txid, it doesn't make sense to save it
             txid = tx["txid"] if tx is not None else rawtx["txid"]
         except (KeyError, AssertionError):
-            raise PacliInputDataError("You can't save a transaction which was not at least partly signed.")
+            raise eh.PacliInputDataError("You can't save a transaction which was not at least partly signed.")
         else:
-            save_transaction(txid, tx_hex)
+            eu.save_transaction(txid, tx_hex)
 
     if send and not quiet:
-        if not check_tx_acceptance(txid=txid, tx_hex=tx_hex):
+        if not eu.check_tx_acceptance(txid=txid, tx_hex=tx_hex):
 
             ei.print_red("Error: Transaction was not accepted by the client.")
             print("The reason may be that you tried to create a transaction where an input was already spent by another transaction.")
@@ -250,9 +257,9 @@ def signtx_by_key(rawtx, label=None, key=None):
 
     if not key:
         try:
-           key = get_key(label)
+           key = ke.get_key(label)
         except ValueError:
-           raise ei.PacliInputDataError("No key nor label provided.")
+           raise eh.PacliInputDataError("No key nor label provided.")
 
     return sign_transaction(provider, rawtx, key)
 

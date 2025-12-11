@@ -1,22 +1,17 @@
 # this file bundles all x-specific (exchange) commands.
-# SECOND version, where the exchange is initiated by the card seller, not the coin seller.
+# SECOND version, where the exchange is initiated by the token seller, not the token buyer.
 
-from binascii import hexlify, unhexlify
 from prettyprinter import cpprint as pprint
 from pacli.config import Settings
 from pacli.provider import provider
-from pacli.utils import sendtx
 from pypeerassets.kutil import Kutil
-from pypeerassets.protocol import Deck, CardTransfer
+from pypeerassets.protocol import CardTransfer
 from btcpy.structs.sig import Sighash, P2pkSolver, P2pkhSolver
 from btcpy.structs.transaction import ScriptSig, Locktime
-from btcpy.lib.parsing import Parser, Stream # only for tests
 from pypeerassets.provider.rpcnode import Sequence
 import pypeerassets as pa
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
-import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.hash_encoding as henc
-import json
 from decimal import Decimal
 import pacli.extended_utils as eu
 import pacli.extended_commands as ec
@@ -27,7 +22,7 @@ import pacli.extended_config as ce
 import pacli.extended_handling as eh
 import pacli.extended_keystore as ke
 import pacli.extended_token_queries as etq
-from pypeerassets.pa_constants import param_query
+import pacli.extended_token_txtools as ett
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 
@@ -107,10 +102,10 @@ def card_lock(deckid: str,
         if unit_amount > available_token_units:
             balance_tokens = exponent_to_amount(balance, deck.number_of_decimals)
             locked_tokens = exponent_to_amount(locked_units, deck.number_of_decimals)
-            available_tokens = exponent_to_amount(available_token_units, deck.number_of_decimals)
+            # available_tokens = exponent_to_amount(available_token_units, deck.number_of_decimals) # unused
             raise eh.PacliDataError("Not enough tokens on main address. Total balance: {}, Locked: {}, required: {}. Locked tokens can't be used for new locks.".format(balance_tokens, locked_tokens, amount))
 
-    txdict = eu.advanced_card_transfer(deck,
+    txdict = ett.advanced_card_transfer(deck,
                                       receiver=[receiver],
                                       amount=[amount_dec],
                                       locktime=0,
@@ -150,7 +145,6 @@ def build_coin2card_exchange(deckid: str,
                              debug: bool=False):
 
     # the card seller builds the transaction
-    fail = 0
     my_key = Settings.key
     my_address = my_key.address
     if change is not None and not eu.is_mine(change):
@@ -318,6 +312,7 @@ def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=Fal
     tx.spend_single(index=my_input_index, txout=result["txout"], solver=result["solver"])
 
     spenttx = eh.output_tx(et.finalize_tx(tx, verify=False, sign=False, send=send, ignore_checkpoint=force, confirm=confirm, quiet=quiet, debug=debug), txhex=txhex)
+    return spenttx
 
 def solve_single_input(index: int, prev_txid: str, prev_txout_index: int, key: Kutil, network_params: tuple, sighash: str="ALL", anyonecanpay: bool=False, quiet: bool=False, debug: bool=False):
 
@@ -386,9 +381,6 @@ def create_card_exchange(card: CardTransfer,
        : change_address - address to send the change to
        : locktime - tx locked until block n=int
        '''
-
-    network_params = net_query(provider.network)
-    pa_params = param_query(provider.network)
 
     if card.deck_p2th is None:
         raise Exception("card.deck_p2th required for tx_output")
@@ -627,10 +619,9 @@ def check_swap(txhex: str,
                debug: bool=False):
     """bundles most checks for swaps"""
     fail, notmine = False, False
-    min_amount = eu.min_amount("output_value")
+    # min_amount = eu.min_amount("output_value") # unused, but could be useful for additional check
     min_tx_fee = eu.min_amount("tx_fee")
-    min_opreturn = eu.min_amount("op_return_value")
-    all_min_fees = min_amount * 2 + min_opreturn + min_tx_fee
+    # min_opreturn = eu.min_amount("op_return_value") # unused, but could be useful for additional check
     try:
         txjson = provider.decoderawtransaction(txhex)
         txstruct = bu.get_tx_structure(tx=txjson, ignore_blockhash=True)
