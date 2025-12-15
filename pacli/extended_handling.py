@@ -21,10 +21,10 @@ def output_tx(txdict: dict, txhex: bool=False) -> object:
 def run_command(c, *args, **kwargs) -> object:
     # Unified handling for exceptions, change etc..
 
-    debug = ("debug" in kwargs.keys() and kwargs["debug"]) or ("show_debug_info" in kwargs.keys() and kwargs["show_debug_info"])
+    debug = ("debug" in kwargs and kwargs["debug"]) or ("show_debug_info" in kwargs and kwargs["show_debug_info"])
 
     try:
-        if "change" in kwargs.keys():
+        if "change" in kwargs:
             et.set_change_address(kwargs["change"], debug=debug)
             if debug:
                 print("Setting change address to:", Settings.change)
@@ -36,22 +36,19 @@ def run_command(c, *args, **kwargs) -> object:
         print("Aborted.")
         sys.exit()
 
-    except PacliMainAddressLocked:
+    except PacliMainAddressLocked as e:
         print("Pacli wallet locked. Commands accessing the main address or its keys can't be used.")
         print("Use 'pacli address set LABEL' or 'pacli address set -a ADDRESS' to change to an existing address, 'pacli address set LABEL -f' to a completely new address.")
         print("See available addresses with 'pacli address list'")
+        #ei.print_red("\nError: {}".format(e.args[0]))
+        # print(e.args[0])
+        # if debug:
+        #    raise
+        sys.exit()
 
     except (PacliDataError, ValueExistsError, InsufficientFunds) as e:
 
         ei.print_red("\nError: {}".format(e.args[0]))
-        if debug:
-            raise
-        sys.exit()
-
-    except PacliMainAddressLocked as e:
-
-        #ei.print_red("\nError: {}".format(e.args[0]))
-        print(e.args[0])
         if debug:
             raise
         sys.exit()

@@ -1328,10 +1328,10 @@ class ExtDeck:
                 eu.init_deck(netw, deckid, quiet=quiet, label=label, no_label=no_label, debug=debug)
 
         if cache:
-            if cache == True:
-                blocks = 5000
-            elif type(cache) == int:
+            if type(cache) == int:
                 blocks = cache
+            else:
+                blocks = 5000
             self.__cache(idstr=deckid, blocks=blocks, all_decks=all_decks, quiet=quiet, debug=debug)
 
 
@@ -1583,7 +1583,7 @@ class ExtCard:
             # TODO seems like label names are not given in this mode if a an address is given.
 
             if not wallet and not named: # ((wallet or named), param1) == (False, None):
-                param1 = ke.get_main_address() if param1 is None else ec.process_address(param1)
+                address = ke.get_main_address() if param1 is None else ec.process_address(param1)
             else:
                 address = None
             # address = ec.process_address(param1) if (wallet or named) is False else None
@@ -1752,7 +1752,7 @@ class ExtTransaction:
             except KeyError:
                 raise eh.PacliInputDataError("Invalid value. This is neither a valid transaction hex string nor a valid TXID.")
 
-        label = txid if tx is None else label_or_tx
+        label = txid if (tx is None) and (not modify) else label_or_tx
 
         return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify, debug=show_debug_info)
 
@@ -1879,7 +1879,6 @@ class ExtTransaction:
             if structure is True:
                 result = eh.run_command(bu.get_tx_structure, txid=idstr)
             elif opreturn is True:
-
                 result = eu.read_all_tx_opreturns(idstr)
 
             if quiet is True:
@@ -2267,7 +2266,7 @@ class ExtTransaction:
         if output is None:
             if modify is True:
                 utxo = txid_or_oldlabel
-            elif delete is False:
+            else:
                 raise eh.PacliInputDataError("You need to specify an output number.")
 
         else:
