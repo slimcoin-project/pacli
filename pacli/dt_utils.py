@@ -158,7 +158,7 @@ def get_proposal_state_periods(deckid: str, block: int, advanced: bool=False, de
     result = {}
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
     try:
-       assert deck.at_type == c.DT_ID
+       assert deck.at_type == c.ID_DT
     except (AssertionError, AttributeError):
        raise PacliInputDataError("Not a valid DT Proof of Donation deck. Proposals could not be retrieved.")
 

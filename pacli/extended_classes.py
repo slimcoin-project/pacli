@@ -1604,7 +1604,7 @@ class ExtCard:
                                    debug=debug)
 
 
-    def transfer(self, idstr: str, receiver: str, amount: str, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def transfer(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=True):
         """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1638,12 +1638,12 @@ class ExtCard:
         return eh.run_command(self.__transfer, **kwargs)
 
 
-    def __transfer(self, idstr: str, receiver: str, amount: str, change: str=None, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def __transfer(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
 
         ke.check_main_address_lock()
         sign, send = eu.manage_send(sign, send)
 
-        if not set((type(receiver), type(amount))).issubset(set((list, tuple, str, int, float))):
+        if type(receiver) not in (list, tuple, str, int, type(None)) or type(amount) not in (list, tuple, str, int, float):
             raise eh.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
 
         if type(receiver) == str:
@@ -1655,9 +1655,16 @@ class ExtCard:
 
         deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-        receiver_addresses = [ec.process_address(r) for r in receiver]
         change_address = ec.process_address(change)
-        # balance_check = False if nocheck is True else True
+
+        if receiver is None: # CardBurn: receiver is only None when set by the card burn function or explicitly in card transfer
+            receiver_addresses = [deck.issuer]
+            if not quiet:
+                print("Cards selected for burning: {}".format(amount[0]))
+        else:
+            receiver_addresses = [ec.process_address(r) for r in receiver]
+
+
 
         if not quiet:
             print("Sending tokens to the following receivers:", receiver)

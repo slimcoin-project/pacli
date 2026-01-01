@@ -365,16 +365,16 @@ class Card(ExtCard):
 
         return issue.hexlify()""" # replaced by ExtCard method
 
-    @classmethod
+    # @classmethod
     def burn(self, deckid: str, receiver: list=None, amount: list=None,
              asset_specific_data: str=None,
              locktime: int=0, verify: bool=False, sign: bool=False) -> str:
         '''wrapper around self.transfer'''
 
-        return self.transfer(deckid, receiver, amount, asset_specific_data,
-                             locktime, verify, sign)
+        return self.transfer(idstr=deckid, receiver=receiver, amount=amount, asset_specific_data=asset_specific_data,
+                             locktime=locktime, verify=verify, sign=sign)
 
-    @classmethod
+    # @classmethod
     def issue(self, deckid: str, receiver: list=None, amount: list=None,
               asset_specific_data: str=None,
               locktime: int=0, verify: bool=False,

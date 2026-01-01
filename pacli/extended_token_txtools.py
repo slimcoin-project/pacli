@@ -20,14 +20,14 @@ from pacli.config import Settings
 def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=None, amount: list=None,
                  asset_specific_data: str=None, locktime: int=0, verify: bool=False, change: str=None,
                  card_locktime: str=None, card_lockhash: str=None, card_lockhash_type: str=None,
-                 sign: bool=False, send: bool=False, balance_check: bool=False, force: bool=False, quiet: bool=False, confirm: bool=False, debug: bool=False) -> Optional[dict]:
+                 sign: bool=False, send: bool=False, balance_check: bool=False, force: bool=False,
+                 quiet: bool=False, confirm: bool=False, debug: bool=False) -> Optional[dict]:
     """Alternative function for card transfers. Allows some more options than the vanilla PeerAssets features, and to use P2PK inputs."""
     # TODO: recheck where the vanilla function sends the change
     # TODO: recheck if balance check checks for locked tokens, in this case, it can be used also by dex_utils.card_lock() (normally this should be done in DeckState).
 
     if not deck:
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
-
     amount_list = [amount_to_exponent(i, deck.number_of_decimals) for i in amount]
     change_address = Settings.change if change is None else change
     main_address = ke.get_main_address()
