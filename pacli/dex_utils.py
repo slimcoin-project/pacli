@@ -137,6 +137,7 @@ def build_coin2card_exchange(deckid: str,
                              coin_amount: Decimal,
                              change: str=None,
                              tokenbuyer_change_address: str=None,
+                             tokenseller_input: str=None,
                              save_identifier: str=None,
                              lock_tx: str=None,
                              new_payment_address: bool=True,
@@ -205,13 +206,27 @@ def build_coin2card_exchange(deckid: str,
     # first input comes from the card seller (i.e. the user who signs here)
     # We let pacli chose it automatically, based on the minimum amount. It should never give more than one, but it wouldn't matter if it's two or more.
 
-    try:
-        own_utxo = select_utxos(minvalue=min_amount, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
-    except IndexError:
-        ei.print_red("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).".format(min_amount, Settings.network.upper(), my_address))
-        ei.print_red("NOTE 1: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).")
-        ei.print_red("NOTE 2: If you recently locked tokens or sent coins to your current main address and this error appears, you may have already enough coins on this address but have to restart your client with -rescan for it to become aware of the coins. After the restart, repeat the 'swap create' command without the -w option.")
-        raise eh.PacliDataError("Swap creation aborted.")
+    own_utxo = None
+    if tokenseller_input is not None:
+        try:
+            print("Own input selected by token seller:", tokenseller_input)
+            own_utxo_txid, own_utxo_vout = tokenseller_input.split(":")[:2]
+            own_utxo_raw = provider.getrawtransaction(own_utxo_txid, 1)["vout"][int(own_utxo_vout)]
+            own_utxo_amount = own_utxo_raw["value"]
+            own_utxo = {"txid" : own_utxo_txid, "vout" : int(own_utxo_vout), "amount" : own_utxo_amount}
+        except Exception as e:
+            ei.print_orange("UTXO provided by the token seller is invalid.")
+            ei.print_orange("The command will select an UTXO automatically. If you don't want that, abort with a KeyboardInterrupt (e.g. CTRL-C or CTRL-D).")
+            if debug:
+                ei.print_orange("Error message: {}".format(e))
+    if own_utxo is None:
+        try:
+            own_utxo = select_utxos(minvalue=min_amount, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
+        except IndexError:
+            ei.print_red("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).".format(min_amount, Settings.network.upper(), my_address))
+            ei.print_red("NOTE 1: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).")
+            ei.print_red("NOTE 2: If you recently locked tokens or sent coins to your current main address and this error appears, you may have already enough coins on this address but have to restart your client with -rescan for it to become aware of the coins. After the restart, repeat the 'swap create' command without the -w option.")
+            raise eh.PacliDataError("Swap creation aborted.")
     own_utxo_value = Decimal(str(own_utxo["amount"]))
     own_input = MutableTxIn(txid=own_utxo['txid'], txout=own_utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
     inputs = {"utxos" : [own_input, tokenbuyer_input], "total": tokenbuyer_input_amount + own_utxo_value}
@@ -291,7 +306,7 @@ def build_coin2card_exchange(deckid: str,
             ei.print_red("To see if the transaction was confirmed, use 'pacli transaction show {} -s' and check the output for the 'blockheight' value.".format(lock_tx))
         else:
             print("Lock transaction correctly confirmed. The hex string can be transferred to the token buyer.")
-    print("NOTE: Be aware that if you move the funds used in the swap transaction before the swap is finalized and broadcast, the swap will never confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
+    print("NOTE: Be aware that if you move the funds used in the swap transaction before the swap is finalized and broadcast, the swap will never confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom', but also if you create several swaps in a row with 'swap create' before you finalize the first one. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto', and to create several swaps use the -i option.")
 
 def build_input(input_txid: str, input_vout: int):
 

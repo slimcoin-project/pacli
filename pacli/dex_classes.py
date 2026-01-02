@@ -5,7 +5,7 @@ import pacli.extended_utils as eu
 import pacli.extended_commands as ec
 import pacli.extended_config as ce
 import pacli.extended_keystore as ke
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pacli.provider import provider
 
 class Swap:
@@ -74,6 +74,7 @@ class Swap:
                  buyer_change_address: str=None,
                  change_address: str=None,
                  label: str=None,
+                 input_utxo: str=None,
                  with_lock: int=None,
                  forcelock: bool=False,
                  quiet: bool=False,
@@ -95,6 +96,7 @@ class Swap:
 
         NOTES:
         - To pay the transaction fees, you need coins on your address which don't come directly from mining (coinbase inputs can't be used due to an upstream bug). It will work if you transfer mined coins in a regular transaction to the address you will be using for the swap.
+        - If you create several swap transactions in a row before finalizing them, it is likely that the command will use the same input for them, which will result in only one of them being confirmed on the blockchain. Use the -i option in this case, you can find available inputs with 'pacli swap select_coins'.
         - If you provide a custom change address with -c, it will be used both for the locking transaction and the swap transaction. Privacy loss of this behavior is negligible as both transactions will be "linked together" anyway (due to the origin addresses being also the same), but to generate new change addresses for each transaction you can change the default change address policy with 'pacli config set newaddress -s' and use the command without the -c parameter.
         - The -w option requires additional coins on the origin address to be used for fees (0.05 in Slimcoin, 0.01 or 0.02 [depending on change policy] of them will return to the origin address).
 
@@ -103,6 +105,7 @@ class Swap:
           sign: Sign the transaction.
           buyer_change_address: Specify a change address of the token buyer (default: sender address). Can be the address itself or a label of a stored address.
           label: Specify a label to save the transaction hex string with.
+          input_utxo: Specify an utxo to be used for the swap (format: TXID:VOUT).
           with_lock: Lock the required tokens to the PARTNER_ADDRESS. A locktime (in blocks, minimum: 100) can be added, default is 1000.
           change_address: Change address for the remaining coins. If -w is used, it will also be used for the locking transaction (see Usage section how to prevent that).
           forcelock: Run the lock transaction even if an error is shown (only in combination with -w).
@@ -119,7 +122,7 @@ class Swap:
              lock_tx = eh.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug, force=forcelock)
         else:
              lock_tx = None
-        return eh.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, without_checks=no_checks, save_identifier=label, lock_tx=lock_tx, debug=debug)
+        return eh.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, tokenseller_input=input_utxo, without_checks=no_checks, save_identifier=label, lock_tx=lock_tx, debug=debug)
 
     def finalize(self,
                  ftxstr: str,
@@ -216,7 +219,7 @@ class Swap:
             return eh.run_command(dxu.prettyprint_locks, locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
-    def select_coins(self, amount: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
+    def select_coins(self, value: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
         """Prints out all suitable utxos for an exchange transaction.
 
         Usage:
@@ -245,14 +248,17 @@ class Swap:
         return eh.run_command(self.__select_coins, **kwargs)
 
 
-    def __select_coins(amount: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
+    def __select_coins(value: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
         if wallet is True:
             addr = None
         elif address is None:
             addr = ke.get_main_address()
         else:
             addr = ec.process_address(address, debug=debug)
-        return dxu.select_utxos(minvalue=Decimal(str(amount)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
+        try:
+            return dxu.select_utxos(minvalue=Decimal(str(value)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
+        except InvalidOperation:
+            raise eh.PacliInputDataError("Amount in wrong format.")
 
     def check(self,
               _txstring: str,
