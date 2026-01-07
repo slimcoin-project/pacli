@@ -1,6 +1,7 @@
 # this file bundles all x-specific (exchange) commands.
 # SECOND version, where the exchange is initiated by the token seller, not the token buyer.
 
+import datetime
 from prettyprinter import cpprint as pprint
 from pacli.config import Settings
 from pacli.provider import provider
@@ -209,19 +210,29 @@ def build_coin2card_exchange(deckid: str,
     own_utxo = None
     if tokenseller_input is not None:
         try:
+            utxo_used, utxo_spent = None, False
             print("Own input selected by token seller:", tokenseller_input)
             own_utxo_txid, own_utxo_vout = tokenseller_input.split(":")[:2]
+            utxo_spent = et.check_if_spent(own_utxo_txid, int(own_utxo_vout))
+            utxo_used = check_utxo_in_stored_txes(own_utxo_txid, int(own_utxo_vout), debug=debug)
+            assert not utxo_spent
+            assert not utxo_used
             own_utxo_raw = provider.getrawtransaction(own_utxo_txid, 1)["vout"][int(own_utxo_vout)]
             own_utxo_amount = own_utxo_raw["value"]
             own_utxo = {"txid" : own_utxo_txid, "vout" : int(own_utxo_vout), "amount" : own_utxo_amount}
         except Exception as e:
-            ei.print_orange("UTXO provided by the token seller is invalid.")
+            if utxo_used:
+                ei.print_orange("UTXO provided by the token seller was already used in a previous swap with the label: {}".format(utxo_used))
+            elif utxo_spent:
+                ei.print_orange("UTXO provided by the token seller was already spent.")
+            else:
+                ei.print_orange("UTXO provided by the token seller is invalid.")
             ei.print_orange("The command will select an UTXO automatically. If you don't want that, abort with a KeyboardInterrupt (e.g. CTRL-C or CTRL-D).")
             if debug:
                 ei.print_orange("Error message: {}".format(e))
     if own_utxo is None:
         try:
-            own_utxo = select_utxos(minvalue=min_amount, address=my_address, utxo_type="pubkeyhash", quiet=True, debug=debug)[0] # first usable utxo is selected
+            own_utxo = select_utxos(minvalue=min_amount, address=my_address, utxo_type="pubkeyhash", quiet=True, check_utxo=True, debug=debug)[0] # first usable utxo is selected
         except IndexError:
             ei.print_red("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).".format(min_amount, Settings.network.upper(), my_address))
             ei.print_red("NOTE 1: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).")
@@ -289,11 +300,17 @@ def build_coin2card_exchange(deckid: str,
             ei.print_red("\nNOTE: Before transmitting the hex string to the token buyer, if the tokens weren't locked or the lock blockheight is too close, lock them with the following command:")
             ei.print_red("'pacli swap lock {} {} {}'.".format(deckid, str(card_amount), tokenbuyer_address))
             print("NOTE: The lock check can also fail when the locking transaction is still unconfirmed. If you are sure that you have locked the tokens already, check the confirmation status of the transaction before locking the tokens again.")
+
+        tx_label = "swap_" + datetime.datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%Sutc')
         if save_identifier is not None:
             if type(save_identifier) in (str, int):
-                eu.save_transaction(save_identifier, tx_hex, partly=True)
+                tx_label = save_identifier
             else:
-                print("\nNOTE: The label to save the transaction has to be a string or an integer. Transaction was not saved, you can save it manually with the 'transaction set' command.")
+                ei.print_red("\nIncorrect format: The label to save the transaction has to be a string or an integer.")
+                print("Transaction will be saved with the standard label:", tx_label)
+                print("You can change the label anytime with the 'transaction set' command.")
+
+        eu.save_transaction(tx_label, tx_hex, partly=True)
     else:
         print(unsigned_tx.hexlify())
 
@@ -454,6 +471,7 @@ def select_utxos(minvalue: Decimal,
                  maxvalue: object=None,
                  utxo_type: str=None,
                  show_address: bool=False,
+                 check_utxo: bool=False,
                  ignore_coinbase: bool=True,
                  fees: bool=False,
                  quiet: bool=False,
@@ -470,6 +488,8 @@ def select_utxos(minvalue: Decimal,
         if not quiet:
             print("Added swap fees of {} coins to the amount. Minimum amount for UTXOs to be displayed: {} coins.".format(swap_fees, minvalue))
 
+    if check_utxo:
+        txlist = ce.list("transaction", quiet=True, debug=debug)
     for utxo in utxos:
         utxo_amount = Decimal(str(utxo["amount"])) # str is necessary
         if minvalue is not None and utxo_amount < minvalue:
@@ -477,6 +497,7 @@ def select_utxos(minvalue: Decimal,
         if maxvalue is not None and utxo_amount > maxvalue:
             continue
         if utxo_type is not None or show_address is True:
+
             utxo_tx = provider.getrawtransaction(utxo["txid"], 1)
             if utxo_type:
                 utype = utxo_tx["vout"][utxo["vout"]]["scriptPubKey"]["type"]
@@ -493,6 +514,13 @@ def select_utxos(minvalue: Decimal,
                 if debug:
                     print("UTXO {}:{} ignored: incorrect type ({}) instead of requested {}.".format(utxo["txid"], utxo["vout"], utype, utxo_type))
                 continue
+
+            if check_utxo:
+                utxo_tx = check_utxo_in_stored_txes(utxo["txid"], utxo["vout"], txlist=txlist, debug=debug)
+                if utxo_tx is not None:
+                    if debug:
+                        print("UTXO {}:{} ignored: already used in stored transaction with label {}.".format(utxo["txid"], utxo["vout"], utxo_tx))
+                    continue
         if debug:
             print("UTXO {}:{} appended.".format(utxo["txid"], utxo["vout"]))
 
@@ -795,5 +823,24 @@ def check_swap(txhex: str,
             ei.print_red("SWAP CHECK FAILED. If you are the token buyer and see this or any red warning, you cannot perform the swap or it is recommended to abandon it.")
         else:
             print("Swap check passed. If there is a warning, read it carefully to avoid any losses.")
+
+
+def check_utxo_in_stored_txes(txid: str, vout: str, txlist: dict=None, debug: bool=False):
+    if txlist is None:
+        txlist = ce.list("transaction", quiet=True, debug=debug)
+    for label, txhex in txlist.items():
+        try:
+            tx_json = provider.decoderawtransaction(txhex)
+            #if debug:
+            #    print("Checking stored tx with label: {} and txid: {}".format(label, tx_json["txid"]))
+            if bu.utxo_in_tx((txid, vout), tx_json):
+                return label
+        except Exception as e:
+            if debug:
+                print("Error with stored tx with label {}:".format(label), e)
+    return None
+
+
+
 
 

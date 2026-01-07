@@ -219,7 +219,7 @@ class Swap:
             return eh.run_command(dxu.prettyprint_locks, locks, blockheight, decimals=deck.number_of_decimals)
 
     @classmethod
-    def select_coins(self, value: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
+    def select_coins(self, value: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", check_utxo: bool=False, fees: bool=False, debug: bool=False):
         """Prints out all suitable utxos for an exchange transaction.
 
         Usage:
@@ -230,25 +230,25 @@ class Swap:
         If ADDRESS is not given, the current main address is used.
         AMOUNT default value is 0, i.e. if no amount is given all matching UTXOs will be shown. If ADDRESS is given, an amount has to be given too.
         Using the -w flag instead of an address searches UTXOs in the whole wallet.
-        Use the -f flag to calculate all swap fees and search for UTXOs with an amount of coins including these.
+        The -f flag calculates all swap fees for the token buyer and adds them to the required amount.
         NOTE: due to an upstream bug, coinbase UTXOs can't be used for swaps. They will be ignored by this command.
 
         Args:
 
           address: Alternative address to show suitable UTXOs instead of the main address. To be used as a positional argument (flag name not necessary).
-          fees: Calculate all necessary fees and add them to the amount.
+          fees: Calculate all necessary fees for the token buyer and add them to the amount.
           utxo_type: Specify a different UTXO type (default: pubkeyhash)
+          check_utxo: Check if the UTXO has been used in a stored swap (recommended if you started a swap recently).
           wallet: Search UTXOs in all addresses of the wallet.
           debug: Show additional debug information.
         """
 
-        # addr = None if wallet is True else eh.run_command(ec.process_address, address, debug=debug)
         kwargs = locals()
         del kwargs["self"]
         return eh.run_command(self.__select_coins, **kwargs)
 
 
-    def __select_coins(value: int=0, address: str=None, wallet: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
+    def __select_coins(value: int=0, address: str=None, wallet: bool=False, check_utxo: bool=False, utxo_type="pubkeyhash", fees: bool=False, debug: bool=False):
         if wallet is True:
             addr = None
         elif address is None:
@@ -256,7 +256,7 @@ class Swap:
         else:
             addr = ec.process_address(address, debug=debug)
         try:
-            return dxu.select_utxos(minvalue=Decimal(str(value)), address=addr, utxo_type=utxo_type, fees=fees, show_address=wallet, debug=debug)
+            return dxu.select_utxos(minvalue=Decimal(str(value)), address=addr, utxo_type=utxo_type, fees=fees, check_utxo=check_utxo, show_address=wallet, debug=debug)
         except InvalidOperation:
             raise eh.PacliInputDataError("Amount in wrong format.")
 
