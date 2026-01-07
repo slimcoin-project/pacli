@@ -553,3 +553,27 @@ def calc_cardtransfer_fees(network: str=Settings.network, legacyfix: bool=False)
         all_fees += min_output
     return all_fees
 
+
+def filter_confirmed_txes(txdict: dict, minconf: int=1, debug: bool=False):
+    # takes a list of txes in a dict in format label: txhex
+    # and filters all txes out with > minconf confirmations
+    for label, txhex in txdict.items():
+        try:
+            tx_json_raw = provider.decoderawtransaction(txhex)
+            tx_json = provider.getrawtransaction(tx_json_raw["txid"], 1)
+            if int(tx_json["confirmations"]) >= minconf:
+                yield {"label" : label, "txhex" : txhex}
+        except Exception as e:
+            if debug:
+                print("Exception:", e)
+
+def prune_confirmed_stored_txes(minconf: int=1, now: bool=False, debug: bool=False):
+    txdict = ce.list("transaction", debug=debug, quiet=True)
+    for item in filter_confirmed_txes(txdict, minconf=minconf, debug=debug):
+        label = item["label"] # a bit ugly!
+        # (category: str, label: str, now: bool=False, debug: bool=False)
+        ce.delete("transaction", label, now=now, debug=debug)
+
+
+
+
