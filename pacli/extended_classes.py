@@ -1693,6 +1693,7 @@ class ExtTransaction:
             now: bool=False,
             quiet: bool=False,
             prune_confirmed: bool=False,
+            remove_confirmed_swaps: bool=False,
             show_debug_info: bool=False) -> None:
         """Stores a transaction with a local label and hex string.
            It will be stored in the extended configuration file.
@@ -1720,8 +1721,13 @@ class ExtTransaction:
                Modifies a label, replacing OLDLABEL with NEWLABEL.
 
            pacli transaction set -p [--now]
+           pacli transaction set -r [--now]
 
-               Deletes all stored transactions which were already confirmed.
+               Deletes all stored transactions which were already confirmed (-p),
+               or delete all stored swap transactions which were confirmed (-r).
+
+               Note: -r removes transactions saved with the scheme swap_YYMMDD_HHMM.
+               Swaps stored with a custom label won't be pruned with -r, only with -p.
 
            Args:
 
@@ -1732,10 +1738,11 @@ class ExtTransaction:
              now: Really delete a transaction label/value pair.
              txdata: Transaction data. To be used as a positional argument (flag keyword not mandatory). See Usage modes.
              prune_confirmed: Prune confirmed transactions. See Usage modes.
+             remove_confirmed_swaps: Prune confirmed swap transactions starting with the name scheme swap_YYMMDD_HHMM. See Usage modes.
              show_debug_info: Show debug information.
 
         """
-        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, prune_confirmed=prune_confirmed, show_debug_info=show_debug_info)
+        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, prune_confirmed=prune_confirmed, remove_confirmed_swaps=remove_confirmed_swaps, show_debug_info=show_debug_info)
 
     def __set(self, label_or_tx: str=None,
             tx: str=None,
@@ -1744,12 +1751,13 @@ class ExtTransaction:
             now: bool=False,
             quiet: bool=False,
             prune_confirmed: bool=False,
+            remove_confirmed_swaps: bool=False,
             show_debug_info: bool=False) -> None:
 
         if delete is True:
             return ce.delete("transaction", label=label_or_tx, now=now)
-        elif prune_confirmed is True:
-            return eu.prune_confirmed_stored_txes(now=now, minconf=1, debug=show_debug_info)
+        elif prune_confirmed is True or remove_confirmed_swaps is True:
+            return eu.prune_confirmed_stored_txes(now=now, minconf=1, only_swaps=remove_confirmed_swaps, debug=show_debug_info)
 
         if tx is None:
             value = label_or_tx
@@ -1779,12 +1787,13 @@ class ExtTransaction:
              claim: str=None,
              txref: str=None,
              structure: bool=False,
-             decode: bool=False,
+             json: bool=False,
              opreturn: bool=False,
              id: bool=False,
              utxo_check: bool=False,
              access_wallet: str=None,
-             quiet: bool=False):
+             quiet: bool=False,
+             debug: bool=False):
 
         """Shows a transaction, by default a stored transaction by its label.
 
@@ -1830,14 +1839,15 @@ class ExtTransaction:
            claim: Shows a claim transaction.
            txref: In combination with -c, shows a claim corresponding to a burn, gateway or donation transaction.
            quiet: Suppress output, printout in script-friendly way.
-           decode: Show transaction in JSON format (default: hex format).
+           json: Show transaction in JSON format (default: hex format).
            opreturn: Show the OP_RETURN byte string(s) in the transaction.
            utxo_check: Show if UTXOs are spent or not (see Usage modes).
            access_wallet: Access wallet file directly. Provide location after -a if the wallet file is not in standard datadir.
            id: Show transaction ID.
+           debug: Show additional debug information.
 
         """
-        return eh.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, opreturn=opreturn, utxo_check=utxo_check, access_wallet=access_wallet, decode=decode, txid=id)
+        return eh.run_command(self.__show, label_or_idstr, claim=claim, txref=txref, quiet=quiet, structure=structure, opreturn=opreturn, utxo_check=utxo_check, access_wallet=access_wallet, decode=json, txid=id, debug=debug)
 
     def __show(self,
                idstr: str,
@@ -1849,16 +1859,17 @@ class ExtTransaction:
                txid: bool=False,
                utxo_check: bool=False,
                access_wallet: str=None,
-               quiet: bool=False):
+               quiet: bool=False,
+               debug: bool=False):
         # TODO: would be nice to support --structure mode with Labels.
 
         hexstr = decode is False and structure is False
 
         if claim:
             if type(claim) == str:
-                txes = etq.show_claims(deck_str=idstr, quiet=quiet, claim_tx=claim)
+                txes = etq.show_claims(deck_str=idstr, quiet=quiet, claim_tx=claim, debug=debug)
             elif type(claim) == bool and txref is not None:
-                txes = etq.show_claims(deck_str=idstr, quiet=quiet, donation_txid=txref)
+                txes = etq.show_claims(deck_str=idstr, quiet=quiet, donation_txid=txref, debug=debug)
             else:
                 raise eh.PacliInputDataError("You have to provide a claim transaction or the corresponding burn/gateway/donation transaction.")
 
@@ -1886,7 +1897,7 @@ class ExtTransaction:
                         utxodata.append((inp["txid"], inp["vout"]))
                 except KeyError:
                     raise eh.PacliInputDataError("Transaction is not stored in the wallet or the data is corrupted.")
-             return eh.run_command(eq.utxo_check, utxodata, access_wallet=access_wallet, quiet=quiet)
+             return eq.utxo_check(utxodata, access_wallet=access_wallet, quiet=quiet, debug=debug)
 
         elif structure is True or opreturn is True:
 
@@ -1894,7 +1905,7 @@ class ExtTransaction:
                 raise eh.PacliInputDataError("The identifier you provided isn't a valid TXID. The --structure/-s and --opreturn/-o modes currently don't support labels.")
 
             if structure is True:
-                result = eh.run_command(bu.get_tx_structure, txid=idstr)
+                result = bu.get_tx_structure(txid=idstr)
             elif opreturn is True:
                 result = eu.read_all_tx_opreturns(idstr)
 

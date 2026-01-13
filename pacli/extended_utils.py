@@ -567,10 +567,14 @@ def filter_confirmed_txes(txdict: dict, minconf: int=1, debug: bool=False):
             if debug:
                 print("Exception:", e)
 
-def prune_confirmed_stored_txes(minconf: int=1, now: bool=False, debug: bool=False):
+def prune_confirmed_stored_txes(minconf: int=1, now: bool=False, only_swaps: bool=False, debug: bool=False):
     txdict = ce.list("transaction", debug=debug, quiet=True)
+    swapformat = re.compile(r"swap_20[0-9][0-9][0-1][0-9][0-3][0-9]_[0-2][0-9][0-2][0-9]utc") # works until 2099
     for item in filter_confirmed_txes(txdict, minconf=minconf, debug=debug):
         label = item["label"] # a bit ugly!
+        if only_swaps:
+            if not swapformat.match(label):
+                continue
         # (category: str, label: str, now: bool=False, debug: bool=False)
         ce.delete("transaction", label, now=now, debug=debug)
 

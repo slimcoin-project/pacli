@@ -162,6 +162,7 @@ def get_address_transactions(addr_string: str=None,
 
     # preprocessing step added
     txes = {}
+    excluded_accounts = None
     if (sent and not received) or (received and not sent):
         cats = ["send"] if sent is True else ["receive"]
     else:
@@ -196,11 +197,8 @@ def get_address_transactions(addr_string: str=None,
         if address in p2th_dict.keys():
             include_p2th = True
 
-    if include_p2th:
-        wallet_txes = get_wallet_transactions(debug=debug)
-
-    else: # normally exclude p2th accounts
-        p2th_accounts = p2th_dict.values()
+    if not include_p2th:
+        excluded_accounts = p2th_accounts = p2th_dict.values()
         if wallet:
             p2th_addresses = set(p2th_dict.keys())
             wallet_addresses = wallet_addresses - p2th_addresses
@@ -208,7 +206,8 @@ def get_address_transactions(addr_string: str=None,
             print("Excluding P2TH accounts", p2th_accounts)
             if wallet:
                 print("Wallet addresses", wallet_addresses)
-        wallet_txes = get_wallet_transactions(debug=debug, exclude=p2th_accounts)
+
+    wallet_txes = get_wallet_transactions(debug=debug, exclude=excluded_accounts)
 
     if raw: # TODO: mainly debugging mode, maybe later remove again, or return the set (see below).
         return wallet_txes
@@ -490,6 +489,8 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
         utxostr = "{}:{}".format(txid, vout)
         output = bu.get_utxo_from_data(utxo, debug=debug)
         addresses = bu.get_utxo_addresses(output)
+        if debug:
+            print("Checking UTXO: str: {}, output: {}, addresses: {}.".format(utxostr, output, addresses))
 
         for address in addresses:
             if not quiet:
@@ -520,5 +521,8 @@ def utxo_check(utxodata: list, access_wallet: str=None, quiet: bool=False, debug
                     spenttx += 1
                     break
         if spenttx == 0:
-            print("UTXO {} not found. Probably unspent.".format(utxostr))
+            if addresses == []:
+                print("This UTXO cannot be spent by an address. Possibly an OP_RETURN output.")
+            else:
+                print("UTXO {} not found. Probably unspent.".format(utxostr))
     return

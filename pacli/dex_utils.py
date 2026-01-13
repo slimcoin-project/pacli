@@ -323,7 +323,9 @@ def build_coin2card_exchange(deckid: str,
             ei.print_red("To see if the transaction was confirmed, use 'pacli transaction show {} -s' and check the output for the 'blockheight' value.".format(lock_tx))
         else:
             print("Lock transaction correctly confirmed. The hex string can be transferred to the token buyer.")
-    print("NOTE: Be aware that if you move the funds used in the swap transaction before the swap is finalized and broadcast, the swap will never confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom', but also if you create several swaps in a row with 'swap create' before you finalize the first one. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto', and to create several swaps use the -i option.")
+    print("NOTE: Be aware that if you move the funds used in the swap transaction before the swap is finalized and broadcast, the swap will never confirm, because this will constitute a double spend attempt. This can happen accidentally if you use slimcoin-qt or slimcoind commands like 'sendtoaddress' or 'sendfrom'. Try to use coin control if you need to make a payment in this timeframe, or use the pacli commands like 'coin sendto'.")
+    if not tokenseller_input:
+        print("It can also happen if you create several swaps in a row with 'swap create' before you finalize the first one. To create several swaps use the -i option.")
 
 def build_input(input_txid: str, input_vout: int):
 
