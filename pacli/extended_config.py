@@ -7,7 +7,7 @@ from pacli.config import conf_dir, Settings
 # An alternative for the future could be to use sqlite3 eventually.
 
 EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
-CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo", "change_policy"]
+CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo", "change_policy", "data"]
 CAT_INIT = {c : {} for c in CATEGORIES}
 ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
 

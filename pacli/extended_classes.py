@@ -298,21 +298,26 @@ class ExtConfig:
             pprint(result)
 
 
-    def list(self, extended: bool=False, categories: bool=False, all_basic_settings: bool=False):
+    def list(self, extended: str=None, categories: bool=False, all_basic_settings: bool=False):
         """Shows basic configuration settings or entries in the extended configuration file.
 
         Args:
 
-          extended: Shows extended configuration file.
+          extended: Shows extended configuration file. If a category is provided, show only the category.
           categories: Shows list of available categories (only in combination with -e/--extended).
           all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents. These settings can't be changed as they're loaded on each Pacli start.
         """
-        # TODO if anything which is not an argument is shown behind "-e" then it is assumed to be false.
-        if extended is True:
+
+        if extended is not None:
             if categories is True:
                 return [cat for cat in ce.get_config()]
-            else:
+            elif extended is True:
                 return ce.get_config()
+            elif type(extended) == str:
+                try:
+                    return ce.get_config()[extended]
+                except KeyError:
+                    ei.print_red("Category {} does not exist.")
         elif categories is True:
             print("Currently there are no different categories in the basic configuration file.")
         elif all_basic_settings is True:
