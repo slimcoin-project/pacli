@@ -99,6 +99,7 @@ class Swap:
         - If you create several swap transactions in a row before finalizing them, it is likely that the command will use the same input for them, which will result in only one of them being confirmed on the blockchain. Use the -i option in this case, you can find available inputs with 'pacli swap select_coins'.
         - If you provide a custom change address with -c, it will be used both for the locking transaction and the swap transaction. Privacy loss of this behavior is negligible as both transactions will be "linked together" anyway (due to the origin addresses being also the same), but to generate new change addresses for each transaction you can change the default change address policy with 'pacli config set newaddress -s' and use the command without the -c parameter.
         - The -w option requires additional coins on the origin address to be used for fees (0.05 in Slimcoin, 0.01 or 0.02 [depending on change policy] of them will return to the origin address).
+        - The command will delete all automatically saved swap transactions which are already confirmed (name scheme: swap_YYYYMMDD_HHMMSSutc).
 
         Args:
 
@@ -122,6 +123,11 @@ class Swap:
              lock_tx = eh.run_command(dxu.card_lock, lock=locktime, deckid=deckid, amount=str(amount_cards), lockaddr=partner_address, addrtype="p2pkh", change=change_address, sign=True, send=True, confirm=False, txhex=quiet, return_txid=True, debug=debug, force=forcelock)
         else:
              lock_tx = None
+        # delete swaps
+        if not quiet:
+            print("Deleting confirmed swaps ...")
+        eu.prune_stored_txes(now=True, minconf=1, only_swaps=True, quiet=quiet, debug=debug)
+
         return eh.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, tokenseller_input=input_utxo, without_checks=no_checks, save_identifier=label, lock_tx=lock_tx, debug=debug)
 
     def finalize(self,

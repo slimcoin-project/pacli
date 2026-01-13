@@ -1,4 +1,4 @@
-import re, hashlib
+import re, hashlib, datetime
 from decimal import Decimal
 import pypeerassets as pa
 from prettyprinter import cpprint as pprint
@@ -167,13 +167,14 @@ def get_input_types(rawtx):
 
 # Transaction storage tools
 
-def save_transaction(identifier: str, tx_hex: str, partly: bool=False, quiet: bool=False) -> None:
+def save_transaction(identifier: str, tx_hex: str, partly: bool=False, verbose: bool=True, quiet: bool=False) -> None:
     """Stores transaction in configuration file.
     'partly' indicates that it's a partly signed transaction"""
     # the identifier can be a txid or (in the case of partly signed transactions) an arbitrary string.
     # cat = "txhex" if partly else "transaction"
     cat = "transaction"
-    ce.write_item(category=cat, key=identifier, value=tx_hex)
+    noverbose = True if (verbose is False) or (quiet is True) else False
+    ce.write_item(category=cat, key=identifier, value=tx_hex, quiet=noverbose)
     if not quiet:
         print("Transaction saved. Retrieve it with 'pacli transaction show {}'.".format(identifier))
 
@@ -554,29 +555,61 @@ def calc_cardtransfer_fees(network: str=Settings.network, legacyfix: bool=False)
     return all_fees
 
 
-def filter_confirmed_txes(txdict: dict, minconf: int=1, debug: bool=False):
+def tx_age(tx_json: dict, fmt: str="h", debug: bool=False):
+    current_time = datetime.datetime.now()
+    try:
+        txid = tx_json["txid"]
+        tx_time_raw = int(tx_json["time"])
+        if debug:
+            print("Time of transaction {}: {}".format(txid, tx_time_raw))
+        tx_time = datetime.datetime.fromtimestamp(tx_time_raw)
+        age = current_time - tx_time
+        if debug:
+            print("Raw transaction age:", age)
+        age_seconds = age.total_seconds()
+        if fmt == "h":
+            return int(age_seconds / 3600)
+        elif fmt == "s":
+            return int(age_seconds)
+    except (KeyError, ValueError):
+        if debug:
+            if "txid" not in tx_json:
+                print("Transaction corrupted. TX JSON:", tx_json)
+            else:
+                print("Transaction {} ignored: no valid timestamp.".format(txid))
+        return None
+
+
+def filter_txes(txdict: dict, minconf: int=1, minage: int=None, debug: bool=False):
     # takes a list of txes in a dict in format label: txhex
-    # and filters all txes out with > minconf confirmations
+    # and returns all txes out with > minconf confirmations OR > minage age.
     for label, txhex in txdict.items():
         try:
             tx_json_raw = provider.decoderawtransaction(txhex)
             tx_json = provider.getrawtransaction(tx_json_raw["txid"], 1)
-            if int(tx_json["confirmations"]) >= minconf:
-                yield {"label" : label, "txhex" : txhex}
+            if "confirmations" in tx_json:
+                if int(tx_json["confirmations"]) >= minconf:
+                    yield {"label" : label, "txhex" : txhex}
+            elif minage is not None: # we use tx_json_raw here to get also txes not registered in the wallet
+                if tx_age(tx_json_raw, fmt="h", debug=debug) > minage:
+                    yield {"label" : label, "txhex" : txhex}
         except Exception as e:
             if debug:
                 print("Exception:", e)
 
-def prune_confirmed_stored_txes(minconf: int=1, now: bool=False, only_swaps: bool=False, debug: bool=False):
+def prune_stored_txes(minconf: int=1, now: bool=False, only_swaps: bool=False, old: bool=False, quiet: bool=False, debug: bool=False):
     txdict = ce.list("transaction", debug=debug, quiet=True)
-    swapformat = re.compile(r"swap_20[0-9][0-9][0-1][0-9][0-3][0-9]_[0-2][0-9][0-2][0-9]utc") # works until 2099
-    for item in filter_confirmed_txes(txdict, minconf=minconf, debug=debug):
+    # format is swap_YYYYMMDD_HHMMSSutc
+    swapformat = re.compile(r"swap_20[0-9][0-9][0-1][0-9][0-3][0-9]_[0-2][0-9][0-5][0-9][0-5][0-9]utc") # works until 2099
+
+    minage = 72 if old else None
+    for item in filter_txes(txdict, minconf=minconf, minage=minage, debug=debug):
         label = item["label"] # a bit ugly!
         if only_swaps:
             if not swapformat.match(label):
                 continue
         # (category: str, label: str, now: bool=False, debug: bool=False)
-        ce.delete("transaction", label, now=now, debug=debug)
+        ce.delete("transaction", label, now=now, quiet=quiet, debug=debug)
 
 
 

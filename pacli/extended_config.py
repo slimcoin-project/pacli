@@ -260,11 +260,11 @@ def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True,
         else:
             return result
 
-def delete(category: str, label: str, now: bool=False, debug: bool=False) -> None:
+def delete(category: str, label: str, now: bool=False, quiet: bool=False, debug: bool=False) -> None:
     """Deletes an item from the extended config file.
        Specify category and label.
        Use --now to delete really."""
-    return eh.run_command(delete_item, category, str(label), now=now, debug=debug)
+    return eh.run_command(delete_item, category, str(label), now=now, quiet=quiet, debug=debug)
 
 def flush(category: str, now: bool=False, quiet: bool=False, configfilename: str=EXT_CONFIGFILE) -> None:
     """Deletes all entries in a category."""

@@ -235,8 +235,9 @@ def build_coin2card_exchange(deckid: str,
             own_utxo = select_utxos(minvalue=min_amount, address=my_address, utxo_type="pubkeyhash", quiet=True, check_utxo=True, debug=debug)[0] # first usable utxo is selected
         except IndexError:
             ei.print_red("Not enough funds. Send at least the minimum amount of coins allowed by your network for transactions ({} {}) to this address ({}).".format(min_amount, Settings.network.upper(), my_address))
-            ei.print_red("NOTE 1: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).")
-            ei.print_red("NOTE 2: If you recently locked tokens or sent coins to your current main address and this error appears, you may have already enough coins on this address but have to restart your client with -rescan for it to become aware of the coins. After the restart, repeat the 'swap create' command without the -w option.")
+            print("NOTE 1: If you have only mined coins on this address, you will have to transfer additional coins to it, as coinbase inputs can't be used for swaps due to an upstream bug (you can also send the coins to yourself).")
+            print("NOTE 2: If you recently locked tokens or sent coins to your current main address and this error appears, you may have already enough coins on this address but have to restart your client with -rescan for it to become aware of the coins. After the restart, repeat the 'swap create' command without the -w option.")
+            print("NOTE 3: If you recently created a swap which is still not confirmed, its UTXOs cannot be used by another swap, so the 'not enough funds' message can show up even if 'swap select_coins' has shown available UTXOs.")
             raise eh.PacliDataError("Swap creation aborted.")
     own_utxo_value = Decimal(str(own_utxo["amount"]))
     own_input = MutableTxIn(txid=own_utxo['txid'], txout=own_utxo['vout'], sequence=Sequence.max(), script_sig=ScriptSig.empty())
@@ -310,7 +311,7 @@ def build_coin2card_exchange(deckid: str,
                 print("Transaction will be saved with the standard label:", tx_label)
                 print("You can change the label anytime with the 'transaction set' command.")
 
-        eu.save_transaction(tx_label, tx_hex, partly=True)
+        eu.save_transaction(tx_label, tx_hex, partly=True, verbose=False, debug=debug)
     else:
         print(unsigned_tx.hexlify())
 

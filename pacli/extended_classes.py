@@ -1694,6 +1694,7 @@ class ExtTransaction:
             quiet: bool=False,
             prune_confirmed: bool=False,
             remove_confirmed_swaps: bool=False,
+            old: bool=False,
             show_debug_info: bool=False) -> None:
         """Stores a transaction with a local label and hex string.
            It will be stored in the extended configuration file.
@@ -1720,13 +1721,14 @@ class ExtTransaction:
 
                Modifies a label, replacing OLDLABEL with NEWLABEL.
 
-           pacli transaction set -p [--now]
-           pacli transaction set -r [--now]
+           pacli transaction set -p [-o] [--now]
+           pacli transaction set -r [-o] [--now]
 
                Deletes all stored transactions which were already confirmed (-p),
                or delete all stored swap transactions which were confirmed (-r).
+               -o also deletes unconfirmed transactions older than 72 hours.
 
-               Note: -r removes transactions saved with the scheme swap_YYMMDD_HHMM.
+               Note: -r removes transactions saved with the scheme swap_YYYYMMDD_HHMMSSutc.
                Swaps stored with a custom label won't be pruned with -r, only with -p.
 
            Args:
@@ -1738,11 +1740,12 @@ class ExtTransaction:
              now: Really delete a transaction label/value pair.
              txdata: Transaction data. To be used as a positional argument (flag keyword not mandatory). See Usage modes.
              prune_confirmed: Prune confirmed transactions. See Usage modes.
-             remove_confirmed_swaps: Prune confirmed swap transactions starting with the name scheme swap_YYMMDD_HHMM. See Usage modes.
+             remove_confirmed_swaps: Prune confirmed swap transactions with the name scheme swap_YYYYMMDD_HHMMSSutc. See Usage modes.
+             old: Additionally prune old unconfirmed transactions with a timestamp older than 72 hours. To be used with -p or -r.
              show_debug_info: Show debug information.
 
         """
-        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, prune_confirmed=prune_confirmed, remove_confirmed_swaps=remove_confirmed_swaps, show_debug_info=show_debug_info)
+        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, prune_confirmed=prune_confirmed, remove_confirmed_swaps=remove_confirmed_swaps, old=old, show_debug_info=show_debug_info)
 
     def __set(self, label_or_tx: str=None,
             tx: str=None,
@@ -1752,12 +1755,13 @@ class ExtTransaction:
             quiet: bool=False,
             prune_confirmed: bool=False,
             remove_confirmed_swaps: bool=False,
+            old: bool=False,
             show_debug_info: bool=False) -> None:
 
         if delete is True:
             return ce.delete("transaction", label=label_or_tx, now=now)
         elif prune_confirmed is True or remove_confirmed_swaps is True:
-            return eu.prune_confirmed_stored_txes(now=now, minconf=1, only_swaps=remove_confirmed_swaps, debug=show_debug_info)
+            return eu.prune_stored_txes(now=now, minconf=1, only_swaps=remove_confirmed_swaps, old=old, debug=show_debug_info)
 
         if tx is None:
             value = label_or_tx
