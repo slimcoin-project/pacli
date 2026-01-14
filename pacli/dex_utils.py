@@ -311,7 +311,7 @@ def build_coin2card_exchange(deckid: str,
                 print("Transaction will be saved with the standard label:", tx_label)
                 print("You can change the label anytime with the 'transaction set' command.")
 
-        eu.save_transaction(tx_label, tx_hex, partly=True, verbose=False, debug=debug)
+        eu.save_transaction(tx_label, tx_hex, partly=True, verbose=False)
     else:
         print(unsigned_tx.hexlify())
 
