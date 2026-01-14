@@ -262,7 +262,7 @@ class Swap:
         else:
             addr = ec.process_address(address, debug=debug)
         try:
-            return dxu.select_utxos(minvalue=Decimal(str(value)), address=addr, utxo_type=utxo_type, fees=fees, check_utxo=check_utxo, show_address=wallet, debug=debug)
+            return dxu.select_utxos(minvalue=Decimal(str(value)), address=addr, utxo_type=utxo_type, fees=fees, check_utxo=check_utxo, mark_utxo=True, show_address=wallet, debug=debug)
         except InvalidOperation:
             raise eh.PacliInputDataError("Amount in wrong format.")
 

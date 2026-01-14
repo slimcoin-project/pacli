@@ -475,6 +475,7 @@ def select_utxos(minvalue: Decimal,
                  utxo_type: str=None,
                  show_address: bool=False,
                  check_utxo: bool=False,
+                 mark_utxo: bool=False,
                  ignore_coinbase: bool=True,
                  fees: bool=False,
                  quiet: bool=False,
@@ -491,7 +492,7 @@ def select_utxos(minvalue: Decimal,
         if not quiet:
             print("Added swap fees of {} coins to the amount. Minimum amount for UTXOs to be displayed: {} coins.".format(swap_fees, minvalue))
 
-    if check_utxo:
+    if check_utxo or mark_utxo:
         txlist = ce.list("transaction", quiet=True, debug=debug)
     for utxo in utxos:
         utxo_amount = Decimal(str(utxo["amount"])) # str is necessary
@@ -518,12 +519,16 @@ def select_utxos(minvalue: Decimal,
                     print("UTXO {}:{} ignored: incorrect type ({}) instead of requested {}.".format(utxo["txid"], utxo["vout"], utype, utxo_type))
                 continue
 
-            if check_utxo:
+            if check_utxo or mark_utxo:
                 utxo_tx = check_utxo_in_stored_txes(utxo["txid"], utxo["vout"], txlist=txlist, debug=debug)
                 if utxo_tx is not None:
-                    if debug:
-                        print("UTXO {}:{} ignored: already used in stored transaction with label {}.".format(utxo["txid"], utxo["vout"], utxo_tx))
-                    continue
+                    if check_utxo:
+                        if debug:
+                            print("UTXO {}:{} ignored: already used in stored transaction with label {}.".format(utxo["txid"], utxo["vout"], utxo_tx))
+
+                        continue
+                    elif mark_utxo:
+                        utxo.update({"tx" : utxo_tx})
         if debug:
             print("UTXO {}:{} appended.".format(utxo["txid"], utxo["vout"]))
 
@@ -542,6 +547,8 @@ def select_utxos(minvalue: Decimal,
         for utxo in selected_utxos:
             pprint("{}:{}".format(utxo.get("txid"), utxo.get("vout")))
             print("Amount: {} coins".format(utxo.get("amount")))
+            if mark_utxo and "tx" in utxo:
+                print("UTXO used in stored transaction with label:", utxo.get("tx"))
             if show_address and "address" in utxo:
                 if len(utxo["address"]) == 1:
                     print("Address:", utxo["address"][0])
