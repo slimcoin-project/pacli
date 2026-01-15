@@ -126,7 +126,7 @@ class Swap:
         # delete swaps
         if not quiet:
             print("Deleting confirmed swaps ...")
-        eu.prune_stored_txes(now=True, minconf=1, only_swaps=True, quiet=quiet, debug=debug)
+        eu.prune_stored_txes(now=True, minconf=1, minage=168, only_swaps=True, quiet=quiet, debug=debug)
 
         return eh.run_command(dxu.build_coin2card_exchange, deckid, partner_address, partner_input, Decimal(str(amount_cards)), Decimal(str(amount_coins)), sign=sign, change=change_address, tokenbuyer_change_address=buyer_change_address, tokenseller_input=input_utxo, without_checks=no_checks, save_identifier=label, lock_tx=lock_tx, debug=debug)
 

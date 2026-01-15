@@ -580,14 +580,18 @@ def tx_age(tx_json: dict, fmt: str="h", debug: bool=False):
         return None
 
 
-def filter_txes(txdict: dict, minconf: int=1, minage: int=None, debug: bool=False):
+def filter_txes(txdict: dict, minconf: int=None, minage: int=None, debug: bool=False):
     # takes a list of txes in a dict in format label: txhex
     # and returns all txes out with > minconf confirmations OR > minage age.
     for label, txhex in txdict.items():
         try:
             tx_json_raw = provider.decoderawtransaction(txhex)
-            tx_json = provider.getrawtransaction(tx_json_raw["txid"], 1)
-            if "confirmations" in tx_json:
+            tx_json = provider.getrawtransaction(tx_json_raw["txid"], 1) # in partially signed txes, this yields an error JSON.
+            if debug:
+                print("Checking transaction with label {} and txid {}".format(label, tx_json_raw["txid"]))
+            if minconf is not None and "confirmations" in tx_json:
+                if debug:
+                    print(tx_json["confirmations"], "confirmations")
                 if int(tx_json["confirmations"]) >= minconf:
                     yield {"label" : label, "txhex" : txhex}
             elif minage is not None: # we use tx_json_raw here to get also txes not registered in the wallet
@@ -597,17 +601,20 @@ def filter_txes(txdict: dict, minconf: int=1, minage: int=None, debug: bool=Fals
             if debug:
                 print("Exception:", e)
 
-def prune_stored_txes(minconf: int=1, now: bool=False, only_swaps: bool=False, old: bool=False, quiet: bool=False, debug: bool=False):
+def prune_stored_txes(minconf: int=None, minage: int=None, now: bool=False, only_swaps: bool=False, quiet: bool=False, debug: bool=False):
     txdict = ce.list("transaction", debug=debug, quiet=True)
     # format is swap_YYYYMMDD_HHMMSSutc
     swapformat = re.compile(r"swap_20[0-9][0-9][0-1][0-9][0-3][0-9]_[0-2][0-9][0-5][0-9][0-5][0-9]utc") # works until 2099
 
-    minage = 72 if old else None
     for item in filter_txes(txdict, minconf=minconf, minage=minage, debug=debug):
-        label = item["label"] # a bit ugly!
+
+        label = item["label"]
+        if debug:
+            print("Matching transaction found:", label)
         if only_swaps:
             if not swapformat.match(label):
                 continue
+
         # (category: str, label: str, now: bool=False, debug: bool=False)
         ce.delete("transaction", label, now=now, quiet=quiet, debug=debug)
 

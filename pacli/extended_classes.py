@@ -1698,7 +1698,7 @@ class ExtTransaction:
             now: bool=False,
             quiet: bool=False,
             prune_confirmed: bool=False,
-            remove_confirmed_swaps: bool=False,
+            remove_old_swaps: bool=False,
             old: bool=False,
             show_debug_info: bool=False) -> None:
         """Stores a transaction with a local label and hex string.
@@ -1727,14 +1727,20 @@ class ExtTransaction:
                Modifies a label, replacing OLDLABEL with NEWLABEL.
 
            pacli transaction set -p [-o] [--now]
+
+               Deletes all stored transactions which were already confirmed (-p).
+               -o also deletes unconfirmed transactions older than 72 hours.
+               Note: The -r mode without -o only works for transactions which were fully signed and then stored.
+               It will NOT remove partially signed transactions like the swaps stored by 'swap create'.
+               Use -o and/or -r to prune partially signed transactions.
+
            pacli transaction set -r [-o] [--now]
 
-               Deletes all stored transactions which were already confirmed (-p),
-               or delete all stored swap transactions which were confirmed (-r).
-               -o also deletes unconfirmed transactions older than 72 hours.
-
-               Note: -r removes transactions saved with the scheme swap_YYYYMMDD_HHMMSSutc.
+               Delete stored swap transactions older than a week (-r),
+               -o also deletes slightly younger transactions older than 72 hours.
+               This mode does only remove transactions saved with the scheme swap_YYYYMMDD_HHMMSSutc.
                Swaps stored with a custom label won't be pruned with -r, only with -p.
+               Note: 'swap create' performs this pruning step automatically.
 
            Args:
 
@@ -1745,12 +1751,12 @@ class ExtTransaction:
              now: Really delete a transaction label/value pair.
              txdata: Transaction data. To be used as a positional argument (flag keyword not mandatory). See Usage modes.
              prune_confirmed: Prune confirmed transactions. See Usage modes.
-             remove_confirmed_swaps: Prune confirmed swap transactions with the name scheme swap_YYYYMMDD_HHMMSSutc. See Usage modes.
-             old: Additionally prune old unconfirmed transactions with a timestamp older than 72 hours. To be used with -p or -r.
+             remove_old_swaps: Prune swap transactions with the name scheme swap_YYYYMMDD_HHMMSSutc. See Usage modes.
+             old: Additionally prune unconfirmed transactions with a timestamp older than 72 hours. To be used with -p or -r.
              show_debug_info: Show debug information.
 
         """
-        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, prune_confirmed=prune_confirmed, remove_confirmed_swaps=remove_confirmed_swaps, old=old, show_debug_info=show_debug_info)
+        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, prune_confirmed=prune_confirmed, remove_old_swaps=remove_old_swaps, old=old, show_debug_info=show_debug_info)
 
     def __set(self, label_or_tx: str=None,
             tx: str=None,
@@ -1759,14 +1765,22 @@ class ExtTransaction:
             now: bool=False,
             quiet: bool=False,
             prune_confirmed: bool=False,
-            remove_confirmed_swaps: bool=False,
+            remove_old_swaps: bool=False,
             old: bool=False,
             show_debug_info: bool=False) -> None:
 
         if delete is True:
             return ce.delete("transaction", label=label_or_tx, now=now)
-        elif prune_confirmed is True or remove_confirmed_swaps is True:
-            return eu.prune_stored_txes(now=now, minconf=1, only_swaps=remove_confirmed_swaps, old=old, debug=show_debug_info)
+        elif prune_confirmed is True or remove_old_swaps is True:
+            minconf = None
+            if old is True:
+                minage = 72
+            elif remove_old_swaps:
+                minage = 168
+            else:
+                minage, minconf = None, 1
+
+            return eu.prune_stored_txes(now=now, minconf=minconf, minage=minage, only_swaps=remove_old_swaps, debug=show_debug_info)
 
         if tx is None:
             value = label_or_tx
