@@ -1,6 +1,6 @@
 from decimal import Decimal
 from typing import Union
-
+from btcpy.structs.address import InvalidAddress
 from pypeerassets.exceptions import RecieverAmountMismatch
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import (tx_output,
@@ -21,7 +21,7 @@ class Coin:
     """Commands to create coin transactions."""
 
     def sendto(self, address: Union[str], amount: Union[float],
-               locktime: int=0) -> str:
+               locktime: int=0, debug: bool=False) -> str:
         '''Send coins from the current main address to another address(es).
 
         Usage:
@@ -34,37 +34,46 @@ class Coin:
 
         Args:
 
-            locktime: Specify a lock time.'''
+            locktime: Specify a lock time.
+            debug: Show additional debug information.'''
 
-        return run_command(self.__sendto, address, amount, locktime=locktime)
+        return run_command(self.__sendto, address, amount, locktime=locktime, debug=debug)
 
     def __sendto(self, address: Union[str], amount: Union[float],
-               locktime: int=0) -> str:
+               locktime: int=0, debug: bool=False) -> str:
 
         # make simple entering of int and str values without list possible
-        if type(amount) in (str, int, float):
-            amount = [amount]
-        if type(address) == str:
-            address = [address]
+        try:
+            if type(amount) in (str, int, float):
+                amount = [amount]
+            if type(address) == str:
+                address = [address]
 
-        if not len(address) == len(amount):
-            raise RecieverAmountMismatch
+            if not len(address) == len(amount):
+                raise RecieverAmountMismatch
 
-        network_params = net_query(Settings.network)
 
-        amount_sum = sum([Decimal(str(a)) for a in amount])
-        main_address = get_main_address()
-        inputs = provider.select_inputs(main_address, amount_sum + network_params.min_tx_fee)
+            network_params = net_query(Settings.network)
 
-        outs = []
+            amount_sum = sum([Decimal(str(a)) for a in amount])
+            main_address = get_main_address()
+            inputs = provider.select_inputs(main_address, amount_sum + network_params.min_tx_fee)
 
-        for addr, index, amount in zip(address, range(len(address)), amount):
-            outs.append(
-                tx_output(network=Settings.network, value=Decimal(amount),
-                          n=index,
-                          script=p2pkh_script(address=addr,
-                                              network=Settings.network))
-            )
+
+            outs = []
+
+            for addr, index, amount in zip(address, range(len(address)), amount):
+                outs.append(
+                    tx_output(network=Settings.network, value=Decimal(amount),
+                              n=index,
+                              script=p2pkh_script(address=addr,
+                                                  network=Settings.network))
+                )
+
+        except RecieverAmountMismatch:
+            raise PacliDataError("Receiver/amount mismatch, receivers and amounts need to have the same length.")
+        except (InvalidAddress, ValueError):
+            raise PacliDataError("Invalid address(es).")
 
         #  first round of txn making is done by presuming minimal fee
         change_sum = Decimal(inputs['total'] - amount_sum - network_params.min_tx_fee)
@@ -87,7 +96,7 @@ class Coin:
 
         finalize_tx(unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
 
-    def opreturn(self, string: hex, locktime: int=0, ascii: bool=False) -> str:
+    def opreturn(self, string: hex, locktime: int=0, ascii: bool=False, debug: bool=False) -> str:
         '''Send OP_RETURN transaction from the current main address.
 
         Usage:
@@ -100,9 +109,10 @@ class Coin:
         Args:
 
             ascii: Enter the string as an ASCII string instead of a hex representation.
-            locktime: Specify a lock time.'''
+            locktime: Specify a lock time.
+            debug: Show additional debug information'''
 
-        return run_command(self.__opreturn, string, locktime, ascii=ascii, debug=True)
+        return run_command(self.__opreturn, string, locktime, ascii=ascii, debug=debug)
 
     def __opreturn(self, string: hex, locktime: int=0, ascii: bool=False, debug: bool=False) -> str:
 
