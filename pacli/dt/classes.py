@@ -6,18 +6,18 @@ import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 from decimal import Decimal
-import pacli.dt_utils as du
-import pacli.extended_utils as eu
-import pacli.dt_interface as di
-import pacli.dt_commands as dc
-import pacli.extended_keystore as ke
-import pacli.extended_commands as ec
-import pacli.extended_config as ce
-import pacli.extended_interface as ei
-import pacli.extended_handling as eh
-import pacli.extended_token_txtools as ett
-import pacli.dt_txtools as dtx
-from pacli.extended_constants import DEFAULT_POD_DECK
+import pacli.dt.utils as du
+import pacli.extended.utils as eu
+import pacli.dt.interface as di
+import pacli.dt.commands as dc
+import pacli.extended.keystore as ke
+import pacli.extended.commands as ec
+import pacli.extended.config as ce
+import pacli.extended.interface as ei
+import pacli.extended.handling as eh
+import pacli.extended.token_txtools as ett
+import pacli.dt.txtools as dtx
+from pacli.extended.constants import DEFAULT_POD_DECK
 
 
 class PoDToken():

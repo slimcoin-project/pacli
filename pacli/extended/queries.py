@@ -4,13 +4,13 @@
 from pacli.provider import provider
 from pacli.config import Settings
 
-import pacli.extended_config as ce
-import pacli.extended_keystore as ke
-import pacli.extended_interface as ei
-import pacli.extended_utils as eu
-import pacli.blockexp_utils as bu
-import pacli.extended_commands as ec
-import pacli.extended_handling as eh
+import pacli.extended.config as ce
+import pacli.extended.keystore as ke
+import pacli.extended.interface as ei
+import pacli.extended.utils as eu
+import pacli.blockexp.utils as bu
+import pacli.extended.commands as ec
+import pacli.extended.handling as eh
 
 def get_labels_and_addresses(prefix: str=Settings.network,
                              exclude: list=[],
@@ -100,7 +100,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         if include_only:
             wallet_addresses = set(include_only)
         elif access_wallet is not None:
-            import pacli.db_utils as dbu
+            import pacli.extended.wallet_utils as dbu
             datadir = access_wallet if type(access_wallet) == str else None
             wallet_addresses = dbu.get_addresses(datadir=datadir, debug=debug)
         else:

@@ -14,16 +14,16 @@ import pypeerassets as pa
 from pypeerassets.pautils import amount_to_exponent, exponent_to_amount
 import pypeerassets.hash_encoding as henc
 from decimal import Decimal
-import pacli.extended_utils as eu
-import pacli.extended_commands as ec
-import pacli.extended_interface as ei
-import pacli.extended_txtools as et
-import pacli.blockexp_utils as bu
-import pacli.extended_config as ce
-import pacli.extended_handling as eh
-import pacli.extended_keystore as ke
-import pacli.extended_token_queries as etq
-import pacli.extended_token_txtools as ett
+import pacli.extended.utils as eu
+import pacli.extended.commands as ec
+import pacli.extended.interface as ei
+import pacli.extended.txtools as et
+import pacli.blockexp.utils as bu
+import pacli.extended.config as ce
+import pacli.extended.handling as eh
+import pacli.extended.keystore as ke
+import pacli.extended.token_queries as etq
+import pacli.extended.token_txtools as ett
 from pypeerassets.networks import net_query
 from pypeerassets.transactions import Transaction, MutableTransaction, MutableTxIn, tx_output, p2pkh_script, nulldata_script, make_raw_transaction
 

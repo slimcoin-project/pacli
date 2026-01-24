@@ -4,13 +4,13 @@ import pypeerassets.at.constants as c
 from decimal import Decimal
 from pacli.provider import provider
 from pacli.config import Settings
-import pacli.extended_utils as eu
-import pacli.at_utils as au
-import pacli.extended_commands as ec
-import pacli.extended_keystore as ke
-import pacli.extended_txtools as et
-import pacli.extended_token_txtools as ett
-import pacli.extended_handling as eh
+import pacli.extended.utils as eu
+import pacli.at.utils as au
+import pacli.extended.commands as ec
+import pacli.extended.keystore as ke
+import pacli.extended.txtools as et
+import pacli.extended.token_txtools as ett
+import pacli.extended.handling as eh
 
 class ATTokenBase():
 

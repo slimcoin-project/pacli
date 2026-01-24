@@ -10,10 +10,10 @@ from pypeerassets.transactions import (tx_output,
                                        Locktime)
 from pacli.provider import provider
 from pacli.config import Settings
-from pacli.extended_utils import min_amount
-from pacli.extended_txtools import finalize_tx
-from pacli.extended_handling import run_command, PacliDataError
-from pacli.extended_keystore import get_main_address
+from pacli.extended.utils import min_amount
+from pacli.extended.txtools import finalize_tx
+from pacli.extended.handling import run_command, PacliDataError
+from pacli.extended.keystore import get_main_address
 
 
 class Coin:

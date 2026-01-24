@@ -1,8 +1,8 @@
 # Tools for unified exception and change handling
 import sys
 from pypeerassets.exceptions import InsufficientFunds
-import pacli.extended_txtools as et
-import pacli.extended_interface as ei
+import pacli.extended.txtools as et
+import pacli.extended.interface as ei
 from pacli.provider import provider
 from pacli.config import Settings
 

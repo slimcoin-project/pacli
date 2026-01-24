@@ -3,11 +3,7 @@
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
-import pacli.dt_utils as du
-import pacli.extended_utils as eu
-import pacli.dt_interface as di
-import pacli.extended_queries as eq
-import pacli.extended_handling as eh
+
 
 from prettyprinter import cpprint as pprint
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
@@ -16,6 +12,11 @@ from pypeerassets.networks import net_query
 from pypeerassets.pautils import load_deck_p2th_into_local_node
 from pypeerassets.exceptions import P2THImportFailed
 
+import pacli.dt.utils as du
+import pacli.dt.interface as di
+import pacli.extended.utils as eu
+import pacli.extended.queries as eq
+import pacli.extended.handling as eh
 from pacli.provider import provider
 from pacli.config import Settings
 

@@ -3,11 +3,11 @@
 from prettyprinter import cpprint as pprint
 from pypeerassets.transactions import sign_transaction
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
-import pacli.extended_utils as eu
-import pacli.extended_config as ce
-import pacli.extended_interface as ei
-import pacli.extended_keystore as ke
-import pacli.extended_handling as eh
+import pacli.extended.utils as eu
+import pacli.extended.config as ce
+import pacli.extended.interface as ei
+import pacli.extended.keystore as ke
+import pacli.extended.handling as eh
 from pacli.provider import provider
 from pacli.config import Settings
 from pacli.utils import (sendtx, cointoolkit_verify)
@@ -168,7 +168,7 @@ def finalize_tx(rawtx: dict,
 
     if not ignore_checkpoint and (send is True):
         # if a reorg/orphaned checkpoint is detected, require confirmation to continue.
-        from pacli.extended_checkpoints import reorg_check, store_checkpoint
+        from pacli.extended.checkpoints import reorg_check, store_checkpoint
         if reorg_check(quiet=quiet):
             raise eh.PacliInputDataError("Reorg check failed. If you want to create the transaction anyway, use the command's --force / --ignore_warnings options if available.")
 

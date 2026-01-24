@@ -1,9 +1,9 @@
 import pypeerassets as pa
 import pacli.keystore as k
-import pacli.extended_keystore as ke
-import pacli.extended_utils as eu
-import pacli.extended_config as ce
-import pacli.extended_handling as eh
+import pacli.extended.keystore as ke
+import pacli.extended.utils as eu
+import pacli.extended.config as ce
+import pacli.extended.handling as eh
 from pacli.config import Settings
 from pacli.provider import provider
 

@@ -8,8 +8,8 @@ from pypeerassets.networks import networks as supported_networks
 from pacli.provider import provider
 from pacli.config import Settings
 import pacli.keystore as k
-import pacli.extended_interface as ei
-import pacli.extended_handling as eh
+import pacli.extended.interface as ei
+import pacli.extended.handling as eh
 
 ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
 UNUSABLE_KEY = "0000000000000000000000000000000000000000000000000000000000000001"

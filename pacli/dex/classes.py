@@ -1,10 +1,10 @@
 import time
-import pacli.dex_utils as dxu
-import pacli.extended_handling as eh
-import pacli.extended_utils as eu
-import pacli.extended_commands as ec
-import pacli.extended_config as ce
-import pacli.extended_keystore as ke
+import pacli.dex.utils as dxu
+import pacli.extended.handling as eh
+import pacli.extended.utils as eu
+import pacli.extended.commands as ec
+import pacli.extended.config as ce
+import pacli.extended.keystore as ke
 from decimal import Decimal, InvalidOperation
 from pacli.provider import provider
 

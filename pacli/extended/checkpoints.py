@@ -1,9 +1,9 @@
 # checkpoint functions
 import time
-import pacli.extended_config as ce
-import pacli.extended_utils as eu
-import pacli.blockexp_utils as bu
-import pacli.extended_handling as eh
+import pacli.extended.config as ce
+import pacli.extended.utils as eu
+import pacli.blockexp.utils as bu
+import pacli.extended.handling as eh
 from pacli.provider import provider
 
 class Checkpoint:

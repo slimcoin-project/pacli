@@ -10,9 +10,9 @@ from pypeerassets.pautils import parse_card_transfer_metainfo, read_tx_opreturn
 from pypeerassets.__main__ import get_card_transfer
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
-import pacli.extended_config as ce
-import pacli.extended_interface as ei
-import pacli.extended_handling as eh
+import pacli.extended.config as ce
+import pacli.extended.interface as ei
+import pacli.extended.handling as eh
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -133,7 +133,7 @@ def search_global_deck_name(identifier: str, prioritize: bool=False, return_deck
             else:
                 print("Using matching deck with global name {}, with id: {}".format(identifier, deck.id))
             if check_initialized:
-                from pacli.extended_token_queries import get_initialized_decks
+                from pacli.extended.token_queries import get_initialized_decks
                 idecks = [di.id for di in get_initialized_decks(decks)]
                 if deck.id not in idecks:
                     print("WARNING: This deck was never initialized. Most commands will not work properly, they may output no information at all.")

@@ -1,6 +1,6 @@
 import datetime
-import pacli.extended_handling as eh
-import pacli.blocklocator as loc
+import pacli.extended.handling as eh
+import pacli.blockexp.blocklocator as loc
 from pacli.provider import provider
 
 # lower level block exploring utilities are now bundled here

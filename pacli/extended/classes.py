@@ -7,21 +7,21 @@ import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 from pypeerassets.pautils import exponent_to_amount
 
-import pacli.extended_constants as pc
-import pacli.extended_keystore as ke
-import pacli.extended_utils as eu
-import pacli.at_utils as au
-import pacli.extended_commands as ec
-import pacli.extended_config as ce
-import pacli.extended_interface as ei
-import pacli.extended_queries as eq
-import pacli.extended_token_queries as etq
-import pacli.extended_token_txtools as ett
-import pacli.extended_handling as eh
-import pacli.dt_commands as dc
-import pacli.blockexp as bx
-import pacli.blockexp_utils as bu
-import pacli.db_utils as dbu ### preliminary!
+import pacli.extended.constants as pc
+import pacli.extended.keystore as ke
+import pacli.extended.utils as eu
+import pacli.at.utils as au
+import pacli.extended.commands as ec
+import pacli.extended.config as ce
+import pacli.extended.interface as ei
+import pacli.extended.queries as eq
+import pacli.extended.token_queries as etq
+import pacli.extended.token_txtools as ett
+import pacli.extended.handling as eh
+import pacli.dt.commands as dc
+import pacli.blockexp.blockexp as bx
+import pacli.blockexp.utils as bu
+import pacli.extended.wallet_utils as dbu
 
 from pacli.provider import provider
 from pacli.config import Settings, default_conf, write_settings, conf_dir, conf_file, write_default_config

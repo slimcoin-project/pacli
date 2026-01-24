@@ -8,11 +8,11 @@ from pypeerassets.pautils import amount_to_exponent
 from pypeerassets.exceptions import InsufficientFunds
 from pypeerassets.legacy import is_legacy_blockchain, legacy_mintx
 import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" functions could go into the TransactionDraft module.
-import pacli.extended_keystore as ke
-import pacli.extended_token_queries as etq
-import pacli.extended_txtools as et
-import pacli.extended_handling as eh
-import pacli.extended_utils as eu
+import pacli.extended.keystore as ke
+import pacli.extended.token_queries as etq
+import pacli.extended.txtools as et
+import pacli.extended.handling as eh
+import pacli.extended.utils as eu
 from pacli.provider import provider
 from pacli.config import Settings
 

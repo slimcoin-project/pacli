@@ -10,16 +10,15 @@ from pypeerassets.at.mutable_transactions import TransactionDraft
 from pypeerassets.at.protobuf_utils import serialize_card_extended_data
 from pypeerassets.networks import net_query
 from pypeerassets.exceptions import UnsupportedNetwork
-import pacli.extended_utils as eu
-import pacli.extended_commands as ec
-import pacli.extended_queries as eq
-import pacli.extended_constants as extc
-import pacli.extended_txtools as et
-import pacli.extended_handling as eh
-import pacli.extended_token_queries as etq
-import pacli.blockexp_utils as bu
-import pacli.db_utils as dbu
-import pacli.extended_keystore as ke
+import pacli.extended.utils as eu
+import pacli.extended.commands as ec
+import pacli.extended.queries as eq
+import pacli.extended.constants as extc
+import pacli.extended.txtools as et
+import pacli.extended.handling as eh
+import pacli.extended.token_queries as etq
+import pacli.extended.keystore as ke
+import pacli.blockexp.utils as bu
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -119,6 +118,7 @@ def show_wallet_dtxes(deckid: str=None,
             raise eh.PacliInputDataError("You need to provide a tracked address or a Deck for this command.")
 
     if use_db is True:
+        import pacli.extended.wallet_utils as dbu
         if debug:
             print("Retrieving transactions from wallet.dat ...")
         # NOTE: set advanced to False to retrieve only the transactions.

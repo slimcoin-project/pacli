@@ -4,7 +4,7 @@ from pypeerassets.at.protobuf_utils import parse_protobuf
 from pypeerassets.at.dt_misc_utils import get_proposal_state, find_proposal, get_parser_state, sats_to_coins
 from pypeerassets.at.dt_parser_utils import get_proposal_states, get_marked_txes
 from pypeerassets.pautils import read_tx_opreturn
-from pacli.extended_handling import PacliInputDataError
+from pacli.extended.handling import PacliInputDataError
 from pypeerassets.exceptions import InvalidNulldataOutput
 
 from decimal import Decimal
@@ -12,12 +12,12 @@ from prettyprinter import cpprint as pprint
 
 import pypeerassets as pa
 import pypeerassets.at.dt_periods as dp
-import pacli.dt_interface as di
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
-import pacli.extended_utils as eu
-import pacli.extended_constants as eco
-import pacli.extended_queries as eq
+import pacli.dt.interface as di
+import pacli.extended.utils as eu
+import pacli.extended.constants as eco
+import pacli.extended.queries as eq
 
 from pacli.provider import provider
 from pacli.config import Settings

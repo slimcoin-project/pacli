@@ -1,7 +1,7 @@
 from pacli.provider import provider
-from pacli.blockexp_utils import get_tx_structure
-import pacli.extended_txtools as et
-import pacli.extended_handling as eh
+from pacli.blockexp.utils import get_tx_structure
+import pacli.extended.txtools as et
+import pacli.extended.handling as eh
 from pacli.config import Settings
 from pypeerassets.networks import net_query
 import os

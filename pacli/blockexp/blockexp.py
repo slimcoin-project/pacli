@@ -3,14 +3,14 @@ import json ####
 from decimal import Decimal
 from typing import Union
 import pypeerassets as pa
-import pacli.extended_utils as eu
-import pacli.extended_interface as ei
-import pacli.extended_commands as ec
-import pacli.extended_queries as eq
-import pacli.extended_token_queries as etq
-import pacli.extended_handling as eh
-import pacli.at_utils as au
-import pacli.blockexp_utils as bu
+import pacli.extended.utils as eu
+import pacli.extended.interface as ei
+import pacli.extended.commands as ec
+import pacli.extended.queries as eq
+import pacli.extended.token_queries as etq
+import pacli.extended.handling as eh
+import pacli.at.utils as au
+import pacli.blockexp.utils as bu
 from pacli.provider import provider
 from pacli.config import Settings
 

@@ -1,6 +1,6 @@
 import json, os, re
-import pacli.extended_handling as eh
 from prettyprinter import cpprint as pprint
+import pacli.extended.handling as eh
 from pacli.config import conf_dir, Settings
 
 # This stores some settings in an additional config file, for example short keys for addresses, proposals, decks etc.

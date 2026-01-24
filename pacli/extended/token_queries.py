@@ -3,17 +3,17 @@
 import pypeerassets as pa
 from prettyprinter import cpprint as pprint
 from decimal import Decimal
-from pacli.provider import provider
-from pacli.config import Settings
 from pypeerassets.pautils import exponent_to_amount
 from pypeerassets.at.constants import ID_AT, ID_DT
 from pypeerassets.at.dt_misc_utils import list_decks_by_at_type
-import pacli.extended_constants as c
-import pacli.extended_utils as eu
-import pacli.extended_interface as ei
-import pacli.extended_config as ce
-import pacli.extended_queries as eq
-import pacli.extended_handling as eh
+import pacli.extended.constants as c
+import pacli.extended.utils as eu
+import pacli.extended.interface as ei
+import pacli.extended.config as ce
+import pacli.extended.queries as eq
+import pacli.extended.handling as eh
+from pacli.provider import provider
+from pacli.config import Settings
 
 
 def get_default_tokens():

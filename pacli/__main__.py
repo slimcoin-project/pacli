@@ -31,15 +31,15 @@ from pacli.config import (write_default_config,
                           default_conf,
                           write_settings)
 
-import pacli.extended_keystore as ke
-import pacli.extended_utils as eu
-import pacli.extended_commands as ec
-from pacli.extended_classes import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtTransaction
-from pacli.at_classes import ATToken, PoBToken
-from pacli.at_utils import create_at_issuance_data, at_deckinfo
-from pacli.dt_classes import PoDToken, Proposal, Donation
-from pacli.dex_classes import Swap
-from pacli.extended_checkpoints import Checkpoint
+import pacli.extended.keystore as ke
+import pacli.extended.utils as eu
+import pacli.extended.commands as ec
+from pacli.extended.classes import ExtConfig, ExtAddress, ExtDeck, ExtCard, ExtTransaction
+from pacli.at.classes import ATToken, PoBToken
+from pacli.at.utils import create_at_issuance_data, at_deckinfo
+from pacli.dt.classes import PoDToken, Proposal, Donation
+from pacli.dex.classes import Swap
+from pacli.extended.checkpoints import Checkpoint
 
 # NOTE: pacli-extended overrides some vanilla methods due to its usage of an extended config file.
 # These methods are commented out here and the extended classes are placed in extended_classes.py.
@@ -489,7 +489,7 @@ def main():
 
     init_keystore()
 
-    from pacli.token_class import Token
+    from pacli.extended.token_class import Token
 
     fire.Fire({
         'config': Config(),
