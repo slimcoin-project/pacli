@@ -125,10 +125,10 @@ def read_item(category: str, key: str, configfilename: str=EXT_CONFIGFILE, debug
     return result
 
 
-def delete_item(category: str, label: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, network_name: str=Settings.network, debug: bool=False, quiet: bool=False):
+def delete_item(category: str, label: str, now: bool=False, configfilename: str=EXT_CONFIGFILE, network_name: str=Settings.network, raw: bool=False, debug: bool=False, quiet: bool=False):
     config = get_config(configfilename)
 
-    key = network_name + "_" + label if category == "address" else label
+    key = network_name + "_" + label if (category == "address" and not raw) else label
     try:
         assert (category in config)
         if not quiet:
@@ -260,11 +260,12 @@ def find(category: str, content: str, quiet: bool=False, prettyprint: bool=True,
         else:
             return result
 
-def delete(category: str, label: str, now: bool=False, quiet: bool=False, debug: bool=False) -> None:
+def delete(category: str, label: str, now: bool=False, raw: bool=False, quiet: bool=False, debug: bool=False) -> None:
     """Deletes an item from the extended config file.
        Specify category and label.
-       Use --now to delete really."""
-    return eh.run_command(delete_item, category, str(label), now=now, quiet=quiet, debug=debug)
+       Use --now to delete really.
+       --raw overrides the 'address' special treatment, to allow to change label names directly."""
+    return eh.run_command(delete_item, category, str(label), now=now, raw=raw, quiet=quiet, debug=debug)
 
 def flush(category: str, now: bool=False, quiet: bool=False, configfilename: str=EXT_CONFIGFILE) -> None:
     """Deletes all entries in a category."""

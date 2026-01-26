@@ -1,5 +1,7 @@
-from pacli.__main__ import Card as VanillaCard
-from pacli.__main__ import Deck as VanillaDeck
+# from pacli.__main__ import Card as VanillaCard
+# from pacli.__main__ import Deck as VanillaDeck
+from pacli.classes import Card as VanillaCard
+from pacli.classes import Deck as VanillaDeck
 
 class Token(VanillaDeck, VanillaCard):
     """Token commands manage the creation (spawning), issuance, transfer and information gathering about PeerAssets tokens.

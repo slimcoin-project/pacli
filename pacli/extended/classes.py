@@ -26,6 +26,7 @@ import pacli.extended.wallet_utils as dbu
 from pacli.provider import provider
 from pacli.config import Settings, default_conf, write_settings, conf_dir, conf_file, write_default_config
 from pacli.tui import print_deck_list, print_card_list
+from pacli.classes import Config, Address, Deck, Card, Transaction
 
 # extended_classes contains extensions of the main pacli classes only
 # It seems not possible without import conflicts to do it "cleaner"
@@ -33,27 +34,31 @@ from pacli.tui import print_deck_list, print_card_list
 # of the __main__ classes. So it seems to be necessary to comment
 # out the methods in __main__ if there's a conflict.
 
-class ExtConfig:
+class ExtConfig(Config):
 
     def set(self,
             label: str,
             value: Union[str, bool]=None,
-            delete: bool=False,
+            erase: bool=False,
             modify: bool=False,
             replace: bool=False,
             now: bool=False,
-            quiet: bool=False,
             flush_category: bool=False,
-            extended: str=None,
+            xtended: str=None,
             set_change_policy: bool=False,
-            compatibility_mode: bool=False) -> None:
+            compatibility_mode: bool=False,
+            quiet: bool=False,
+            debug: bool=False) -> None:
         """Changes configuration settings of the basic or extended configuration file.
 
-           WARNING: The basic configuration file contains many settings which may lead immediately to problems if changed.
+           WARNINGS:
+           - This is a command for advanced users. Only use it if you know what you're doing.
+           - The basic configuration file contains many settings which may lead immediately to problems if changed.
+           - For the 'address' category, the label must start with the network name and an underscore (e.g. 'slm_').
 
            Usage modes:
 
-           pacli config set LABEL VALUE -r [-e CATEGORY]
+           pacli config set LABEL VALUE -r [-x CATEGORY]
 
                Replaces the VALUE associated with LABEL in the basic configuration file or in a
                category CATEGORY of the extended configuration file.
@@ -62,17 +67,17 @@ class ExtConfig:
                the file manually.
                (NOTE: In compatibility mode using the basic configuration file, the -r flag can be omitted.)
 
-           pacli config set LABEL VALUE -e CATEGORY
+           pacli config set LABEL VALUE -x CATEGORY
 
                Adds a new setting (LABEL/VALUE pair) to the extended configuration file.
                The CATEGORY is mandatory.
 
-           pacli config set LABEL -d -e CATEGORY [--now]
+           pacli config set LABEL -e -x CATEGORY [--now]
 
                Deletes a setting (LABEL and its associated value) in the extended configuration file.
                Use --now to really delete it, otherwise a dry run will be performed.
 
-           pacli config set NEW_LABEL OLD_LABEL -m -e CATEGORY
+           pacli config set NEW_LABEL OLD_LABEL -m -x CATEGORY
 
                Modifies a label in the extended configuration file (OLD_LABEL gets replaced by NEW_LABEL).
 
@@ -111,19 +116,20 @@ class ExtConfig:
 
            Args:
 
-             extended: Use the extended configuration file.
+             xtended: Use the extended configuration file.
              replace: Replaces the value of a setting (mandatory to change settings in basic configuration file).
              modify: Modify the label of a setting (only extended configuration file).
-             delete: Delete a setting (only extended configuration file).
+             erase: Erase (delete) a setting (only extended configuration file).
              now: Really delete (in combination with -d, -f) a setting or change a basic setting if compatibility mode is off.
              quiet: Suppress output, printout in script-friendly way.
              value: To be used as a positional argument (flag keyword is not mandatory), see 'Usage modes' above.
              compatibility_mode: Enable or disable compatibility mode. See Usage modes.
              set_change_policy: Enable and set advanced change policy. Options: "newaddress" and "legacy".
+             debug: Show additional debug information.
 
 """
 
-        return eh.run_command(self.__set, label, value=value, category=extended, delete=delete, modify=modify, replace=replace, now=now, quiet=quiet, flush_category=flush_category, compatibility_mode=compatibility_mode, change_policy=set_change_policy)
+        return eh.run_command(self.__set, label, value=value, category=xtended, delete=erase, modify=modify, replace=replace, now=now, quiet=quiet, flush_category=flush_category, compatibility_mode=compatibility_mode, change_policy=set_change_policy, debug=debug)
 
     def __set(self,
               label: str,
@@ -136,7 +142,8 @@ class ExtConfig:
               quiet: bool=False,
               flush_category: bool=False,
               compatibility_mode: bool=False,
-              change_policy: str=None) -> None:
+              change_policy: str=None,
+              debug: bool=False) -> None:
 
         if flush_category is True:
             category = label
@@ -159,11 +166,11 @@ class ExtConfig:
                 else:
                     raise eh.PacliInputDataError("Change policy can only be set to the following values: {}".format(change_policy_options))
             if type(category) != str:
-                # if -e is given without cat, it gets replaced by a bool value (True).
+                # if -x is given without cat, it gets replaced by a bool value (True).
                 raise eh.PacliInputDataError("You have to provide a category if modifying the extended config file.")
             else:
                 if delete is True:
-                    return ce.delete(category, label=str(label), now=now)
+                    return ce.delete(category, label=str(label), raw=True, now=now)
                 else:
                     return ce.setcfg(category, label=label, value=value, modify=modify, replace=replace, quiet=quiet)
 
@@ -281,7 +288,6 @@ class ExtConfig:
             if find:
                 result = eh.run_command(ce.search_value_content, category, str(value_or_label))
             elif label:
-                """Shows a label for a value."""
                 result = eh.run_command(ce.search_value, category, str(value_or_label))
             else:
                 result = eh.run_command(ce.show, category, value_or_label, quiet=quiet)
@@ -361,14 +367,14 @@ class ExtConfig:
         write_default_config(conf_file)
 
 
-class ExtAddress:
+class ExtAddress(Address):
 
     def set(self,
             label: str=None,
             address: str=None,
             to_account: str=None,
             fresh: bool=False,
-            delete: bool=False,
+            erase: bool=False,
             modify: bool=False,
             quiet: bool=False,
             keyring: bool=False,
@@ -376,7 +382,7 @@ class ExtAddress:
             import_all_keyring_addresses: bool=False,
             check_usage: bool=False,
             unusable: bool=False,
-            show_debug_info: bool=False):
+            debug: bool=False):
 
         """Sets the current main address or stores / deletes a label for an address.
 
@@ -397,9 +403,9 @@ class ExtAddress:
 
             Set an address as the current main address.
 
-        pacli address set LABEL -d [--now]
+        pacli address set LABEL -e [--now]
 
-            Deletes a label LABEL for an address.
+            Erases (deletes) a label LABEL for an address.
 
         pacli address set NEW_LABEL OLD_LABEL -m
 
@@ -415,7 +421,7 @@ class ExtAddress:
 
           fresh: Creates an address/key with the wallet software, assigns it a label and sets it as the main address.
           check_usage: In combination with -f/--fresh, will check if a new address was already used (can happen in some cases if the node was mining).
-          delete: Deletes the specified address label. Use --now to delete really.
+          erase: Deletes the specified address label. Use --now to delete really.
           modify: Replaces the label for an address by another one.
           now: Really delete an entry.
           keyring: Use the keyring of the operating system (Linux/Unix only) for the labels. Otherwise the extended configuration file is used.
@@ -425,7 +431,7 @@ class ExtAddress:
           address: Address. To be used as positional argument (flag keyword not mandatory). See Usage modes.
           label: Label. To be used as positional argument (flag keyword not mandatory). See Usage modes.
           unusable: Create an unusable entry in the keyring to lock the main address. See Usage modes.
-          show_debug_info: Show debug information.
+          debug: Show debug information.
         """
 
         kwargs = locals()
@@ -439,7 +445,7 @@ class ExtAddress:
             address: str=None,
             to_account: str=None,
             fresh: bool=False,
-            delete: bool=False,
+            erase: bool=False,
             modify: bool=False,
             quiet: bool=False,
             keyring: bool=False,
@@ -448,7 +454,7 @@ class ExtAddress:
             import_all_keyring_addresses: bool=False,
             unusable: bool=False,
             SETTING_NEW_KEY: bool=False,
-            show_debug_info: bool=False):
+            debug: bool=False):
 
 
         if unusable is True:
@@ -457,31 +463,25 @@ class ExtAddress:
                 print("Main address locked: unusable key stored in the keyring.")
                 print("To unlock, use 'address set' command with any address you like to use.")
             return
-
         elif label is None and address is None:
             if import_all_keyring_addresses:
                 return ec.store_addresses_from_keyring(quiet=quiet, replace=modify)
             else:
                 raise eh.PacliInputDataError("No label provided. See -h for options.")
-
         elif fresh is True:
             return ec.fresh_address(label, set_main=True, backup=None, keyring=keyring, check_usage=check_usage, quiet=quiet)
-
-        elif delete is True:
-            """deletes a key with an user-defined label. Cannot be used to delete main key."""
+        elif erase is True:
+            # deletes a key with an user-defined label. Cannot be used to delete main key.
             return ec.delete_label(label, keyring=keyring, now=now)
-
         elif to_account is not None:
-            """creates an account and imports key to it."""
+            # creates an account and imports key to it
             return ke.import_key_to_wallet(to_account, label)
-
         elif label is not None and address is not None: # ex: tools store_address
-            """Stores a label for an address in the extended config file."""
+            # Stores a label for an address in the extended config file
             ec.set_label(label, address, keyring=keyring, modify=modify, network_name=Settings.network, quiet=quiet)
             return
-
-        else: # set_main
-            """Declares a key identified by a label or address as the main one."""
+        else:
+            # Declares a key identified by a label or address as the main one.
             return ec.set_main_key(label=label, address=address, backup=None, keyring=keyring, quiet=quiet)
 
 
@@ -531,15 +531,15 @@ class ExtAddress:
         if burn_address is True:
             return au.burn_address()
         elif label is True:
-            """Shows the label of the current main address, or of another address."""
+            # Shows the label of the current main address, or of another address.
             # TODO: evaluate if the output should really include label AND address, like in the old command.
             if addr_id is None:
                 addr_id = ke.get_main_address()
             return eh.run_command(ec.show_label, addr_id, keyring=keyring)
 
         elif addr_id is not None:
-            """Shows a stored alternative address or key.
-            --privkey, --pubkey and --wif options only work with --keyring."""
+            # Shows a stored alternative address or key.
+            # privkey,pubkey and wif parameters only work with keyring.
 
             return eh.run_command(ec.show_stored_address, addr_id, Settings.network, pubkey=pubkey, privkey=privkey, wif=wif, keyring=keyring)
 
@@ -549,15 +549,15 @@ class ExtAddress:
 
     def __show(self, pubkey: bool=False, privkey: bool=False, wif: bool=False, debug: bool=False):
 
-            ke.check_main_address_lock()
-            if pubkey is True:
-                return Settings.key.pubkey
-            if privkey is True:
-                return Settings.key.privkey
-            if wif is True:
-                return Settings.key.wif
+        ke.check_main_address_lock()
+        if pubkey is True:
+            return Settings.key.pubkey
+        if privkey is True:
+            return Settings.key.privkey
+        if wif is True:
+            return Settings.key.wif
 
-            return Settings.key.address
+        return Settings.key.address
 
 
     def list(self,
@@ -896,7 +896,7 @@ class ExtAddress:
 
                pacli address cache ADDRESS -e [--force]
 
-           Delete the state of the address ADDRESS.
+           Erase (delete) the state of the address ADDRESS.
            Add --force to really delete it, otherwise a dry run is performed.
 
                pacli address cache -p [--force]
@@ -960,7 +960,7 @@ class ExtAddress:
             return bx.store_address_blockheights(addresses, start_block=startblock, blocks=blocks, force=force, quiet=quiet, debug=debug)
 
 
-class ExtDeck:
+class ExtDeck(Deck):
 
     def set(self,
             label: str,
@@ -1396,10 +1396,10 @@ class ExtDeck:
             decks = etq.get_initialized_decks(decks)
 
         elif deckid is not None:
-             decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]
+            decks = [pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)]
         else:
-             netw = Settings.network
-             decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
+            netw = Settings.network
+            decks = [pa.find_deck(provider, pc.DEFAULT_POB_DECK[netw], Settings.deck_version, Settings.production),
                       pa.find_deck(provider, pc.DEFAULT_POD_DECK[netw], Settings.deck_version, Settings.production)]
 
         if blocks is None and not chain:
@@ -1409,7 +1409,7 @@ class ExtDeck:
 
 
 
-class ExtCard:
+class ExtCard(Card):
 
     def list(self, idstr: str, address: str=None, quiet: bool=False, blockheights: bool=False, show_invalid: bool=False, only_invalid: bool=False, valid: bool=False, debug: bool=False):
         """List all transactions (cards or CardTransfers, i.e. issues, transfers, burns) of a token.
@@ -1555,7 +1555,7 @@ class ExtCard:
                 debug: bool=False):
 
         if json and not quiet:
-                print("Retrieving token states to show balances ...")
+            print("Retrieving token states to show balances ...")
 
         if owners is True or (Settings.compatibility_mode == "True" and not (json or tokendeck)):
 
@@ -1688,19 +1688,19 @@ class ExtCard:
                                  debug=debug
                                  )
 
-class ExtTransaction:
+class ExtTransaction(Transaction):
 
     def set(self,
             label_or_tx: str=None,
             txdata: str=None,
             modify: bool=False,
-            delete: bool=False,
+            erase: bool=False,
             now: bool=False,
             quiet: bool=False,
             prune_confirmed: bool=False,
             remove_old_swaps: bool=False,
-            old: bool=False,
-            show_debug_info: bool=False) -> None:
+            age: int=None,
+            debug: bool=False) -> None:
         """Stores a transaction with a local label and hex string.
            It will be stored in the extended configuration file.
 
@@ -1718,28 +1718,28 @@ class ExtTransaction:
 
                Stores hex string of transaction TX with the transaction ID (TXID) as label. Do not use for partially signed transactions!
 
-           pacli transaction set LABEL -d [--now]
+           pacli transaction set LABEL -e [--now]
 
-               Deletes label (use --now to delete really).
+               Erases (deletes) label (use --now to delete really, otherwise perform dry run).
 
            pacli transaction set NEWLABEL OLDLABEL -m
 
                Modifies a label, replacing OLDLABEL with NEWLABEL.
 
-           pacli transaction set -p [-o] [--now]
+           pacli transaction set -p [-a [MINAGE]] [--now]
 
                Deletes all stored transactions which were already confirmed (-p).
-               -o also deletes unconfirmed transactions older than 72 hours.
-               Note: The -r mode without -o only works for transactions which were fully signed and then stored.
+               -a also deletes unconfirmed transactions older than the specified MINAGE in hours (default: 168 hours, i.e. 1 week).
+               Note: The -r mode without -a only works for transactions which were fully signed and then stored.
                It will NOT remove partially signed transactions like the swaps stored by 'swap create'.
-               Use -o and/or -r to prune partially signed transactions.
+               Use -m to prune partially signed transactions.
 
-           pacli transaction set -r [-o] [--now]
+           pacli transaction set -r [-a [MINAGE]] [--now]
 
-               Delete stored swap transactions older than a week (-r),
-               -o also deletes slightly younger transactions older than 72 hours.
-               This mode does only remove transactions saved with the scheme swap_YYYYMMDD_HHMMSSutc.
-               Swaps stored with a custom label won't be pruned with -r, only with -p.
+               Delete stored swap transactions older than a week,
+               or specify a minimum age (MINAGE) in hours behind -a.
+               This mode only removes transactions saved with the scheme swap_YYYYMMDD_HHMMSSutc.
+               Swaps stored with a custom label won't be pruned with -r, only with -p -a.
                Note: 'swap create' performs this pruning step automatically.
 
            Args:
@@ -1747,40 +1747,38 @@ class ExtTransaction:
              label_or_tx: Label or transaction. To be used as positional argument.
              modify: Changes the label.
              quiet: Suppress output, printout in script-friendly way.
-             delete: Delete a transaction label/value pair.
+             erase: Delete a transaction label/value pair.
              now: Really delete a transaction label/value pair.
              txdata: Transaction data. To be used as a positional argument (flag keyword not mandatory). See Usage modes.
              prune_confirmed: Prune confirmed transactions. See Usage modes.
              remove_old_swaps: Prune swap transactions with the name scheme swap_YYYYMMDD_HHMMSSutc. See Usage modes.
-             old: Additionally prune unconfirmed transactions with a timestamp older than 72 hours. To be used with -p or -r.
-             show_debug_info: Show debug information.
+             age: Additionally prune unconfirmed transactions with a timestamp older than a certain age in hours (default: 168 hours, i.e. 1 week). To be used with -p or -r.
+             debug: Show debug information.
 
         """
-        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=delete, now=now, quiet=quiet, prune_confirmed=prune_confirmed, remove_old_swaps=remove_old_swaps, old=old, show_debug_info=show_debug_info)
+        return eh.run_command(self.__set, label_or_tx, tx=txdata, modify=modify, delete=erase, now=now, quiet=quiet, prune_confirmed=prune_confirmed, remove_old_swaps=remove_old_swaps, minage=age, debug=debug)
 
     def __set(self, label_or_tx: str=None,
             tx: str=None,
             modify: bool=False,
             delete: bool=False,
             now: bool=False,
-            quiet: bool=False,
             prune_confirmed: bool=False,
             remove_old_swaps: bool=False,
-            old: bool=False,
-            show_debug_info: bool=False) -> None:
+            minage: int=None,
+            quiet: bool=False,
+            debug: bool=False) -> None:
 
         if delete is True:
             return ce.delete("transaction", label=label_or_tx, now=now)
         elif prune_confirmed is True or remove_old_swaps is True:
             minconf = None
-            if old is True:
-                minage = 72
-            elif remove_old_swaps:
+            if (remove_old_swaps and not minage) or (minage is True):
                 minage = 168
             else:
-                minage, minconf = None, 1
+                minconf = 1
 
-            return eu.prune_stored_txes(now=now, minconf=minconf, minage=minage, only_swaps=remove_old_swaps, debug=show_debug_info)
+            return eu.prune_stored_txes(now=now, minconf=minconf, minage=minage, only_swaps=remove_old_swaps, debug=debug)
 
         if tx is None:
             value = label_or_tx
@@ -1792,17 +1790,17 @@ class ExtTransaction:
             if modify or type(value) != str:
                 value = tx
 
-
+        label = label_or_tx
         if not modify:
             # we can't do this check with modify enabled, as the value here isn't a TXHEX
             try:
                 txid = provider.decoderawtransaction(value)["txid"]
             except KeyError:
                 raise eh.PacliInputDataError("Invalid value. This is neither a valid transaction hex string nor a valid TXID.")
+            if tx is None:
+                label = txid # override
 
-        label = txid if (tx is None) and (not modify) else label_or_tx
-
-        return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify, debug=show_debug_info)
+        return ce.setcfg("transaction", label, value=value, quiet=quiet, modify=modify, debug=debug)
 
 
     def show(self,
@@ -1903,13 +1901,13 @@ class ExtTransaction:
 
         elif utxo_check is True:
 
-             if ":" in idstr:
+            if ":" in idstr:
                 txid, vout = idstr.split(":")
                 try:
                     utxodata = [(txid, int(vout))]
                 except ValueError:
                     raise eh.PacliDataError("UTXO format incorrect. Please provide it in the format TXID:OUTPUT, with OUTPUT being an integer number.")
-             else:
+            else:
                 try:
                     if eu.is_possible_txid(idstr):
                         tx = provider.getrawtransaction(idstr, 1)
@@ -1920,7 +1918,7 @@ class ExtTransaction:
                         utxodata.append((inp["txid"], inp["vout"]))
                 except KeyError:
                     raise eh.PacliInputDataError("Transaction is not stored in the wallet or the data is corrupted.")
-             return eq.utxo_check(utxodata, access_wallet=access_wallet, quiet=quiet, debug=debug)
+            return eq.utxo_check(utxodata, access_wallet=access_wallet, quiet=quiet, debug=debug)
 
         elif structure is True or opreturn is True:
 
@@ -1929,7 +1927,7 @@ class ExtTransaction:
 
             if structure is True:
                 result = bu.get_tx_structure(txid=idstr)
-            elif opreturn is True:
+            else:
                 result = eu.read_all_tx_opreturns(idstr)
 
             if quiet is True:
@@ -2267,9 +2265,10 @@ class ExtTransaction:
                  _value1: str=None,
                  _value2: int=None,
                  modify: bool=False,
-                 delete: bool=False,
+                 erase: bool=False,
                  now: bool=False,
-                 quiet: bool=False) -> None:
+                 quiet: bool=False,
+                 debug: bool=False) -> None:
 
         """Stores a label for the transaction ID and output number (vout) of a specific UTXO. Use mostly for DEX purposes.
         It will be stored in the extended configuration file.
@@ -2284,20 +2283,21 @@ class ExtTransaction:
 
             Modifies a label for an UTXO.
 
-        pacli transaction set_utxo LABEL -d [--now]
+        pacli transaction set_utxo LABEL -e [--now]
 
-            Deletes a label for an UTXO (--now to delete really).
+            Erases (deletes) a label for an UTXO (--now to delete really).
 
         Args:
 
           quiet: Supresses output, printout in script-friendly way.
           modify: Modifies a label.
-          delete: Deletes a label/utxo entry (default: dry run, see Usage modes).
+          erase: Deletes a label/utxo entry (default: dry run, see Usage modes).
           now: In combination with -d, deletes a label permanently.
           _value1: TXID or old label. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
-          _value2: Output. To be used as a positional argument (flag keyword not mandatory). See Usage modes above."""
+          _value2: Output. To be used as a positional argument (flag keyword not mandatory). See Usage modes above.
+          debug: Show additional debug information."""
 
-        return eh.run_command(self.__set_utxo, label, _value1, _value2, modify, delete, now, quiet)
+        return eh.run_command(self.__set_utxo, label, _value1, _value2, modify, delete=erase, now=now, quiet=quiet, debug=debug)
 
     def __set_utxo(self,
                  label: str,
@@ -2306,7 +2306,8 @@ class ExtTransaction:
                  modify: bool=False,
                  delete: bool=False,
                  now: bool=False,
-                 quiet: bool=False) -> None:
+                 quiet: bool=False,
+                 debug: bool=False) -> None:
 
         txid_or_oldlabel = _value1
         output = _value2
