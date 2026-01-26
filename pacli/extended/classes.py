@@ -220,7 +220,7 @@ class ExtConfig(Config):
              label: bool=False,
              find: bool=False,
              quiet: bool=False,
-             extended: str=None,
+             xtended: str=None,
              debug: bool=False):
         """Shows a setting in the basic or extended configuration file.
 
@@ -230,29 +230,29 @@ class ExtConfig(Config):
 
             Shows setting (value associated with LABEL) in the basic configuration file.
 
-        pacli config show LABEL -e CATEGORY
+        pacli config show LABEL -x CATEGORY
 
             Shows setting (value associated with LABEL) in a category CATEGORY of the extended configuration file.
 
-        pacli config show VALUE -f [-e CATEGORY]
-        pacli config show VALUE -l [-e CATEGORY]
+        pacli config show VALUE -f [-x CATEGORY]
+        pacli config show VALUE -l [-x CATEGORY]
 
             Searches a VALUE and prints out existing labels for it.
             The -f/--find option allows to search for parts of the value string,
             while the -l/--label option only accepts exact matches (in analogy to 'address show --label').
 
             The CATEGORY value refers to a category in the extended config file.
-            Get all categories with: `pacli config list -e -c`
+            Get all categories with: `pacli config list -x -c`
 
         Args:
 
-          extended: Use the extended configuration file (see above).
+          xtended: Use the extended configuration file (see above).
           quiet: Suppress output, printout the result in script-friendly way.
           label: Find label for an exact value.
           find: Find label for a string which is present in the value.
           debug: Show exception tracebacks and debug info."""
 
-        return eh.run_command(self.__show, value_or_label, category=extended, label=label, find=find, quiet=quiet, debug=debug)
+        return eh.run_command(self.__show, value_or_label, category=xtended, label=label, find=find, quiet=quiet, debug=debug)
 
 
     def __show(self,
@@ -304,26 +304,26 @@ class ExtConfig(Config):
             pprint(result)
 
 
-    def list(self, extended: str=None, categories: bool=False, all_basic_settings: bool=False):
+    def list(self, xtended: str=None, categories: bool=False, all_basic_settings: bool=False):
         """Shows basic configuration settings or entries in the extended configuration file.
 
         Args:
 
-          extended: Shows extended configuration file. If a category is provided, show only the category.
-          categories: Shows list of available categories (only in combination with -e/--extended).
+          xtended: Shows extended configuration file. If a category is provided, show only the category.
+          categories: Shows list of available categories (only in combination with -x/--extended).
           all_basic_settings: Shows complete list of basic settings, not only pacli.conf file contents. These settings can't be changed as they're loaded on each Pacli start.
         """
 
-        if extended is not None:
+        if xtended is not None:
             if categories is True:
                 return [cat for cat in ce.get_config()]
-            elif extended is True:
+            elif xtended is True:
                 return ce.get_config()
-            elif type(extended) == str:
+            elif type(xtended) == str:
                 try:
-                    return ce.get_config()[extended]
+                    return ce.get_config()[xtended]
                 except KeyError:
-                    ei.print_red("Category {} does not exist.")
+                    ei.print_red("Category {} does not exist.".format(xtended))
         elif categories is True:
             print("Currently there are no different categories in the basic configuration file.")
         elif all_basic_settings is True:
