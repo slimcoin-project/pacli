@@ -328,9 +328,9 @@ def build_coin2card_exchange(deckid: str,
     if not tokenseller_input:
         print("It can also happen if you create several swaps in a row with 'swap create' before you finalize the first one. To create several swaps use the -i option.")
 
-def build_input(input_txid: str, input_vout: int):
+def build_input(input_txid: str, input_vout: int, locktime: int=0) -> MutableTxIn:
 
-    return MutableTxIn(txid=input_txid, txout=input_vout, script_sig=ScriptSig.empty(), sequence=Sequence.max())
+    return MutableTxIn(txid=input_txid, txout=input_vout, script_sig=ScriptSig.empty(), sequence=provider.calc_sequence(locktime))
 
 
 def finalize_coin2card_exchange(txstr: str, confirm: bool=False, force: bool=False, send: bool=False, txhex: bool=False, quiet: bool=False, debug: bool=False):
@@ -479,7 +479,7 @@ def select_utxos(minvalue: Decimal,
                  ignore_coinbase: bool=True,
                  fees: bool=False,
                  quiet: bool=False,
-                 debug: bool=False):
+                 debug: bool=False) -> list:
 
     # NOTE: due to btcpy bug, UTXOs coming from coinbase transactions can't be supported currently.
     # Once the problem is solved, the ignore_coinbase flag can be set to False.

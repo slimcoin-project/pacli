@@ -57,7 +57,7 @@ class Coin:
 
             amount_sum = sum([Decimal(str(a)) for a in amount])
             main_address = get_main_address()
-            inputs = provider.select_inputs(main_address, amount_sum + network_params.min_tx_fee)
+            inputs = provider.select_inputs(main_address, amount_sum + network_params.min_tx_fee, locktime=locktime)
 
 
             outs = []
@@ -125,7 +125,7 @@ class Coin:
         total_fees = op_return_fee + network_params.min_tx_fee
 
         main_address = get_main_address()
-        inputs = provider.select_inputs(main_address, total_fees)
+        inputs = provider.select_inputs(main_address, total_fees, locktime=locktime)
 
         try:
             if ascii is True:

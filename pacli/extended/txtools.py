@@ -235,7 +235,12 @@ def finalize_tx(rawtx: dict,
             eu.save_transaction(txid, tx_hex)
 
     if send and not quiet:
-        if not eu.check_tx_acceptance(txid=txid, tx_hex=tx_hex):
+        txjson = rawtx.to_json()
+        if "locktime" in txjson and int(txjson["locktime"]) > provider.getblockcount():
+            ei.print_orange("This transaction has a locktime value of {}.".format(txjson["locktime"]))
+            print("Hex string to resubmit the transaction if the client doesn't broadcast it:")
+            print(tx_hex)
+        elif not eu.check_tx_acceptance(txid=txid, tx_hex=tx_hex):
 
             ei.print_red("Error: Transaction was not accepted by the client.")
             print("The reason may be that you tried to create a transaction where an input was already spent by another transaction.")
@@ -244,10 +249,10 @@ def finalize_tx(rawtx: dict,
             print("\nIt will check if the UTXOs used in this transaction were already spent. It accepts also the -a flag to find transactions carried out from change addresses.")
             print("The UTXO check will only work if the address it received is in your wallet.")
             print("This may also be a false negative and the transaction was actually accepted. This can happen if two transactions are broadcast in very fast sequence. It is recommended to wait at least 5 seconds between transaction-related pacli commands.\n")
+        else:
 
-
-        print("Note: Balances called with 'address balance' and 'address list' commands may not update even after the first confirmation.")
-        print("In this case, restart your {} client.".format(Settings.network.upper()))
+            print("Note: Balances called with 'address balance' and 'address list' commands may not update even after the first confirmation.")
+            print("In this case, restart your {} client.".format(Settings.network.upper()))
 
     return { dict_key : tx_hex }
 
