@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from os import path
 
 classifiers = [
@@ -25,7 +25,7 @@ setup(name='pacli',
       author='Peerchemist / Slimcoin Team',
       author_email='peerchemist@protonmail.ch',
       license='GPL',
-      packages=['pacli'],
+      packages=find_packages(),
       install_requires=['pypeerassets', 'terminaltables',
                         'appdirs', 'fire', 'keyring', 'prettyprinter'
                         ],
