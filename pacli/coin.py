@@ -34,7 +34,7 @@ class Coin:
 
         Args:
 
-            locktime: Specify a lock time.
+            locktime: Specify a Locktime value for the transaction.
             debug: Show additional debug information.'''
 
         return run_command(self.__sendto, address, amount, locktime=locktime, debug=debug)
@@ -109,7 +109,7 @@ class Coin:
         Args:
 
             ascii: Enter the string as an ASCII string instead of a hex representation.
-            locktime: Specify a lock time.
+            locktime: Specify a Locktime value for the transaction.
             debug: Show additional debug information'''
 
         return run_command(self.__opreturn, string, locktime, ascii=ascii, debug=debug)

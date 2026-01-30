@@ -1633,6 +1633,7 @@ class ExtCard(Card):
           debug: Show additional debug information.
           nocheck: Do not perform a balance check (faster).
           force: Ignore warnings (reorg check etc.) and create the transaction if possible (be careful!).
+          locktime: Set a Locktime value.
           sign: Signs the transaction (True by default, use --send=False for a dry run)
           send: Sends the transaction (True by default, use --send=False for a dry run)
         """
@@ -1730,9 +1731,9 @@ class ExtTransaction(Transaction):
 
                Deletes all stored transactions which were already confirmed (-p).
                -a also deletes unconfirmed transactions older than the specified MINAGE in hours (default: 168 hours, i.e. 1 week).
-               Note: The -r mode without -a only works for transactions which were fully signed and then stored.
-               It will NOT remove partially signed transactions like the swaps stored by 'swap create'.
-               Use -m to prune partially signed transactions.
+               Note: The -p mode without -a only works for transactions which were fully signed and then stored.
+               It will NOT remove unsigned or partially signed transactions like the swaps stored by 'swap create'.
+               Use -a to prune old unsigned or partially signed transactions or delete them manually with -e mode.
 
            pacli transaction set -r [-a [MINAGE]] [--now]
 
