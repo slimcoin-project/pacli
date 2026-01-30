@@ -595,7 +595,8 @@ def filter_txes(txdict: dict, minconf: int=None, minage: int=None, debug: bool=F
                 if int(tx_json["confirmations"]) >= minconf:
                     yield {"label" : label, "txhex" : txhex}
             elif minage is not None: # we use tx_json_raw here to get also txes not registered in the wallet
-                if tx_age(tx_json_raw, fmt="h", debug=debug) > minage:
+                txage = tx_age(tx_json_raw, fmt="h", debug=debug)
+                if txage >= minage:
                     yield {"label" : label, "txhex" : txhex}
         except Exception as e:
             if debug:

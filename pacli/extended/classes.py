@@ -1774,7 +1774,7 @@ class ExtTransaction(Transaction):
             return ce.delete("transaction", label=label_or_tx, now=now)
         elif prune_confirmed is True or remove_old_swaps is True:
             minconf = None
-            if (remove_old_swaps and not minage) or (minage is True):
+            if (remove_old_swaps and minage is None) or (minage is True):
                 minage = 168
             else:
                 minconf = 1
