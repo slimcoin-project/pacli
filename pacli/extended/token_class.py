@@ -1,12 +1,12 @@
 # from pacli.__main__ import Card as VanillaCard
 # from pacli.__main__ import Deck as VanillaDeck
-from pacli.classes import Card as VanillaCard
-from pacli.classes import Deck as VanillaDeck
+from pacli.extended.classes import ExtCard as VanillaCard
+from pacli.extended.classes import ExtDeck as VanillaDeck
 
 class Token(VanillaDeck, VanillaCard):
     """Token commands manage the creation (spawning), issuance, transfer and information gathering about PeerAssets tokens.
 
-    The token group can be used to replace both deck and card keywords, aimed to users not wanting to be exposed to the card-deck terminology.
+    The token group can be used to replace both 'deck' and 'card' keywords, aimed to users not wanting to be exposed to the card-deck terminology.
 
     The deck command group can be used without any change, while the card group has the following differences:
 
@@ -38,7 +38,7 @@ class Token(VanillaDeck, VanillaCard):
           valid: If compatibility mode is turned on, this shows valid transactions according to Proof-of-Timeline rules, where no double spend has been recorded.
           debug: Show debug information."""
 
-        return VanillaCard().list(idstr=idstr, address=address, quiet=quiet, valid=valid, blockheights=blockheights, show_invalid=show_invalid, only_invalid=only_invalid, debug=debug)
+        return VanillaCard().list(idstr, address=address, quiet=quiet, valid=valid, blockheights=blockheights, show_invalid=show_invalid, only_invalid=only_invalid, debug=debug)
 
     def encode_transfer(self, deckid: str, receiver: list=None, amount: list=None,
                asset_specific_data: str=None, json: bool=False):
