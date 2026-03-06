@@ -15,7 +15,7 @@ import hashlib
 
 BERKELEYDB_MISSING = "Berkeley databases not supported. Install berkeleydb Python package for this command to run."
 
-def determine_db_dir(): # from pywallet
+def determine_datadir(): # from pywallet
 
     import platform
     if platform.system() == "Darwin":
@@ -162,7 +162,7 @@ def get_database(datadir: str=None, debug: bool=False):
         raise eh.PacliDataError(BERKELEYDB_MISSING)
 
     if datadir is None:
-        datadir = determine_db_dir()
+        datadir = determine_datadir()
         locmsg = "standard"
     else:
         datadir = os.path.expanduser(datadir)

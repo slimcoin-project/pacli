@@ -209,7 +209,7 @@ def extract_address_label(full_label: str):
 
 ### Extended helper tools (api)
 
-def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, prefix: str=None, address_list: bool=False, debug: bool=False):
+def list(category: str, prefix: str=None, full_labels: bool=False, quiet: bool=False, prettyprint: bool=True, return_list: bool=False, address_list: bool=False, debug: bool=False):
     # NOTE: format_labels only supported for prefix mode.
     cfg = get_config(quiet=quiet, debug=debug)
     rawdict = cfg[category]
@@ -225,7 +225,10 @@ def list(category: str, quiet: bool=False, prettyprint: bool=True, return_list: 
         result_list = [{k : rawdict[k]} for k in result_keys]
         return result_list
     elif address_list:
-        result_list = [{"label" : extract_address_label(k), "address" : rawdict[k], "network" : k.split("_")[0]} for k in result_keys]
+        if full_labels:
+            result_list = [{"label" : k, "address" : rawdict[k], "network" : k.split("_")[0]} for k in result_keys]
+        else:
+            result_list = [{"label" : extract_address_label(k), "address" : rawdict[k], "network" : k.split("_")[0]} for k in result_keys]
         return result_list
     else:
         result = {k : rawdict[k] for k in result_keys}

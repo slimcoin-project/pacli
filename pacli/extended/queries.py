@@ -20,6 +20,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              access_wallet: str=None,
                              keyring: bool=False,
                              named: bool=False,
+                             prioritize_named: bool=True,
                              wallet_only: bool=True,
                              empty: bool=False,
                              mark_duplicates: bool=False,
@@ -27,26 +28,24 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              full_labels: bool=False,
                              no_labels: bool=False,
                              balances: bool=False,
-                             network: bool=False,
                              debug: bool=False) -> list:
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
        # This version is better ordered and already prepares the dict for the address table.
        # NOTE: wallet_only excludes the named addresses which are not in the wallet.
        # note 2: empty parameter here only refers to coin balances, not token balances.
+       # note 3: exclude does not apply to named addresses if prioritize_named is True.
+       # standard mode thus includes "named" P2TH addresses.
 
     result = []
     addresses = []
 
+    # Create base result list: all named addresses of the current network.
     if no_labels is True:
         pass
     elif keyring is False:
-        if full_labels or labels:
-            # this returns a list of simple full_label:address dicts
-            result = ce.list("address", prefix=prefix, quiet=True, return_list=True)
-        else:
-            result = ce.list("address", prefix=prefix, quiet=True, address_list=True)
-    else:
+        result = ce.list("address", prefix=prefix, quiet=True, address_list=True, full_labels=full_labels)
+    else: # KEYRING path, unsupported!
         try:
             keyring_labels = ke.get_labels_from_keyring(prefix)
         except ImportError:
@@ -67,64 +66,71 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         print(len(result), "named addresses found.")
 
     if labels or full_labels:
-        if labels:
-            items = [(i.replace(prefix + "_", ""), entry[i]) for entry in result for i in entry]
-        elif full_labels:
-            items = [(i, entry[i]) for entry in result for i in entry]
+        items = [(i["label"], i["address"]) for i in result]
         items.sort()
         return items
 
-    if include_only:
-        result = [item for item in result if item["address"] in include_only]
-
-    if wallet_only:
-        result = [i for i in result if eu.is_mine(i["address"])]
-
     if mark_duplicates:
-       addresses = []
-       result2 = []
+       processed_addr = []
+       # result2 = []
        for item in result:
-           if item["address"] in addresses:
+           if item["address"] in processed_addr:
                label = item["label"]
                item.update({"label" : label + "[D]"})
-           result2.append(item)
-           addresses.append(item["address"])
-       result = result2
+           # result2.append(item)
+           processed_addr.append(item["address"])
+       # result = result2
 
     if not named:
-        # labeled_addresses = [i["address"] for i in result]
-        labeled_addresses = {i["address"] : i for i in result}
-        #if wallet_only:
-        #    # result = [] # resets the result list, so it will only be filled with named addresses which are part of the wallet
-        #    result = [i for i in result if eu.is_mine(i["address"])]
+        labeled_addresses = {item["address"] for item in result} # set
         if include_only:
-            wallet_addresses = set(include_only)
+            addresses = set(include_only)
         elif access_wallet is not None:
             import pacli.extended.wallet_utils as dbu
             datadir = access_wallet if type(access_wallet) == str else None
-            wallet_addresses = dbu.get_addresses(datadir=datadir, debug=debug)
+            addresses = dbu.get_addresses(datadir=datadir, debug=debug)
         else:
-            wallet_addresses = get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
+            addresses = get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
 
         if include:
-            wallet_addresses = wallet_addresses | set(include)
+            addresses = addresses | set(include)
         if exclude:
-            wallet_addresses -= set(exclude)
+            addresses -= set(exclude)
 
         if debug:
-            print("{} wallet addresses processed: {}".format(len(wallet_addresses), wallet_addresses))
+            print("{} addresses processed: {}".format(len(wallet_addresses), wallet_addresses))
 
-        for address in wallet_addresses:
+        for address in addresses:
             if address not in labeled_addresses:
-                if empty is False and provider.getbalance(address) == 0:
-                    continue
-
+                #if empty is False and provider.getbalance(address) == 0:
+                #    continue
                 result.append({"label" : "", "address" : address, "network" : prefix})
                 if debug:
                     print("Unnamed address added:", address)
 
+    # Note: empty and excluded flags do not remove named addresses.
+    result2 = []
+    for item in result:
+        not_include_flag = include_only and item["address"] not in include_only
+        empty_flag = ((not prioritize_named) or (prioritize_named and not item["label"])) and (not empty) and (provider.getbalance(item["address"]) == 0)
+        excluded_flag = (not prioritize_named) and item["address"] in exclude
+        not_wallet_flag = wallet_only and not eu.is_mine(item["address"])
+        if not_include_flag or empty_flag or excluded_flag or not_wallet_flag:
+            continue
+        else:
+            result2.append(item)
+    result = result2
+
+    #if include_only: # this is necessary because the named addresses are added by default
+    #    result = [item for item in result if item["address"] in include_only]
+    #if not empty:
+    #    result = [item for item in result if provider.getbalance(item["address"]) > 0]
+    #if not prioritize_named:
+    #    result = [item for item in result if item["address"] not in exclude]
+    #if wallet_only:
+    #    result = [item for item in result if eu.is_mine(item["address"])]
+
     if balances:
-        result2 = []
         for item in result:
             try:
                 balance = str(provider.getbalance(item["address"]))
@@ -137,8 +143,6 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                 balance = balance.rstrip("0")
                 balance = balance.rstrip(".")
             item.update({"balance" : balance})
-            result2.append(item)
-        result = result2
 
     return result
 

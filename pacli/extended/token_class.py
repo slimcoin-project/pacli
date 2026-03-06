@@ -1,5 +1,3 @@
-# from pacli.__main__ import Card as VanillaCard
-# from pacli.__main__ import Deck as VanillaDeck
 from pacli.extended.classes import ExtCard as VanillaCard
 from pacli.extended.classes import ExtDeck as VanillaDeck
 
