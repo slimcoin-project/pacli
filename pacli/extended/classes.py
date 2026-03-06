@@ -602,7 +602,7 @@ class ExtAddress(Address):
           labels: Show only stored labels.
           full_labels: Show only stored labels with network prefix (debugging option).
           named: Shows only addresses which were named with a label. Addresses which aren't part of the wallet are shown, but balances then cannot be retrieved.
-          keyring: Uses the keyring of your operating system.
+          keyring: Uses the keyring of your operating system to show named (labeled) addresses. Doesn't affect addresses without label.
           coinbalances: Only shows coin balances, not tokens (faster). Cannot be combined with -j, -f and -l.
           blockchain: Only with -l or -f options: Show labels for a specific blockchain network, even if it's not the current one.
           json: JSON mode showing a JSON string, see Usage modes above.

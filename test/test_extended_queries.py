@@ -10,14 +10,6 @@ from pypeerassets.networks import net_query
 # NOTE: we could test this with mockups if using include_only.
 # keyring is unsupported, won't be tested.
 
-# what should be tested? Only the functions of the function proper, not of the address list.
-# - correct formatting of the result (done)
-# - wallet_only feature with is_mine test (done)
-# - sorting (done)
-# - empty (done)
-# - correct balance (compare getbalance with the result) (done)
-# - named / mark duplicates function
-
 ADDR1 = ["mwuSYLvG9cVPiFR5W1mquxxYLfN1HK9B52", "mn9AffRiy8EFxkz3f8pdVFdUncnfu3A6fJ", "mqThr4L1aYnBXoz2xVKtYyQDP2RMtse7Zb", "mo3GueEE7Cymiaumn716z5JeG8QJkbpJPu"] # all valid, no duplicates
 ADDR2 = ["mihDqYWMLpNS8kwXk88ZVcF61SzmJZD473", "mkfuTykT6anzsRjYH7Lktc2hFuTqcGpha7", "mu5kdgPoJJcYc2SL7tqy6QNNHSD7tyuE6b", "mihDqYWMLpNS8kwXk88ZVcF61SzmJZD473"] # 1 duplicate
 ADDRINV = ["mmBwLVyqZWuUDuTpmmpzBvT41azKBevZhh", "mqGtiV8aTVXheBTX4W6pbbQbTFhBA5R5BN", "mfiuCJwyTWGNSthNWzRkPtHjMfSR64i6AQ", "mvxzWVnSZuoVBxgNqLw1VzdjgE1UBNU2ba"] # one invalid address, correct one is mvxzWVnSZuoVBxgNqLw1VzdjgE1UBNU2bv

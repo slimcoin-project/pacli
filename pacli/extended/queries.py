@@ -72,14 +72,11 @@ def get_labels_and_addresses(prefix: str=Settings.network,
 
     if mark_duplicates:
        processed_addr = []
-       # result2 = []
-       for item in result:
+       for i, item in enumerate(result):
            if item["address"] in processed_addr:
                label = item["label"]
-               item.update({"label" : label + "[D]"})
-           # result2.append(item)
+               result[i].update({"label" : label + "[D]"})
            processed_addr.append(item["address"])
-       # result = result2
 
     if not named:
         labeled_addresses = {item["address"] for item in result} # set
@@ -91,6 +88,8 @@ def get_labels_and_addresses(prefix: str=Settings.network,
             addresses = dbu.get_addresses(datadir=datadir, debug=debug)
         else:
             addresses = get_wallet_address_set(empty=empty, excluded_accounts=excluded_accounts)
+        if debug:
+            print("{} addresses retrieved, by method: {}".format(len(addresses), "direct wallet access" if access_wallet else "RPC commands"))
 
         if include:
             addresses = addresses | set(include)
@@ -98,7 +97,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
             addresses -= set(exclude)
 
         if debug:
-            print("{} addresses processed: {}".format(len(wallet_addresses), wallet_addresses))
+            print("{} addresses processed: {}".format(len(addresses), addresses))
 
         for address in addresses:
             if address not in labeled_addresses:
@@ -119,6 +118,9 @@ def get_labels_and_addresses(prefix: str=Settings.network,
             continue
         else:
             result2.append(item)
+    if debug:
+        deleted_entries = len(result) - len(result2)
+        print("{} entries of {} deleted due to restrictions by command line arguments.".format(deleted_entries, len(result)))
     result = result2
 
     #if include_only: # this is necessary because the named addresses are added by default
