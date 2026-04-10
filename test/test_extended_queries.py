@@ -7,8 +7,7 @@ from pacli.provider import provider
 from pacli.config import Settings
 from pypeerassets.networks import net_query
 
-# NOTE: we could test this with mockups if using include_only.
-# keyring is unsupported, won't be tested.
+# Note: keyring is unsupported, won't be tested.
 
 ADDR1 = ["mwuSYLvG9cVPiFR5W1mquxxYLfN1HK9B52", "mn9AffRiy8EFxkz3f8pdVFdUncnfu3A6fJ", "mqThr4L1aYnBXoz2xVKtYyQDP2RMtse7Zb", "mo3GueEE7Cymiaumn716z5JeG8QJkbpJPu"] # all valid, no duplicates
 ADDR2 = ["mihDqYWMLpNS8kwXk88ZVcF61SzmJZD473", "mkfuTykT6anzsRjYH7Lktc2hFuTqcGpha7", "mu5kdgPoJJcYc2SL7tqy6QNNHSD7tyuE6b", "mihDqYWMLpNS8kwXk88ZVcF61SzmJZD473"] # 1 duplicate

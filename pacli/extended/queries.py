@@ -101,11 +101,9 @@ def get_labels_and_addresses(prefix: str=Settings.network,
 
         for address in addresses:
             if address not in labeled_addresses:
-                #if empty is False and provider.getbalance(address) == 0:
-                #    continue
                 result.append({"label" : "", "address" : address, "network" : prefix})
-                if debug:
-                    print("Unnamed address added:", address)
+                #if debug:
+                #    print("Unnamed address added:", address)
 
     # Note: empty and excluded flags do not remove named addresses.
     result2 = []
@@ -122,15 +120,6 @@ def get_labels_and_addresses(prefix: str=Settings.network,
         deleted_entries = len(result) - len(result2)
         print("{} entries of {} deleted due to restrictions by command line arguments.".format(deleted_entries, len(result)))
     result = result2
-
-    #if include_only: # this is necessary because the named addresses are added by default
-    #    result = [item for item in result if item["address"] in include_only]
-    #if not empty:
-    #    result = [item for item in result if provider.getbalance(item["address"]) > 0]
-    #if not prioritize_named:
-    #    result = [item for item in result if item["address"] not in exclude]
-    #if wallet_only:
-    #    result = [item for item in result if eu.is_mine(item["address"])]
 
     if balances:
         for item in result:
@@ -271,6 +260,8 @@ def get_address_transactions(addr_string: str=None,
         if debug:
             print("Categories of tx {}: {}".format(tx["txid"], categories))
 
+        # Note: category "send" in address mode doesn't mean the address has sent it,
+        # it means from the perspective of the wallet as a whole.
         # checking sender(s) and sent value(s) (also for transactions in the "receive" category).
         if ("send" in categories) and ((all_txes or sent) or (received and ("receive" in categories))):
 
@@ -304,10 +295,10 @@ def get_address_transactions(addr_string: str=None,
                         txdict.update({"value_sent" : value_sent})
 
             if debug:
-                if value_sent > 0:
-                    print("True.")
-                else:
-                    print("False.")
+                print("{}.".format(value_sent > 0)) # true or false
+
+            if (sent and not received) and (value_sent == 0):
+                continue # prevents sent/receive txes being considered for sent category only.
 
         if ("receive" in categories or "generate" in categories or "immature" in categories) and ((all_txes or received) or (sent and ("send" in categories))):
 
@@ -359,13 +350,15 @@ def get_address_transactions(addr_string: str=None,
 
 
             else:
+                if received and not sent:
+                    continue
                 if debug:
                     print("False.")
 
         if txdict is not None:
             result.append(txdict)
 
-    if sort:
+    if sort or reverse_sort:
         confpar = "blockheight" if txstruct else "confirmations"
         rev = not reverse_sort if txstruct else reverse_sort
         if debug:
@@ -388,13 +381,11 @@ def retrieve_balance(address: str, debug: bool=False) -> str:
     return balance
 
 
-def get_wallet_transactions(fburntx: bool=False, exclude: list=None, debug: bool=False):
+def get_wallet_transactions(fburntx: bool=False, exclude: list=None, debug: bool=False) -> list:
     """Gets all transactions stored in the wallet."""
 
     raw_txes = []
     all_accounts = list(provider.listaccounts().keys())
-    # all_accounts = [a for a in list(provider.listaccounts().keys()) if is_possible_address(a) == False]
-    # print(all_accounts)
     all_accounts.reverse() # retrieve relevant accounts first, then the rest of the txes in "" account
     for account in all_accounts:
         if exclude and (account in exclude):
@@ -440,7 +431,7 @@ def get_wallet_address_set(empty: bool=False, include_named: bool=False, use_acc
 def find_transaction_by_string(searchstring: str, only_start: bool=False):
     """Returns transactions where the TXID matches a string."""
 
-    wallet_txids = set([tx.txid for tx in get_wallet_transactions()])
+    wallet_txids = set([tx["txid"] for tx in get_wallet_transactions()])
     matches = []
     for txid in wallet_txids:
        if (only_start and txid.startswith(searchstring)) or (searchstring in txid and not only_start):

@@ -123,7 +123,7 @@ def all_balances(address: str=None,
     if not empty:
         non_empty_addresses = []
         for address in addresses:
-            if named_and_nonempty and address.get("label", ""):
+            if named_and_nonempty and address.get("label", ""): # adds addresses with label
                 if debug:
                     print(address["address"], "kept. Label:", address.get("label"))
                 non_empty_addresses.append(address)

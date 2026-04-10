@@ -609,7 +609,7 @@ class ExtAddress(Address):
           p2th: Show the P2TH addresses of all decks and all auxiliary P2TH addresses (can be a very long list).
           only_initialized_p2th: Shows P2TH addresses from initialized decks and auxiliary P2TH addresses stored in the wallet.
           include_all: Show all genuine wallet addresses, also those with empty balances which were not named. P2TH are not included.
-          wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (like a combination of -i and -o).
+          wallet: Show all wallet addresses, including P2TH addresses stored in the wallet (approximately like a combination of -i and -o).
           everything: Show all wallet addresses and all P2TH addresses (like a combination of -i and -p), including those related to uninitialized tokens and auxiliary P2TH addresses, but even in this mode some hidden addresses (e.g. change addresses) may not be found. NOTE: If addresses are named and not part of the wallet, they are also shown but their coin balances cannot be retrieved.
           access_wallet: Access wallet file directly. May expose wallet data, so use only in safe environments. Shows also hidden addresses (e.g. change addresses) other modes sometimes don't find. Can be combined with all other flags except -b, -l and -f. Requires the berkeleydb Python package.
           quiet: Suppress output, printout in script-friendly way.
@@ -696,7 +696,6 @@ class ExtAddress(Address):
                 excluded_addresses = p2th_dict.keys()
                 excluded_accounts = p2th_dict.values()
                 add_p2th_account = False
-
 
             # TODO: try to improve/unify the location of the deck search.
             deck_list = all_decks if (json and all_decks is not None) else None
@@ -1491,6 +1490,7 @@ class ExtCard(Card):
                 named: bool=False,
                 json: bool=False,
                 wallet: bool=False,
+                supply: bool=False,
                 keyring: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
@@ -1525,6 +1525,11 @@ class ExtCard(Card):
         If compatibility mode is active, this is the standard mode and -o is not required; the "normal" standard mode will not work in this mode.
         Note: This command shows a balance of zero if an address has received tokens in the past but then all were moved. If addresses were never used with a token, they won't be shown.
 
+            pacli card balances TOKEN -s
+            pacli token balances TOKEN -s
+
+        Shows the complete supply of the token.
+
         Args:
 
           tokendeck: A token (deck) whose balances should be shown. See Usage modes.
@@ -1533,6 +1538,7 @@ class ExtCard(Card):
           owners: Show balances of all holders of cards of a token. Cannot be combined with other options except -q.
           keyring: In combination with -j or -t (not -w), use an address stored in the keyring.
           named: Show balances on addresses which are named with labels. Does also show addresses outside of the wallet if -w is not chosen.
+          supply: Only shows complete supply of a token.
           quiet: Suppresses informative messages.
           debug: Display debug info.
           param1: Token (deck) or address. To be used as a positional argument (flag keyword not necessary). See Usage modes.
@@ -1550,6 +1556,7 @@ class ExtCard(Card):
                 json: bool=False,
                 wallet: bool=False,
                 named: bool=False,
+                supply: bool=False,
                 keyring: bool=False,
                 quiet: bool=False,
                 debug: bool=False):
@@ -1557,7 +1564,7 @@ class ExtCard(Card):
         if json and not quiet:
             print("Retrieving token states to show balances ...")
 
-        if owners is True or (Settings.compatibility_mode == "True" and not (json or tokendeck)):
+        if (True in (owners, supply)) or (Settings.compatibility_mode == "True" and not (json or tokendeck)):
 
             deck_str = param1
             if deck_str is None:
@@ -1573,7 +1580,10 @@ class ExtCard(Card):
             balances = [exponent_to_amount(i, deck.number_of_decimals)
                         for i in state.balances.values()]
 
-            pprint(dict(zip(state.balances.keys(), balances)))
+            if supply is True:
+                print(sum(balances))
+            else:
+                pprint(dict(zip(state.balances.keys(), balances)))
 
         elif tokendeck is not None: # single token mode
             addr_str = param1
