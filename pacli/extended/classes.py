@@ -1619,7 +1619,7 @@ class ExtCard(Card):
                                    debug=debug)
 
 
-    def transfer(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=True):
+    def transfer(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1647,7 +1647,6 @@ class ExtCard(Card):
           sign: Signs the transaction (True by default, use --send=False for a dry run)
           send: Sends the transaction (True by default, use --send=False for a dry run)
         """
-        # NOTE: This is not a wrapper of card transfer, so the signature errors from P2PK are also fixed.
 
         kwargs = locals()
         del kwargs["self"]
@@ -2077,7 +2076,7 @@ class ExtTransaction(Transaction):
           json: Show complete transaction JSON or card transfer dictionary of claim transactions.
           keyring: Use a label of an address stored in the keyring (not supported by -x mode).
           locator: In -x mode, use existing block locators to speed up the blockchain retrieval, while caching uncached blocks in the selected block interval. See Usage modes above. NOTE: No caching will be done if -l is used with the -f flag, because this combination could lead to inconsistent caching.
-          zraw: List corresponds to raw output of the listtransactions RPC command (debugging option).
+          zraw: List corresponds to raw output of the listtransactions RPC command for the wallet (debugging option, not compatible with address mode).
           mempool: Show unconfirmed transactions in the mempool or the wallet. Adding 'only' shows only unconfirmed ones (not in combination with -x).
           named: Show only transactions stored with a label (see Usage modes).
           origin: Show transactions sent by a specific sender address (only necessary in combination with -x, -b, -g and -c).
@@ -2123,7 +2122,6 @@ class ExtTransaction(Transaction):
              view_coinbase: bool=False,
              wallet: bool=False,
              xplore: bool=False,
-
              zraw: bool=False) -> None:
 
         # TODO: Further harmonization: Results are now:
@@ -2186,6 +2184,8 @@ class ExtTransaction(Transaction):
         else:
             if wallet or zraw:
                 address, wallet = None, True
+                if zraw:
+                    ignore_confpar = True
             else:
                 # returns all transactions from or to that address in the wallet.
                 address = ke.get_main_address() if address_or_deck is None else address_or_deck

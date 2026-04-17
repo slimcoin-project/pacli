@@ -14,6 +14,7 @@ from pacli.extended.utils import min_amount
 from pacli.extended.txtools import finalize_tx
 from pacli.extended.handling import run_command, PacliDataError
 from pacli.extended.keystore import get_main_address
+from pacli.extended.commands import process_address
 
 
 class Coin:
@@ -58,7 +59,7 @@ class Coin:
             amount_sum = sum([Decimal(str(a)) for a in amount])
             main_address = get_main_address()
             inputs = provider.select_inputs(main_address, amount_sum + network_params.min_tx_fee, locktime=locktime)
-
+            address = [process_address(a) for a in address]
 
             outs = []
 

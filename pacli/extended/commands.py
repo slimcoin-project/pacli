@@ -112,7 +112,6 @@ def process_address(addr_string: str, keyring: bool=False, try_alternative: bool
             assert address is not None
             result = address
         except (TypeError, AssertionError):
-            # TODO: we don't check here if the addr_string is a valid address.
             result = addr_string
 
     if not eu.is_possible_address(result, network_name):

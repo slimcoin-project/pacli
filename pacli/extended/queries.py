@@ -167,12 +167,15 @@ def get_address_transactions(addr_string: str=None,
     if debug:
         print("Categories of txes to query:", cats)
 
-    if not wallet and not raw:
-        address = ec.process_address(addr_string, keyring=keyring, try_alternative=False)
-        if not address:
-            raise eh.PacliInputDataError("You must provide either a valid address or a valid label.")
-    else:
-        address = None
+    #if not wallet and not raw: # this seems to be duplicated at all commands.
+    #    address = ec.process_address(addr_string, keyring=keyring, try_alternative=False)
+    #    if not address:
+    #        raise eh.PacliInputDataError("You must provide either a valid address or a valid label.")
+    #else:
+    #    address = None
+    address = addr_string
+    if not wallet and not raw and not address:
+        raise eh.PacliInputDataError("You must provide either a valid address or a valid label.")
 
     all_txes = True if (not sent) and (not received) else False
     if not include_p2th:
@@ -386,7 +389,7 @@ def get_wallet_transactions(fburntx: bool=False, exclude: list=None, debug: bool
 
     raw_txes = []
     all_accounts = list(provider.listaccounts().keys())
-    all_accounts.reverse() # retrieve relevant accounts first, then the rest of the txes in "" account
+    all_accounts.reverse() # retrieve named accounts first, then the rest of the txes in "" account
     for account in all_accounts:
         if exclude and (account in exclude):
             if debug:

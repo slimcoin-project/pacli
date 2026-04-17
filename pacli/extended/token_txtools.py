@@ -38,7 +38,7 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
             print("Checking sender balance ...")
         balance = etq.get_address_token_balance(deck, main_address)
         if balance < sum(amount):
-            raise eh.PacliInputDataError("Not enough balance of this token.")
+            raise eh.PacliDataError("Not enough balance of this token.")
 
     if isinstance(deck, pa.Deck):
         card = pa.CardTransfer(deck=deck,
