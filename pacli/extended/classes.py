@@ -1186,22 +1186,22 @@ class ExtDeck(Deck):
 
         Shows token (deck) stored with a local label LABEL.
 
-            pacli deck show STRING -i
-            pacli token show STRING -i
-            pacli deck show STRING -r
-            pacli token show STRING -r
+            pacli deck show TOKEN -i
+            pacli token show TOKEN -i
+            pacli deck show TOKEN -r
+            pacli token show TOKEN -r
 
-        Displays information about a token (deck). STRING can be a local or global label or an Deck ID.
+        Displays information about a token (deck). TOKEN can be a local or global label or an Deck ID.
         With -i, the basic data is displayed in a non-technical manner. -r displays all attributes of the deck object.
         If there is an extradata field present, it will be shown in the Python bytes format (which can be difficult to read, depending on the data).
 
-            pacli deck show STRING -x
-            pacli token show STRING -x
+            pacli deck show TOKEN -x
+            pacli token show TOKEN -x
 
-        If there is an extradata string, show the extradata string in hex format. STRING can be a local or global label or an Deck ID.
+        If there is an extradata string, show the extradata string in hex format. TOKEN can be a local or global label or an Deck ID.
 
-            pacli deck show STRING -x -c DATA
-            pacli token show STRING -x -c DATA
+            pacli deck show TOKEN -x -c DATA
+            pacli token show TOKEN -x -c DATA
 
         Checks if the extradata field corresponds correctly to the SHA256 hash of DATA.
 
@@ -1577,13 +1577,13 @@ class ExtCard(Card):
 
             state = pa.protocol.DeckState(cards)
 
-            balances = [exponent_to_amount(i, deck.number_of_decimals)
+            balances = [Decimal(exponent_to_amount(i, deck.number_of_decimals))
                         for i in state.balances.values()]
 
             if supply is True:
-                print(sum(balances))
+                print(float(sum(balances)))
             else:
-                pprint(dict(zip(state.balances.keys(), balances)))
+                pprint(dict(zip(state.balances.keys(), [float(b) for b in balances])))
 
         elif tokendeck is not None: # single token mode
             addr_str = param1

@@ -351,7 +351,10 @@ def at_deckinfo(deckid):
 
 def get_claimed_txes(deck: object, sender: str, only_wallet: bool=False) -> set:
     # returns TXIDs of already claimed txes.
-    return set([c.donation_txid for c in etq.get_valid_cardissues(deck, sender, only_wallet=only_wallet)])
+    try:
+        return set([c.donation_txid for c in etq.get_valid_cardissues(deck, sender, only_wallet=only_wallet)])
+    except AttributeError:
+        raise eh.PacliDataError("This token does not support that feature. Claims are only available for AT, PoB and PoD tokens.")
 
 def burn_address():
     if not provider.network.endswith("slm"):
