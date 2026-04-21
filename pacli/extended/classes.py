@@ -1174,6 +1174,7 @@ class ExtDeck(Deck):
              rawinfo: bool=False,
              show_p2th: bool=False,
              xtradata: bool=False,
+             assetdata: bool=False,
              checksha256: str=None,
              quiet: bool=False,
              debug: bool=False):
@@ -1195,15 +1196,17 @@ class ExtDeck(Deck):
         With -i, the basic data is displayed in a non-technical manner. -r displays all attributes of the deck object.
         If there is an extradata field present, it will be shown in the Python bytes format (which can be difficult to read, depending on the data).
 
-            pacli deck show TOKEN -x
-            pacli token show TOKEN -x
+            pacli deck show TOKEN [-x|-a]
+            pacli token show TOKEN [-x|-a]
 
-        If there is an extradata string, show the extradata string in hex format. TOKEN can be a local or global label or an Deck ID.
+        With -x, if there is an extradata string, show the extradata string in hex format.
+        With -a, show the whole asset_specific_data string in hex format.
+        TOKEN can be a local or global label or an Deck ID.
 
-            pacli deck show TOKEN -x -c DATA
-            pacli token show TOKEN -x -c DATA
+            pacli deck show TOKEN [-x|-a] -c DATA
+            pacli token show TOKEN [-x|-a] -c DATA
 
-        Checks if the extradata field corresponds correctly to the SHA256 hash of DATA.
+        Checks if the extradata (-x) / asset_specific_data (-a) field corresponds correctly to the SHA256 hash of DATA.
 
         Args:
 
@@ -1212,10 +1215,11 @@ class ExtDeck(Deck):
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -r).
           show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
+          assetdata: Show asset_specific_data string in hex format.
           xtradata: Show extradata string in hex format.
-          checksha256: Check sha256 hash of the extradata field.
+          checksha256: Check sha256 hash of the extradata or asset_specific_data field.
         """
-        return eh.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, checksha256=checksha256, quiet=quiet, debug=debug)
+        return eh.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, assetdata=assetdata, checksha256=checksha256, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
@@ -1224,26 +1228,28 @@ class ExtDeck(Deck):
              rawinfo: bool=False,
              show_p2th: bool=False,
              xtradata: bool=False,
+             assetdata: bool=False,
              checksha256: str=None,
              quiet: bool=False,
              debug: bool=False):
 
 
-        # deckid = eu.search_for_stored_tx_label("deck", deckstr, quiet=True)
         deck = eu.search_for_stored_tx_label("deck", deckstr, return_deck=True, quiet=True)
 
-
-        if True in (info, rawinfo, xtradata):
+        if True in (info, rawinfo, xtradata, assetdata):
             deckinfo = eu.get_deckinfo(deck, show_p2th)
-            if xtradata is True:
-                extradata = deckinfo.get("extradata")
-                if extradata is None:
-                    print("Token {} with global name {} has no extradata field.".format(deck.id, deck.name))
+            if True in (assetdata, xtradata):
+                if xtradata is True:
+                    data = deckinfo.get("extradata")
+                    if data is None:
+                        print("Token {} with global name {} has no extradata field.".format(deck.id, deck.name))
                 else:
-                    if not checksha256: # hash is not shown in the quiet check.
-                        print(extradata.hex())
-                    else:
-                        return eu.check_extradata_hash(extradata, checksha256, quiet=quiet, debug=debug)
+                    data = deck.asset_specific_data
+
+                if not checksha256: # hash is not shown in the quiet check.
+                    print(data.hex())
+                else:
+                    return eu.check_extradata_hash(data, checksha256, quiet=quiet, debug=debug)
 
             elif param is not None:
                 print(deckinfo.get(param))
@@ -1436,8 +1442,6 @@ class ExtCard(Card):
         return eh.run_command(self.__listext, deckid=deckid, address=address, quiet=quiet, valid=valid, blockheights=blockheights, show_invalid=show_invalid, only_invalid=only_invalid, debug=debug)
 
     def __listext(self, deckid: str, address: str=None, quiet: bool=False, valid: bool=False, blockheights: bool=False, show_invalid: bool=False, only_invalid: bool=False, debug: bool=False):
-
-
 
         if address:
             if type(address) == bool:
