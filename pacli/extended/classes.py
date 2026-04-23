@@ -2016,7 +2016,7 @@ class ExtTransaction(Transaction):
             If ADDRESS is not given, the current main address is used.
             Can be slow if used on wallets with many transactions.
             With -w, all transactions sent or received by the wallet will be shown.
-            NOTE: Due to an upstream bug, transactions involving some addresses (most prominently change addresses) may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
+            NOTE: Due to an upstream bug, transactions exclusively involving certain types of addresses (most prominently change addresses) may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
 
         pacli transaction list -n
 
@@ -2034,7 +2034,7 @@ class ExtTransaction(Transaction):
             ORIGIN_ADDRESS is optional. In the case -o is given without address, the main address is used.
             If -w is given, only transactions sent from wallet addresses will be shown.
             If no origin address nor -w is given, all burn/gateway transactions spending from and receiving to any address in your wallet, including P2TH, will be shown.
-            NOTE: Due to an upstream bug, transactions involving some addresses (most prominently change addresses) may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
+            NOTE: Due to an upstream bug, transactions exclusively involving certain types of addresses (most prominently change addresses) may not be shown. You may add the -a flag if this happens to access the wallet file directly (requires berkeleydb package, should be done only in safe environments because wallet data may be exposed to memory!).
 
         pacli transaction list DECK [-o ORIGIN_ADDRESS] -c
 
@@ -2069,7 +2069,7 @@ class ExtTransaction(Transaction):
 
         Args:
 
-          access_wallet: Access wallet database directly (use only in safe environments, may expose wallet data!). A custom data directory can be given after -a. Cannot be combined with -x, -c, -m nor -s and -r. Requires berkeleydb package. Slow.
+          access_wallet: Access wallet database directly (use only in safe environments, may expose wallet data!). A custom data directory can be given after -a. Cannot be combined with -x, -c nor -s and -r. Requires berkeleydb package. Slow.
           burntxes: Only show burn transactions.
           claimtxes: Show reward claim transactions (see Usage modes) (not to be combined with -x, -b, -g and -a).
           debug: Provide debugging information.
@@ -2135,7 +2135,6 @@ class ExtTransaction(Transaction):
         # -z: listtransactions output
         # without any label: tx JSON, tx structure or custom dict with main parameters if --sent or --received was used.
         # -c: very custom "embellished" dict, in "basic" mode shows a more "standard" dict
-        # NOTE: harmonization of -o done for -c -g and -b it is mandatory now if result should be restricted to an address.
 
         address_or_deck = _value1
         address = _value2
@@ -2150,9 +2149,11 @@ class ExtTransaction(Transaction):
         if address:
             address = ec.process_address(address, keyring=keyring, try_alternative=False)
         if access_wallet is not None:
-            # use_db, mempool = True, "ignore"
             use_db = True
-            wholetx = True if ids is False else False # when only requesting IDs the getrawtransaction query isn't necessary
+            if ids is True and (not mempool):
+                wholetx, ignore_confpar = False, True # when only requesting IDs with mempool the getrawtransaction query isn't necessary
+            else:
+                wholetx = True
             json = json or (not claimtxes and (ids or total))  # if only txids or the count are needed, we don't need the struct. NOTE: doesn't work with claimtxes.
         else:
             use_db = False
@@ -2195,11 +2196,11 @@ class ExtTransaction(Transaction):
                 address = ke.get_main_address() if address_or_deck is None else address_or_deck
 
             if use_db is True:
-                txstruct = False if json else True
+                txstruct = False if (json or ids) else True
+                # ignore_confpar = True if (ids is True and mempool is False) else ignore_confpar
                 txes = dbu.get_all_transactions(address=address, sort=True, advanced=json, datadir=datadir, include_coinbase=view_coinbase, wholetx=wholetx, debug=debug)
-
             else:
-                txstruct = False if (json or sent or received) else True
+                txstruct = False if (json or sent or received or ids) else True
                 txes = eq.get_address_transactions(addr_string=address, wallet=wallet, sent=sent, received=received, raw=zraw, advanced=json, keyring=keyring, include_coinbase=view_coinbase, sort=True, txstruct=txstruct, debug=debug)
 
         if (xplore or burntxes or gatewaytxes or txstruct) and (not json):
