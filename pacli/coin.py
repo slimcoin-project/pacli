@@ -22,7 +22,7 @@ class Coin:
     """Commands to create coin transactions."""
 
     def sendto(self, address: Union[str], amount: Union[float],
-               locktime: int=0, debug: bool=False) -> str:
+               locktime: int=0, change: str=None, debug: bool=False) -> str:
         '''Send coins from the current main address to another address(es).
 
         Usage:
@@ -36,12 +36,14 @@ class Coin:
         Args:
 
             locktime: Specify a Locktime value for the transaction.
+            change: Specify a change address (otherwise the default change policy is used).
             debug: Show additional debug information.'''
 
-        return run_command(self.__sendto, address, amount, locktime=locktime, debug=debug)
+        change_address = process_address(change)
+        return run_command(self.__sendto, address, amount, locktime=locktime, change=change_address, debug=debug)
 
     def __sendto(self, address: Union[str], amount: Union[float],
-               locktime: int=0, debug: bool=False) -> str:
+               locktime: int=0, change: str=None, debug: bool=False) -> str:
 
         # make simple entering of int and str values without list possible
         try:
@@ -78,6 +80,7 @@ class Coin:
 
         #  first round of txn making is done by presuming minimal fee
         change_sum = Decimal(inputs['total'] - amount_sum - network_params.min_tx_fee)
+        change_address = Settings.change if change is None else change
 
         min_change_sum = min_amount("output_value")
 
@@ -85,7 +88,7 @@ class Coin:
             outs.append(
                 tx_output(network=provider.network,
                           value=change_sum, n=len(outs)+1,
-                          script=p2pkh_script(address=main_address,
+                          script=p2pkh_script(address=change_address,
                                               network=provider.network))
                 )
 
@@ -97,7 +100,7 @@ class Coin:
 
         finalize_tx(unsigned_tx, sign=True, send=True) # allows sending from P2PK and other inputs
 
-    def opreturn(self, string: hex, locktime: int=0, ascii: bool=False, debug: bool=False) -> str:
+    def opreturn(self, string: hex, locktime: int=0, ascii: bool=False, change: str=None, debug: bool=False) -> str:
         '''Send OP_RETURN transaction from the current main address.
 
         Usage:
@@ -110,12 +113,14 @@ class Coin:
         Args:
 
             ascii: Enter the string as an ASCII string instead of a hex representation.
+            change: Specify a change address (otherwise the default change policy is used).
             locktime: Specify a Locktime value for the transaction.
             debug: Show additional debug information'''
 
-        return run_command(self.__opreturn, string, locktime, ascii=ascii, debug=debug)
+        change_address = process_address(change)
+        return run_command(self.__opreturn, string, locktime, ascii=ascii, change=change_address, debug=debug)
 
-    def __opreturn(self, string: hex, locktime: int=0, ascii: bool=False, debug: bool=False) -> str:
+    def __opreturn(self, string: hex, locktime: int=0, ascii: bool=False, change: str=None, debug: bool=False) -> str:
 
         network_params = net_query(Settings.network)
 
@@ -130,7 +135,7 @@ class Coin:
 
         try:
             if ascii is True:
-                op_return_script = nulldata_script(string.encode("ascii"))
+                op_return_script = nulldata_script(str(string).encode("ascii"))
             else:
                 op_return_script = nulldata_script(bytes.fromhex(str(string)))
         except ValueError:
@@ -144,13 +149,14 @@ class Coin:
 
         #  first round of txn making is done by presuming minimal fee
         change_sum = Decimal(inputs['total'] - total_fees)
+        change_address = Settings.change if change is None else change
 
         if change_sum >= min_change_sum:
 
             outs.append(
                 tx_output(network=provider.network,
                           value=change_sum, n=len(outs)+1,
-                          script=p2pkh_script(address=main_address,
+                          script=p2pkh_script(address=change_address,
                                               network=provider.network))
                         )
 
