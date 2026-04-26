@@ -43,6 +43,7 @@ def all_balances(address: str=None,
                  p2th_dict: dict=None,
                  deck_type: int=None,
                  quiet: bool=False,
+                 return_addresses: bool=False,
                  access_wallet: bool=False,
                  debug: bool=False):
     """Shows all token/card balances on this address.
@@ -150,6 +151,8 @@ def all_balances(address: str=None,
 
     if quiet:
         print(addresses)
+    elif return_addresses:
+        return addresses
     elif (advanced is True) or (not wallet):
         if len(addresses) == 0:
             print("No token balances found.")

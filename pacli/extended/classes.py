@@ -2,6 +2,7 @@ from typing import Union
 from decimal import Decimal
 from prettyprinter import cpprint as pprint
 
+import hashlib
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
@@ -960,6 +961,68 @@ class ExtAddress(Address):
 
 
 class ExtDeck(Deck):
+
+
+    def spawn(self, name: str,
+              number_of_decimals: int, issue_mode: int,
+              asset_specific_data: str=None, change: str=None,
+              verify: bool=False, tx_fee: str=None,
+              wait_for_confirmation: bool=False, sha256: bool=False,
+              sign: bool=True, send: bool=True, locktime: int=0,
+              ignore_warnings: bool=False, debug: bool=False) -> None:
+        """Spawns a new deck.
+
+        Usage:
+
+        pacli deck spawn TOKEN_NAME ISSUE_MODE
+        pacli token spawn TOKEN_NAME ISSUE_MODE
+
+        Args:
+
+          number_of_decimals: Specify the number of decimals of the token.
+          issue_mode: Specify an issue mode. See https://medium.com/peercoin/peerassets-deck-issue-modes-c419f38f7800
+          asset_specific_data: Specify additional data (like custom token rules or a contract hash) (optional).
+          tx_fee: Specify a transaction fee.
+          change: Specify a change address.
+          sha256: Hash the asset_specific data with sha256 (only in combination with -a).
+          ignore_warnings: Ignore all warnings (reorg check etc.) and create transaction anyway (be careful!).
+          sign: Sign the transaction (True by default).
+          send: Send the transaction (True by default).
+          locktime: Locktime of the transaction.
+          wait_for_confirmation: Wait and display a message until the transaction is confirmed.
+          verify: Verify transaction with Cointoolkit (Peercoin only)."""
+
+        kwargs = locals()
+        del kwargs["self"]
+        eh.run_command(self.__spawn, **kwargs)
+
+    def __spawn(self, name: str,
+              number_of_decimals: int, issue_mode: int,
+              asset_specific_data: str=None, change: str=None,
+              verify: bool=False, tx_fee: str=None,
+              wait_for_confirmation: bool=False, sha256: bool=False,
+              sign: bool=True, send: bool=True, locktime: int=0,
+              ignore_warnings: bool=False, debug: bool=False) -> None:
+
+        change_address = eh.run_command(ec.process_address, change, debug=debug)
+        if asset_specific_data is not None:
+            if sha256:
+                s256hash = hashlib.sha256()
+                s256hash.update(str(asset_specific_data).encode())
+                xd_bytes = s256hash.digest()
+                if debug:
+                    print("Hashing data:", asset_specific_data)
+                    print("SHA256 hash:", xd_bytes, "Hex:", s256hash.hexdigest())
+            else:
+                xd_bytes = str(asset_specific_data).encode()
+        else:
+            xd_bytes = None
+
+        asset_specific_data = xd_bytes
+
+        return eh.run_command(ett.advanced_deck_spawn, name=name, number_of_decimals=number_of_decimals,
+               issue_mode=issue_mode, change_address=change_address, asset_specific_data=asset_specific_data,
+               confirm=wait_for_confirmation, force=ignore_warnings, verify=verify, sign=sign, send=send, debug=debug)
 
     def set(self,
             label: str,

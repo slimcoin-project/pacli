@@ -28,8 +28,8 @@ from pacli.config import (write_default_config,
                           default_conf,
                           write_settings)
 
-"""This module provides the basic PeerAsset classes, originally located in __main___.py."""
-
+"""This module provides the basic PeerAsset classes, originally located in __main___.py.
+They can be overridden by extended classes (extended/classes.py)."""
 
 class Config():
 

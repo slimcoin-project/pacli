@@ -155,7 +155,6 @@ def get_address_transactions(addr_string: str=None,
                              debug: bool=False) -> list:
     """Returns all transactions sent to or from a specific address, or of the whole wallet."""
 
-    # preprocessing step added
     txes = {}
     excluded_accounts = None
     if (sent and not received) or (received and not sent):
@@ -167,12 +166,6 @@ def get_address_transactions(addr_string: str=None,
     if debug:
         print("Categories of txes to query:", cats)
 
-    #if not wallet and not raw: # this seems to be duplicated at all commands.
-    #    address = ec.process_address(addr_string, keyring=keyring, try_alternative=False)
-    #    if not address:
-    #        raise eh.PacliInputDataError("You must provide either a valid address or a valid label.")
-    #else:
-    #    address = None
     address = addr_string
     if not wallet and not raw and not address:
         raise eh.PacliInputDataError("You must provide either a valid address or a valid label.")
@@ -210,10 +203,10 @@ def get_address_transactions(addr_string: str=None,
     if raw: # TODO: mainly debugging mode, maybe later remove again, or return the set (see below).
         return wallet_txes
 
+
     unique_txes = list(set([(t["txid"], t["category"]) for t in wallet_txes]))
     if debug:
         print("Sorting ...")
-
     unique_txes.sort(key=lambda x: x[0], reverse=True) # should be: send, receive, generate
 
     if debug:
