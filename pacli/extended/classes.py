@@ -974,8 +974,47 @@ class ExtDeck(Deck):
 
         Usage:
 
-        pacli deck spawn TOKEN_NAME ISSUE_MODE
-        pacli token spawn TOKEN_NAME ISSUE_MODE
+        pacli deck spawn TOKEN_NAME DECIMALS ISSUE_MODE
+        pacli token spawn TOKEN_NAME DECIMALS ISSUE_MODE
+
+        Issue modes:
+
+            NONE = 0x00
+
+        No issuance allowed.
+
+            CUSTOM = 0x01
+
+        Custom issue mode, verified by client aware of this.
+
+            ONCE = 0x02
+
+        A single issue transaction allowed.
+
+            MULTI = 0x04
+
+        Multiple card_issue transactions allowed.
+
+            MONO = 0x08
+
+        All card transaction amounts are equal to 1.
+
+            UNFLUSHABLE = 0x10
+
+        The UNFLUSHABLE issue mode invalidates any card transfer transaction
+        except for the card issue transaction.
+        Only the issuing entity can change the balance of a specific address.
+
+            SUBSCRIPTION = 0x34  # SUBSCRIPTION (34 = 20 | 4 | 10)
+
+        The SUBSCRIPTION issue mode marks an address holding tokens as
+        subscribed for a limited timeframe.
+        This timeframe is defined by the balance of the account and the time at
+        which the first cards of this token are received.
+
+            SINGLET = 0x0a  # SINGLET is a combination of ONCE and MONO (2 | 8)
+
+        Singlet deck, one MONO card issunce allowed (primary use case: NFTs).
 
         Args:
 
@@ -1728,8 +1767,6 @@ class ExtCard(Card):
         if type(receiver) not in (list, tuple, str, int, type(None)) or type(amount) not in (list, tuple, str, int, float):
             raise eh.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
 
-        if type(receiver) == str:
-            receiver = [receiver]
         if type(amount) in (int, float):
             amount = [Decimal(str(amount))]
         elif type(amount) not in (list, tuple):
@@ -1738,6 +1775,9 @@ class ExtCard(Card):
         deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, quiet=quiet)
         deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
         change_address = ec.process_address(change)
+
+        if type(receiver) == str:
+            receiver = [receiver]
 
         if receiver is None: # CardBurn: receiver is only None when set by the card burn function or explicitly in card transfer
             receiver_addresses = [deck.issuer]
@@ -1764,6 +1804,68 @@ class ExtCard(Card):
                                  verify=verify,
                                  debug=debug
                                  )
+
+    def issue(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+        """Issue tokens to one or multiple receivers in a single transaction.
+
+        Usage modes:
+
+            pacli card issue TOKEN RECEIVER AMOUNT
+            pacli token issue TOKEN RECEIVER AMOUNT
+
+        Issue AMOUNT of a token (deck) TOKEN (ID, global name or label) to a single receiver RECEIVER.
+        NOTE: Receiver is mandatory. The deck issuer cannot re-use the same address to
+        issue the tokens to themselves, as this would result in the cards being burnt.
+        To issue cards to themselves, deck issuers have to use another address of their wallet.
+
+            pacli card issue TOKEN "[AMOUNT1, AMOUNT2, ...]" "[RECEIVER1, RECEIVER2, ...]"
+            pacli token issue TOKEN "[AMOUNT1, AMOUNT2, ...]" "[RECEIVER1, RECEIVER2, ...]"
+
+        Issue to multiple receivers. AMOUNT1 goes to RECEIVER1 and so on.
+        The brackets are mandatory, but they don't have to be escaped.
+
+        Args:
+
+          change: Specify a change address.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
+          quiet: Suppress output and printout in a script-friendly way.
+          debug: Show additional debug information.
+          force: Ignore warnings (reorg check etc.) and create the transaction if possible (be careful!).
+          locktime: Set a Locktime value.
+          sign: Signs the transaction (True by default, use --send=False for a dry run)
+          send: Sends the transaction (True by default, use --send=False for a dry run)
+        """
+
+        nocheck = True
+        kwargs = locals()
+        del kwargs["self"]
+        return eh.run_command(self.__transfer, **kwargs)
+
+    def burn(self, idstr: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+        """Burn tokens sending them to the deck issuer.
+
+        Usage:
+
+            pacli card burn TOKEN AMOUNT
+            pacli token burn TOKEN AMOUNT
+
+        Args:
+
+          change: Specify a change address.
+          verify: Verify transaction with Cointoolkit (Peercoin only).
+          quiet: Suppress output and printout in a script-friendly way.
+          debug: Show additional debug information.
+          nocheck: Do not perform a balance check (faster).
+          force: Ignore warnings (reorg check etc.) and create the transaction if possible (be careful!).
+          locktime: Set a Locktime value.
+          sign: Signs the transaction (True by default, use --send=False for a dry run)
+          send: Sends the transaction (True by default, use --send=False for a dry run)
+        """
+
+        receiver = None
+        kwargs = locals()
+        del kwargs["self"]
+        return eh.run_command(self.__transfer, **kwargs)
 
 class ExtTransaction(Transaction):
 
