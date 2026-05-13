@@ -1280,6 +1280,7 @@ class ExtDeck(Deck):
              show_p2th: bool=False,
              xtradata: bool=False,
              assetdata: bool=False,
+             bytes: bool=False,
              checksha256: str=None,
              quiet: bool=False,
              debug: bool=False):
@@ -1320,11 +1321,12 @@ class ExtDeck(Deck):
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -r).
           show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
-          assetdata: Show asset_specific_data string in hex format.
-          xtradata: Show extradata string in hex format.
+          assetdata: Show asset_specific_data string, by default in hex format.
+          xtradata: Show extradata string, by default in hex format.
+          bytes: Show asset_specific_data or extradata string in bytes format instead of hex (only with -a and -x).
           checksha256: Check sha256 hash of the extradata or asset_specific_data field.
         """
-        return eh.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, assetdata=assetdata, checksha256=checksha256, quiet=quiet, debug=debug)
+        return eh.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, assetdata=assetdata, bytes=bytes, checksha256=checksha256, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
@@ -1335,6 +1337,7 @@ class ExtDeck(Deck):
              xtradata: bool=False,
              assetdata: bool=False,
              checksha256: str=None,
+             bytes: bool=False,
              quiet: bool=False,
              debug: bool=False):
 
@@ -1351,7 +1354,9 @@ class ExtDeck(Deck):
                 else:
                     data = deck.asset_specific_data
 
-                if not checksha256: # hash is not shown in the quiet check.
+                if bytes:
+                    print(data)
+                elif not checksha256: # hash is not shown in the quiet check.
                     print(data.hex())
                 else:
                     return eu.check_extradata_hash(data, checksha256, quiet=quiet, debug=debug)

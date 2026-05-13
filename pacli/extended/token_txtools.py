@@ -158,7 +158,7 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
         except AssertionError:
             print("Deck not initialized, transaction has to be signed and sent.")
         except Exception as e:
-            print("Deck not initialized due to error in transaction:", e)
+            print("Deck not initialized due to error:", e)
     return txdata
 
 
