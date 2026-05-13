@@ -979,9 +979,12 @@ class ExtDeck(Deck):
 
         Issue modes:
 
+        Issue modes define the behavior of the token.
+        For most tokens the ONCE (0x02) or MULTI (0x04) are the best options.
+
             NONE = 0x00
 
-        No issuance allowed.
+        No issuance allowed. This is a test mode with limited use cases.
 
             CUSTOM = 0x01
 
@@ -1018,13 +1021,13 @@ class ExtDeck(Deck):
 
         Args:
 
-          number_of_decimals: Specify the number of decimals of the token.
+          number_of_decimals: Specify the number of decimals of the token (max. 20).
           issue_mode: Specify an issue mode. See https://medium.com/peercoin/peerassets-deck-issue-modes-c419f38f7800
           asset_specific_data: Specify additional data (like custom token rules or a contract hash) (optional).
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           sha256: Hash the asset_specific data with sha256 (only in combination with -a).
-          ignore_warnings: Ignore all warnings (reorg check etc.) and create transaction anyway (be careful!).
+          ignore_warnings: Ignore all warnings (reorg and decimals check etc.) and create transaction anyway (be careful!).
           sign: Sign the transaction (True by default).
           send: Send the transaction (True by default).
           locktime: Locktime of the transaction.

@@ -52,7 +52,7 @@ class PoDToken():
           min_vote: Voting threshold (percentage) to approve a proposal (default: 0).
           periods_sdp: Number of Special Distribution Periods.
           token_sdp: Deck for the Special Distribution Periods (can be ID or label)
-          number_of_decimals: Number of decimals of the token (default: 2).
+          number_of_decimals: Number of decimals of the token (default: 2, max: 20).
           tx_fee: Specify a transaction fee.
           change: Specify a change address.
           ignore_warnings: Ignore all warnings and create transaction anyway (be careful!).

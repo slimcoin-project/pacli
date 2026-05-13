@@ -181,7 +181,7 @@ class ATTokenBase():
         Args:
 
           multiplier: Specify an integer multiplier for the reward (token metadata, defaults to 1).
-          number_of_decimals: Specify the number of decimals of the token (token metadata, defaults to 2).
+          number_of_decimals: Specify the number of decimals of the token (token metadata, defaults to 2, max: 20).
           from_block: Specify a start block to track transactions from (token metadata, optional).
           end_block: Specify an end block to track transactions (token metadata, optional).
           xtradata: Specify additional data (like a contract hash) (token metadata, optional).
@@ -293,7 +293,7 @@ class PoBToken(ATTokenBase):
         Args:
 
           multiplier: Specify an integer multiplier for the reward..
-          number_of_decimals: Specify the number of decimals of the token.
+          number_of_decimals: Specify the number of decimals of the token (max. 20).
           from_block: Specify a start block to track transactions from.
           end_block: Specify an end block to track transactions.
           tx_fee: Specify a transaction fee.

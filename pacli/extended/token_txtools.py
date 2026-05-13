@@ -12,6 +12,7 @@ import pacli.extended.keystore as ke
 import pacli.extended.token_queries as etq
 import pacli.extended.txtools as et
 import pacli.extended.handling as eh
+import pacli.extended.interface as ei
 import pacli.extended.utils as eu
 from pacli.provider import provider
 from pacli.config import Settings
@@ -108,9 +109,14 @@ def create_deckspawn_data(identifier: str, epoch_length: int=None, epoch_reward:
     return data
 
 def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, asset_specific_data: bytes, change_address: str=None, force: bool=False,
-                        confirm: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, debug: bool=False) -> None:
+                        confirm: bool=True, init: bool=True, verify: bool=False, sign: bool=False, send: bool=False, locktime: int=0, debug: bool=False) -> None:
     """Alternative function for deck spawns. Allows p2pk inputs."""
 
+    # uint64 limit is 18446744073709551615, so more than 20 decimals don't make sense.
+    if number_of_decimals > 20:
+        if not force:
+            raise eh.PacliInputDataError("Number of decimals too high (max: 20).")
+        ei.print_red("The number of decimals is over 20. You will only be able to issue and transfer fractionals of this token.")
     change_address = Settings.change if change_address is None else change_address
     main_address = ke.get_main_address()
     network = Settings.network
@@ -137,7 +143,23 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
                           locktime=locktime
                           )
 
-    return et.finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, ignore_checkpoint=force, send=send)
+    txdata = et.finalize_tx(spawn_tx, confirm=confirm, verify=verify, sign=sign, ignore_checkpoint=force, send=send)
+
+    if init: # will only be initialized if signed and sent.
+        try:
+            assert (sign and send)
+            tx = provider.decoderawtransaction(txdata["hex"])
+            deckid = tx["txid"]
+            print("Initializating token with Deck ID:", deckid)
+            if getattr(new_deck, "at_type", 0) == ID_DT: # DT decks have separate init process
+                dc.init_dt_deck(Settings.network, deckid)
+            else:
+                eu.init_deck(Settings.network, deckid, debug=debug)
+        except AssertionError:
+            print("Deck not initialized, transaction has to be signed and sent.")
+        except Exception as e:
+            print("Deck not initialized due to error in transaction:", e)
+    return txdata
 
 
 
