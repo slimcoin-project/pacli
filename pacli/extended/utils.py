@@ -20,7 +20,7 @@ from pacli.config import Settings
 
 # Deck tools
 
-def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, quiet: bool=False, no_label: bool=True, debug: bool=False):
+def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, quiet: bool=False, no_label: bool=False, debug: bool=False):
     """Initializes a 'common' deck (also AT/PoB). dPoD decks need further initialization of more P2TH addresses."""
     # NOTE: Default is now storing the deck name as a label, if it doesn't exist.
 

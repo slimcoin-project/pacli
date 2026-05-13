@@ -1349,10 +1349,12 @@ class ExtDeck(Deck):
             if True in (assetdata, xtradata):
                 if xtradata is True:
                     data = deckinfo.get("extradata")
-                    if data is None:
-                        print("Token {} with global name {} has no extradata field.".format(deck.id, deck.name))
                 else:
                     data = deck.asset_specific_data
+                if data is None or data == b"":
+                    if not quiet:
+                        print("Token {} with global name {} has no data stored in that field.".format(deck.id, deck.name))
+                    return
 
                 if bytes:
                     print(data)
