@@ -1279,7 +1279,7 @@ class ExtDeck(Deck):
              rawinfo: bool=False,
              show_p2th: bool=False,
              xtradata: bool=False,
-             assetdata: bool=False,
+             arbdata: bool=False,
              bytes: bool=False,
              checksha256: str=None,
              quiet: bool=False,
@@ -1306,13 +1306,16 @@ class ExtDeck(Deck):
             pacli token show TOKEN [-x|-a]
 
         With -x, if there is an extradata string, show the extradata string in hex format.
-        With -a, show the whole asset_specific_data string in hex format.
+        With -a, show the field for arbitrary data in hex format:
+        - the extradata string in AT, PoB and dPoD tokens
+        - the whole asset_specific_data string in other tokens
+
         TOKEN can be a local or global label or an Deck ID.
 
             pacli deck show TOKEN [-x|-a] -c DATA
             pacli token show TOKEN [-x|-a] -c DATA
 
-        Checks if the extradata (-x) / asset_specific_data (-a) field corresponds correctly to the SHA256 hash of DATA.
+        Checks if the extradata (-x) / arbitrary data (-a, see above) field corresponds correctly to the SHA256 hash of DATA.
 
         Args:
 
@@ -1321,12 +1324,12 @@ class ExtDeck(Deck):
           quiet: Suppress output, printout in script-friendly way.
           param: Shows a specific parameter (only in combination with -r).
           show_p2th: Shows P2TH address(es) (only in combination with -i or -r).
-          assetdata: Show asset_specific_data string, by default in hex format.
+          arbdata: Show the field for arbitrary data (extradata or asset_specific_data), e.g. for contract hashes, by default in hex format.
           xtradata: Show extradata string, by default in hex format.
           bytes: Show asset_specific_data or extradata string in bytes format instead of hex (only with -a and -x).
           checksha256: Check sha256 hash of the extradata or asset_specific_data field.
         """
-        return eh.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, assetdata=assetdata, bytes=bytes, checksha256=checksha256, quiet=quiet, debug=debug)
+        return eh.run_command(self.__show, deckstr=_idstr, param=param, info=info, rawinfo=rawinfo, show_p2th=show_p2th, xtradata=xtradata, arbdata=arbdata, bytes=bytes, checksha256=checksha256, quiet=quiet, debug=debug)
 
     def __show(self,
              deckstr: str,
@@ -1335,7 +1338,7 @@ class ExtDeck(Deck):
              rawinfo: bool=False,
              show_p2th: bool=False,
              xtradata: bool=False,
-             assetdata: bool=False,
+             arbdata: bool=False,
              checksha256: str=None,
              bytes: bool=False,
              quiet: bool=False,
@@ -1344,10 +1347,10 @@ class ExtDeck(Deck):
 
         deck = eu.search_for_stored_tx_label("deck", deckstr, return_deck=True, quiet=True)
 
-        if True in (info, rawinfo, xtradata, assetdata):
+        if True in (info, rawinfo, xtradata, arbdata):
             deckinfo = eu.get_deckinfo(deck, show_p2th)
-            if True in (assetdata, xtradata):
-                if xtradata is True:
+            if True in (arbdata, xtradata):
+                if xtradata is True or "at_type" in deckinfo:
                     data = deckinfo.get("extradata")
                 else:
                     data = deck.asset_specific_data
