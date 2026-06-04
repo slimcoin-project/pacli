@@ -977,6 +977,9 @@ class ExtDeck(Deck):
         pacli deck spawn TOKEN_NAME DECIMALS ISSUE_MODE
         pacli token spawn TOKEN_NAME DECIMALS ISSUE_MODE
 
+        DECIMALS is the number of decimal places.
+        The regular maximum is 8 (very big amounts could otherwise lead to overflows).
+
         Issue modes:
 
         Issue modes define the behavior of the token.
@@ -1021,7 +1024,7 @@ class ExtDeck(Deck):
 
         Args:
 
-          number_of_decimals: Specify the number of decimals of the token (max. 20).
+          number_of_decimals: Specify the number of decimals of the token (max. 8 if not overridden by -i).
           issue_mode: Specify an issue mode. See https://medium.com/peercoin/peerassets-deck-issue-modes-c419f38f7800
           asset_specific_data: Specify additional data (like custom token rules or a contract hash) (optional).
           tx_fee: Specify a transaction fee.

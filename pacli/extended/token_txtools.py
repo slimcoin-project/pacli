@@ -68,6 +68,8 @@ def advanced_card_transfer(deck: object=None, deckid: str=None, receiver: list=N
 
     except InsufficientFunds:
         raise eh.PacliInputDataError("Insufficient funds. Minimum balance is {} coins.".format(allfees))
+    except ValueError:
+        raise eh.PacliInputDataError("Invalid value. Probably the amount of the transfer is too high and leads to an overflow.")
 
     return et.finalize_tx(issue_tx, verify=verify, sign=sign, send=send, quiet=quiet, ignore_checkpoint=force, confirm=confirm, debug=debug)
 
@@ -113,10 +115,10 @@ def advanced_deck_spawn(name: str, number_of_decimals: int, issue_mode: int, ass
     """Alternative function for deck spawns. Allows p2pk inputs."""
 
     # uint64 limit is 18446744073709551615, so more than 20 decimals don't make sense.
-    if number_of_decimals > 20:
+    if number_of_decimals > 8:
         if not force:
-            raise eh.PacliInputDataError("Number of decimals too high (max: 20).")
-        ei.print_red("The number of decimals is over 20. You will only be able to issue and transfer fractionals of this token.")
+            raise eh.PacliInputDataError("Number of decimals too high (max: 8).")
+        ei.print_red("The number of decimals is over 8. Higher values can lead into problems when trying to transfer very high amounts.")
     change_address = Settings.change if change_address is None else change_address
     main_address = ke.get_main_address()
     network = Settings.network
