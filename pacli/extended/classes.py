@@ -7,6 +7,7 @@ import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
 from pypeerassets.pautils import exponent_to_amount
+from pypeerassets.__main__ import get_card_transfer
 
 import pacli.extended.constants as pc
 import pacli.extended.keystore as ke
@@ -1741,7 +1742,7 @@ class ExtCard(Card):
                                    debug=debug)
 
 
-    def transfer(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def transfer(self, idstr: str, receiver: str, token_amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
         """Transfer tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1775,10 +1776,11 @@ class ExtCard(Card):
         return eh.run_command(self.__transfer, **kwargs)
 
 
-    def __transfer(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def __transfer(self, idstr: str, receiver: str, token_amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
 
         ke.check_main_address_lock()
         sign, send = eu.manage_send(sign, send)
+        amount = token_amount
 
         if type(receiver) not in (list, tuple, str, int, type(None)) or type(amount) not in (list, tuple, str, int, float):
             raise eh.PacliInputDataError("The receiver and amount parameters have to be strings/numbers or lists.")
@@ -1812,7 +1814,7 @@ class ExtCard(Card):
                                  receiver=receiver_addresses,
                                  change=change_address,
                                  locktime=0,
-                                 asset_specific_data=None,
+                                 asset_specific_data=asset_specific_data,
                                  sign=sign,
                                  send=send,
                                  balance_check=not nocheck,
@@ -1821,7 +1823,7 @@ class ExtCard(Card):
                                  debug=debug
                                  )
 
-    def issue(self, idstr: str, receiver: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def issue(self, idstr: str, receiver: str, token_amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
         """Issue tokens to one or multiple receivers in a single transaction.
 
         Usage modes:
@@ -1857,7 +1859,7 @@ class ExtCard(Card):
         del kwargs["self"]
         return eh.run_command(self.__transfer, **kwargs)
 
-    def burn(self, idstr: str, amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def burn(self, idstr: str, token_amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, nocheck: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
         """Burn tokens sending them to the deck issuer.
 
         Usage:
@@ -1882,6 +1884,27 @@ class ExtCard(Card):
         kwargs = locals()
         del kwargs["self"]
         return eh.run_command(self.__transfer, **kwargs)
+
+    def parse(self, idstr: str, cardid: str, debug: bool=False) -> None:
+        """Parses a token transfer (card) from txid and print data.
+
+        Usage:
+
+             pacli card parse TOKEN CARDID
+             pacli token parse_transfer TOKEN CARDID
+
+        TOKEN can be the token (deck) ID, a local or a global label.
+        CARDID is the transaction ID of the card.
+        """
+
+        deckid = eh.run_command(eu.search_for_stored_tx_label, "deck", idstr, debug=debug)
+        deck = eh.run_command(pa.find_deck, provider, deckid,
+                            Settings.deck_version,
+                            Settings.production)
+        cards = list(get_card_transfer(provider, deck, cardid))
+
+        for i in cards:
+            pprint(i.to_json())
 
 class ExtTransaction(Transaction):
 

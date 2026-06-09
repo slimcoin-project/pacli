@@ -404,11 +404,10 @@ class Card():
 
         Usage:
 
-            pacli card decode HEX
-            pacli token decode_transfer HEX
+            pacli card decode VALUE
+            pacli token decode_transfer VALUE
 
-        HEX is the encoded transaction/card in protobuf format (see 'card decode'/'token decode')"""
-        ### MODIFIED, parameter was first called "hex", which conflicts with "help"
+        VALUE is the encoded transaction/card in protobuf format (see 'card decode'/'token decode')"""
 
         script = NulldataScript.unhexlify(encoded).decompile().split(' ')[1]
 
