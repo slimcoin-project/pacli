@@ -3,6 +3,7 @@ from time import sleep
 from prettyprinter import cpprint as pprint
 import pacli.tui as tui
 from pacli.config import Settings
+from pypeerassets.protocol import IssueMode
 
 def print_red(text: str) -> None:
     print("\033[91m{}\033[00m".format(text))
@@ -123,11 +124,18 @@ def print_deckinfo(deckinfo: dict, burn_address: str, quiet: bool=False) -> None
 
     # creation_time = datetime.datetime.utcfromtimestamp(int(deckinfo.get("issue_time"))) # deprecated from 3.12 on
     creation_time = datetime.datetime.fromtimestamp(int(deckinfo.get("issue_time")), datetime.UTC)
+    try:
+       im_value = deckinfo["issue_mode"]
+       im_entry = IssueMode(im_value).name + " (hex: {:#04x})".format(im_value)
+    except ValueError as e:
+       im_entry = "Unnamed (hex: {:#04x})".format(im_value)
+
     info_output = {"ID" : deckinfo["id"],
                   "Global name" : deckinfo.get("name"),
                   "Creation Time (UTC)" : str(creation_time),
                   "Issuer" : deckinfo["issuer"],
-                  "Number of decimals" : deckinfo["number_of_decimals"]}
+                  "Number of decimals" : deckinfo["number_of_decimals"],
+                  "Issue mode": im_entry}
     if "at_type" in deckinfo:
         if deckinfo["at_type"] == 1:
             deck_type = "dPoD token"
