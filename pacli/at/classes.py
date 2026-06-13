@@ -202,6 +202,7 @@ class ATTokenBase():
               end_block: int=None, xtradata: str=None, change: str=None, verify: bool=False, ignore_warnings: bool=False,
               wait_for_confirmation: bool=False, sha256: bool=False, sign: bool=True, send: bool=True, debug: bool=False) -> None:
 
+        eu.check_deck_name(token_name)
         tracked_address = eh.run_command(ec.process_address, address, debug=debug)
         change_address = eh.run_command(ec.process_address, change, debug=debug)
         if xtradata is not None:

@@ -13,6 +13,7 @@ import pypeerassets.at.dt_misc_utils as dmu # TODO: refactor this, the "sign" fu
 import pacli.extended.config as ce
 import pacli.extended.interface as ei
 import pacli.extended.handling as eh
+from pacli.extended.constants import ALLOWED_CHARACTERS
 from pacli.provider import provider
 from pacli.config import Settings
 
@@ -28,6 +29,8 @@ def init_deck(network: str, deckid: str, label: str=None, rescan: bool=True, qui
         print("Importing deck:", deckid)
 
     deck = pa.find_deck(provider, deckid, Settings.deck_version, Settings.production)
+    check_deck_name(deck.name) # throws exception for decks with non-allowed characters
+
     if debug:
         print("Deck private key WIF (publicly available, so this is not a security leak):", deck.p2th_wif)
     if deckid not in provider.listaccounts():
@@ -145,6 +148,14 @@ def search_global_deck_name(identifier: str, prioritize: bool=False, return_deck
         return result
     else:
         return None
+
+def check_deck_name(name: str):
+    if not ALLOWED_CHARACTERS.match(str(name)):
+        raise eh.PacliInputDataError("The token's global name '{}' has invalid characters.\n"
+                                     "Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).\n"
+                                     "For convenience and security reasons it is not allowed to spawn or import decks\n"
+                                     "with other characters in their global name.\n"
+                                     "Aborting.".format(name))
 
 
 # Transaction retrieval tools

@@ -1050,6 +1050,7 @@ class ExtDeck(Deck):
               sign: bool=True, send: bool=True, locktime: int=0,
               ignore_warnings: bool=False, debug: bool=False) -> None:
 
+        eu.check_deck_name(name)
         change_address = eh.run_command(ec.process_address, change, debug=debug)
         if asset_specific_data is not None:
             if sha256:

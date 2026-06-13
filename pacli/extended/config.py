@@ -2,6 +2,7 @@ import json, os, re
 from prettyprinter import cpprint as pprint
 import pacli.extended.handling as eh
 from pacli.config import conf_dir, Settings
+from pacli.extended.constants import ALLOWED_CHARACTERS
 
 # This stores some settings in an additional config file, for example short keys for addresses, proposals, decks etc.
 # An alternative for the future could be to use sqlite3 eventually.
@@ -9,7 +10,7 @@ from pacli.config import conf_dir, Settings
 EXT_CONFIGFILE = os.path.join(conf_dir, "extended_config.json")
 CATEGORIES = ["address", "checkpoint", "deck", "proposal", "donation", "transaction", "utxo", "change_policy", "data"]
 CAT_INIT = {c : {} for c in CATEGORIES}
-ALLOWED_CHARACTERS = re.compile(r"^[a-zA-Z0-9_]*$")
+
 
 # Common error messages
 ERR_NOCAT = "Category does not exist or is missing. See list of available categories with 'pacli config list -e -c'. If a pacli update added a new category, run 'pacli config update_extended_categories'."

@@ -64,6 +64,7 @@ class PoDToken():
           debug: Show additional debug information."""
 
         ke.check_main_address_lock()
+        eu.check_deck_name(name)
         asset_specific_data = eh.run_command(ett.create_deckspawn_data, c.ID_DT, epoch_length, reward, min_vote, periods_sdp, token_sdp, debug=debug)
         change_address = ec.process_address(change, debug=debug)
 
