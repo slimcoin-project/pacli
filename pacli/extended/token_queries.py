@@ -54,6 +54,7 @@ def all_balances(address: str=None,
     # TODO: currently -w mode shows too few balances, even addresses with token balances are omitted.
 
     # address = ke.get_main_address() if address is None else address
+    ownership = True if not wallet_only else False
     if no_tokens:
         decks = []
     elif advanced is not True:
@@ -84,9 +85,31 @@ def all_balances(address: str=None,
             print("excluded accounts:", excluded_accounts)
             print("include:", include)
             print("include_only", include_only)
-        addresses = eq.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, exclude=exclude, excluded_accounts=excluded_accounts, include=include, include_only=include_only, wallet_only=wallet_only, no_labels=no_labels, balances=balances, debug=debug)
+        addresses = eq.get_labels_and_addresses(access_wallet=access_wallet,
+                                                prefix=Settings.network,
+                                                keyring=keyring,
+                                                named=named,
+                                                empty=True,
+                                                exclude=exclude,
+                                                excluded_accounts=excluded_accounts,
+                                                include=include,
+                                                include_only=include_only,
+                                                wallet_only=wallet_only,
+                                                no_labels=no_labels,
+                                                balances=balances,
+                                                ownership=ownership,
+                                                debug=debug)
     else:
-        addresses = eq.get_labels_and_addresses(access_wallet=access_wallet, prefix=Settings.network, keyring=keyring, named=named, empty=True, include_only=[address], no_labels=no_labels, balances=balances, debug=debug)
+        addresses = eq.get_labels_and_addresses(access_wallet=access_wallet,
+                                                prefix=Settings.network,
+                                                keyring=keyring,
+                                                named=named,
+                                                empty=True,
+                                                include_only=[address],
+                                                no_labels=no_labels,
+                                                balances=balances,
+                                                ownership=ownership,
+                                                debug=debug)
 
     # NOTE: default view needs no deck labels
     # NOTE2: Quiet mode doesn't show labels.
@@ -165,6 +188,8 @@ def all_balances(address: str=None,
                 item.update({"account" : p2th_dict.get(item["address"])})
 
         ei.print_address_list(addresses, p2th=add_p2th_account)
+        if False in [a.get("ismine", True) for a in addresses]:
+            print("Note: Coin balances for non-wallet addresses can't be shown in this list, they're displayed as '-'.")
     else:
         ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 

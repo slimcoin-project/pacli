@@ -191,6 +191,8 @@ def address_line_item(address: dict, p2th: bool=False):
              address["address"],
              address["network"],
              address["balance"]]
+    if address.get("ismine", True) == False:
+        item[3] = "-"
     if p2th is True:
         item.append(address["account"])
     return item
@@ -199,12 +201,13 @@ def print_address_list(addresses: list, p2th: bool=False):
     addr_heading = ["Label", "Address", "Network", "Coin balance"]
     if p2th is True:
         addr_heading.append("P2TH account")
-
+    data = [address_line_item(a, p2th=p2th) for a in addresses]
     tui.print_table(
     title="Addresses:",
     heading=addr_heading,
     #data=map(address_line_item(p2th=p2th), addresses)
-    data=[address_line_item(a, p2th=p2th) for a in addresses])
+    data=data
+    )
 
 def balances_line_item(address: dict):
     return [address["label"],
@@ -232,11 +235,10 @@ def print_default_balances_list(addresses: list, decks: list, network_name: str,
         balance.update({"address" : item["address"] })
 
         for curr_header, curr_id in currencies.items():
-
             if "tokens" in item and curr_id in item["tokens"]:
                 balance_value = item["tokens"][curr_id]
             elif curr_header == "coin":
-                balance_value = item["balance"]
+                balance_value = item["balance"] if item.get("ismine", True) == True else "-"
             else:
                 balance_value = 0
             balance.update({curr_header : balance_value})

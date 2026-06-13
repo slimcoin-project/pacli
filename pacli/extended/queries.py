@@ -28,6 +28,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                              full_labels: bool=False,
                              no_labels: bool=False,
                              balances: bool=False,
+                             ownership: bool=False,
                              debug: bool=False) -> list:
     """Returns a dict of all labels and addresses which were stored.
        Addresses without label are not included if "named" is True."""
@@ -39,6 +40,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
 
     result = []
     addresses = []
+    check_ownership = wallet_only or ownership
 
     # Create base result list: all named addresses of the current network.
     if no_labels is True:
@@ -61,6 +63,7 @@ def get_labels_and_addresses(prefix: str=Settings.network,
                 if include_only and (address not in include_only):
                     continue
                 result.append({"label" : label, "address" : address, "network" : prefix})
+
 
     if debug:
         print(len(result), "named addresses found.")
@@ -108,11 +111,18 @@ def get_labels_and_addresses(prefix: str=Settings.network,
     # Note: empty and excluded flags do not remove named addresses.
     result2 = []
     for item in result:
+        if check_ownership:
+            mine = eu.is_mine(item["address"])
+            if wallet_only and not mine:
+                continue
+            else:
+                item.update({"ismine" : mine})
+
         not_include_flag = include_only and item["address"] not in include_only
         empty_flag = ((not prioritize_named) or (prioritize_named and not item["label"])) and (not empty) and (provider.getbalance(item["address"]) == 0)
         excluded_flag = (not prioritize_named) and item["address"] in exclude
-        not_wallet_flag = wallet_only and not eu.is_mine(item["address"])
-        if not_include_flag or empty_flag or excluded_flag or not_wallet_flag:
+        # not_wallet_flag = wallet_only and not eu.is_mine(item["address"])
+        if not_include_flag or empty_flag or excluded_flag: # or not_wallet_flag:
             continue
         else:
             result2.append(item)
