@@ -683,8 +683,6 @@ class ExtAddress(Address):
                 named_and_nonempty, wallet_only = True, wallet
                 if everything:
                     include = p2th_dict.keys()
-                    if not quiet:
-                        print("Note: -e mode shows named non-wallet addresses, but their coin balances can't be retrieved and will be shown as 0. Token balances are shown.")
                 else:
                     include = None
                 include_all, include_only = True, None
@@ -1777,7 +1775,7 @@ class ExtCard(Card):
         return eh.run_command(self.__transfer, **kwargs)
 
 
-    def __transfer(self, idstr: str, receiver: str, token_amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, nocheck: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
+    def __transfer(self, idstr: str, receiver: str, token_amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, nocheck: bool=False, burn: bool=False, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
 
         ke.check_main_address_lock()
         sign, send = eu.manage_send(sign, send)
@@ -1798,7 +1796,7 @@ class ExtCard(Card):
         if type(receiver) == str:
             receiver = [receiver]
 
-        if receiver is None: # CardBurn: receiver is only None when set by the card burn function or explicitly in card transfer
+        if receiver is None and burn is True: # CardBurn: receiver is only None when set by the card burn function or explicitly in card transfer
             receiver_addresses = [deck.issuer]
             if not quiet:
                 print("Cards selected for burning: {}".format(amount[0]))
@@ -1821,7 +1819,8 @@ class ExtCard(Card):
                                  balance_check=not nocheck,
                                  force=force,
                                  verify=verify,
-                                 debug=debug
+                                 debug=debug,
+                                 burn=burn
                                  )
 
     def issue(self, idstr: str, receiver: str, token_amount: str, asset_specific_data: str=None, locktime: int=None, change: str=None, sign: bool=None, send: bool=None, verify: bool=False, force: bool=False, quiet: bool=False, debug: bool=False):
@@ -1882,6 +1881,7 @@ class ExtCard(Card):
         """
 
         receiver = None
+        burn = True
         kwargs = locals()
         del kwargs["self"]
         return eh.run_command(self.__transfer, **kwargs)

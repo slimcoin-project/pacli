@@ -182,16 +182,19 @@ def all_balances(address: str=None,
         else:
             for item in addresses:
                 ei.print_address_balances(item)
-    elif no_tokens:
-        if add_p2th_account == True:
-            for item in addresses:
-                item.update({"account" : p2th_dict.get(item["address"])})
+    else: # table-style address lists
+        if no_tokens:
+            if add_p2th_account == True:
+                for item in addresses:
+                    item.update({"account" : p2th_dict.get(item["address"])})
 
-        ei.print_address_list(addresses, p2th=add_p2th_account)
+            ei.print_address_list(addresses, p2th=add_p2th_account)
+
+        else:
+            ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
+
         if False in [a.get("ismine", True) for a in addresses]:
             print("Note: Coin balances for non-wallet addresses can't be shown in this list, they're displayed as '-'.")
-    else:
-        ei.print_default_balances_list(addresses, decks, network_name=Settings.network, only_tokens=only_tokens)
 
 def single_balance(deck: str, address: str=None, wallet: bool=False, named: bool=False, keyring: bool=False, no_labels: bool=False, quiet: bool=False):
     """Shows the balance of a single token (deck) on the current main address or another address.

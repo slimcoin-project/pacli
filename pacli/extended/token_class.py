@@ -1,5 +1,6 @@
 from pacli.extended.classes import ExtCard as VanillaCard
 from pacli.extended.classes import ExtDeck as VanillaDeck
+import fire
 
 class Token(VanillaDeck, VanillaCard):
     """Token commands manage the creation (spawning), issuance, transfer and information gathering about PeerAssets tokens.
@@ -13,6 +14,12 @@ class Token(VanillaDeck, VanillaCard):
     'card decode' becomes 'token decode_transfer'
     'card parse' becomes 'token parse_transfer'
     """
+    def __dir__(self):
+        # Get all default attributes and methods
+        attributes = super().__dir__()
+        # Remove the parent method you want to hide from the CLI help menu
+        return [attr for attr in attributes if attr != 'parse']
+
 
     def transfers(self, idstr: str, address: str=None, valid: bool=False, show_invalid: bool=False, only_invalid: bool=False, blockheights: bool=False, quiet: bool=False, debug: bool=False):
         """List all transactions (cards or CardTransfers, i.e. issues, transfers, burns) of a token.
@@ -80,6 +87,6 @@ class Token(VanillaDeck, VanillaCard):
 
         CARDID is the transaction ID of the card.
         """
-        return VanillaCard().parse(deckid=deckid, cardid=cardid)
+        return VanillaCard().parse(deckid, cardid)
 
 
