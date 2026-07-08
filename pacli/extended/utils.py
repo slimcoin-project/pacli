@@ -149,13 +149,17 @@ def search_global_deck_name(identifier: str, prioritize: bool=False, return_deck
     else:
         return None
 
-def check_deck_name(name: str):
+def check_deck_name(name: str, raise_exception: bool=True):
     if not ALLOWED_CHARACTERS.match(str(name)):
-        raise eh.PacliInputDataError("The token's global name '{}' has invalid characters.\n"
-                                     "Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).\n"
-                                     "For convenience and security reasons it is not allowed to spawn or import decks\n"
-                                     "with other characters in their global name.\n"
-                                     "Aborting.".format(name))
+        if raise_exception:
+            raise eh.PacliInputDataError("The token's global name '{}' has invalid characters.\n"
+                                         "Characters allowed are letters (A-Z, a-z), numbers (0-9) and underscore (_).\n"
+                                         "For convenience and security reasons it is not allowed to spawn or import decks\n"
+                                         "with other characters in their global name.\n"
+                                         "Aborting.".format(name))
+        else:
+            return False
+    return True
 
 
 # Transaction retrieval tools
