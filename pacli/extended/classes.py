@@ -6,6 +6,7 @@ import hashlib
 import pypeerassets as pa
 import pypeerassets.at.dt_misc_utils as dmu
 import pypeerassets.at.constants as c
+from pypeerassets.protocol import IssueMode
 from pypeerassets.pautils import exponent_to_amount
 from pypeerassets.__main__ import get_card_transfer
 
@@ -1132,14 +1133,15 @@ class ExtDeck(Deck):
              only_p2th: bool=False,
              findstring: str=None,
              related: str=None,
-             include_unsupported: bool=False,
+             issue_mode: str=None,
+             unsupported: bool=False,
              without_initstate: bool=False,
              quiet: bool=False,
              debug: bool=False):
         """Lists all tokens/decks (default), or those of a specified token type, or those with a stored label.
 
-        Note: The token's global 'name' is not guaranteed to be unique. To give a token a (locally) unique identifier, store it with a label.
-        Note 2: In the standard mode, decks with unsupported global names won't be shown. The -i option shows them. They are also shown by default in compatibility mode.
+        Note: A token's global 'name' is not guaranteed to be unique. To give a token a (locally) unique identifier, store it with a label.
+        Note 2: In the standard mode, decks with unsupported global names won't be shown. The -u option shows them. They are also shown by default in compatibility mode.
 
         Usage:
 
@@ -1170,7 +1172,8 @@ class ExtDeck(Deck):
           podtoken: Only show dPoD tokens (decks).
           standard: Only show the standard dPoD and PoB tokens (decks). Combined with -b, only the standard PoB token is shown, and with -p, only the dPoD token.
           attoken: Only show AT tokens (decks).
-          include_unsupported: Show also tokens (decks) with unsupported global names. In compatibility mode, this is the standard option.
+          issue_mode: Show only decks with the specified issue mode.
+          unsupported: Show also tokens (decks) with unsupported global names. In compatibility mode, this is the standard option.
           find: Only show tokens (decks) with a certain string in the deck ID or global name. See Usage modes for combination with -n.
           related: Only show tokens (decks) related to an address. See Usage modes.
           without_initstate: Don't show initialized status.
@@ -1178,7 +1181,7 @@ class ExtDeck(Deck):
           debug: Show debug information.
         """
 
-        return eh.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, related=related, without_initstate=without_initstate, findstring=findstring, include_unsupported=include_unsupported, standard=standard, quiet=quiet, debug=debug)
+        return eh.run_command(self.__list, pobtoken=burntoken, dpodtoken=podtoken, attoken=attoken, named=named, only_p2th=only_p2th, related=related, without_initstate=without_initstate, findstring=findstring, issue_mode=issue_mode, unsupported=unsupported, standard=standard, quiet=quiet, debug=debug)
 
     def __list(self,
              pobtoken: bool=False,
@@ -1190,7 +1193,8 @@ class ExtDeck(Deck):
              related: str=None,
              findstring: str=None,
              without_initstate: bool=False,
-             include_unsupported: bool=False,
+             issue_mode: str=None,
+             unsupported: bool=False,
              quiet: bool=False,
              debug: bool=False):
 
@@ -1242,10 +1246,19 @@ class ExtDeck(Deck):
             decks = list(eh.run_command(pa.find_all_valid_decks, provider, Settings.deck_version,
                                         Settings.production))
 
-        if Settings.compatibility_mode == "True" or include_unsupported is True:
+        if Settings.compatibility_mode == "True" or unsupported is True:
             pass
         else:
             decks = [d for d in decks if eu.check_deck_name(d.name, raise_exception=False) == True]
+
+        if issue_mode is not None:
+            if type(issue_mode) == str:
+                for im in IssueMode:
+                    if im.name == issue_mode:
+                        issue_mode = im.value
+                        break
+
+            decks = [d for d in decks if d.issue_mode == issue_mode]
 
 
         if findstring is not None:
